@@ -48,5 +48,38 @@ jobs:
               print(path)
           PY
 
+      - name: Smoke-test workflow compiler
+        run: |
+          python - <<'PY'
+          from scripts.sync_repository import build_proxy, compile_central, load_yaml, sha256_text
+
+          source = '''
+          name: Fixture
+          on:
+            pull_request:
+              types: [opened, synchronize]
+          jobs:
+            test:
+              runs-on: ubuntu-latest
+              steps:
+                - uses: actions/checkout@v4
+                - run: echo '${{ github.repository }}' '${{ github.event.pull_request.number }}'
+          '''
+          target = {
+              'full_name': 'HereLiesAz/fixture',
+              'private': False,
+          }
+          central = compile_central(source, target, '.github/workflows/fixture.yml', 'Fixture')
+          proxy = build_proxy(source, '.github/workflows/fixture.yml', sha256_text(source), 'Fixture')
+          central_doc = load_yaml(central)
+          proxy_doc = load_yaml(proxy.split('\n', 4)[4])
+          assert 'workflow_dispatch' in central_doc['on']
+          assert '__central_check_start' in central_doc['jobs']
+          assert '__central_check_finish' in central_doc['jobs']
+          assert proxy_doc['permissions']['id-token'] == 'write'
+          assert list(proxy_doc['jobs']) == ['central-dispatch']
+          print('compiler smoke test passed')
+          PY
+
       - name: Check Worker JavaScript
         run: node --check worker/src/index.js

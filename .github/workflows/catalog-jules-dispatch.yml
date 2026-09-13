@@ -97,7 +97,7 @@ env:
   TARGET_EVENT_JSON: ${{ inputs.target_event_json }}
 
 jobs:
-  __central_check_start:
+  central_check_start:
     runs-on: ubuntu-latest
     outputs:
       check_id: ${{ steps.create.outputs.check_id }}
@@ -122,12 +122,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          payload="$(jq -n --arg name "$CHECK_NAME" --arg sha "$TARGET_CHECK_SHA" --arg details "$DETAILS_URL"             '{name:$name,head_sha:$sha,status:"in_progress",details_url:$details,output:{title:$name,summary:"Running from the shared HereLiesAz/workflows catalog."}}')"
+          payload="$(jq -n --arg name "$CHECK_NAME" --arg sha "$TARGET_CHECK_SHA" --arg details "$DETAILS_URL" '{name:$name,head_sha:$sha,status:"in_progress",details_url:$details,output:{title:$name,summary:"Running from the shared HereLiesAz/workflows catalog."}}')"
           response="$(gh api --method POST "repos/${TARGET_REPOSITORY}/check-runs" --input - <<<"$payload")"
           echo "check_id=$(jq -r '.id' <<<"$response")" >> "$GITHUB_OUTPUT"
 
   dispatch:
-    needs: __central_check_start
+    needs: central_check_start
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -161,36 +161,56 @@ jobs:
 
           repo_info = gh_json(f"repos/{repository}")
           default_branch = repo_info["default_branch"]
+
           command = "ignore"
           issue_number = ""
           branch = default_branch
           request = ""
+          title = ""
+          body = ""
 
           if event_name == "pull_request":
               pr = event.get("pull_request") or {}
+              title = pr.get("title") or ""
+              body = pr.get("body") or ""
+              issue_number = str(pr.get("number") or event.get("number") or "")
               if event.get("action") == "opened" and not ((pr.get("head") or {}).get("repo") or {}).get("fork", False):
                   command = "review"
-                  issue_number = str(pr.get("number") or event.get("number") or "")
                   head = pr.get("head") or {}
                   head_repo = (head.get("repo") or {}).get("full_name", "")
-                  branch = head.get("ref") if head_repo.lower() == repository.lower() else (pr.get("base") or {}).get("ref", default_branch)
+                  branch = (
+                      head.get("ref")
+                      if head_repo.lower() == repository.lower()
+                      else (pr.get("base") or {}).get("ref", default_branch)
+                  )
 
           elif event_name == "issues":
               issue = event.get("issue") or {}
+              title = issue.get("title") or ""
+              body = issue.get("body") or ""
+              issue_number = str(issue.get("number") or "")
               if event.get("action") in ("opened", "reopened"):
                   command = "triage"
-                  issue_number = str(issue.get("number") or "")
-                  request = issue.get("body") or ""
+                  request = body
 
           elif event_name in ("issue_comment", "pull_request_review_comment", "pull_request_review"):
               item = event.get("comment") or event.get("review") or {}
               request = item.get("body") or ""
               association = item.get("author_association") or ""
               issue = event.get("issue") or {}
-              pr = event.get("pull_request") or {}
-              issue_number = str(pr.get("number") or issue.get("number") or event.get("number") or "")
+              pr_event = event.get("pull_request") or {}
+              issue_number = str(
+                  pr_event.get("number")
+                  or issue.get("number")
+                  or event.get("number")
+                  or ""
+              )
 
-              if item.get("user", {}).get("type") == "User" and association in allowed and request.startswith("@jules"):
+              if (
+                  item.get("user", {}).get("type") == "User"
+                  and association in allowed
+                  and request.startswith("@jules")
+              ):
                   if request.startswith("@jules /review"):
                       command = "review"
                       request = request[len("@jules /review"):].strip()
@@ -201,35 +221,58 @@ jobs:
                       command = "invoke"
                       request = request[len("@jules"):].strip()
 
-                  if command == "review" and issue_number:
-                      try:
+              if issue_number:
+                  is_pr = (
+                      event_name in ("pull_request_review_comment", "pull_request_review")
+                      or "pull_request" in issue
+                      or bool(pr_event)
+                  )
+                  try:
+                      if is_pr:
                           pr_info = gh_json(f"repos/{repository}/pulls/{issue_number}")
+                          title = pr_info.get("title") or ""
+                          body = pr_info.get("body") or ""
                           head = pr_info.get("head") or {}
                           head_repo = (head.get("repo") or {}).get("full_name", "")
-                          if not (head.get("repo") or {}).get("fork", False) and head_repo.lower() == repository.lower():
+                          if (
+                              not (head.get("repo") or {}).get("fork", False)
+                              and head_repo.lower() == repository.lower()
+                          ):
                               branch = head.get("ref") or default_branch
                           else:
                               branch = (pr_info.get("base") or {}).get("ref") or default_branch
-                      except Exception:
-                          branch = default_branch
+                      else:
+                          issue_info = gh_json(f"repos/{repository}/issues/{issue_number}")
+                          title = issue_info.get("title") or ""
+                          body = issue_info.get("body") or ""
+                  except Exception:
+                      branch = default_branch
 
-          title = ""
-          body = ""
-          if issue_number:
-              if command == "review":
+          if command == "review":
               prompt = (
                   f"Review pull request #{issue_number} in {repository}.\n\n"
                   f"Title: {title}\n\n"
                   f"Description:\n{body}\n\n"
                   f"Additional requester context:\n{request}\n\n"
-                  "Inspect the actual target repository and PR diff. Report correctness, security, "
-                  "performance, and maintainability problems with concrete file/line evidence. "
-                  "Post the findings to the pull request. If there is a clearly fixable issue, "
-                  "you may create a follow-up PR containing the correction."
+                  "Inspect the actual target repository and pull-request diff. "
+                  "Report correctness, security, performance, and maintainability "
+                  "problems with concrete file/line evidence. Post findings to the "
+                  "pull request. If there is a clearly fixable issue, you may create "
+                  "a follow-up pull request containing the correction."
               )
           elif command == "triage":
               labels_raw = subprocess.check_output(
-                  ["gh", "label", "list", "--repo", repository, "--limit", "100", "--json", "name"],
+                  [
+                      "gh",
+                      "label",
+                      "list",
+                      "--repo",
+                      repository,
+                      "--limit",
+                      "100",
+                      "--json",
+                      "name",
+                  ],
                   text=True,
               )
               labels = ", ".join(sorted(x["name"] for x in json.loads(labels_raw)))
@@ -240,10 +283,15 @@ jobs:
                   f"Additional requester context:\n{request}\n\n"
                   f"Available labels:\n{labels}\n\n"
                   "Apply only labels from the available set. Do not invent labels. "
-                  "If the issue is ambiguous, use status/needs-triage if it exists; otherwise leave it unlabeled."
+                  "If the issue is ambiguous, use status/needs-triage if it exists; "
+                  "otherwise leave it unlabeled."
               )
           elif command == "invoke":
-              prompt = request or f"Inspect issue or pull request #{issue_number} in {repository} and respond to the requester."
+              prompt = (
+                  request
+                  or f"Inspect issue or pull request #{issue_number} in {repository} "
+                     "and respond to the requester."
+              )
           else:
               prompt = ""
 
@@ -255,7 +303,10 @@ jobs:
               out.write(f"issue_number={issue_number}\n")
               out.write(f"branch={branch}\n")
 
-          print(f"command={command} issue={issue_number} branch={branch} actor={actor}")
+          print(
+              f"command={command} issue={issue_number} "
+              f"branch={branch} actor={actor}"
+          )
           PY
 
       - name: Start Jules session against target repository
@@ -270,8 +321,20 @@ jobs:
         run: |
           set -euo pipefail
           [[ -n "$JULES_API_KEY" ]] || { echo "JULES_API_KEY is not configured" >&2; exit 1; }
-          jq -n             --rawfile prompt jules-prompt.md             --arg source "sources/github/${TARGET_REPOSITORY}"             --arg branch "$STARTING_BRANCH"             --arg title "Jules $COMMAND $TARGET_REPOSITORY #$ISSUE_NUMBER"             '{prompt:$prompt,title:$title,sourceContext:{source:$source,githubRepoContext:{startingBranch:$branch}},requirePlanApproval:false,automationMode:"AUTO_CREATE_PR"}'             > jules-payload.json
-          curl --fail-with-body --silent --show-error             -X POST             -H 'Content-Type: application/json'             -H "X-Goog-Api-Key: $JULES_API_KEY"             --data @jules-payload.json             'https://jules.googleapis.com/v1alpha/sessions'             > jules-session.json
+          jq -n \
+            --rawfile prompt jules-prompt.md \
+            --arg source "sources/github/${TARGET_REPOSITORY}" \
+            --arg branch "$STARTING_BRANCH" \
+            --arg title "Jules $COMMAND $TARGET_REPOSITORY #$ISSUE_NUMBER" \
+            '{prompt:$prompt,title:$title,sourceContext:{source:$source,githubRepoContext:{startingBranch:$branch}},requirePlanApproval:false,automationMode:"AUTO_CREATE_PR"}' \
+            > jules-payload.json
+          curl --fail-with-body --silent --show-error \
+            -X POST \
+            -H 'Content-Type: application/json' \
+            -H "X-Goog-Api-Key: $JULES_API_KEY" \
+            --data @jules-payload.json \
+            'https://jules.googleapis.com/v1alpha/sessions' \
+            > jules-session.json
           session_name="$(jq -r '.name // empty' jules-session.json)"
           [[ -n "$session_name" ]] || { cat jules-session.json; exit 1; }
           echo "session_name=$session_name" >> "$GITHUB_OUTPUT"
@@ -286,19 +349,21 @@ jobs:
         run: |
           set -euo pipefail
           central_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          gh issue comment "$ISSUE_NUMBER"             --repo "$TARGET_REPOSITORY"             --body "🤖 Jules is on it for @${TARGET_ACTOR}. Central run: $central_url"
+          gh issue comment "$ISSUE_NUMBER" \
+            --repo "$TARGET_REPOSITORY" \
+            --body "🤖 Jules is on it for @${TARGET_ACTOR}. Central run: $central_url"
 
-  __central_check_finish:
+  central_check_finish:
     if: ${{ always() }}
     needs:
-      - __central_check_start
+      - central_check_start
       - dispatch
     runs-on: ubuntu-latest
     steps:
       - name: Complete target check
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          CHECK_ID: ${{ needs.__central_check_start.outputs.check_id }}
+          CHECK_ID: ${{ needs.central_check_start.outputs.check_id }}
           CHECK_NAME: ${{ inputs.target_workflow_name }}
           FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
           DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -313,6 +378,5 @@ jobs:
             conclusion="success"
             summary="Shared catalog workflow completed successfully."
           fi
-          payload="$(jq -n --arg conclusion "$conclusion" --arg title "$CHECK_NAME" --arg summary "$summary" --arg details "$DETAILS_URL"             '{status:"completed",conclusion:$conclusion,details_url:$details,output:{title:$title,summary:$summary}}')"
+          payload="$(jq -n --arg conclusion "$conclusion" --arg title "$CHECK_NAME" --arg summary "$summary" --arg details "$DETAILS_URL" '{status:"completed",conclusion:$conclusion,details_url:$details,output:{title:$title,summary:$summary}}')"
           gh api --method PATCH "repos/${TARGET_REPOSITORY}/check-runs/${CHECK_ID}" --input - <<<"$payload"
-

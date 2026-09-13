@@ -12,24 +12,18 @@ on:
         required: false
         default: false
         type: boolean
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/.run-haive-sync'
 
-run-name: sync · ${{ github.event_name == 'workflow_dispatch' && inputs.repository || 'HereLiesAz/haive' }}
+run-name: sync · ${{ inputs.repository }}
 
 permissions:
   contents: read
 
 concurrency:
-  group: workflow-sync-${{ github.event_name == 'workflow_dispatch' && inputs.repository || 'HereLiesAz/haive' }}
+  group: workflow-sync-${{ inputs.repository }}
   cancel-in-progress: false
 
 env:
   WORKER_URL: https://workflows.hereliesaz.workers.dev
-  TARGET_REPOSITORY: ${{ github.event_name == 'workflow_dispatch' && inputs.repository || 'HereLiesAz/haive' }}
-  DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
 
 jobs:
   sync:
@@ -46,8 +40,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          args=(--repository "$TARGET_REPOSITORY" --worker-url "$WORKER_URL")
-          if [[ "$DRY_RUN" == "true" ]]; then
+          args=(--repository "${{ inputs.repository }}" --worker-url "$WORKER_URL")
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
             args+=(--dry-run)
           fi
           python scripts/sync_repository.py "${args[@]}" --json-output sync-result.json

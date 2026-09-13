@@ -1,0 +1,146 @@
+{
+  "last_sync_at": "2026-09-13T20:03:13+00:00",
+  "repository": {
+    "default_branch": "main",
+    "full_name": "HereLiesAz/haive",
+    "id": 1031039591,
+    "owner_id": 103241502,
+    "owner_login": "HereLiesAz"
+  },
+  "schema": 1,
+  "worker_url_configured": true,
+  "workflows": {
+    ".github/workflows/android-ci.yml": {
+      "central_workflow": ".github/workflows/absorbed-1031039591-android-ci-3798bddf.yml",
+      "name": "Android CI",
+      "registry_source": "registry/1031039591/android-ci-3798bddf.source.yml",
+      "source_sha256": "d3106dd1c1478b6e666e605b099e65e72f99371c8c62a3e76727180adc97a43e",
+      "status": "active",
+      "updated_at": "2026-09-13T20:02:37+00:00"
+    },
+    ".github/workflows/android-update-libs.yml": {
+      "central_workflow": ".github/workflows/absorbed-1031039591-android-update-libs-46df0ebe.yml",
+      "name": "Update Dependencies",
+      "registry_source": "registry/1031039591/android-update-libs-46df0ebe.source.yml",
+      "source_sha256": "05e2b3435ae6c44dfac330372257beb8ccd0b4046cd7fb66bff57fabefb799e3",
+      "status": "active",
+      "updated_at": "2026-09-13T20:02:40+00:00"
+    },
+    ".github/workflows/backup.yml": {
+      "central_workflow": ".github/workflows/absorbed-1031039591-backup-d598524a.yml",
+      "name": "Context Backup (Universal Surgical)",
+      "registry_source": "registry/1031039591/backup-d598524a.source.yml",
+      "source_sha256": "3a4f16e99f43e7ff92c92791ff368bc12e612766d692ac424a0c843deea01c71",
+      "status": "active",
+      "updated_at": "2026-09-13T20:02:43+00:00"
+    },
+    ".github/workflows/clear_cache.yml": {
+      "central_workflow": ".github/workflows/absorbed-1031039591-clear_cache-7bd18479.yml",
+      "name": "Clear Gradle Cache",
+      "registry_source": "registry/1031039591/clear_cache-7bd18479.source.yml",
+      "source_sha256": "5d40dac9f75a6e3e651ff6a4b1c8e7bf52b09178d0aa30c586d3fbef46694fca",
+      "status": "active",
+      "updated_at": "2026-09-13T20:02:46+00:00"
+    },
+    ".github/workflows/dependency-submission.yml": {
+      "central_workflow": ".github/workflows/absorbed-1031039591-dependency-submission-a80520d4.yml",
+      "name": "Dependency Submission",
+      "registry_source": "registry/1031039591/dependency-submission-a80520d4.source.yml",
+      "source_sha256": "0e7badc7e0cc2c9fe82aa44561c68ecb2ee54325edeb59fa1845e923c1f59681",
+      "status": "active",
+      "updated_at": "2026-09-13T20:02:49+00:00"
+    },
+    ".github/workflows/jekyll-gh-pages.yml": {
+      "central_workflow": ".github/workflows/absorbed-1031039591-jekyll-gh-pages-5de61e74.yml",
+      "name": "Deploy Jekyll with GitHub Pages dependencies preinstalled",
+      "registry_source": "registry/1031039591/jekyll-gh-pages-5de61e74.source.yml",
+      "source_sha256": "bc38315952dc5a20fa874a45475051dd81a7cdde23084779920690407903ba63",
+      "status": "active",
+      "updated_at": "2026-09-13T20:02:52+00:00"
+    },
+    ".github/workflows/jules-dispatch.yml": {
+      "blockers": [
+        "job 'review' calls non-owned reusable workflow './.github/workflows/jules-review.yml'"
+      ],
+      "name": "\ud83d\udd00 Jules Dispatch",
+      "source_sha256": "17c13d04cfa6d1e55af692790eaab5608a1b4b511a1f66e56ec133a8803eb5da",
+      "status": "blocked",
+      "updated_at": "2026-09-13T20:02:54+00:00"
+    },
+    ".github/workflows/jules-glee.yml": {
+      "central_workflow": ".github/workflows/absorbed-1031039591-jules-glee-0de23ac9.yml",
+      "name": "\ud83d\ude08 Glee Audit",
+      "registry_source": "registry/1031039591/jules-glee-0de23ac9.source.yml",
+      "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
+      "status": "active",
+      "updated_at": "2026-09-13T20:02:55+00:00"
+    },
+    ".github/workflows/jules-invoke.yml": {
+      "blockers": [
+        "workflow_call cannot preserve synchronous outputs across the Worker boundary"
+      ],
+      "name": "\u25b6\ufe0f Jules Invoke",
+      "source_sha256": "cb2a978450da9b6dc82f8527a4ff2dbcde9af37e4e88d99e4409f217826572f0",
+      "status": "blocked",
+      "updated_at": "2026-09-13T20:02:58+00:00"
+    },
+    ".github/workflows/jules-review.yml": {
+      "blockers": [
+        "workflow_call cannot preserve synchronous outputs across the Worker boundary"
+      ],
+      "name": "\ud83d\udd0e Jules Review",
+      "source_sha256": "b170093ab22ff75431fb6ea62d3e4ff1a254c5ba7352ee150e59e8dfa4b6f416",
+      "status": "blocked",
+      "updated_at": "2026-09-13T20:02:58+00:00"
+    },
+    ".github/workflows/jules-scheduled-triage.yml": {
+      "central_workflow": ".github/workflows/absorbed-1031039591-jules-scheduled-triage-7b36475f.yml",
+      "name": "\ud83d\udccb Jules Scheduled Issue Triage",
+      "registry_source": "registry/1031039591/jules-scheduled-triage-7b36475f.source.yml",
+      "source_sha256": "c5795302751261681062afb2384c0a30807517ee87a9246fcc46f874d0b0f7f1",
+      "status": "active",
+      "updated_at": "2026-09-13T20:02:58+00:00"
+    },
+    ".github/workflows/jules-triage.yml": {
+      "blockers": [
+        "workflow_call cannot preserve synchronous outputs across the Worker boundary"
+      ],
+      "name": "\ud83d\udd00 Jules Triage",
+      "source_sha256": "dd3c04d1b62501e2260474da42dff9fb083431b27c1b21c47b20a0dc8cb8a09c",
+      "status": "blocked",
+      "updated_at": "2026-09-13T20:03:01+00:00"
+    },
+    ".github/workflows/label.yml": {
+      "central_workflow": ".github/workflows/absorbed-1031039591-label-04cea97c.yml",
+      "name": "Labeler",
+      "registry_source": "registry/1031039591/label-04cea97c.source.yml",
+      "source_sha256": "1bee33914605944e288f5a4dc42ceee250ef28d081a88d180d0d93bbc3b2a63e",
+      "status": "active",
+      "updated_at": "2026-09-13T20:03:01+00:00"
+    },
+    ".github/workflows/multiplatform.yml": {
+      "central_workflow": ".github/workflows/absorbed-1031039591-multiplatform-ef9dd5d6.yml",
+      "name": "Build and Deploy",
+      "registry_source": "registry/1031039591/multiplatform-ef9dd5d6.source.yml",
+      "source_sha256": "06200f47f77b8df11535d4f5f23a0b33e6833b57754d823cb2ea85a59104e885",
+      "status": "active",
+      "updated_at": "2026-09-13T20:03:04+00:00"
+    },
+    ".github/workflows/static.yml": {
+      "central_workflow": ".github/workflows/absorbed-1031039591-static-876bb641.yml",
+      "name": "Deploy static content to Pages",
+      "registry_source": "registry/1031039591/static-876bb641.source.yml",
+      "source_sha256": "8d2cf0a167b2b2b5c1ac7ed44dcf5aafb16c96bfbcddcb93b0e295ae359ee8ea",
+      "status": "active",
+      "updated_at": "2026-09-13T20:03:07+00:00"
+    },
+    ".github/workflows/summary.yml": {
+      "central_workflow": ".github/workflows/absorbed-1031039591-summary-bc1f0d2a.yml",
+      "name": "Summarize new issues",
+      "registry_source": "registry/1031039591/summary-bc1f0d2a.source.yml",
+      "source_sha256": "9158d4587eeca12602514ad7da12f02c600029539ba1567bf63b405d972b65ff",
+      "status": "active",
+      "updated_at": "2026-09-13T20:03:10+00:00"
+    }
+  }
+}

@@ -122,6 +122,12 @@ jobs:
           }
           central = compile_central(source, target, '.github/workflows/fixture.yml', 'Fixture')
           proxy = build_proxy(source, '.github/workflows/fixture.yml', sha256_text(source), 'Fixture')
+          jules_proxy = build_proxy(
+              source,
+              '.github/workflows/jules-dispatch.yml',
+              sha256_text(source),
+              'Jules Dispatch',
+          )
           central_doc = load_yaml(central)
           proxy_doc = load_yaml(proxy.split('\n', 4)[4])
           assert 'workflow_dispatch' in central_doc['on']
@@ -129,9 +135,14 @@ jobs:
           assert 'central_check_finish' in central_doc['jobs']
           assert '__central_check_start' not in central
           assert '__central_check_finish' not in central
+          assert '/check-runs' not in central
+          assert '/statuses/${TARGET_CHECK_SHA}' in central
+          assert 'inputs.source_workflow_path' in central
           assert proxy_doc['permissions']['id-token'] == 'write'
           assert list(proxy_doc['jobs']) == ['central-dispatch']
           assert 'fromJSON(inputs.target_event_json)_name' not in central
+          assert "startsWith(github.event.comment.body, '@jules')" in jules_proxy
+          assert "startsWith(github.event.review.body, '@jules')" in jules_proxy
           print('compiler smoke test passed')
           PY
 

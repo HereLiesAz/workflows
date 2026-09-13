@@ -2,9 +2,83 @@ name: Central workflow gateway
 
 on:
   workflow_dispatch:
+    inputs:
+      repository:
+        description: Target repository asserted by the verified Worker request
+        required: true
+        type: string
+      repository_id:
+        description: Immutable target repository ID asserted by the verified Worker request
+        required: true
+        type: string
+      request_b64:
+        description: Base64-encoded verified Worker request
+        required: true
+        type: string
+
+run-name: gateway · ${{ inputs.repository }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: central-gateway-${{ inputs.repository_id }}
+  cancel-in-progress: false
 
 jobs:
-  gateway:
+  route:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - run: echo gateway
+      - name: Check out central controller
+        uses: actions/checkout@v4
+
+      - name: Install centralizer dependency
+        run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
+
+      - name: Decode and cross-check request
+        env:
+          REQUEST_B64: ${{ inputs.request_b64 }}
+          ASSERTED_REPOSITORY: ${{ inputs.repository }}
+          ASSERTED_REPOSITORY_ID: ${{ inputs.repository_id }}
+        run: |
+          python - <<'PY'
+          import base64
+          import json
+          import os
+          from pathlib import Path
+
+          raw = base64.b64decode(os.environ["REQUEST_B64"], validate=True)
+          request = json.loads(raw)
+          if request.get("repository") != os.environ["ASSERTED_REPOSITORY"]:
+              raise SystemExit("Worker repository input does not match request payload")
+          if str(request.get("repository_id")) != os.environ["ASSERTED_REPOSITORY_ID"]:
+              raise SystemExit("Worker repository_id input does not match request payload")
+          Path("request.json").write_text(json.dumps(request), encoding="utf-8")
+          print(f"repository={request['repository']}")
+          print(f"workflow={request['source_workflow_path']}")
+          PY
+
+      - name: Require configured Worker URL
+        env:
+          WORKER_URL: ${{ vars.WORKER_URL }}
+        run: |
+          test -n "$WORKER_URL" || {
+            echo "Set the WORKER_URL repository variable in HereLiesAz/workflows." >&2
+            exit 1
+          }
+
+      - name: Sync and absorb newly discovered workflows
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          WORKER_URL: ${{ vars.WORKER_URL }}
+        run: |
+          repository="$(jq -r '.repository' request.json)"
+          python scripts/sync_repository.py \
+            --repository "$repository" \
+            --worker-url "$WORKER_URL"
+
+      - name: Dispatch registered central workflow
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: python scripts/dispatch_request.py --request request.json

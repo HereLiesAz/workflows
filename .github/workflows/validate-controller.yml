@@ -7,11 +7,13 @@ on:
       - '.github/workflows/**'
       - 'scripts/**'
       - 'worker/**'
+      - 'wrangler.jsonc'
   pull_request:
     paths:
       - '.github/workflows/**'
       - 'scripts/**'
       - 'worker/**'
+      - 'wrangler.jsonc'
   workflow_dispatch:
 
 permissions:
@@ -31,7 +33,11 @@ jobs:
         run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
 
       - name: Compile Python
-        run: python -m py_compile scripts/sync_repository.py scripts/dispatch_request.py
+        run: |
+          python -m py_compile \
+            scripts/sync_repository.py \
+            scripts/sync_repository_catalog.py \
+            scripts/dispatch_request.py
 
       - name: Parse controller workflows
         run: |
@@ -46,6 +52,51 @@ jobs:
               if not isinstance(doc, dict) or 'jobs' not in doc:
                   raise SystemExit(f'invalid workflow: {path}')
               print(path)
+          PY
+
+      - name: Validate embedded Bash and Python
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          import subprocess
+          from ruamel.yaml import YAML
+
+          yaml = YAML(typ='safe')
+          heredoc = re.compile(r"python(?:3)? - <<'PY'\n(.*?)\nPY(?:\n|$)", re.S)
+
+          def steps_from(doc):
+              for job in (doc.get('jobs') or {}).values():
+                  if not isinstance(job, dict):
+                      continue
+                  for step in job.get('steps') or []:
+                      if isinstance(step, dict):
+                          yield step
+
+          for path in Path('.github/workflows').glob('*.y*ml'):
+              with path.open(encoding='utf-8') as handle:
+                  doc = yaml.load(handle)
+              if not isinstance(doc, dict):
+                  continue
+
+              for index, step in enumerate(steps_from(doc), start=1):
+                  run = step.get('run')
+                  if not isinstance(run, str):
+                      continue
+
+                  shell = str(step.get('shell') or '').strip().lower()
+                  if shell.startswith('bash'):
+                      subprocess.run(
+                          ['bash', '-n'],
+                          input=run,
+                          text=True,
+                          check=True,
+                      )
+
+                  for match in heredoc.finditer(run):
+                      compile(match.group(1), f'{path}:step-{index}', 'exec')
+
+              print(f'validated scripts: {path}')
           PY
 
       - name: Smoke-test workflow compiler
@@ -78,6 +129,7 @@ jobs:
           assert '__central_check_finish' in central_doc['jobs']
           assert proxy_doc['permissions']['id-token'] == 'write'
           assert list(proxy_doc['jobs']) == ['central-dispatch']
+          assert 'fromJSON(inputs.target_event_json)_name' not in central
           print('compiler smoke test passed')
           PY
 

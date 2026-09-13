@@ -1,0 +1,288 @@
+name: Sync all owned repositories
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/sync-all-repositories.yml
+
+run-name: sync-all · ${{ github.run_number }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workflow-sync-all-repositories
+  cancel-in-progress: false
+
+env:
+  WORKER_URL: https://workflows.hereliesaz.workers.dev
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      repositories: ${{ steps.discover.outputs.repositories }}
+      count: ${{ steps.discover.outputs.count }}
+    steps:
+      - name: Verify repository access and find Actions users
+        id: discover
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > /tmp/eligible-repositories.txt <<'REPOS'
+            HereLiesAz/ReconCobra
+            HereLiesAz/H-Crypt
+            HereLiesAz/SPYBOMB
+            HereLiesAz/theHarvester
+            HereLiesAz/roguehostapd
+            HereLiesAz/extra-phishing-pages
+            HereLiesAz/pi-pwnbox-rogueap
+            HereLiesAz/gpd-pocket-ubuntu-respin
+            HereLiesAz/pwnagotchi-plugins-contrib
+            HereLiesAz/FacebookMarketplaceScraper
+            HereLiesAz/wifi-arsenal
+            HereLiesAz/Infinite-Storage-Glitch
+            HereLiesAz/PhoneSploit-Pro
+            HereLiesAz/iPwn
+            HereLiesAz/FFF-Smart-Life-MAL-FWTVPCM1-Irie-Minibook
+            HereLiesAz/ViolentMag
+            HereLiesAz/SocialMediaHackingToolkit
+            HereLiesAz/userrecon
+            HereLiesAz/SmsBackdoor
+            HereLiesAz/www_brute
+            HereLiesAz/DjMixer
+            HereLiesAz/GraffitiXR
+            HereLiesAz/BluSnu
+            HereLiesAz/Et2Brutus
+            HereLiesAz/Rob-s-Mood-Calculator-
+            HereLiesAz/CueDetat
+            HereLiesAz/SemanticCollapse
+            HereLiesAz/QuantumKerning
+            HereLiesAz/NarrativeIsomorphism
+            HereLiesAz/HolographicStrings
+            HereLiesAz/VectorialTessellation
+            HereLiesAz/HyperGeometricIsomorphis
+            HereLiesAz/pwncatharsis
+            HereLiesAz/nhen
+            HereLiesAz/barterchain
+            HereLiesAz/OrtusArts
+            HereLiesAz/All504
+            HereLiesAz/VerticalCarousel
+            HereLiesAz/haive
+            HereLiesAz/WifiHaqueur
+            HereLiesAz/NoobWiFinder
+            HereLiesAz/QaRd
+            HereLiesAz/kbox2d
+            HereLiesAz/ReverseLookupAPI
+            HereLiesAz/HashDroid
+            HereLiesAz/HalfHashedKitty
+            HereLiesAz/LeFauxPass
+            HereLiesAz/AzNavRail
+            HereLiesAz/MadeMeDance
+            HereLiesAz/maskkaocessor
+            HereLiesAz/kFizzix
+            HereLiesAz/TheLexorcist
+            HereLiesAz/oversec
+            HereLiesAz/BarCodeNcrypt
+            HereLiesAz/HandJob
+            HereLiesAz/Click
+            HereLiesAz/MagNom
+            HereLiesAz/pwnagotchiOnAndroid
+            HereLiesAz/IDEaz
+            HereLiesAz/DependencyResolverr
+            HereLiesAz/IDEaz-buildtools
+            HereLiesAz/IDEaz-flutter-test
+            HereLiesAz/fluttertest
+            HereLiesAz/ideaz-python
+            HereLiesAz/SIMplyManaged
+            HereLiesAz/new-project
+            HereLiesAz/Dubious
+            HereLiesAz/BarBacker
+            HereLiesAz/LogKitty
+            HereLiesAz/RevolvingDependencyID
+            HereLiesAz/BadUSB-Roulette
+            HereLiesAz/HG2Gui
+            HereLiesAz/vuide
+            HereLiesAz/hereliesaz.github.io
+            HereLiesAz/Liperty
+            HereLiesAz/QuicLoc
+            HereLiesAz/ApathyBasedRendering
+            HereLiesAz/ReUp
+            HereLiesAz/PaperPlanes
+            HereLiesAz/workflows-starter-template
+            HereLiesAz/CleanUnderwear
+            HereLiesAz/Damned
+            HereLiesAz/hahapewpew
+            HereLiesAz/RedBlightDistrict
+            HereLiesAz/doxray
+            HereLiesAz/gifmaker
+            HereLiesAz/IDEaz-android
+            HereLiesAz/IDEaz-pwa
+            HereLiesAz/IDEaz-react
+            HereLiesAz/IDEaz-web
+            HereLiesAz/test
+            HereLiesAz/testpwa
+            HereLiesAz/Sail
+            HereLiesAz/PlatePlayed
+            HereLiesAz/Guillotine
+            HereLiesAz/lunchheir
+            HereLiesAz/WaveFrom
+            HereLiesAz/azphalt
+          REPOS
+
+          : > /tmp/with-workflows.txt
+          : > /tmp/without-workflows.txt
+          : > /tmp/inaccessible.txt
+
+          while IFS= read -r repo; do
+            [[ -n "$repo" ]] || continue
+
+            if ! repo_json="$(gh api "repos/$repo" 2>/dev/null)"; then
+              echo "$repo" >> /tmp/inaccessible.txt
+              continue
+            fi
+
+            if [[ "$(jq -r '.archived' <<<"$repo_json")" == "true" ]]; then
+              echo "$repo (archived)" >> /tmp/without-workflows.txt
+              continue
+            fi
+
+            if workflows_json="$(gh api "repos/$repo/contents/.github/workflows" 2>/dev/null)"; then
+              workflow_count="$(
+                jq '[.[] | select(.type == "file" and (.name | test("\\.ya?ml$"; "i")))] | length' \
+                  <<<"$workflows_json"
+              )"
+            else
+              workflow_count=0
+            fi
+
+            if (( workflow_count > 0 )); then
+              echo "$repo" >> /tmp/with-workflows.txt
+            else
+              echo "$repo" >> /tmp/without-workflows.txt
+            fi
+          done < /tmp/eligible-repositories.txt
+
+          if [[ -s /tmp/inaccessible.txt ]]; then
+            echo "::error::GH_TOKEN cannot access every eligible repository. No migrations were started."
+            {
+              echo "## Inaccessible repositories"
+              sed 's/^/- `/' /tmp/inaccessible.txt | sed 's/$/`/'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          total="$(grep -cve '^$' /tmp/eligible-repositories.txt || true)"
+          [[ "$total" == "98" ]] || {
+            echo "::error::Expected 98 eligible repositories; found $total."
+            exit 1
+          }
+
+          repositories="$(jq -Rsc 'split("\n") | map(select(length > 0))' /tmp/with-workflows.txt)"
+          count="$(jq 'length' <<<"$repositories")"
+
+          echo "repositories=$repositories" >> "$GITHUB_OUTPUT"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Account-wide workflow discovery"
+            echo
+            echo "- Eligible repositories: **98**"
+            echo "- Explicitly excluded: `HereLiesAz/workflows`, `HereLiesAz/NoLAWallet`, `HereLiesAz/NoLAWallet-id`"
+            echo "- Repositories with Actions workflows: **$count**"
+            echo "- Repositories without Actions workflows: **$(grep -cve '^$' /tmp/without-workflows.txt || true)**"
+            echo
+            echo "### Will be synchronized"
+            sed 's/^/- `/' /tmp/with-workflows.txt | sed 's/$/`/'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  migrate:
+    needs: discover
+    if: ${{ needs.discover.outputs.count != '0' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        repository: ${{ fromJSON(needs.discover.outputs.repositories) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out central controller
+        uses: actions/checkout@v4
+
+      - name: Install controller dependency
+        run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
+
+      - name: Dry sync
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          TARGET_REPOSITORY: ${{ matrix.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p migration-results
+          python scripts/sync_repository.py \
+            --repository "$TARGET_REPOSITORY" \
+            --worker-url "$WORKER_URL" \
+            --dry-run \
+            --json-output migration-results/dry-run.json
+
+      - name: Apply sync
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          TARGET_REPOSITORY: ${{ matrix.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/sync_repository.py \
+            --repository "$TARGET_REPOSITORY" \
+            --worker-url "$WORKER_URL" \
+            --json-output migration-results/applied.json
+
+      - name: Write repository summary
+        if: ${{ always() }}
+        env:
+          TARGET_REPOSITORY: ${{ matrix.repository }}
+        shell: bash
+        run: |
+          {
+            echo "## $TARGET_REPOSITORY"
+            echo
+            if [[ -f migration-results/dry-run.json ]]; then
+              echo "### Dry run"
+              echo '```json'
+              jq '{repository, repository_id, results, policy_cleanup}' migration-results/dry-run.json
+              echo '```'
+            fi
+            if [[ -f migration-results/applied.json ]]; then
+              echo
+              echo "### Applied"
+              echo '```json'
+              jq '{repository, repository_id, results, policy_cleanup, garbage_collected}' migration-results/applied.json
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Prepare result artifact name
+        if: ${{ always() }}
+        id: artifact
+        env:
+          TARGET_REPOSITORY: ${{ matrix.repository }}
+        shell: bash
+        run: |
+          safe_name="$(printf '%s' "$TARGET_REPOSITORY" | tr '/:' '--')"
+          echo "name=workflow-sync-$safe_name" >> "$GITHUB_OUTPUT"
+
+      - name: Upload result
+        if: ${{ always() && hashFiles('migration-results/*.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: migration-results/
+          retention-days: 30

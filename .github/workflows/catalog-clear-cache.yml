@@ -97,7 +97,7 @@ env:
   TARGET_EVENT_JSON: ${{ inputs.target_event_json }}
 
 jobs:
-  __central_check_start:
+  central_check_start:
     runs-on: ubuntu-latest
     outputs:
       check_id: ${{ steps.create.outputs.check_id }}
@@ -122,12 +122,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          payload="$(jq -n --arg name "$CHECK_NAME" --arg sha "$TARGET_CHECK_SHA" --arg details "$DETAILS_URL"             '{name:$name,head_sha:$sha,status:"in_progress",details_url:$details,output:{title:$name,summary:"Running from the shared HereLiesAz/workflows catalog."}}')"
+          payload="$(jq -n --arg name "$CHECK_NAME" --arg sha "$TARGET_CHECK_SHA" --arg details "$DETAILS_URL" '{name:$name,head_sha:$sha,status:"in_progress",details_url:$details,output:{title:$name,summary:"Running from the shared HereLiesAz/workflows catalog."}}')"
           response="$(gh api --method POST "repos/${TARGET_REPOSITORY}/check-runs" --input - <<<"$payload")"
           echo "check_id=$(jq -r '.id' <<<"$response")" >> "$GITHUB_OUTPUT"
 
   clear-cache:
-    needs: __central_check_start
+    needs: central_check_start
     runs-on: ubuntu-latest
     steps:
       - name: Delete target repository Actions caches
@@ -147,17 +147,17 @@ jobs:
             echo "Deleted cache $cache_id"
           done <<<"$ids"
 
-  __central_check_finish:
+  central_check_finish:
     if: ${{ always() }}
     needs:
-      - __central_check_start
+      - central_check_start
       - clear-cache
     runs-on: ubuntu-latest
     steps:
       - name: Complete target check
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          CHECK_ID: ${{ needs.__central_check_start.outputs.check_id }}
+          CHECK_ID: ${{ needs.central_check_start.outputs.check_id }}
           CHECK_NAME: ${{ inputs.target_workflow_name }}
           FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
           DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -172,6 +172,5 @@ jobs:
             conclusion="success"
             summary="Shared catalog workflow completed successfully."
           fi
-          payload="$(jq -n --arg conclusion "$conclusion" --arg title "$CHECK_NAME" --arg summary "$summary" --arg details "$DETAILS_URL"             '{status:"completed",conclusion:$conclusion,details_url:$details,output:{title:$title,summary:$summary}}')"
+          payload="$(jq -n --arg conclusion "$conclusion" --arg title "$CHECK_NAME" --arg summary "$summary" --arg details "$DETAILS_URL" '{status:"completed",conclusion:$conclusion,details_url:$details,output:{title:$title,summary:$summary}}')"
           gh api --method PATCH "repos/${TARGET_REPOSITORY}/check-runs/${CHECK_ID}" --input - <<<"$payload"
-

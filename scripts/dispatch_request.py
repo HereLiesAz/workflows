@@ -37,6 +37,19 @@ def main() -> int:
     repository_id = require(str(request.get("repository_id", "")), "repository_id")
     source_path = require(str(request.get("source_workflow_path", "")), "source_workflow_path")
     source_sha256 = require(str(request.get("source_sha256", "")), "source_sha256")
+    event_name = require(str(request.get("event_name", "")), "event_name")
+    event = request.get("event") or {}
+
+    if event_name in {"pull_request", "pull_request_target"}:
+        head_repo = (((event.get("pull_request") or {}).get("head") or {}).get("repo") or {})
+        if head_repo.get("fork") is True:
+            print(json.dumps({
+                "status": "ignored",
+                "reason": "fork pull requests cannot enter the central secret-bearing executor",
+                "repository": repository,
+                "source_workflow": source_path,
+            }, indent=2, sort_keys=True))
+            return 0
 
     repo = gh.repo(repository)
     if str(repo["id"]) != repository_id:
@@ -76,8 +89,8 @@ def main() -> int:
         "target_base_ref": str(request.get("base_ref", "")),
         "target_actor": require(str(request.get("actor", "")), "actor"),
         "target_actor_id": str(request.get("actor_id", "")),
-        "target_event_name": require(str(request.get("event_name", "")), "event_name"),
-        "target_event_json": json.dumps(request.get("event") or {}, separators=(",", ":")),
+        "target_event_name": event_name,
+        "target_event_json": json.dumps(event, separators=(",", ":")),
         "target_inputs_json": json.dumps(request.get("inputs") or {}, separators=(",", ":")),
         "target_vars_json": json.dumps(request.get("vars") or {}, separators=(",", ":")),
         "target_run_id": require(str(request.get("run_id", "")), "run_id"),

@@ -161,6 +161,55 @@ def walk_strings(value: Any):
             yield from walk_strings(item)
 
 
+LOCAL_SCRIPT_RE = re.compile(
+    r"(?m)(?:^|[\s;&|()])(?:\./)?(?:scripts|\.github/scripts)/[A-Za-z0-9_.@%+,:/=-]+"
+)
+
+
+def _checkout_supports_local_dependencies(step: dict[str, Any]) -> bool:
+    uses = step.get("uses")
+    if not isinstance(uses, str) or not uses.startswith("actions/checkout@"):
+        return False
+    with_map = step.get("with") or {}
+    if not isinstance(with_map, dict):
+        return False
+    path = str(with_map.get("path", "")).strip()
+    if path not in ("", "."):
+        return False
+    if with_map.get("sparse-checkout") not in (None, ""):
+        return False
+    repository = str(with_map.get("repository", "")).strip()
+    return repository in ("", "${{ github.repository }}", "${{ inputs.target_repository }}")
+
+
+def _local_dependency_blockers(doc: dict[str, Any]) -> list[str]:
+    blockers: list[str] = []
+    for job_id, job in (doc.get("jobs") or {}).items():
+        if not isinstance(job, dict):
+            continue
+        steps = job.get("steps")
+        if not isinstance(steps, list):
+            continue
+        target_checkout_seen = False
+        for index, step in enumerate(steps, start=1):
+            if not isinstance(step, dict):
+                continue
+            if _checkout_supports_local_dependencies(step):
+                target_checkout_seen = True
+                continue
+            uses = step.get("uses")
+            if isinstance(uses, str) and uses.startswith("./") and not target_checkout_seen:
+                blockers.append(
+                    f"job {job_id!r} step {index} uses local action {uses!r} before a full target-repository checkout"
+                )
+            run = step.get("run")
+            if isinstance(run, str) and LOCAL_SCRIPT_RE.search(run) and not target_checkout_seen:
+                blockers.append(
+                    f"job {job_id!r} step {index} uses a repo-local scripts/ path before a full target-repository checkout"
+                )
+    return blockers
+
+
 def migration_blockers(doc: dict[str, Any]) -> list[str]:
     blockers: list[str] = []
     on_value = doc.get("on")
@@ -176,6 +225,8 @@ def migration_blockers(doc: dict[str, Any]) -> list[str]:
         if job.get("secrets") == "inherit":
             blockers.append(f"job {job_id!r} uses secrets: inherit")
 
+    blockers.extend(_local_dependency_blockers(doc))
+
     strings = "\n".join(walk_strings(doc))
     if "GITHUB_EVENT_PATH" in strings or "github.event_path" in strings:
         blockers.append("workflow reads GITHUB_EVENT_PATH/github.event_path directly")
@@ -188,6 +239,7 @@ def migration_blockers(doc: dict[str, Any]) -> list[str]:
 
 
 REUSABLE_RE = re.compile(r"^HereLiesAz/([^/]+)/(.+\.ya?ml)@([^@]+)$", re.IGNORECASE)
+LOCAL_REUSABLE_RE = re.compile(r"^\./(.+\.ya?ml)$", re.IGNORECASE)
 
 
 def _need_list(value: Any) -> list[str]:
@@ -246,6 +298,30 @@ def _rewrite_needs_for_inline(job: dict[str, Any], prefix: str, caller_needs: li
         job["needs"] = CommentedSeq(dict.fromkeys(combined))
 
 
+def _replace_dependency_aliases(value: Any, aliases: dict[str, str]) -> Any:
+    if isinstance(value, str):
+        text = value
+        for old, new in aliases.items():
+            text = re.sub(rf"\bneeds\.{re.escape(old)}\.", f"needs.{new}.", text)
+        return text
+    if isinstance(value, dict):
+        out = CommentedMap()
+        for key, item in value.items():
+            if key == "needs":
+                needs = _need_list(item)
+                rewritten = [aliases.get(dep, dep) for dep in needs]
+                rewritten = list(dict.fromkeys(rewritten))
+                if not rewritten:
+                    continue
+                out[key] = rewritten[0] if len(rewritten) == 1 else CommentedSeq(rewritten)
+            else:
+                out[key] = _replace_dependency_aliases(item, aliases)
+        return out
+    if isinstance(value, list):
+        return CommentedSeq(_replace_dependency_aliases(item, aliases) for item in value)
+    return value
+
+
 def add_condition(existing: Any, extra: str) -> str:
     if existing is None:
         return "${{ " + extra + " }}"
@@ -255,9 +331,42 @@ def add_condition(existing: Any, extra: str) -> str:
     return "${{ (" + text + ") && (" + extra + ") }}"
 
 
-def expand_owned_reusable_workflows(gh: GitHub, doc: dict[str, Any], depth: int = 0) -> dict[str, Any]:
+def _resolve_reusable_workflow(
+    gh: GitHub,
+    uses: str,
+    repository: str,
+    ref: str,
+) -> tuple[str, str, str, str]:
+    local = LOCAL_REUSABLE_RE.match(uses)
+    if local:
+        reusable_path = local.group(1)
+        if not reusable_path.startswith(".github/workflows/"):
+            raise ValueError(f"local reusable workflow path is not under .github/workflows: {uses!r}")
+        reusable_text, _ = gh.get_file(repository, reusable_path, ref=ref)
+        return reusable_text, repository, reusable_path, ref
+
+    match = REUSABLE_RE.match(uses)
+    if not match:
+        raise ValueError(f"calls non-owned reusable workflow {uses!r}")
+    repo_name, reusable_path, reusable_ref = match.groups()
+    if not reusable_path.startswith(".github/workflows/"):
+        raise ValueError(f"reusable workflow path is not under .github/workflows: {uses!r}")
+    reusable_repository = f"{OWNER_LOGIN}/{repo_name}"
+    reusable_text, _ = gh.get_file(reusable_repository, reusable_path, ref=reusable_ref)
+    return reusable_text, reusable_repository, reusable_path, reusable_ref
+
+
+def expand_owned_reusable_workflows(
+    gh: GitHub,
+    doc: dict[str, Any],
+    depth: int = 0,
+    repository: str | None = None,
+    ref: str | None = None,
+) -> dict[str, Any]:
     if depth > 4:
         raise ValueError("reusable workflow nesting exceeds four levels")
+    if not repository or not ref:
+        raise ValueError("target repository and ref are required to resolve reusable workflows")
 
     expanded = copy.deepcopy(doc)
     jobs = expanded.get("jobs") or {}
@@ -270,38 +379,46 @@ def expand_owned_reusable_workflows(gh: GitHub, doc: dict[str, Any], depth: int 
             depended_on.update(_need_list(job.get("needs")))
 
     new_jobs = CommentedMap()
+    aliases: dict[str, str] = {}
+
     for caller_id, caller in jobs.items():
         if not isinstance(caller, dict) or not isinstance(caller.get("uses"), str):
-            new_jobs[caller_id] = caller
+            new_jobs[caller_id] = copy.deepcopy(caller)
             continue
 
         uses = caller["uses"]
-        match = REUSABLE_RE.match(uses)
-        if not match:
-            raise ValueError(f"job {caller_id!r} calls non-owned reusable workflow {uses!r}")
-        if caller_id in depended_on:
-            raise ValueError(f"job {caller_id!r} is a reusable workflow whose outputs/dependency boundary is used downstream")
-        if caller.get("secrets") == "inherit":
-            raise ValueError(f"job {caller_id!r} uses secrets: inherit")
+        try:
+            reusable_text, reusable_repository, reusable_path, reusable_ref = _resolve_reusable_workflow(
+                gh, uses, repository, ref
+            )
+        except ValueError as exc:
+            raise ValueError(f"job {caller_id!r} {exc}") from exc
 
-        repo_name, reusable_path, ref = match.groups()
-        if not reusable_path.startswith(".github/workflows/"):
-            raise ValueError(f"job {caller_id!r} reusable workflow path is not under .github/workflows")
-
-        reusable_text, _ = gh.get_file(f"{OWNER_LOGIN}/{repo_name}", reusable_path, ref=ref)
         reusable = load_yaml(reusable_text)
         if not isinstance(reusable, dict):
             raise ValueError(f"reusable workflow {uses!r} is invalid YAML")
-        call = (reusable.get("on") or {}).get("workflow_call") if isinstance(reusable.get("on"), dict) else None
-        if call is None:
+        on_value = reusable.get("on")
+        call = on_value.get("workflow_call") if isinstance(on_value, dict) else None
+        if not isinstance(on_value, dict) or "workflow_call" not in on_value:
             raise ValueError(f"{uses!r} is not a workflow_call workflow")
         if isinstance(call, dict) and call.get("outputs"):
             raise ValueError(f"{uses!r} declares workflow_call outputs")
 
-        reusable = expand_owned_reusable_workflows(gh, reusable, depth + 1)
+        reusable = expand_owned_reusable_workflows(
+            gh,
+            reusable,
+            depth + 1,
+            repository=reusable_repository,
+            ref=reusable_ref,
+        )
         inner_jobs = reusable.get("jobs") or {}
         if not isinstance(inner_jobs, dict) or not inner_jobs:
             raise ValueError(f"{uses!r} has no jobs")
+        if caller_id in depended_on and len(inner_jobs) != 1:
+            raise ValueError(
+                f"job {caller_id!r} is depended on downstream and expands to {len(inner_jobs)} jobs; "
+                "only single-job dependency aliasing is supported"
+            )
 
         call_inputs = call.get("inputs", {}) if isinstance(call, dict) else {}
         caller_inputs = caller.get("with", {}) or {}
@@ -317,24 +434,37 @@ def expand_owned_reusable_workflows(gh: GitHub, doc: dict[str, Any], depth: int 
                 input_values[name] = ""
 
         call_secrets = call.get("secrets", {}) if isinstance(call, dict) else {}
-        caller_secrets = caller.get("secrets", {}) or {}
+        caller_secrets = caller.get("secrets")
         secret_values: dict[str, Any] = {}
-        for name, spec in call_secrets.items():
-            if name in caller_secrets:
-                secret_values[name] = caller_secrets[name]
-            elif isinstance(spec, dict) and spec.get("required"):
-                raise ValueError(f"job {caller_id!r} does not provide required reusable secret {name!r}")
-            else:
-                secret_values[name] = ""
+        if caller_secrets == "inherit":
+            for name in call_secrets:
+                secret_values[name] = "${{ secrets." + str(name) + " }}"
+        else:
+            caller_secret_map = caller_secrets or {}
+            if not isinstance(caller_secret_map, dict):
+                raise ValueError(f"job {caller_id!r} has unsupported secrets configuration")
+            for name, spec in call_secrets.items():
+                if name in caller_secret_map:
+                    secret_values[name] = caller_secret_map[name]
+                elif isinstance(spec, dict) and spec.get("required"):
+                    raise ValueError(f"job {caller_id!r} does not provide required reusable secret {name!r}")
+                else:
+                    secret_values[name] = ""
 
         caller_if = caller.get("if")
         caller_needs = _need_list(caller.get("needs"))
         reusable_env = reusable.get("env") if isinstance(reusable.get("env"), dict) else {}
         reusable_concurrency = reusable.get("concurrency")
+        generated_ids: list[str] = []
 
         for inner_id, inner_job in inner_jobs.items():
             if not isinstance(inner_job, dict):
                 raise ValueError(f"{uses!r} contains invalid job {inner_id!r}")
+            generated_id = f"{caller_id}__{inner_id}"
+            if generated_id in new_jobs or generated_id in jobs:
+                raise ValueError(f"inlined reusable workflow job id collision: {generated_id!r}")
+            generated_ids.append(generated_id)
+
             inlined = _replace_reusable_context(copy.deepcopy(inner_job), input_values, secret_values)
             if caller_if is not None:
                 inlined["if"] = add_condition(inlined.get("if"), str(caller_if))
@@ -346,7 +476,13 @@ def expand_owned_reusable_workflows(gh: GitHub, doc: dict[str, Any], depth: int 
                 inlined["env"] = merged_env
             if reusable_concurrency is not None and len(inner_jobs) == 1 and "concurrency" not in inlined:
                 inlined["concurrency"] = copy.deepcopy(reusable_concurrency)
-            new_jobs[f"{caller_id}__{inner_id}"] = inlined
+            new_jobs[generated_id] = inlined
+
+        if len(generated_ids) == 1:
+            aliases[caller_id] = generated_ids[0]
+
+    if aliases:
+        new_jobs = _replace_dependency_aliases(new_jobs, aliases)
 
     expanded["jobs"] = new_jobs
     return expanded
@@ -454,7 +590,12 @@ def ensure_checkout_target(job: dict[str, Any], target_private: bool) -> None:
 def job_has_checkout(job: Any) -> bool:
     if not isinstance(job, dict) or not isinstance(job.get("steps"), list):
         return False
-    return any(isinstance(step, dict) and isinstance(step.get("uses"), str) and step["uses"].startswith("actions/checkout@") for step in job["steps"])
+    return any(
+        isinstance(step, dict)
+        and isinstance(step.get("uses"), str)
+        and step["uses"].startswith("actions/checkout@")
+        for step in job["steps"]
+    )
 
 
 def job_uses_secrets(job: Any) -> bool:
@@ -491,8 +632,13 @@ def compile_central(source_text: str, target: dict[str, Any], source_path: str, 
         add_need(job, "__central_check_start")
         target_private = bool(target.get("private"))
         ensure_checkout_target(job, target_private)
-        if job_uses_secrets(original_jobs.get(job_id)) or (target_private and job_has_checkout(original_jobs.get(job_id))):
-            fork_guard = "inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true"
+        if job_uses_secrets(original_jobs.get(job_id)) or (
+            target_private and job_has_checkout(original_jobs.get(job_id))
+        ):
+            fork_guard = (
+                "inputs.target_event_name != 'pull_request' || "
+                "fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true"
+            )
             job["if"] = add_condition(job.get("if"), fork_guard)
 
     source_name = source.get("name") or PurePosixPath(source_path).name
@@ -706,7 +852,12 @@ def sync_repository(gh: GitHub, full_name: str, worker_url: str, dry_run: bool =
             continue
         workflow_name = str(parsed.get("name") or PurePosixPath(path).name)
         try:
-            expanded = expand_owned_reusable_workflows(gh, parsed)
+            expanded = expand_owned_reusable_workflows(
+                gh,
+                parsed,
+                repository=repo["full_name"],
+                ref=default_branch,
+            )
             blockers = migration_blockers(expanded)
         except Exception as exc:
             expanded = parsed

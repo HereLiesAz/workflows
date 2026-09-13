@@ -6,8 +6,12 @@ import json
 import os
 import urllib.parse
 
-import sync_repository_catalog as core
-from sync_repository_catalog import *  # noqa: F401,F403
+try:
+    from . import sync_repository_catalog as core
+    from .sync_repository_catalog import *  # noqa: F401,F403
+except ImportError:
+    import sync_repository_catalog as core
+    from sync_repository_catalog import *  # noqa: F401,F403
 
 
 def _load_policy(gh: GitHub, repo_id: int) -> dict:

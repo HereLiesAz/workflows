@@ -1,0 +1,10 @@
+name: Central workflow gateway
+
+on:
+  workflow_dispatch:
+
+jobs:
+  gateway:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo gateway

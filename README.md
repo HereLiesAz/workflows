@@ -50,6 +50,28 @@ The following repository secrets belong in the central `HereLiesAz/workflows` re
 * `FTP_SERVER`
 * `FTP_USERNAME`
 * `FTP_PASSWORD`
+* ### Additional centralized secrets
+
+#### Source control and hosting
+
+* `GITLAB_PAT`
+* `VERCEL_API_KEY`
+
+#### AI and model providers
+
+* `CEREBRAS_TOKEN`
+* `GROK_TOKEN`
+* `HF_TOKEN`
+* `MISTRAL_TOKEN`
+* `OPENAI_TOKEN`
+
+#### Data and external services
+
+* `DROPBOX_KEY`
+* `DROPBOX_SECRET`
+* `DROPBOX_TOKEN`
+* `KAGGLE_TOKEN`
+
 
 `GH_TOKEN` is the privileged GitHub credential used by the central controller and absorbed workflows to operate on explicitly authorized `HereLiesAz` repositories. Its repository access and permissions should remain as narrow as practical.
 

@@ -15,20 +15,97 @@ except ImportError:
 
 
 _base_compile_central = core.compile_central
+_base_build_proxy = core.build_proxy
 
 
-def compile_central(*args, **kwargs):
-    compiled = _base_compile_central(*args, **kwargs)
-    return (
+def compile_central(source_text: str, target: dict, source_path: str, check_name: str) -> str:
+    compiled = _base_compile_central(source_text, target, source_path, check_name)
+    compiled = (
         compiled
         .replace("__central_check_start", "central_check_start")
         .replace("__central_check_finish", "central_check_finish")
     )
 
+    doc = load_yaml(compiled)
+    jobs = doc.get("jobs") or {}
+    start = jobs.get("central_check_start")
+    finish = jobs.get("central_check_finish")
+    if not isinstance(start, dict) or not isinstance(finish, dict):
+        raise ValueError("compiled workflow is missing central reporting jobs")
 
-# The core synchronizer resolves this global at runtime, so patching it here keeps
-# content-addressed catalog workflows on the same GitHub-safe job IDs as curated ones.
+    start.pop("outputs", None)
+    start_steps = start.get("steps") or []
+    if not start_steps:
+        raise ValueError("compiled workflow is missing target identity validation")
+    start["steps"] = [
+        start_steps[0],
+        {
+            "name": "Set target status pending",
+            "env": {
+                "GH_TOKEN": "${{ secrets.GH_TOKEN }}",
+                "STATUS_CONTEXT": "${{ inputs.source_workflow_path }}",
+                "DETAILS_URL": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+            },
+            "shell": "bash",
+            "run": '''set -euo pipefail
+payload="$(jq -n --arg state "pending" --arg context "$STATUS_CONTEXT" --arg description "Running from the shared HereLiesAz/workflows catalog." --arg target_url "$DETAILS_URL" '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload"''',
+        },
+    ]
+
+    finish["steps"] = [
+        {
+            "name": "Complete target status",
+            "env": {
+                "GH_TOKEN": "${{ secrets.GH_TOKEN }}",
+                "STATUS_CONTEXT": "${{ inputs.source_workflow_path }}",
+                "FAILED": "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}",
+                "DETAILS_URL": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+            },
+            "shell": "bash",
+            "run": '''set -euo pipefail
+if [[ "$FAILED" == "true" ]]; then
+  state="failure"
+  description="Shared catalog workflow failed."
+else
+  state="success"
+  description="Shared catalog workflow completed successfully."
+fi
+payload="$(jq -n --arg state "$state" --arg context "$STATUS_CONTEXT" --arg description "$description" --arg target_url "$DETAILS_URL" '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload"''',
+        }
+    ]
+
+    return dump_yaml(doc)
+
+
+def build_proxy(source_text: str, source_path: str, source_hash: str, workflow_name: str) -> str:
+    proxy = _base_build_proxy(source_text, source_path, source_hash, workflow_name)
+    if source_path != ".github/workflows/jules-dispatch.yml":
+        return proxy
+
+    needle = "  central-dispatch:\n    runs-on: ubuntu-latest\n"
+    replacement = """  central-dispatch:
+    if: >-
+      ${{
+        github.event_name == 'issues' ||
+        github.event_name == 'pull_request' ||
+        (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '@jules')) ||
+        (github.event_name == 'pull_request_review_comment' && startsWith(github.event.comment.body, '@jules')) ||
+        (github.event_name == 'pull_request_review' && startsWith(github.event.review.body, '@jules'))
+      }}
+    runs-on: ubuntu-latest
+"""
+    if needle not in proxy:
+        raise ValueError("generated Jules proxy shape changed; cannot apply comment gate")
+    return proxy.replace(needle, replacement, 1)
+
+
+# The core synchronizer resolves these globals at runtime, so patching them here
+# makes every generated shared workflow use GitHub-safe IDs, PAT-compatible commit
+# statuses, and the same Jules event gate as the curated implementation.
 core.compile_central = compile_central
+core.build_proxy = build_proxy
 
 
 def _load_policy(gh: GitHub, repo_id: int) -> dict:

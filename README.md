@@ -1,85 +1,88 @@
 # workflows
 
-Central workflow controller for repositories owned by `HereLiesAz`.
+Central shared workflow catalog and secure execution gateway for repositories owned by `HereLiesAz`.
 
-Target repositories are migrated to secretless OIDC proxy workflows. The Cloudflare Worker verifies GitHub identity, dispatches the central gateway, and the central executor re-validates immutable repository ownership before using privileged credentials.
+This repository exists to reuse **workflow implementations as well as credentials**. Target repositories keep lightweight trigger/proxy workflows for centrally executed automation. Canonical implementations live here and can be reused by multiple repositories. Workflows that are genuinely repository-bound remain local.
 
-Each absorbed workflow remains a separate workflow centrally and publishes its own Check Run back to the originating commit/PR.
+## Architecture
 
-## Bootstrap
+```text
+Target repository event
+        │
+        ▼
+secretless OIDC proxy
+        │
+        ▼
+Cloudflare Worker · workflows.hereliesaz.workers.dev
+        │
+        ▼
+central gateway
+        │
+        ▼
+shared catalog workflow
+        │
+        ▼
+target operation + commit status
+```
 
-1. Deploy `worker/` to Cloudflare and configure its `DISPATCH_TOKEN`.
-2. Add the central repository secret `GH_TOKEN` and any workflow-specific secrets here.
-3. Run **Sync repository workflows** and enter a repository such as `HereLiesAz/haive`.
+The Worker verifies GitHub OIDC identity and immutable repository ownership before dispatching the central gateway. The gateway validates the registered workflow binding and source hash. Shared workflows re-validate the target repository before privileged execution.
 
-The synchronizer stores originals under `registry/<repository-id>/`, creates central executors under `.github/workflows/`, and replaces supported target workflows with secretless proxies. Unsupported workflows are left untouched and recorded as blocked rather than silently altered.
+Runtime results are reported back to the target SHA using **commit statuses**, not Check Runs.
 
+## Adding another repository
 
-## Secret locations
+See **[Repository onboarding](docs/REPOSITORY_ONBOARDING.md)** for the complete conversion procedure, safety rules, classification model, smoke-test process, rollback procedure, and the checklist we will use for every repository.
 
-### Cloudflare Worker
+The normal migration flow is:
 
-The Cloudflare Worker should contain only:
+1. inventory the target repository's workflows, variables, local actions, and scripts;
+2. ensure the central controller has the required repository access and workflow credentials;
+3. run **Sync repository workflows** with `dry_run: true`;
+4. review every workflow classification and identify obsolete automation;
+5. add repository policy for workflows that should be removed rather than migrated;
+6. run the sync with `dry_run: false`;
+7. inspect the target proxies/local workflows and central registry bindings;
+8. exercise at least one centralized workflow end to end;
+9. remove duplicated target credentials only after runtime verification succeeds.
 
-* `DISPATCH_TOKEN`
+The real sync automatically creates or updates the target repository variable `WORKFLOWS_GATEWAY_URL` with:
 
-`DISPATCH_TOKEN` should be a fine-grained GitHub token restricted to `HereLiesAz/workflows` with only the permissions required to dispatch GitHub Actions workflows.
+```text
+https://workflows.hereliesaz.workers.dev
+```
 
-Do not store workflow credentials, signing material, API keys, deployment credentials, or `GH_TOKEN` in Cloudflare.
+## Workflow catalog model
 
-### `HereLiesAz/workflows`
+The synchronizer uses four outcomes:
 
-The following repository secrets belong in the central `HereLiesAz/workflows` repository:
+| Outcome | Purpose |
+| --- | --- |
+| Curated catalog | Known canonical implementations such as Jules Dispatch, Glee, Context Backup, and Clear Cache |
+| Content-addressed catalog | Other centrally safe workflow logic, deduplicated by implementation hash across repositories |
+| Library | `workflow_call` helpers that stay available as reusable source components |
+| Local | Repository-bound workflows whose behavior would change or become unsafe if executed from this repository |
 
-* `GH_TOKEN`
-* `JULES_API_KEY`
-* `KEYSTORE_PASSWORD`
-* `KEY_ALIAS`
-* `KEY_PASSWORD`
-* `KEYSTORE_OWNER`
-* `KEYSTORE_SHA1`
-* `KEYSTORE_SHA256`
-* `KEYSTORE_PRIVATE`
-* `KEYSTORE_PUBLIC`
-* `KEYSTORE_CHAIN`
-* `KEYSTORE_RSA`
-* `KEYSTORE_RAW`
-* `PLAY_SERVICE_ACCOUNT_JSON`
-* `SNYK_TOKEN`
-* `FTP_SERVER`
-* `FTP_USERNAME`
-* `FTP_PASSWORD`
-* ### Additional centralized secrets
+Current curated implementations are:
 
-#### Source control and hosting
+- `.github/workflows/catalog-jules-dispatch.yml`
+- `.github/workflows/catalog-jules-glee.yml`
+- `.github/workflows/catalog-context-backup.yml`
+- `.github/workflows/catalog-clear-cache.yml`
 
-* `GITLAB_PAT`
-* `VERCEL_API_KEY`
+Per-repository source state and bindings are stored under `registry/<repository-id>/`. Legacy per-repository `absorbed-<repo-id>-*.yml` executors are garbage-collected after successful catalog binding.
 
-#### AI and model providers
+## Repository-local scripts and actions
 
-* `CEREBRAS_TOKEN`
-* `GROK_TOKEN`
-* `HF_TOKEN`
-* `MISTRAL_TOKEN`
-* `OPENAI_TOKEN`
+Project-specific `scripts/` and local composite actions stay in their target repositories. Central jobs that need them check out the originating repository at the originating SHA, keeping those dependencies version-locked to the target commit.
 
-#### Data and external services
+The synchronizer blocks a workflow if it tries to use a repo-local script/action before a full target-repository checkout.
 
-* `DROPBOX_KEY`
-* `DROPBOX_SECRET`
-* `DROPBOX_TOKEN`
-* `KAGGLE_TOKEN`
+Dependencies that are part of a **shared workflow implementation** should live here alongside the shared workflow instead of being copied into every target repository.
 
+## Controller workflows
 
-`GH_TOKEN` is the privileged GitHub credential used by the central controller and absorbed workflows to operate on explicitly authorized `HereLiesAz` repositories. Its repository access and permissions should remain as narrow as practical.
+- `sync-repository.yml` — manually scans and binds one target repository to the shared catalog.
+- `gateway.yml` — receives verified dispatches from the Worker and routes them to the registered shared workflow.
+- `validate-controller.yml` — validates controller code and generated workflow behavior.
 
-### Keystore rule
-
-`KEYSTORE_RAW` is provided for **verification purposes only**.
-
-It must never be used directly as the signing keystore.
-
-Signing workflows must reconstruct the keystore from the other keystore-related repository secrets, verify the reconstructed keystore using the supplied fingerprints and verification material, and use only the reconstructed keystore for signing.
-
-Target repositories should not retain duplicated Actions secrets after their workflows have been successfully centralized.
+Always run a **dry sync first** for a new repository. A repository is not considered converted until every classification has been reviewed and at least one centralized runtime path has been proven end to end.

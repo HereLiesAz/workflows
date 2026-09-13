@@ -1,0 +1,242 @@
+name: Shared · Context Backup
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_ref:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  TARGET_REPOSITORY: ${{ inputs.target_repository }}
+  TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+  TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+  TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+  TARGET_SHA: ${{ inputs.target_sha }}
+  TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+  TARGET_REF: ${{ inputs.target_ref }}
+  TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+  TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+  TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+  TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+  TARGET_ACTOR: ${{ inputs.target_actor }}
+  TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+  TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+  TARGET_EVENT_JSON: ${{ inputs.target_event_json }}
+
+jobs:
+  __central_check_start:
+    runs-on: ubuntu-latest
+    outputs:
+      check_id: ${{ steps.create.outputs.check_id }}
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo_json="$(gh api "repos/${TARGET_REPOSITORY}")"
+          [[ "$(jq -r '.id' <<<"$repo_json")" == "$TARGET_REPOSITORY_ID" ]] || exit 1
+          [[ "$(jq -r '.owner.id' <<<"$repo_json")" == "103241502" ]] || exit 1
+          [[ "$(jq -r '.owner.login' <<<"$repo_json" | tr '[:upper:]' '[:lower:]')" == "hereliesaz" ]] || exit 1
+
+      - name: Create target check
+        id: create
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          CHECK_NAME: ${{ inputs.target_workflow_name }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload="$(jq -n --arg name "$CHECK_NAME" --arg sha "$TARGET_CHECK_SHA" --arg details "$DETAILS_URL"             '{name:$name,head_sha:$sha,status:"in_progress",details_url:$details,output:{title:$name,summary:"Running from the shared HereLiesAz/workflows catalog."}}')"
+          response="$(gh api --method POST "repos/${TARGET_REPOSITORY}/check-runs" --input - <<<"$payload")"
+          echo "check_id=$(jq -r '.id' <<<"$response")" >> "$GITHUB_OUTPUT"
+
+  backup:
+    needs: __central_check_start
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out target repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Generate surgical context
+        shell: bash
+        run: |
+          set -euo pipefail
+          TIMESTAMP="$(date +'%Y%m%d_%H%M%S')"
+          OUTFILE="project_backup_surgical_${TIMESTAMP}.txt"
+          MANIFEST="skipped_files.tmp"
+          TRASH_DIRS="build out bin obj .gradle .idea .vscode .git node_modules captures captured .cxx generated build_test libs venv __pycache__ .dart_tool .next .nuxt dist site-packages .pytest_cache"
+          TRASH_FILES="package-lock.json yarn.lock local.properties .DS_Store Thumbs.db"
+          EXTENSIONS=(kt kts java xml gradle properties pro toml cpp c cc h hpp ld S cmake in js jsx ts tsx html css vue svelte json dart arb py ipynb ini cfg yaml yml sql env md markdown rst adoc txt)
+          CRITICAL_FILES=(CMakeLists.txt Android.mk Application.mk Makefile Dockerfile docker-compose.yml requirements.txt Gemfile Rakefile LICENSE README)
+
+          is_binary() { head -c 512 "$1" | grep -qP '\x00'; }
+          if [[ -d .git ]]; then
+            FILES="$(git ls-files -c -o --exclude-standard)"
+          else
+            FILES="$(find . -type f)"
+          fi
+          : > "$OUTFILE"
+          : > "$MANIFEST"
+
+          while IFS= read -r file; do
+            [[ -n "$file" && -f "$file" ]] || continue
+            skip=0
+            for trash in $TRASH_DIRS; do
+              if [[ "$file" == *"/$trash/"* || "$file" == "$trash/"* || "$file" == *"/$trash" ]]; then skip=1; break; fi
+            done
+            basename="$(basename "$file")"
+            for trash in $TRASH_FILES; do
+              if [[ "$basename" == "$trash" ]]; then skip=1; break; fi
+            done
+            [[ "$skip" -eq 0 ]] || continue
+
+            allowed=0
+            ext="${file##*.}"
+            for valid_ext in "${EXTENSIONS[@]}"; do
+              if [[ "$ext" == "$valid_ext" ]]; then allowed=1; break; fi
+            done
+            if [[ "$allowed" -eq 0 ]]; then
+              for valid_name in "${CRITICAL_FILES[@]}"; do
+                if [[ "$basename" == "$valid_name" ]]; then allowed=1; break; fi
+              done
+            fi
+
+            if [[ "$allowed" -eq 1 ]]; then
+              printf '>>> %s\n' "$file" >> "$OUTFILE"
+              if is_binary "$file"; then
+                echo "[BINARY CONTENT REDACTED]" >> "$OUTFILE"
+              else
+                cat "$file" >> "$OUTFILE" 2>/dev/null || echo "[READ ERROR]" >> "$OUTFILE"
+              fi
+              printf '\n\n' >> "$OUTFILE"
+            else
+              echo "$file" >> "$MANIFEST"
+            fi
+          done <<<"$FILES"
+
+          {
+            printf '\n\n==================================================================\n'
+            echo "SKIPPED FILES REPORT"
+            echo "=================================================================="
+            if [[ -s "$MANIFEST" ]]; then cat "$MANIFEST"; else echo "(None)"; fi
+          } >> "$OUTFILE"
+          rm -f "$MANIFEST"
+          echo "BACKUP_FILE=$OUTFILE" >> "$GITHUB_ENV"
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.target_repository }}-surgical-backup
+          path: ${{ env.BACKUP_FILE }}
+          retention-days: 1
+
+  __central_check_finish:
+    if: ${{ always() }}
+    needs:
+      - __central_check_start
+      - backup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target check
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          CHECK_ID: ${{ needs.__central_check_start.outputs.check_id }}
+          CHECK_NAME: ${{ inputs.target_workflow_name }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${CHECK_ID:-}" ]] || exit 0
+          if [[ "$FAILED" == "true" ]]; then
+            conclusion="failure"
+            summary="Shared catalog workflow failed. Open the linked central run for details."
+          else
+            conclusion="success"
+            summary="Shared catalog workflow completed successfully."
+          fi
+          payload="$(jq -n --arg conclusion "$conclusion" --arg title "$CHECK_NAME" --arg summary "$summary" --arg details "$DETAILS_URL"             '{status:"completed",conclusion:$conclusion,details_url:$details,output:{title:$title,summary:$summary}}')"
+          gh api --method PATCH "repos/${TARGET_REPOSITORY}/check-runs/${CHECK_ID}" --input - <<<"$payload"
+

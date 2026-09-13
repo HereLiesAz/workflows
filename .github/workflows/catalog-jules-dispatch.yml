@@ -1,0 +1,318 @@
+name: Shared · Jules Dispatch
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_ref:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  TARGET_REPOSITORY: ${{ inputs.target_repository }}
+  TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+  TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+  TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+  TARGET_SHA: ${{ inputs.target_sha }}
+  TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+  TARGET_REF: ${{ inputs.target_ref }}
+  TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+  TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+  TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+  TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+  TARGET_ACTOR: ${{ inputs.target_actor }}
+  TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+  TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+  TARGET_EVENT_JSON: ${{ inputs.target_event_json }}
+
+jobs:
+  __central_check_start:
+    runs-on: ubuntu-latest
+    outputs:
+      check_id: ${{ steps.create.outputs.check_id }}
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo_json="$(gh api "repos/${TARGET_REPOSITORY}")"
+          [[ "$(jq -r '.id' <<<"$repo_json")" == "$TARGET_REPOSITORY_ID" ]] || exit 1
+          [[ "$(jq -r '.owner.id' <<<"$repo_json")" == "103241502" ]] || exit 1
+          [[ "$(jq -r '.owner.login' <<<"$repo_json" | tr '[:upper:]' '[:lower:]')" == "hereliesaz" ]] || exit 1
+
+      - name: Create target check
+        id: create
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          CHECK_NAME: ${{ inputs.target_workflow_name }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload="$(jq -n --arg name "$CHECK_NAME" --arg sha "$TARGET_CHECK_SHA" --arg details "$DETAILS_URL"             '{name:$name,head_sha:$sha,status:"in_progress",details_url:$details,output:{title:$name,summary:"Running from the shared HereLiesAz/workflows catalog."}}')"
+          response="$(gh api --method POST "repos/${TARGET_REPOSITORY}/check-runs" --input - <<<"$payload")"
+          echo "check_id=$(jq -r '.id' <<<"$response")" >> "$GITHUB_OUTPUT"
+
+  dispatch:
+    needs: __central_check_start
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      command: ${{ steps.request.outputs.command }}
+      issue_number: ${{ steps.request.outputs.issue_number }}
+      branch: ${{ steps.request.outputs.branch }}
+      session_name: ${{ steps.start.outputs.session_name }}
+    steps:
+      - name: Prepare target-aware Jules request
+        id: request
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          TARGET_INPUTS_JSON: ${{ inputs.target_inputs_json }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+
+          event = json.loads(os.environ.get("TARGET_EVENT_JSON") or "{}")
+          event_name = os.environ["TARGET_EVENT_NAME"]
+          repository = os.environ["TARGET_REPOSITORY"]
+          actor = os.environ.get("TARGET_ACTOR", "")
+          allowed = {"OWNER", "MEMBER", "COLLABORATOR"}
+
+          def gh_json(endpoint):
+              raw = subprocess.check_output(["gh", "api", endpoint], text=True)
+              return json.loads(raw)
+
+          repo_info = gh_json(f"repos/{repository}")
+          default_branch = repo_info["default_branch"]
+          command = "ignore"
+          issue_number = ""
+          branch = default_branch
+          request = ""
+
+          if event_name == "pull_request":
+              pr = event.get("pull_request") or {}
+              if event.get("action") == "opened" and not ((pr.get("head") or {}).get("repo") or {}).get("fork", False):
+                  command = "review"
+                  issue_number = str(pr.get("number") or event.get("number") or "")
+                  head = pr.get("head") or {}
+                  head_repo = (head.get("repo") or {}).get("full_name", "")
+                  branch = head.get("ref") if head_repo.lower() == repository.lower() else (pr.get("base") or {}).get("ref", default_branch)
+
+          elif event_name == "issues":
+              issue = event.get("issue") or {}
+              if event.get("action") in ("opened", "reopened"):
+                  command = "triage"
+                  issue_number = str(issue.get("number") or "")
+                  request = issue.get("body") or ""
+
+          elif event_name in ("issue_comment", "pull_request_review_comment", "pull_request_review"):
+              item = event.get("comment") or event.get("review") or {}
+              request = item.get("body") or ""
+              association = item.get("author_association") or ""
+              issue = event.get("issue") or {}
+              pr = event.get("pull_request") or {}
+              issue_number = str(pr.get("number") or issue.get("number") or event.get("number") or "")
+
+              if item.get("user", {}).get("type") == "User" and association in allowed and request.startswith("@jules"):
+                  if request.startswith("@jules /review"):
+                      command = "review"
+                      request = request[len("@jules /review"):].strip()
+                  elif request.startswith("@jules /triage"):
+                      command = "triage"
+                      request = request[len("@jules /triage"):].strip()
+                  else:
+                      command = "invoke"
+                      request = request[len("@jules"):].strip()
+
+                  if command == "review" and issue_number:
+                      try:
+                          pr_info = gh_json(f"repos/{repository}/pulls/{issue_number}")
+                          head = pr_info.get("head") or {}
+                          head_repo = (head.get("repo") or {}).get("full_name", "")
+                          if not (head.get("repo") or {}).get("fork", False) and head_repo.lower() == repository.lower():
+                              branch = head.get("ref") or default_branch
+                          else:
+                              branch = (pr_info.get("base") or {}).get("ref") or default_branch
+                      except Exception:
+                          branch = default_branch
+
+          title = ""
+          body = ""
+          if issue_number:
+              if command == "review":
+              prompt = (
+                  f"Review pull request #{issue_number} in {repository}.\n\n"
+                  f"Title: {title}\n\n"
+                  f"Description:\n{body}\n\n"
+                  f"Additional requester context:\n{request}\n\n"
+                  "Inspect the actual target repository and PR diff. Report correctness, security, "
+                  "performance, and maintainability problems with concrete file/line evidence. "
+                  "Post the findings to the pull request. If there is a clearly fixable issue, "
+                  "you may create a follow-up PR containing the correction."
+              )
+          elif command == "triage":
+              labels_raw = subprocess.check_output(
+                  ["gh", "label", "list", "--repo", repository, "--limit", "100", "--json", "name"],
+                  text=True,
+              )
+              labels = ", ".join(sorted(x["name"] for x in json.loads(labels_raw)))
+              prompt = (
+                  f"Triage issue #{issue_number} in {repository}.\n\n"
+                  f"Title: {title}\n\n"
+                  f"Body:\n{body}\n\n"
+                  f"Additional requester context:\n{request}\n\n"
+                  f"Available labels:\n{labels}\n\n"
+                  "Apply only labels from the available set. Do not invent labels. "
+                  "If the issue is ambiguous, use status/needs-triage if it exists; otherwise leave it unlabeled."
+              )
+          elif command == "invoke":
+              prompt = request or f"Inspect issue or pull request #{issue_number} in {repository} and respond to the requester."
+          else:
+              prompt = ""
+
+          with open("jules-prompt.md", "w", encoding="utf-8") as handle:
+              handle.write(prompt)
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"command={command}\n")
+              out.write(f"issue_number={issue_number}\n")
+              out.write(f"branch={branch}\n")
+
+          print(f"command={command} issue={issue_number} branch={branch} actor={actor}")
+          PY
+
+      - name: Start Jules session against target repository
+        id: start
+        if: ${{ steps.request.outputs.command != 'ignore' }}
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+          COMMAND: ${{ steps.request.outputs.command }}
+          ISSUE_NUMBER: ${{ steps.request.outputs.issue_number }}
+          STARTING_BRANCH: ${{ steps.request.outputs.branch }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "$JULES_API_KEY" ]] || { echo "JULES_API_KEY is not configured" >&2; exit 1; }
+          jq -n             --rawfile prompt jules-prompt.md             --arg source "sources/github/${TARGET_REPOSITORY}"             --arg branch "$STARTING_BRANCH"             --arg title "Jules $COMMAND $TARGET_REPOSITORY #$ISSUE_NUMBER"             '{prompt:$prompt,title:$title,sourceContext:{source:$source,githubRepoContext:{startingBranch:$branch}},requirePlanApproval:false,automationMode:"AUTO_CREATE_PR"}'             > jules-payload.json
+          curl --fail-with-body --silent --show-error             -X POST             -H 'Content-Type: application/json'             -H "X-Goog-Api-Key: $JULES_API_KEY"             --data @jules-payload.json             'https://jules.googleapis.com/v1alpha/sessions'             > jules-session.json
+          session_name="$(jq -r '.name // empty' jules-session.json)"
+          [[ -n "$session_name" ]] || { cat jules-session.json; exit 1; }
+          echo "session_name=$session_name" >> "$GITHUB_OUTPUT"
+
+      - name: Acknowledge Jules request
+        if: ${{ steps.request.outputs.command != 'ignore' && steps.request.outputs.issue_number != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          ISSUE_NUMBER: ${{ steps.request.outputs.issue_number }}
+          SESSION_NAME: ${{ steps.start.outputs.session_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          central_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          gh issue comment "$ISSUE_NUMBER"             --repo "$TARGET_REPOSITORY"             --body "🤖 Jules is on it for @${TARGET_ACTOR}. Central run: $central_url"
+
+  __central_check_finish:
+    if: ${{ always() }}
+    needs:
+      - __central_check_start
+      - dispatch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target check
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          CHECK_ID: ${{ needs.__central_check_start.outputs.check_id }}
+          CHECK_NAME: ${{ inputs.target_workflow_name }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${CHECK_ID:-}" ]] || exit 0
+          if [[ "$FAILED" == "true" ]]; then
+            conclusion="failure"
+            summary="Shared catalog workflow failed. Open the linked central run for details."
+          else
+            conclusion="success"
+            summary="Shared catalog workflow completed successfully."
+          fi
+          payload="$(jq -n --arg conclusion "$conclusion" --arg title "$CHECK_NAME" --arg summary "$summary" --arg details "$DETAILS_URL"             '{status:"completed",conclusion:$conclusion,details_url:$details,output:{title:$title,summary:$summary}}')"
+          gh api --method PATCH "repos/${TARGET_REPOSITORY}/check-runs/${CHECK_ID}" --input - <<<"$payload"
+

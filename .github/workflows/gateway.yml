@@ -25,19 +25,13 @@ concurrency:
   group: central-gateway-${{ inputs.repository_id }}
   cancel-in-progress: false
 
-env:
-  WORKER_URL: https://workflows.hereliesaz.workers.dev
-
 jobs:
   route:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - name: Check out central controller
         uses: actions/checkout@v4
-
-      - name: Install centralizer dependency
-        run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
 
       - name: Decode and cross-check request
         env:
@@ -61,15 +55,6 @@ jobs:
           print(f"repository={request['repository']}")
           print(f"workflow={request['source_workflow_path']}")
           PY
-
-      - name: Sync repository bindings
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: |
-          repository="$(jq -r '.repository' request.json)"
-          python scripts/sync_repository.py \
-            --repository "$repository" \
-            --worker-url "$WORKER_URL"
 
       - name: Dispatch registered catalog workflow
         env:

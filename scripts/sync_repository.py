@@ -14,6 +14,23 @@ except ImportError:
     from sync_repository_catalog import *  # noqa: F401,F403
 
 
+_base_compile_central = core.compile_central
+
+
+def compile_central(*args, **kwargs):
+    compiled = _base_compile_central(*args, **kwargs)
+    return (
+        compiled
+        .replace("__central_check_start", "central_check_start")
+        .replace("__central_check_finish", "central_check_finish")
+    )
+
+
+# The core synchronizer resolves this global at runtime, so patching it here keeps
+# content-addressed catalog workflows on the same GitHub-safe job IDs as curated ones.
+core.compile_central = compile_central
+
+
 def _load_policy(gh: GitHub, repo_id: int) -> dict:
     try:
         text, _ = gh.get_file(CENTRAL_REPOSITORY, f"registry/{repo_id}/policy.json")

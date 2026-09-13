@@ -125,8 +125,10 @@ jobs:
           central_doc = load_yaml(central)
           proxy_doc = load_yaml(proxy.split('\n', 4)[4])
           assert 'workflow_dispatch' in central_doc['on']
-          assert '__central_check_start' in central_doc['jobs']
-          assert '__central_check_finish' in central_doc['jobs']
+          assert 'central_check_start' in central_doc['jobs']
+          assert 'central_check_finish' in central_doc['jobs']
+          assert '__central_check_start' not in central
+          assert '__central_check_finish' not in central
           assert proxy_doc['permissions']['id-token'] == 'write'
           assert list(proxy_doc['jobs']) == ['central-dispatch']
           assert 'fromJSON(inputs.target_event_json)_name' not in central

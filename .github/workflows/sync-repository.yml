@@ -1,0 +1,66 @@
+name: Sync repository workflows
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: Repository to absorb, for example HereLiesAz/haive
+        required: true
+        type: string
+      dry_run:
+        description: Inspect without changing either repository
+        required: false
+        default: false
+        type: boolean
+
+run-name: sync · ${{ inputs.repository }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workflow-sync-${{ inputs.repository }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out central controller
+        uses: actions/checkout@v4
+
+      - name: Install centralizer dependency
+        run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
+
+      - name: Require configured Worker URL
+        if: ${{ !inputs.dry_run }}
+        env:
+          WORKER_URL: ${{ vars.WORKER_URL }}
+        run: |
+          test -n "$WORKER_URL" || {
+            echo "Set the WORKER_URL repository variable in HereLiesAz/workflows before migrating." >&2
+            exit 1
+          }
+
+      - name: Scan and centralize
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          WORKER_URL: ${{ vars.WORKER_URL }}
+        run: |
+          args=(--repository "${{ inputs.repository }}" --worker-url "$WORKER_URL")
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            args+=(--dry-run)
+          fi
+          python scripts/sync_repository.py "${args[@]}" --json-output sync-result.json
+
+      - name: Write summary
+        if: ${{ always() && hashFiles('sync-result.json') != '' }}
+        run: |
+          {
+            echo '## Workflow sync'
+            echo
+            echo '```json'
+            cat sync-result.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

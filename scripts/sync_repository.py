@@ -79,31 +79,114 @@ gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" -
     return dump_yaml(doc)
 
 
+def _proxy_doc(proxy: str) -> tuple[str, dict]:
+    lines = proxy.splitlines(keepends=True)
+    split_at = 0
+    while split_at < len(lines) and (lines[split_at].startswith("#") or not lines[split_at].strip()):
+        split_at += 1
+    header = "".join(lines[:split_at])
+    doc = load_yaml("".join(lines[split_at:]))
+    if not isinstance(doc, dict):
+        raise ValueError("generated proxy is not a workflow mapping")
+    return header, doc
+
+
+def _compact_event_script(source_path: str) -> str | None:
+    if source_path == ".github/workflows/jules-glee.yml":
+        jq_filter = r'''{
+  action,
+  number,
+  pull_request: {
+    number: .pull_request.number,
+    title: (.pull_request.title // ""),
+    body: (.pull_request.body // ""),
+    base: {ref: .pull_request.base.ref, sha: .pull_request.base.sha},
+    head: {
+      ref: .pull_request.head.ref,
+      sha: .pull_request.head.sha,
+      repo: {
+        full_name: .pull_request.head.repo.full_name,
+        fork: (.pull_request.head.repo.fork // false)
+      }
+    }
+  }
+}'''
+    elif source_path == ".github/workflows/jules-dispatch.yml":
+        jq_filter = r'''{
+  action,
+  number,
+  pull_request: (if .pull_request then {
+    number: .pull_request.number,
+    title: (.pull_request.title // ""),
+    body: (.pull_request.body // ""),
+    base: {ref: .pull_request.base.ref, sha: .pull_request.base.sha},
+    head: {
+      ref: .pull_request.head.ref,
+      sha: .pull_request.head.sha,
+      repo: {
+        full_name: .pull_request.head.repo.full_name,
+        fork: (.pull_request.head.repo.fork // false)
+      }
+    }
+  } else null end),
+  issue: (if .issue then {
+    number: .issue.number,
+    title: (.issue.title // ""),
+    body: (.issue.body // ""),
+    pull_request: (if .issue.pull_request then {url: (.issue.pull_request.url // "")} else null end)
+  } else null end),
+  comment: (if .comment then {
+    body: (.comment.body // ""),
+    author_association: (.comment.author_association // ""),
+    user: {type: (.comment.user.type // ""), login: (.comment.user.login // "")}
+  } else null end),
+  review: (if .review then {
+    body: (.review.body // ""),
+    author_association: (.review.author_association // ""),
+    user: {type: (.review.user.type // ""), login: (.review.user.login // "")}
+  } else null end)
+}'''
+    else:
+        return None
+
+    return f'''DISPATCH_EVENT_JSON="$(jq -c '{jq_filter}' <<<"$EVENT_JSON")"
+'''
+
+
 def build_proxy(source_text: str, source_path: str, source_hash: str, workflow_name: str) -> str:
     proxy = _base_build_proxy(source_text, source_path, source_hash, workflow_name)
-    if source_path != ".github/workflows/jules-dispatch.yml":
+    compact_script = _compact_event_script(source_path)
+    needs_jules_gate = source_path == ".github/workflows/jules-dispatch.yml"
+    if compact_script is None and not needs_jules_gate:
         return proxy
 
-    needle = "  central-dispatch:\n    runs-on: ubuntu-latest\n"
-    replacement = """  central-dispatch:
-    if: >-
-      ${{
-        github.event_name == 'issues' ||
-        github.event_name == 'pull_request' ||
-        (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '@jules')) ||
-        (github.event_name == 'pull_request_review_comment' && startsWith(github.event.comment.body, '@jules')) ||
-        (github.event_name == 'pull_request_review' && startsWith(github.event.review.body, '@jules'))
-      }}
-    runs-on: ubuntu-latest
-"""
-    if needle not in proxy:
-        raise ValueError("generated Jules proxy shape changed; cannot apply comment gate")
-    return proxy.replace(needle, replacement, 1)
+    header, doc = _proxy_doc(proxy)
+    jobs = doc.get("jobs") or {}
+    job = jobs.get("central-dispatch")
+    if not isinstance(job, dict):
+        raise ValueError("generated proxy is missing central-dispatch")
+
+    if needs_jules_gate:
+        job["if"] = "${{ github.event_name == 'issues' || github.event_name == 'pull_request' || (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '@jules')) || (github.event_name == 'pull_request_review_comment' && startsWith(github.event.comment.body, '@jules')) || (github.event_name == 'pull_request_review' && startsWith(github.event.review.body, '@jules')) }}"
+
+    if compact_script is not None:
+        steps = job.get("steps") or []
+        if not steps or not isinstance(steps[0], dict) or not isinstance(steps[0].get("run"), str):
+            raise ValueError("generated proxy dispatch step shape changed")
+        run = steps[0]["run"]
+        needle = 'payload="$(jq -n'
+        if needle not in run or '--argjson event "$EVENT_JSON"' not in run:
+            raise ValueError("generated proxy payload shape changed; cannot compact event")
+        run = run.replace(needle, compact_script + needle, 1)
+        run = run.replace('--argjson event "$EVENT_JSON"', '--argjson event "$DISPATCH_EVENT_JSON"', 1)
+        steps[0]["run"] = run
+
+    return header + dump_yaml(doc)
 
 
 # The core synchronizer resolves these globals at runtime, so patching them here
-# makes every generated shared workflow use GitHub-safe IDs, PAT-compatible commit
-# statuses, and the same Jules event gate as the curated implementation.
+# makes generated shared workflows use PAT-compatible statuses, curated payload
+# minimization, and the same Jules event gate as the live catalog.
 core.compile_central = compile_central
 core.build_proxy = build_proxy
 

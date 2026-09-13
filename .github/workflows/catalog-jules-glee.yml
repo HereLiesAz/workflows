@@ -99,8 +99,6 @@ env:
 jobs:
   central_check_start:
     runs-on: ubuntu-latest
-    outputs:
-      check_id: ${{ steps.create.outputs.check_id }}
     steps:
       - name: Validate immutable target identity
         env:
@@ -113,18 +111,16 @@ jobs:
           [[ "$(jq -r '.owner.id' <<<"$repo_json")" == "103241502" ]] || exit 1
           [[ "$(jq -r '.owner.login' <<<"$repo_json" | tr '[:upper:]' '[:lower:]')" == "hereliesaz" ]] || exit 1
 
-      - name: Create target check
-        id: create
+      - name: Set target status pending
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          CHECK_NAME: ${{ inputs.target_workflow_name }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
           DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         shell: bash
         run: |
           set -euo pipefail
-          payload="$(jq -n --arg name "$CHECK_NAME" --arg sha "$TARGET_CHECK_SHA" --arg details "$DETAILS_URL" '{name:$name,head_sha:$sha,status:"in_progress",details_url:$details,output:{title:$name,summary:"Running from the shared HereLiesAz/workflows catalog."}}')"
-          response="$(gh api --method POST "repos/${TARGET_REPOSITORY}/check-runs" --input - <<<"$payload")"
-          echo "check_id=$(jq -r '.id' <<<"$response")" >> "$GITHUB_OUTPUT"
+          payload="$(jq -n --arg state "pending" --arg context "$STATUS_CONTEXT" --arg description "Running from the shared HereLiesAz/workflows catalog." --arg target_url "$DETAILS_URL" '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+          gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload"
 
   glee:
     needs: central_check_start
@@ -334,23 +330,21 @@ jobs:
       - glee
     runs-on: ubuntu-latest
     steps:
-      - name: Complete target check
+      - name: Complete target status
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          CHECK_ID: ${{ needs.central_check_start.outputs.check_id }}
-          CHECK_NAME: ${{ inputs.target_workflow_name }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
           FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
           DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         shell: bash
         run: |
           set -euo pipefail
-          [[ -n "${CHECK_ID:-}" ]] || exit 0
           if [[ "$FAILED" == "true" ]]; then
-            conclusion="failure"
-            summary="Shared catalog workflow failed. Open the linked central run for details."
+            state="failure"
+            description="Shared catalog workflow failed."
           else
-            conclusion="success"
-            summary="Shared catalog workflow completed successfully."
+            state="success"
+            description="Shared catalog workflow completed successfully."
           fi
-          payload="$(jq -n --arg conclusion "$conclusion" --arg title "$CHECK_NAME" --arg summary "$summary" --arg details "$DETAILS_URL" '{status:"completed",conclusion:$conclusion,details_url:$details,output:{title:$title,summary:$summary}}')"
-          gh api --method PATCH "repos/${TARGET_REPOSITORY}/check-runs/${CHECK_ID}" --input - <<<"$payload"
+          payload="$(jq -n --arg state "$state" --arg context "$STATUS_CONTEXT" --arg description "$description" --arg target_url "$DETAILS_URL" '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+          gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload"

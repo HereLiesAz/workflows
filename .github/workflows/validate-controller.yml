@@ -37,6 +37,7 @@ jobs:
           python -m py_compile \
             scripts/sync_repository.py \
             scripts/sync_repository_catalog.py \
+            scripts/retry_repository_sync.py \
             scripts/dispatch_request.py
 
       - name: Parse controller workflows

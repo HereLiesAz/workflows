@@ -1,0 +1,266 @@
+{
+  "last_sync_at": "2026-09-14T01:02:34+00:00",
+  "repository": {
+    "default_branch": "main",
+    "full_name": "HereLiesAz/CleanUnderwear",
+    "id": 1220715027,
+    "owner_id": 103241502,
+    "owner_login": "HereLiesAz"
+  },
+  "schema": 2,
+  "worker_url_configured": true,
+  "workflows": {
+    ".github/workflows/android-ci.yml": {
+      "blockers": [
+        "job 'build-and-release' step 8 uses actions/github-script with runner-repository context"
+      ],
+      "name": "Android CI",
+      "registry_source": "registry/1220715027/android-ci-3798bddf.source.yml",
+      "source_sha256": "f648cd6f5789f3e09cacb9ff9a1f8dd1132f7ac3223f14587757ae9f3474302e",
+      "status": "local",
+      "updated_at": "2026-09-14T01:01:52+00:00"
+    },
+    ".github/workflows/android-release-aab.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "42a3f5af9ecea757b74eef1d2922685dc26374814e3f8132a1cc4ffc3d5703ff",
+      "central_workflow": ".github/workflows/catalog-42a3f5af9ecea757.yml",
+      "name": "Build & Publish AAB (Play)",
+      "registry_source": "registry/1220715027/android-release-aab-c7afaeed.source.yml",
+      "source_sha256": "c7e435bc33db1508560b4f5e700570d3f9544ce3d2efa16b4b7df2a60ee3c1f4",
+      "status": "active",
+      "updated_at": "2026-09-14T01:01:53+00:00"
+    },
+    ".github/workflows/android-release-apk.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "31e2f79fe72366a00cf075af76d7c9fa6e31b41a5d81fcf59a2f0ea218b7e04e",
+      "central_workflow": ".github/workflows/catalog-31e2f79fe72366a0.yml",
+      "name": "Compile and Release APK",
+      "registry_source": "registry/1220715027/android-release-apk-f927747f.source.yml",
+      "source_sha256": "41ccb8c30d393fdc42a44d3b208b179f948ebc44e1c316c4e78b76f627f3bb3c",
+      "status": "active",
+      "updated_at": "2026-09-14T01:01:55+00:00"
+    },
+    ".github/workflows/android-update-libs.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "ae32a79237de31ef7d09c983969642705753f0c5bbcb366b0642609f7e38ef49",
+      "central_workflow": ".github/workflows/catalog-ae32a79237de31ef.yml",
+      "name": "Update Dependencies",
+      "registry_source": "registry/1220715027/android-update-libs-46df0ebe.source.yml",
+      "source_sha256": "05e2b3435ae6c44dfac330372257beb8ccd0b4046cd7fb66bff57fabefb799e3",
+      "status": "active",
+      "updated_at": "2026-09-14T01:01:58+00:00"
+    },
+    ".github/workflows/backup.yml": {
+      "catalog": "curated",
+      "central_workflow": ".github/workflows/catalog-context-backup.yml",
+      "name": "Context Backup (Universal Surgical)",
+      "registry_source": "registry/1220715027/backup-d598524a.source.yml",
+      "source_sha256": "3a4f16e99f43e7ff92c92791ff368bc12e612766d692ac424a0c843deea01c71",
+      "status": "active",
+      "updated_at": "2026-09-14T01:02:00+00:00"
+    },
+    ".github/workflows/clear_cache.yml": {
+      "catalog": "curated",
+      "central_workflow": ".github/workflows/catalog-clear-cache.yml",
+      "name": "Clear Gradle Cache",
+      "registry_source": "registry/1220715027/clear_cache-7bd18479.source.yml",
+      "source_sha256": "5d40dac9f75a6e3e651ff6a4b1c8e7bf52b09178d0aa30c586d3fbef46694fca",
+      "status": "active",
+      "updated_at": "2026-09-14T01:02:02+00:00"
+    },
+    ".github/workflows/dependabot.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "33ed309e3b7a5637128d1d71c496f635097d263be878d4f8aa705510396ee0b4",
+      "central_workflow": ".github/workflows/catalog-33ed309e3b7a5637.yml",
+      "name": "dependabot.yml",
+      "registry_source": "registry/1220715027/dependabot-7f1757dd.source.yml",
+      "source_sha256": "f66a0283daf036bb976a72e6a920655c4f7b76635510b1e3074c19b9a0b83a16",
+      "status": "active",
+      "updated_at": "2026-09-14T01:02:04+00:00"
+    },
+    ".github/workflows/deploy-sftp.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "8d49901b5104a9f7cf6201cc3602a514fe726df6d4c060dbde54434186734506",
+      "central_workflow": ".github/workflows/catalog-8d49901b5104a9f7.yml",
+      "name": "Deploy over FTP",
+      "registry_source": "registry/1220715027/deploy-sftp-1401405c.source.yml",
+      "source_sha256": "b0ef23a564e122b032f710d57a50a0d08fa49b142386df869c99f960f4e5be8b",
+      "status": "active",
+      "updated_at": "2026-09-14T01:02:06+00:00"
+    },
+    ".github/workflows/gemini-dispatch.yml": {
+      "blockers": [
+        "job 'triage' is depended on downstream and expands to 2 jobs; only single-job dependency aliasing is supported"
+      ],
+      "name": "\ud83d\udd00 Gemini Dispatch",
+      "registry_source": "registry/1220715027/gemini-dispatch-b7ca9237.source.yml",
+      "source_sha256": "e92dabfe3e9be8a4a78092782199f807692b35820484d742fcb1401dec73690d",
+      "status": "local",
+      "updated_at": "2026-09-14T01:02:09+00:00"
+    },
+    ".github/workflows/gemini-invoke.yml": {
+      "name": "\u25b6\ufe0f Gemini Invoke",
+      "registry_source": "registry/1220715027/gemini-invoke-12affba2.source.yml",
+      "source_sha256": "e7edecd7117c0765411e44b0902ae85ab44a8e340324b9955724e5c086e851da",
+      "status": "library",
+      "updated_at": "2026-09-14T01:02:10+00:00"
+    },
+    ".github/workflows/gemini-review.yml": {
+      "name": "\ud83d\udd0e Gemini Review",
+      "registry_source": "registry/1220715027/gemini-review-a68afd01.source.yml",
+      "source_sha256": "e0a313beeb9f9da8051dffce7eb62c557fd33cef2d639ea72d5ff3894fc90b29",
+      "status": "library",
+      "updated_at": "2026-09-14T01:02:10+00:00"
+    },
+    ".github/workflows/gemini-scheduled-triage.yml": {
+      "blockers": [
+        "job 'label' step 2 uses actions/github-script with runner-repository context",
+        "job 'triage' step 1 uses actions/github-script with runner-repository context"
+      ],
+      "name": "\ud83d\udccb Gemini Scheduled Issue Triage",
+      "registry_source": "registry/1220715027/gemini-scheduled-triage-cdff38b9.source.yml",
+      "source_sha256": "7628e090fdd9cbb704ad1a5e5c46d5d6f286b8f28e8b59337049caff58de5049",
+      "status": "local",
+      "updated_at": "2026-09-14T01:02:11+00:00"
+    },
+    ".github/workflows/gemini-triage.yml": {
+      "name": "\ud83d\udd00 Gemini Triage",
+      "registry_source": "registry/1220715027/gemini-triage-734cf9ba.source.yml",
+      "source_sha256": "1e0e5353754d1c5a3d31e48b3e46a9a97bed840ecfe16d25bb15f143aa19e9c9",
+      "status": "library",
+      "updated_at": "2026-09-14T01:02:12+00:00"
+    },
+    ".github/workflows/jekyll-gh-pages.yml": {
+      "blockers": [
+        "job 'deploy' deploys to the runner repository's github-pages environment",
+        "job 'deploy' step 1 uses repository-bound action 'actions/deploy-pages@v5'"
+      ],
+      "name": "Deploy Jekyll with GitHub Pages dependencies preinstalled",
+      "registry_source": "registry/1220715027/jekyll-gh-pages-5de61e74.source.yml",
+      "source_sha256": "bc38315952dc5a20fa874a45475051dd81a7cdde23084779920690407903ba63",
+      "status": "local",
+      "updated_at": "2026-09-14T01:02:13+00:00"
+    },
+    ".github/workflows/jules-agent.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "7225b8d8a75f37afbfb3d81b660936f378132017e755075c57731e370b29d4e3",
+      "central_workflow": ".github/workflows/catalog-7225b8d8a75f37af.yml",
+      "name": "Jules Agent",
+      "registry_source": "registry/1220715027/jules-agent-e0063890.source.yml",
+      "source_sha256": "3da46ea77592ec4d42ab0b88f925f930ee3ab3b70992364f3f99157f3800f63f",
+      "status": "active",
+      "updated_at": "2026-09-14T01:02:14+00:00"
+    },
+    ".github/workflows/jules-auto-merge.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "7a44a740c5d1f2f865d1aafe61dfebf4ad135c9299af02b097ae55174347c6fd",
+      "central_workflow": ".github/workflows/catalog-7a44a740c5d1f2f8.yml",
+      "name": "Jules Auto-Merge Branch",
+      "registry_source": "registry/1220715027/jules-auto-merge-9008b8c6.source.yml",
+      "source_sha256": "fbf245f0b8591c57e48c4406f61aab91d4bfa5583fe9c2963b24f5ac596fee7c",
+      "status": "active",
+      "updated_at": "2026-09-14T01:02:17+00:00"
+    },
+    ".github/workflows/jules-dispatch.yml": {
+      "catalog": "curated",
+      "central_workflow": ".github/workflows/catalog-jules-dispatch.yml",
+      "name": "\ud83d\udd00 Jules Dispatch",
+      "registry_source": "registry/1220715027/jules-dispatch-800d0b01.source.yml",
+      "source_sha256": "17c13d04cfa6d1e55af692790eaab5608a1b4b511a1f66e56ec133a8803eb5da",
+      "status": "active",
+      "updated_at": "2026-09-14T01:02:19+00:00"
+    },
+    ".github/workflows/jules-glee.yml": {
+      "catalog": "curated",
+      "central_workflow": ".github/workflows/catalog-jules-glee.yml",
+      "name": "\ud83d\ude08 Glee Audit",
+      "registry_source": "registry/1220715027/jules-glee-0de23ac9.source.yml",
+      "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
+      "status": "active",
+      "updated_at": "2026-09-14T01:02:21+00:00"
+    },
+    ".github/workflows/jules-invoke.yml": {
+      "name": "\u25b6\ufe0f Jules Invoke",
+      "registry_source": "registry/1220715027/jules-invoke-b23fc002.source.yml",
+      "source_sha256": "cb2a978450da9b6dc82f8527a4ff2dbcde9af37e4e88d99e4409f217826572f0",
+      "status": "library",
+      "updated_at": "2026-09-14T01:02:23+00:00"
+    },
+    ".github/workflows/jules-review.yml": {
+      "name": "\ud83d\udd0e Jules Review",
+      "registry_source": "registry/1220715027/jules-review-9f7b6ce5.source.yml",
+      "source_sha256": "b170093ab22ff75431fb6ea62d3e4ff1a254c5ba7352ee150e59e8dfa4b6f416",
+      "status": "library",
+      "updated_at": "2026-09-14T01:02:23+00:00"
+    },
+    ".github/workflows/jules-scheduled-triage.yml": {
+      "blockers": [
+        "job 'find-issues' step 1 uses actions/github-script with runner-repository context",
+        "job 'triage' step 1 uses repository-bound action 'google-labs-code/jules-invoke@v1.0.0'"
+      ],
+      "name": "\ud83d\udccb Jules Scheduled Issue Triage",
+      "registry_source": "registry/1220715027/jules-scheduled-triage-7b36475f.source.yml",
+      "source_sha256": "c5795302751261681062afb2384c0a30807517ee87a9246fcc46f874d0b0f7f1",
+      "status": "local",
+      "updated_at": "2026-09-14T01:02:24+00:00"
+    },
+    ".github/workflows/jules-triage.yml": {
+      "name": "\ud83d\udd00 Jules Triage",
+      "registry_source": "registry/1220715027/jules-triage-5c552504.source.yml",
+      "source_sha256": "dd3c04d1b62501e2260474da42dff9fb083431b27c1b21c47b20a0dc8cb8a09c",
+      "status": "library",
+      "updated_at": "2026-09-14T01:02:25+00:00"
+    },
+    ".github/workflows/label.yml": {
+      "blockers": [
+        "job 'label' step 2 uses repository-bound action 'actions/labeler@v7'"
+      ],
+      "name": "Labeler",
+      "registry_source": "registry/1220715027/label-04cea97c.source.yml",
+      "source_sha256": "5ae0e90ab449518420f93e62acc2eb9d4a39cd8e07051a7a1d1ac1c26ec67869",
+      "status": "local",
+      "updated_at": "2026-09-14T01:02:26+00:00"
+    },
+    ".github/workflows/merged-build.yml": {
+      "blockers": [
+        "job 'build-and-release' step 6 uses actions/github-script with runner-repository context"
+      ],
+      "name": "PR Verification & Merge Release",
+      "registry_source": "registry/1220715027/merged-build-7328551a.source.yml",
+      "source_sha256": "7decd62604177fe914e6cd5b8fd85fba4e01d88e5ac8f3991399a57dde4a1697",
+      "status": "local",
+      "updated_at": "2026-09-14T01:02:27+00:00"
+    },
+    ".github/workflows/release-apk.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "33ea15551e1da2d48b830d5b1d2980b809f031c0983236c55b83a55ab596b3b5",
+      "central_workflow": ".github/workflows/catalog-33ea15551e1da2d4.yml",
+      "name": "Compile and Release APK",
+      "registry_source": "registry/1220715027/release-apk-da6a1dd6.source.yml",
+      "source_sha256": "aeb8bc10311d29a49ceb316a824021c2ef6f17847d459bea89ace81f5f96c1df",
+      "status": "active",
+      "updated_at": "2026-09-14T01:02:28+00:00"
+    },
+    ".github/workflows/static.yml": {
+      "blockers": [
+        "job 'deploy' deploys to the runner repository's github-pages environment",
+        "job 'deploy' step 4 uses repository-bound action 'actions/deploy-pages@v5'"
+      ],
+      "name": "Deploy static content to Pages",
+      "registry_source": "registry/1220715027/static-876bb641.source.yml",
+      "source_sha256": "8d2cf0a167b2b2b5c1ac7ed44dcf5aafb16c96bfbcddcb93b0e295ae359ee8ea",
+      "status": "local",
+      "updated_at": "2026-09-14T01:02:30+00:00"
+    },
+    ".github/workflows/summary.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "d825bd202905b6c6ea9d4c61fe3c25f7bef34caafb651ea101316e61f0628df7",
+      "central_workflow": ".github/workflows/catalog-d825bd202905b6c6.yml",
+      "name": "Summarize new issues",
+      "registry_source": "registry/1220715027/summary-bc1f0d2a.source.yml",
+      "source_sha256": "9158d4587eeca12602514ad7da12f02c600029539ba1567bf63b405d972b65ff",
+      "status": "active",
+      "updated_at": "2026-09-14T01:02:31+00:00"
+    }
+  }
+}

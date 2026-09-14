@@ -1,0 +1,98 @@
+name: Release AAB
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_release:
+        description: 'Tag commit with versionName (e.g. v1.0)?'
+        type: boolean
+        default: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: bundleRelease + sign + upload
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Materialize google-services.json
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON_B64" ]; then
+            echo "GOOGLE_SERVICES_JSON_B64 secret is required for release builds."
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON_B64" | base64 -d > app/google-services.json
+
+      - name: Decode signing keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "KEYSTORE_B64 secret is required for release builds."
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/keystore.jks"
+          echo "KEYSTORE_PATH=$RUNNER_TEMP/keystore.jks" >> "$GITHUB_ENV"
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Bundle release (signed AAB)
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS:        ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD:     ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew :app:bundleRelease --stacktrace
+
+      - name: Locate AAB
+        id: locate
+        run: |
+          aab=$(find app/build/outputs/bundle -name '*.aab' -print -quit)
+          echo "aab=$aab" >> "$GITHUB_OUTPUT"
+          version=$(grep -E '^\s*versionName' app/build.gradle.kts | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: barcodencrypt-${{ steps.locate.outputs.version }}-release
+          path: ${{ steps.locate.outputs.aab }}
+          if-no-files-found: error
+
+      - name: Tag commit
+        if: ${{ inputs.tag_release && github.ref_name == github.event.repository.default_branch }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="v${{ steps.locate.outputs.version }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists; skipping."
+          else
+            git tag -a "$tag" -m "Release $tag"
+            git push origin "$tag"
+          fi

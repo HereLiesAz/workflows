@@ -1,0 +1,97 @@
+name: Desktop Build
+
+# Native installers can't be cross-compiled: DMG needs a macOS runner, MSI needs Windows,
+# and DEB needs Linux. Runs on every push so a regression to any platform's build fails
+# CI immediately, not on the next release.
+
+on:
+  push:
+    branches: ['**']
+    paths-ignore:
+      - version.properties
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: build + upload-artifact only; no repo writes.
+permissions:
+  contents: read
+
+jobs:
+  desktop-build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            task: packageDeb
+            artifact: desktop-linux-deb
+            path: desktop/build/compose/binaries/main/deb/*.deb
+          - os: macos-latest
+            task: packageDmg
+            artifact: desktop-macos-dmg
+            path: desktop/build/compose/binaries/main/dmg/*.dmg
+          - os: windows-latest
+            task: packageMsi
+            artifact: desktop-windows-msi
+            path: desktop/build/compose/binaries/main/msi/*.msi
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: false
+          dependency-graph: disabled
+
+      - name: Grant execute permission for gradlew
+        if: runner.os != 'Windows'
+        run: chmod +x gradlew
+
+      # Ask for the format by name on each leg — a config drop-out would otherwise
+      # silently skip the format we wanted instead of failing loudly.
+      - name: ${{ matrix.task }}
+        shell: bash
+        run: ./gradlew :desktop:${{ matrix.task }} --build-cache --stacktrace
+
+      # actions/upload-artifact@v7 has no built-in retry. GitHub's blob-storage FinalizeArtifact
+      # call flakes with ECONNRESET on the ~100-MB DMG once every few days — the whole file has
+      # already streamed up, only the final commit call fails. overwrite: true lets a retry
+      # cleanly replace the artifact instead of colliding with the partial one.
+      - name: Upload ${{ matrix.artifact }} (attempt 1)
+        id: upload1
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.path }}
+          if-no-files-found: error
+          overwrite: true
+
+      - name: Pause before retry
+        if: steps.upload1.outcome == 'failure'
+        shell: bash
+        run: sleep 20
+
+      - name: Upload ${{ matrix.artifact }} (retry)
+        if: steps.upload1.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.path }}
+          if-no-files-found: error
+          overwrite: true

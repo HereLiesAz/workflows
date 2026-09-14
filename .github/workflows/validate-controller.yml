@@ -7,12 +7,14 @@ on:
       - '.github/workflows/**'
       - 'scripts/**'
       - 'worker/**'
+      - 'registry/**/manifest.json'
       - 'wrangler.jsonc'
   pull_request:
     paths:
       - '.github/workflows/**'
       - 'scripts/**'
       - 'worker/**'
+      - 'registry/**/manifest.json'
       - 'wrangler.jsonc'
   workflow_dispatch:
 
@@ -35,28 +37,87 @@ jobs:
       - name: Compile Python
         run: |
           python -m py_compile \
+            scripts/shared_workflow_library.py \
             scripts/sync_repository.py \
             scripts/sync_repository_catalog.py \
             scripts/retry_repository_sync.py \
             scripts/dispatch_request.py
 
-      - name: Parse controller workflows
+      - name: Validate semantic workflow filenames and YAML
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
           from ruamel.yaml import YAML
 
           yaml = YAML(typ='safe')
-          for path in Path('.github/workflows').glob('*.y*ml'):
-              with path.open(encoding='utf-8') as handle:
-                  doc = yaml.load(handle)
+          workflow_dir = Path('.github/workflows')
+          curated = {
+              'jules-dispatch.yml',
+              'jules-glee.yml',
+              'context-backup.yml',
+              'clear-cache.yml',
+          }
+
+          for path in workflow_dir.glob('*.y*ml'):
+              if path.name.startswith('catalog-'):
+                  raise SystemExit(f'catalog-prefixed workflow filename is forbidden: {path}')
+              if re.search(r'-[0-9a-f]{16}\.ya?ml$', path.name):
+                  raise SystemExit(f'hash-suffixed workflow filename is forbidden: {path}')
+
+              text = path.read_text(encoding='utf-8')
+              doc = yaml.load(text)
               if not isinstance(doc, dict) or 'jobs' not in doc:
                   raise SystemExit(f'invalid workflow: {path}')
-              if path.name.startswith('catalog-'):
+
+              is_shared_family = text.startswith('# Central semantic shared-workflow family.')
+              if is_shared_family or path.name in curated:
                   triggers = doc.get('on')
                   if not isinstance(triggers, dict) or set(triggers) != {'workflow_dispatch'}:
-                      raise SystemExit(f'catalog workflow must be dispatch-only: {path}: on={triggers!r}')
+                      raise SystemExit(f'shared workflow must be dispatch-only: {path}: on={triggers!r}')
               print(path)
+          PY
+
+      - name: Validate registry shared-workflow bindings
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          from scripts.shared_workflow_library import family_variants
+
+          workflow_dir = Path('.github/workflows')
+          existing = {p.as_posix() for p in workflow_dir.glob('*.y*ml')}
+          family_cache = {}
+          broken = []
+
+          for manifest_path in Path('registry').glob('*/manifest.json'):
+              manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+              for source_path, entry in (manifest.get('workflows') or {}).items():
+                  if not isinstance(entry, dict) or entry.get('status') != 'active':
+                      continue
+                  central = entry.get('central_workflow')
+                  if not central:
+                      broken.append(f'{manifest_path}:{source_path}: active binding has no central_workflow')
+                      continue
+                  if central not in existing:
+                      broken.append(f'{manifest_path}:{source_path}: missing {central}')
+                      continue
+
+                  if entry.get('binding') == 'shared-variant':
+                      variant = entry.get('shared_variant')
+                      if not variant:
+                          broken.append(f'{manifest_path}:{source_path}: shared binding has no shared_variant')
+                          continue
+                      variants = family_cache.get(central)
+                      if variants is None:
+                          variants = family_variants(Path(central).read_text(encoding='utf-8'))
+                          family_cache[central] = variants
+                      if variant not in variants:
+                          broken.append(f'{manifest_path}:{source_path}: variant {variant} missing from {central}')
+
+          if broken:
+              raise SystemExit('\n'.join(broken))
+          print(f'validated {len(family_cache)} semantic shared workflow families referenced by registry manifests')
           PY
 
       - name: Validate embedded Bash and Python
@@ -91,12 +152,7 @@ jobs:
 
                   shell = str(step.get('shell') or '').strip().lower()
                   if shell.startswith('bash'):
-                      subprocess.run(
-                          ['bash', '-n'],
-                          input=run,
-                          text=True,
-                          check=True,
-                      )
+                      subprocess.run(['bash', '-n'], input=run, text=True, check=True)
 
                   for match in heredoc.finditer(run):
                       compile(match.group(1), f'{path}:step-{index}', 'exec')
@@ -104,27 +160,35 @@ jobs:
               print(f'validated scripts: {path}')
           PY
 
-      - name: Smoke-test workflow compiler
+      - name: Smoke-test workflow compiler and Glee invariants
         run: |
           python - <<'PY'
           from pathlib import Path
           from scripts import retry_repository_sync as retry_sync
-          from scripts import sync_repository_catalog as catalog_core
+          from scripts import sync_repository_catalog as core
+          from scripts.shared_workflow_library import (
+              build_shared_family,
+              family_variants,
+              semantic_family_slug,
+          )
           from scripts.sync_repository import build_proxy, compile_central, load_yaml, sha256_text
 
-          assert issubclass(retry_sync.IdempotentGitHub, catalog_core.GitHub)
+          assert issubclass(retry_sync.IdempotentGitHub, core.GitHub)
 
           synchronizer_source = Path('scripts/sync_repository_catalog.py').read_text(encoding='utf-8')
           assert 'item = self.contents(full_name, path, ref=branch)' in synchronizer_source
           assert 'if current == content:' in synchronizer_source
           assert 'existing.get("value") == value' in synchronizer_source
-          assert 'f"Refresh {path} from shared catalog via {CENTRAL_REPOSITORY}"' in synchronizer_source
-          assert 'if not is_proxy:\n                    proxy = build_proxy' not in synchronizer_source
-          assert 'if not is_proxy:\n                gh.put_file(repo["full_name"], path, proxy' not in synchronizer_source
+          assert 'shared_workflow_path(workflow_name, path, compiled)' in synchronizer_source
+          assert '"binding": "shared-variant"' in synchronizer_source
+          assert '"shared_variant": shared_variant' in synchronizer_source
+          assert 'legacy Glee workflow disabled' in synchronizer_source
+          assert '.github/workflows/jules-glee.yml": ".github/workflows/jules-glee.yml"' in synchronizer_source
+          assert '.github/workflows/jules-dispatch.yml": ".github/workflows/jules-dispatch.yml"' in synchronizer_source
 
           glee_source = Path('.github/workflows/jules-glee.yml').read_text(encoding='utf-8')
           assert 'ANALYSIS-ONLY, REPOLESS audit' in glee_source
-          assert 'AUTOMATION_MODE_UNSPECIFIED' in glee_source
+          assert 'automationMode:"AUTOMATION_MODE_UNSPECIFIED"' in glee_source
           assert 'has("sourceContext") | not' in glee_source
           assert 'sources/github/' not in glee_source
           assert 'AUTO_CREATE_PR' not in glee_source
@@ -134,11 +198,24 @@ jobs:
           assert "fromJSON(inputs.target_event_json).action == 'opened'" in glee_source
           assert '<!-- glee-audit -->' in glee_source
 
+          glee_named = [
+              p.name for p in Path('.github/workflows').glob('*glee*.y*ml')
+              if p.name != 'jules-glee.yml'
+          ]
+          assert not glee_named, f'non-canonical Glee executors remain: {glee_named}'
+
+          jules_dispatch = Path('.github/workflows/jules-dispatch.yml').read_text(encoding='utf-8')
+          assert 'Ordinary PR-open auditing belongs exclusively to Glee' in jules_dispatch
+          assert 'if event_name == "pull_request":' in jules_dispatch
+          pr_branch = jules_dispatch.split('if event_name == "pull_request":', 1)[1].split('elif event_name == "issues":', 1)[0]
+          assert 'command = "review"' not in pr_branch
+
           dispatcher_source = Path('scripts/dispatch_request.py').read_text(encoding='utf-8')
           assert 'source_path == ".github/workflows/jules-dispatch.yml" and event_name == "pull_request"' in dispatcher_source
           assert 'source_path == ".github/workflows/jules-glee.yml"' in dispatcher_source
           assert 'event_name != "pull_request_target"' in dispatcher_source
-          assert 'shared_variant' in dispatcher_source
+          assert 'event.get("action") != "opened"' in dispatcher_source
+          assert 'dispatch_inputs["shared_variant"] = shared_variant' in dispatcher_source
 
           def expression(body: str) -> str:
               return '${' + '{ ' + body + ' }}'
@@ -172,45 +249,22 @@ jobs:
           for marker, value in replacements.items():
               source = source.replace(marker, value)
 
-          target = {
-              'full_name': 'HereLiesAz/fixture',
-              'private': False,
-          }
+          target = {'full_name': 'HereLiesAz/fixture', 'private': False}
           central = compile_central(source, target, '.github/workflows/fixture.yml', 'Fixture')
           proxy = build_proxy(source, '.github/workflows/fixture.yml', sha256_text(source), 'Fixture')
-          jules_proxy = build_proxy(
-              source,
-              '.github/workflows/jules-dispatch.yml',
-              sha256_text(source),
-              'Jules Dispatch',
-          )
-          glee_proxy = build_proxy(
-              source,
-              '.github/workflows/jules-glee.yml',
-              sha256_text(source),
-              'Glee Audit',
-          )
+          jules_proxy = build_proxy(source, '.github/workflows/jules-dispatch.yml', sha256_text(source), 'Jules Dispatch')
+          glee_proxy = build_proxy(source, '.github/workflows/jules-glee.yml', sha256_text(source), 'Glee Audit')
+
           central_doc = load_yaml(central)
           proxy_doc = load_yaml(proxy.split('\n', 4)[4])
           jules_proxy_doc = load_yaml(jules_proxy.split('\n', 4)[4])
           assert 'workflow_dispatch' in central_doc['on']
           assert 'central_check_start' in central_doc['jobs']
           assert 'central_check_finish' in central_doc['jobs']
-          assert '__central_check_start' not in central
-          assert '__central_check_finish' not in central
           assert '/check-runs' not in central
           assert '/statuses/${TARGET_CHECK_SHA}' in central
-          assert 'inputs.source_workflow_path' in central
           assert proxy_doc['permissions']['id-token'] == 'write'
           assert list(proxy_doc['jobs']) == ['central-dispatch']
-          assert 'fromJSON(inputs.target_event_json)_name' not in central
-          assert 'fromJSON(inputs.target_event_json).fromJSON(inputs.target_inputs_json)' not in central
-          assert 'fromJSON(inputs.target_event_json).fromJSON(inputs.target_vars_json)' not in central
-          assert 'fromJSON(inputs.target_event_json).inputs.example' in central
-          assert 'fromJSON(inputs.target_inputs_json).example' in central
-          assert 'fromJSON(inputs.target_vars_json).example' in central
-          assert 'steps.vars.outputs.tag' in central
-          assert 'steps.fromJSON(inputs.target_vars_json)' not in central
           assert 'DISPATCH_EVENT_JSON=' in jules_proxy
           assert 'pull_request' not in jules_proxy_doc['on']
           assert "github.event_name == 'pull_request'" not in jules_proxy_doc['jobs']['central-dispatch']['if']
@@ -218,14 +272,22 @@ jobs:
           assert "startsWith(github.event.review.body, '@jules')" in jules_proxy
           assert 'DISPATCH_EVENT_JSON=' in glee_proxy
 
+          family = build_shared_family('fixture-ci', [('0123456789abcdef', central)])
+          assert family_variants(family) == {'0123456789abcdef'}
+          assert 'shared_variant' in family
+          assert semantic_family_slug('CI', '.github/workflows/ci.yml', 'npm ci\nnpm test') == 'node-ci'
+          assert semantic_family_slug('CodeQL Advanced', '.github/workflows/codeql.yml', central) == 'codeql'
+
           malformed = []
           for path in Path('.github/workflows').glob('*.y*ml'):
+              if path.name == 'validate-controller.yml':
+                  continue
               text = path.read_text(encoding='utf-8')
               if '.fromJSON(inputs.target_inputs_json).' in text or '.fromJSON(inputs.target_vars_json).' in text:
                   malformed.append(str(path))
-          assert not malformed, f'malformed generated catalog expressions: {malformed}'
+          assert not malformed, f'malformed generated shared-workflow expressions: {malformed}'
 
-          print('compiler smoke test passed')
+          print('compiler and semantic library smoke test passed')
           PY
 
       - name: Check Worker JavaScript

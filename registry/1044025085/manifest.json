@@ -1,0 +1,62 @@
+{
+  "last_sync_at": "2026-09-14T02:06:59+00:00",
+  "repository": {
+    "default_branch": "main",
+    "full_name": "HereLiesAz/kFizzix",
+    "id": 1044025085,
+    "owner_id": 103241502,
+    "owner_login": "HereLiesAz"
+  },
+  "schema": 2,
+  "worker_url_configured": true,
+  "workflows": {
+    ".github/workflows/backup.yml": {
+      "catalog": "curated",
+      "central_workflow": ".github/workflows/catalog-context-backup.yml",
+      "name": "Context Backup (Surgical + Manifest)",
+      "registry_source": "registry/1044025085/backup-d598524a.source.yml",
+      "source_sha256": "1714e488590b99d92f26118d9e1281b938e5c9bd40cc3a726e1b572a6ad69642",
+      "status": "active",
+      "updated_at": "2026-09-14T02:06:50+00:00"
+    },
+    ".github/workflows/deploy-maven-central.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "57a2a8a9493f9ef7ed89209eabb305b586118242bffbefb99df46b7f77700f83",
+      "central_workflow": ".github/workflows/catalog-57a2a8a9493f9ef7.yml",
+      "name": "Publish package to the Maven Central Repository",
+      "registry_source": "registry/1044025085/deploy-maven-central-5eca88cd.source.yml",
+      "source_sha256": "968458e29535134b77927dbc8ec6c653ad070e0b6e9cd30f7ac9063544eb14e9",
+      "status": "active",
+      "updated_at": "2026-09-14T02:06:52+00:00"
+    },
+    ".github/workflows/gh-release.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "fa69fd31183e6fb6fc03afbff424dc476fc5ca28312ac67757fa05655df041d7",
+      "central_workflow": ".github/workflows/catalog-fa69fd31183e6fb6.yml",
+      "name": "Create a Github release",
+      "registry_source": "registry/1044025085/gh-release-723327ad.source.yml",
+      "source_sha256": "57c23f2489e4e00b40c10a98d12610d6f95b36b66ee7a242236be21f3058a114",
+      "status": "active",
+      "updated_at": "2026-09-14T02:06:54+00:00"
+    },
+    ".github/workflows/jules-glee.yml": {
+      "catalog": "curated",
+      "central_workflow": ".github/workflows/catalog-jules-glee.yml",
+      "name": "\ud83d\ude08 Glee Audit",
+      "registry_source": "registry/1044025085/jules-glee-0de23ac9.source.yml",
+      "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
+      "status": "active",
+      "updated_at": "2026-09-14T02:06:57+00:00"
+    },
+    ".github/workflows/jules.yml": {
+      "blockers": [
+        "job 'jules' step 2 uses repository-bound action 'google-labs-code/jules-invoke@main'"
+      ],
+      "name": "Jules Agent",
+      "registry_source": "registry/1044025085/jules-f6e68594.source.yml",
+      "source_sha256": "75d7cb943dd6427157dcf9dffaabb48368f1f28b0fd66b4b877694078da4a812",
+      "status": "local",
+      "updated_at": "2026-09-14T02:06:59+00:00"
+    }
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "last_sync_at": "2026-09-14T01:01:48+00:00",
+  "repository": {
+    "default_branch": "main",
+    "full_name": "HereLiesAz/BluSnu",
+    "id": 962304765,
+    "owner_id": 103241502,
+    "owner_login": "HereLiesAz"
+  },
+  "schema": 2,
+  "worker_url_configured": true,
+  "workflows": {
+    ".github/workflows/assign-jules.yml": {
+      "blockers": [
+        "job 'jules-issue-handler' step 1 uses repository-bound action 'google-labs-code/jules-invoke@v1'"
+      ],
+      "name": "Assign Jules to Issues",
+      "registry_source": "registry/962304765/assign-jules-1e80757f.source.yml",
+      "source_sha256": "3037744580394b3f582bc3f39e94d76de6c71557fb98c1fb0445ff707b600a75",
+      "status": "local",
+      "updated_at": "2026-09-14T01:01:39+00:00"
+    },
+    ".github/workflows/backup.yml": {
+      "catalog": "curated",
+      "central_workflow": ".github/workflows/catalog-context-backup.yml",
+      "name": "Context Backup (Universal Surgical)",
+      "registry_source": "registry/962304765/backup-d598524a.source.yml",
+      "source_sha256": "7b5078fd680ca4758350d8bfb6e11d675bf62a7a12bb35cd38f3a5fcb5a81349",
+      "status": "active",
+      "updated_at": "2026-09-14T01:01:40+00:00"
+    },
+    ".github/workflows/build-release.yml": {
+      "blockers": [
+        "job 'build-release' step 9 uses actions/github-script with runner-repository context"
+      ],
+      "name": "On-Demand Release Build",
+      "registry_source": "registry/962304765/build-release-ebcb732a.source.yml",
+      "source_sha256": "9951741fb48711fdeb8fe9bbe173680762bf6fb3c87246e68cd0e46083525950",
+      "status": "local",
+      "updated_at": "2026-09-14T01:01:41+00:00"
+    },
+    ".github/workflows/clear-cache.yml": {
+      "blockers": [
+        "job 'clear-cache' step 1 uses actions/github-script with runner-repository context"
+      ],
+      "name": "Clear Build Cache",
+      "registry_source": "registry/962304765/clear-cache-b9a264e3.source.yml",
+      "source_sha256": "35ccfa116e50a833f3200845cfeaf0d03bbb2b6e122875c80c7cc448d6a23220",
+      "status": "local",
+      "updated_at": "2026-09-14T01:01:42+00:00"
+    },
+    ".github/workflows/jules-glee.yml": {
+      "catalog": "curated",
+      "central_workflow": ".github/workflows/catalog-jules-glee.yml",
+      "name": "\ud83d\ude08 Glee Audit",
+      "registry_source": "registry/962304765/jules-glee-0de23ac9.source.yml",
+      "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
+      "status": "active",
+      "updated_at": "2026-09-14T01:01:43+00:00"
+    },
+    ".github/workflows/merged-build.yml": {
+      "blockers": [
+        "job 'build-debug' step 8 uses actions/github-script with runner-repository context"
+      ],
+      "name": "Merged Build (Debug)",
+      "registry_source": "registry/962304765/merged-build-7328551a.source.yml",
+      "source_sha256": "d478295aa59569ef4a57073c6059ee6c0e5c435c90c687a08b1b708bd7aeaa0d",
+      "status": "local",
+      "updated_at": "2026-09-14T01:01:45+00:00"
+    },
+    ".github/workflows/stale.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "062f09ed325faa79fdad80c794e17fa3ea0990798dd00bbdddca385e6027224e",
+      "central_workflow": ".github/workflows/catalog-062f09ed325faa79.yml",
+      "name": "Mark stale issues and pull requests",
+      "registry_source": "registry/962304765/stale-1d19aad7.source.yml",
+      "source_sha256": "43aa629c2e3b6ec4283e5c5ffe0524b608d1de63b76dd5ede504cbb4a82685a5",
+      "status": "active",
+      "updated_at": "2026-09-14T01:01:46+00:00"
+    }
+  }
+}

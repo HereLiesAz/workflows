@@ -1,0 +1,88 @@
+name: CI
+on: [push, pull_request]
+permissions: read-all
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm test
+
+  # Keep the language-neutral conformance fixtures honest: regenerate them from
+  # @azphalt/conformance and fail if the committed bytes / expectations drift (issue #32).
+  # They are emitted artifacts, never hand-edited — see conformance/fixtures/README.md.
+  conformance-fixtures:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm fixtures
+      - name: Fail if the fixtures are out of date
+        run: |
+          git add -N conformance/fixtures
+          if ! git diff --exit-code -- conformance/fixtures; then
+            echo "::error::conformance/fixtures is out of date — run 'pnpm fixtures' and commit the result." >&2
+            exit 1
+          fi
+
+  # Compile the Compose/Kotlin-Wasm storefront on every PR. Previously the Kotlin only built at deploy
+  # time (deploy-storefront.yml, on push to main), so a Kotlin error would merge green and break the
+  # production deploy. This gates it here. Uses the same task the deploy build runs.
+  storefront-compose:
+    runs-on: ubuntu-latest
+    # Read the version, never move it. This job invokes Gradle three times, and a PR check has no
+    # business rewriting a tracked file it cannot commit — the bump belongs to the `version` job of
+    # app-release.yml, which runs on main, pushes the result, and hands the same number to every build.
+    env:
+      AZPHALT_VERSION_FROZEN: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Java (for the Kotlin/Wasm Gradle build)
+        uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: '17'
+      - name: Write google-services.json when Firebase is configured
+        # See the script for why a package-name mismatch warns and builds on rather than failing.
+        env:
+          GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES }}
+        run: node .github/scripts/write-google-services.mjs
+
+      - name: Build the Compose/Wasm storefront (compiles commonMain + wasmJs)
+        working-directory: apps/storefront-cmp
+        run: ./gradlew wasmJsBrowserDistribution --no-daemon --stacktrace
+
+      - name: Assemble the Android store app
+        # The store app other developers link to instead of building their own storefront
+        # (spec/store-app.md). Assembling rather than only compiling, because the parts most likely to
+        # break are the ones the Kotlin compiler never sees: the BROWSE intent filter, the FileProvider
+        # authority, and resource merging.
+        working-directory: apps/storefront-cmp
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Test the shared Kotlin model
+        # `desktopTest` covers the host-inventory parser (spec/state-reporting.md § 3.1), which reads a
+        # JSON document another application hands over through an intent extra. Its whole contract is
+        # that bad input degrades to "the host told us nothing" — a claim that rots silently without a
+        # test, and whose failure mode is a store another app can crash.
+        working-directory: apps/storefront-cmp
+        run: ./gradlew desktopTest --no-daemon --stacktrace
+
+      - name: Test the Kotlin .azp verifier
+        # Separate from the wasm task above, which does not touch this subproject — without this the
+        # verifier would have no CI coverage at all. It is a security boundary (integrity digests and
+        # Ed25519 signatures for every Android host), and its tests are what pin it to the TypeScript
+        # reference via the shared vector in packages/azp/test/vectors/. An untested divergence there
+        # means a host accepting packages the reference implementation rejects.
+        working-directory: apps/storefront-cmp
+        run: ./gradlew :azp:test --no-daemon --stacktrace

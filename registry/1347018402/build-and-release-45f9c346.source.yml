@@ -1,0 +1,394 @@
+name: Merged Build & Release
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # A separate, small first job rather than fetching inline within build-and-release: both
+  # build-and-release (Android assets) and build-web (wasmJs Compose Resources, see
+  # build-web's own download step below) need this data present *before their own Gradle
+  # build runs*, not merged in afterward -- Res.readBytes(photos_manifest.json) needs to
+  # exist at compile time, it can't be dropped into a build's output directory the way the
+  # JPEG binaries themselves can (those are fetched over plain HTTP at runtime by Coil, so
+  # deploy-web merging them in after the fact -- see its own steps below -- is fine for
+  # them specifically). needs: below intentionally never checks this job's own result --
+  # see the comment on build-and-release's `if:`.
+  fetch-places-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch venue photos and business details from Google Places
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+        env:
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_SERVER_API_KEY }}
+        run: python3 scripts/fetch_place_photos.py
+
+      - name: Upload fetched photos
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: places-photos
+          path: shared/src/androidMain/assets/photos
+          if-no-files-found: warn
+          retention-days: 1
+
+      - name: Upload fetched place manifests
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: places-manifests
+          path: |
+            shared/src/commonMain/composeResources/files/photos_manifest.json
+            shared/src/commonMain/composeResources/files/place_details_manifest.json
+          if-no-files-found: warn
+          retention-days: 1
+
+  build-and-release:
+    needs: fetch-places-data
+    # Deliberately not needs.fetch-places-data.result == 'success': photo downloads and
+    # Place Details aren't cached the way Place ID resolution is (see
+    # scripts/fetch_place_photos.py), so a second fetch would double real Places API usage
+    # on every release -- but that's an argument for fetching once, not for making every
+    # release depend on that fetch succeeding. A place with no bundled photos/details
+    # already degrades gracefully (BundledPhotos/BundledPlaceDetails.load()'s own
+    # missing-manifest handling), so a fetch failure shouldn't block the Android build the
+    # way an actual compile/test failure should. !cancelled() still skips this if the run
+    # as a whole was cancelled, rather than building on a possibly-incomplete checkout.
+    if: "!cancelled()"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      checks: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Compute build metadata
+        id: metadata
+        run: |
+          BUILD_NUMBER=$(git rev-list --count HEAD)
+          MAJOR=$(grep 'major=' version.properties | cut -d'=' -f2)
+          MINOR=$(grep 'minor=' version.properties | cut -d'=' -f2)
+          MINOR_COMMIT=$(git blame -L '/minor=/',+1 version.properties | awk '{print $1}' | tr -d '^')
+          if [ -n "$MINOR_COMMIT" ]; then
+            PATCH=$(git rev-list --count "$MINOR_COMMIT"..HEAD)
+          else
+            PATCH=$(grep 'patch=' version.properties | cut -d'=' -f2)
+          fi
+          VERSION_NAME="$MAJOR.$MINOR.$PATCH.$BUILD_NUMBER"
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+
+      - name: Download fetched photos
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: places-photos
+          path: shared/src/androidMain/assets/photos
+
+      - name: Download fetched place manifests
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: places-manifests
+          path: shared/src/commonMain/composeResources/files
+
+      - name: Reconstruct and verify release keystore
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+        id: signing
+        uses: ./.github/actions/android-keystore
+        with:
+          keystore-password: ${{ secrets.KEYSTORE_PASSWORD }}
+          key-alias: ${{ secrets.KEY_ALIAS }}
+          key-password: ${{ secrets.KEY_PASSWORD }}
+          expected-owner: ${{ secrets.KEYSTORE_OWNER }}
+          keystore-private: ${{ secrets.KEYSTORE_PRIVATE }}
+          keystore-public: ${{ secrets.KEYSTORE_PUBLIC }}
+          keystore-chain: ${{ secrets.KEYSTORE_CHAIN }}
+          keystore-rsa: ${{ secrets.KEYSTORE_RSA }}
+          expected-sha1: ${{ secrets.KEYSTORE_SHA1 }}
+          expected-sha256: ${{ secrets.KEYSTORE_SHA256 }}
+
+      - name: Build with Gradle
+        id: gradle-build
+        env:
+          LAMPLIGHT_KEYSTORE_FILE: ${{ steps.signing.outputs.keystore-path }}
+          LAMPLIGHT_KEYSTORE_TYPE: ${{ steps.signing.outputs.store-type }}
+          LAMPLIGHT_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          LAMPLIGHT_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          LAMPLIGHT_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set +e
+
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ] || { [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF" != "refs/heads/main" ]; }; then
+            export LAMPLIGHT_REQUIRE_SIGNING=false
+            ./gradlew allTests assembleDebug -PversionBuild=$BUILD_NUMBER -PversionName=$VERSION_NAME --build-cache > build.log 2>&1
+          else
+            export LAMPLIGHT_REQUIRE_SIGNING=true
+            ./gradlew allTests assembleRelease -PversionBuild=$BUILD_NUMBER -PversionName=$VERSION_NAME --build-cache > build.log 2>&1
+          fi
+
+          EXIT_CODE=$?
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+          cat build.log
+          exit $EXIT_CODE
+
+      - name: Remove signing material
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/lamplight-signing"
+
+      - name: Report Failure to Jules
+        if: failure() && steps.gradle-build.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            let logTail = 'Log file not found.';
+            try { logTail = fs.readFileSync('build.log', 'utf8').slice(-4000); } catch (e) {}
+            const assignee = 'gemini-code-assist';
+            try {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Build Failure on ${context.eventName === 'pull_request' ? 'PR #' + context.issue.number : context.ref}`,
+                body: `@${assignee} /jules debug this build error\n\n**Log:**\n\`\`\`\n${logTail}\n\`\`\``,
+                labels: ['jules', 'bug'],
+                assignees: [assignee]
+              });
+            } catch (error) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Build Failure on ${context.eventName === 'pull_request' ? 'PR #' + context.issue.number : context.ref}`,
+                body: `@${assignee} /jules debug this build error\n\n**Log:**\n\`\`\`\n${logTail}\n\`\`\``,
+                labels: ['jules', 'bug']
+              });
+            }
+
+      - name: Prepare Release Variables
+        if: success() && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
+        run: |
+          MAJOR=$(grep 'major=' version.properties | cut -d'=' -f2)
+          MINOR=$(grep 'minor=' version.properties | cut -d'=' -f2)
+          TAG_NAME="latest-v${MAJOR}.${MINOR}"
+
+          if [ -f "settings.gradle.kts" ]; then
+            APP_NAME=$(grep 'rootProject.name' settings.gradle.kts | sed -E "s/.*=.*[\"'](.*)[\"']/\1/")
+          elif [ -f "settings.gradle" ]; then
+            APP_NAME=$(grep 'rootProject.name' settings.gradle | sed -E "s/.*=.*[\"'](.*)[\"']/\1/")
+          else
+            APP_NAME="Lamplight"
+          fi
+
+          APK_ORIGINAL=$(find androidApp/build/outputs/apk/release -name "*.apk" | head -n 1)
+          if [ -z "$APK_ORIGINAL" ]; then
+            echo "Error: no signed release APK found"
+            exit 1
+          fi
+
+          # Deliberately version-free: this filename must stay identical build to build so
+          # `gh release upload --clobber` actually replaces the previous asset instead of
+          # accumulating a new one next to it every time (the release notes below already
+          # carry version_code/version_name for identification).
+          TARGET_NAME="${APP_NAME}-release.apk"
+          mv "$APK_ORIGINAL" "$TARGET_NAME"
+          echo "TAG_NAME=$TAG_NAME" >> "$GITHUB_ENV"
+          echo "APK_FILE=$TARGET_NAME" >> "$GITHUB_ENV"
+
+      - name: Publish Release
+        if: success() && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -fa "$TAG_NAME" -m "Latest signed build"
+          git push origin "$TAG_NAME" --force
+
+          # The app's in-app update check (UpdateChecker.kt) parses these two lines out of the
+          # release notes -- a release's tag only carries major.minor, not the full build number.
+          NOTES="Signed build from commit $GITHUB_SHA
+
+          version_code: $BUILD_NUMBER
+          version_name: $VERSION_NAME"
+
+          if gh release view "$TAG_NAME" > /dev/null 2>&1; then
+            gh release edit "$TAG_NAME" --prerelease \
+              --title "Latest Signed Build ($TAG_NAME)" \
+              --notes "$NOTES" \
+              --target "$GITHUB_SHA"
+            gh release upload "$TAG_NAME" "$APK_FILE" --clobber
+          else
+            gh release create "$TAG_NAME" "$APK_FILE" --prerelease \
+              --title "Latest Signed Build ($TAG_NAME)" \
+              --notes "$NOTES" \
+              --target "$GITHUB_SHA"
+          fi
+
+  build-web:
+    needs: fetch-places-data
+    # Same reasoning as build-and-release's `if:` above -- a fetch failure or a plain PR
+    # build (where fetch-places-data's own steps are conditionally skipped, see above)
+    # shouldn't block this job.
+    if: "!cancelled()"
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # Must land here *before* the Gradle build below: Res.readBytes(photos_manifest.json)
+      # is resolved by Compose Resources at compile time, so the manifests need to already
+      # be on disk when :webApp:wasmJsBrowserDistribution runs, not merged into its output
+      # afterward the way deploy-web merges in the JPEG binaries themselves (see deploy-web's
+      # own steps below, and the comment on fetch-places-data above for why photo binaries
+      # and their manifest need different treatment here).
+      - name: Download fetched place manifests
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: places-manifests
+          path: shared/src/commonMain/composeResources/files
+
+      - name: Build wasmJs distribution
+        id: gradle-build
+        run: |
+          set +e
+          ./gradlew :webApp:wasmJsBrowserDistribution --build-cache > build.log 2>&1
+          EXIT_CODE=$?
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+          cat build.log
+          exit $EXIT_CODE
+
+      - name: Report Failure to Jules
+        if: failure() && steps.gradle-build.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            let logTail = 'Log file not found.';
+            try { logTail = fs.readFileSync('build.log', 'utf8').slice(-4000); } catch (e) {}
+            const assignee = 'gemini-code-assist';
+            const title = `Web Build Failure on ${context.eventName === 'pull_request' ? 'PR #' + context.issue.number : context.ref}`;
+            const body = `@${assignee} /jules debug this web build error\n\n**Log:**\n\`\`\`\n${logTail}\n\`\`\``;
+            try {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title, body,
+                labels: ['jules', 'bug'],
+                assignees: [assignee]
+              });
+            } catch (error) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title, body,
+                labels: ['jules', 'bug']
+              });
+            }
+
+      # Uploaded as a plain artifact rather than actions/upload-pages-artifact directly:
+      # deploy-web (below) still needs to merge the photo binaries fetch-places-data fetched
+      # into this directory before it becomes the actual Pages artifact -- the manifest JSON
+      # is already baked in above; only the JPEGs themselves are merged in post-build.
+      - name: Upload wasmJs distribution
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: wasmjs-distribution
+          path: webApp/build/dist/wasmJs/productionExecutable
+          retention-days: 1
+
+  deploy-web:
+    needs: [ build-web, fetch-places-data ]
+    # fetch-places-data only feeds this an optional artifact (the fetched photo binaries --
+    # the manifest JSON is already compiled into the wasmJs bundle by build-web above) --
+    # its failure shouldn't block the web deploy the way build-web's failure genuinely
+    # should (no wasmJs bundle, nothing to deploy). needs.fetch-places-data.result isn't
+    # checked here for exactly that reason; !cancelled() still skips this if the run as a
+    # whole was cancelled (e.g. superseded by a newer push), rather than deploying a
+    # possibly incomplete build.
+    if: |
+      !cancelled() && needs.build-web.result == 'success' &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download wasmJs distribution
+        uses: actions/download-artifact@v8
+        with:
+          name: wasmjs-distribution
+          path: dist
+
+      # Optional: absent entirely if GOOGLE_PLACES_SERVER_API_KEY isn't configured, same
+      # graceful-empty behavior BundledPhotos.load() already has for a missing manifest.
+      - name: Download fetched photos
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: places-photos
+          path: dist/photos
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

@@ -11,23 +11,24 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/jules-glee.yml": {
-      "catalog": "curated",
-      "central_workflow": ".github/workflows/catalog-jules-glee.yml",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/jules-glee.yml",
       "name": "\ud83d\ude08 Glee Audit",
       "registry_source": "registry/1302295129/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",
-      "updated_at": "2026-09-14T01:16:03+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/sign-azp.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "2ccbbd5c3657a3622842020ff95b045411ef43ba6e42edca04b352c9089b6e27",
-      "central_workflow": ".github/workflows/catalog-sign-azp-2ccbbd5c3657a362.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/sign-azp.yml",
+      "implementation_sha256": "2ccbbd5c3657a3622842020ff95b045411ef43ba6e42edca04b352c9089b6e27",
       "name": "sign-azp",
       "registry_source": "registry/1302295129/sign-azp-fcd21605.source.yml",
+      "shared_variant": "2ccbbd5c3657a362",
       "source_sha256": "39ea6636c4df27ad72afc857325be6c5850c014589e7542ab529bda5e644b565",
       "status": "active",
-      "updated_at": "2026-09-14T01:16:05+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     }
   }
 }

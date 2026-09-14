@@ -1,0 +1,1467 @@
+# Central semantic shared-workflow family.
+# Public identity is the filename; implementation hashes are internal registry metadata only.
+# Do not edit generated variant jobs by hand; update the source workflow or synchronizer.
+name: Shared · Android Release
+run-name: ${{ inputs.target_repository }} · ${{ inputs.source_workflow_path }}
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_ref:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+      shared_variant:
+        required: true
+        type: string
+        description: Internal implementation selector from the central registry.
+jobs:
+  shared_variant_guard:
+    runs-on: ubuntu-latest
+    permissions: {}
+    env:
+      SHARED_VARIANT: ${{ inputs.shared_variant }}
+    steps:
+      - name: Validate registered shared workflow variant
+        shell: bash
+        run: "set -euo pipefail\ncase \"$SHARED_VARIANT\" in\n  043e9d80a19ee35e|1dce34c08abc5f8e|31e2f79fe72366a0|33ea15551e1da2d4|a23fd235311d814c|c67c127b0d461762|cc5d9775a1b164bb|e1a80a63ce7ee353) ;;\n  *) echo \"Unknown shared workflow variant: $SHARED_VARIANT\" >&2; exit 1 ;;\nesac\n"
+  v_043e9d80a19ee35e__central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from the shared HereLiesAz/workflows catalog.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    concurrency:
+      group: release-${{ inputs.target_ref }}-${{ inputs.shared_variant }}
+      cancel-in-progress: false
+    if: ${{ inputs.shared_variant == '043e9d80a19ee35e' }}
+  v_043e9d80a19ee35e__release:
+    name: bundleRelease + sign + upload
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+      - name: Materialize google-services.json
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+        run: "if [ -z \"$GOOGLE_SERVICES_JSON_B64\" ]; then\n  echo \"GOOGLE_SERVICES_JSON_B64 secret is required for release builds.\"\n  exit 1\nfi\nprintf '%s' \"$GOOGLE_SERVICES_JSON_B64\" | base64 -d > app/google-services.json\n"
+      - name: Decode signing keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: "if [ -z \"$KEYSTORE_B64\" ]; then\n  echo \"KEYSTORE_B64 secret is required for release builds.\"\n  exit 1\nfi\nprintf '%s' \"$KEYSTORE_B64\" | base64 -d > \"$RUNNER_TEMP/keystore.jks\"\necho \"KEYSTORE_PATH=$RUNNER_TEMP/keystore.jks\" >> \"$GITHUB_ENV\"\n"
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+      - name: Bundle release (signed AAB)
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew :app:bundleRelease --stacktrace
+      - name: Locate AAB
+        id: locate
+        run: "aab=$(find app/build/outputs/bundle -name '*.aab' -print -quit)\necho \"aab=$aab\" >> \"$GITHUB_OUTPUT\"\nversion=$(grep -E '^\\s*versionName' app/build.gradle.kts | head -1 | sed -E 's/.*\"([^\"]+)\".*/\\1/')\necho \"version=$version\" >> \"$GITHUB_OUTPUT\"\n"
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: barcodencrypt-${{ steps.locate.outputs.version }}-release
+          path: ${{ steps.locate.outputs.aab }}
+          if-no-files-found: error
+      - name: Tag commit
+        if: ${{ fromJSON(inputs.target_inputs_json).tag_release && inputs.target_ref_name == fromJSON(inputs.target_event_json).repository.default_branch }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: "tag=\"v${{ steps.locate.outputs.version }}\"\ngit config user.name  \"github-actions[bot]\"\ngit config user.email \"41898282+github-actions[bot]@users.noreply.github.com\"\nif git rev-parse \"$tag\" >/dev/null 2>&1; then\n  echo \"Tag $tag already exists; skipping.\"\nelse\n  git tag -a \"$tag\" -m \"Release $tag\"\n  git push origin \"$tag\"\nfi\n"
+    needs: v_043e9d80a19ee35e__central_check_start
+    if: ${{ (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) && (inputs.shared_variant == '043e9d80a19ee35e') }}
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    concurrency:
+      group: release-${{ inputs.target_ref }}-${{ inputs.shared_variant }}
+      cancel-in-progress: false
+  v_043e9d80a19ee35e__central_check_finish:
+    if: ${{ (always()) && (inputs.shared_variant == '043e9d80a19ee35e') }}
+    needs:
+      - v_043e9d80a19ee35e__central_check_start
+      - v_043e9d80a19ee35e__release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    concurrency:
+      group: release-${{ inputs.target_ref }}-${{ inputs.shared_variant }}
+      cancel-in-progress: false
+  v_1dce34c08abc5f8e__central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from the shared HereLiesAz/workflows catalog.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    if: ${{ inputs.shared_variant == '1dce34c08abc5f8e' }}
+  v_1dce34c08abc5f8e__release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_TOKEN }}
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          persist-credentials: false
+      - name: Generate keystore
+        env:
+          KEYSTORE_PRIVATE: ${{ secrets.KEYSTORE_PRIVATE }}
+          KEYSTORE_CHAIN: ${{ secrets.CHAIN }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: "if [ -n \"$KEYSTORE_PRIVATE\" ] && [ -n \"$KEYSTORE_CHAIN\" ]; then\n  echo \"$KEYSTORE_PRIVATE\" > private_key.pem\n  echo \"$KEYSTORE_CHAIN\" > cert_chain.pem\n  openssl pkcs12 -export \\\n    -inkey private_key.pem \\\n    -in cert_chain.pem \\\n    -out keystore.p12 \\\n    -name \"$KEY_ALIAS\" \\\n    -passout pass:\"$KEYSTORE_PASSWORD\"\n  keytool -importkeystore \\\n    -srckeystore keystore.p12 \\\n    -srcstoretype PKCS12 \\\n    -srcstorepass \"$KEYSTORE_PASSWORD\" \\\n    -destkeystore app/keystore.jks \\\n    -deststoretype JKS \\\n    -deststorepass \"$KEYSTORE_PASSWORD\"\n  rm -f private_key.pem cert_chain.pem keystore.p12\n  echo \"SIGNING_READY=true\" >> $GITHUB_ENV\nelse\n  echo \"::warning::Keystore secrets not configured. Building unsigned release.\"\n  echo \"SIGNING_READY=false\" >> $GITHUB_ENV\nfi\n"
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Run unit tests
+        run: ./gradlew testDebugUnitTest
+      - name: Build release APK
+        run: "if [ \"$SIGNING_READY\" = \"true\" ]; then\n  ./gradlew assembleRelease \\\n    -Pandroid.injected.signing.store.file=$(pwd)/app/keystore.jks \\\n    -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \\\n    -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \\\n    -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}\nelse\n  ./gradlew assembleRelease\nfi\n"
+      - name: Read version
+        id: version
+        run: "source <(grep = version.properties | tr -d ' ')\necho \"major=$versionMajor\" >> $GITHUB_OUTPUT\necho \"minor=$versionMinor\" >> $GITHUB_OUTPUT\necho \"patch=$versionPatch\" >> $GITHUB_OUTPUT\necho \"build=$versionBuild\" >> $GITHUB_OUTPUT\necho \"full=$versionMajor.$versionMinor.$versionPatch.$versionBuild\" >> $GITHUB_OUTPUT\n"
+      - name: Commit version bump
+        run: "git config user.name \"github-actions[bot]\"\ngit config user.email \"github-actions[bot]@users.noreply.github.com\"\ngit add version.properties\ngit commit -m \"chore: bump version to ${{ steps.version.outputs.full }}\" || echo \"No version change to commit\"\ngit push\n"
+      - name: Find APK
+        id: apk
+        run: "APK_PATH=$(find app/build/outputs/apk/release -name \"*.apk\" | head -1)\nAPK_NAME=\"MadeMeDance-${{ steps.version.outputs.full }}-release.apk\"\nmv \"$APK_PATH\" \"$APK_NAME\"\necho \"path=$APK_NAME\" >> $GITHUB_OUTPUT\necho \"name=$APK_NAME\" >> $GITHUB_OUTPUT\n"
+      - name: Create/Update release
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: "TAG=\"latest-release-v${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}\"\n# Delete existing release and tag if they exist\ngh release delete \"$TAG\" --yes 2>/dev/null || true\ngit tag -f \"$TAG\"\ngit push origin \"$TAG\" --force\n# Create new release with the APK\ngh release create \"$TAG\" \\\n  \"${{ steps.apk.outputs.path }}\" \\\n  --title \"Release v${{ steps.version.outputs.full }}\" \\\n  --notes \"Release build v${{ steps.version.outputs.full }}\" \\\n  --latest\n"
+      - name: Cleanup keystore
+        if: always()
+        run: rm -f app/keystore.jks
+    needs: v_1dce34c08abc5f8e__central_check_start
+    if: ${{ (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) && (inputs.shared_variant == '1dce34c08abc5f8e') }}
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+  v_1dce34c08abc5f8e__central_check_finish:
+    if: ${{ (always()) && (inputs.shared_variant == '1dce34c08abc5f8e') }}
+    needs:
+      - v_1dce34c08abc5f8e__central_check_start
+      - v_1dce34c08abc5f8e__release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+  v_31e2f79fe72366a0__central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from the shared HereLiesAz/workflows catalog.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    if: ${{ inputs.shared_variant == '31e2f79fe72366a0' }}
+  v_31e2f79fe72366a0__build_and_release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+      - name: Inject Google Services
+        env:
+          GOOGLE_SERVICES_API_KEY: ${{ secrets.GOOGLE_SERVICES_API_KEY }}
+          PROJECT_ID: ${{ secrets.PROJECT_ID }}
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          CUSTOM_API_KEY: ${{ secrets.CUSTOM_API_KEY }}
+        run: "if [ -f \"app/google-services.json.template\" ]; then\n  echo \"Template found. Injecting secrets...\"\n  sed -e 's/{{\\([^}]*\\)}}/${\\1}/g' app/google-services.json.template | envsubst > app/google-services.json\nelse\n  echo \"Warning: google-services.json.template not found. Skipping injection.\"\nfi\n# Add any extra local.properties keys below:\n# echo \"CUSTOM_API_KEY=$CUSTOM_API_KEY\" >> local.properties\n"
+      - name: Decode signing keystore
+        env:
+          KEYSTORE_RAW: ${{ secrets.KEYSTORE_RAW }}
+        run: "if [ -z \"$KEYSTORE_RAW\" ]; then\n  echo \"::error::KEYSTORE_RAW secret is empty — cannot produce a signed build.\"\n  exit 1\nfi\necho \"$KEYSTORE_RAW\" | base64 -d > app/keystore.jks\nif [ ! -s app/keystore.jks ]; then\n  echo \"::error::Decoded keystore is empty — KEYSTORE_RAW is not valid base64.\"\n  exit 1\nfi\necho \"Keystore decoded to app/keystore.jks ($(stat -c%s app/keystore.jks) bytes)\"\n"
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        with:
+          cache-read-only: false
+          dependency-graph: disabled
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Build Release APK
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          KEYSTORE_FILE: ${{ github.workspace }}/app/keystore.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew assembleRelease
+      - name: Prepare Release
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: "MAJOR=$(grep '^versionMajor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nMINOR=$(grep '^versionMinor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nPATCH=$(grep '^versionPatch=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nBUILD_NUMBER=$(grep '^versionBuild=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nVERSION_NAME=\"${MAJOR}.${MINOR}.${PATCH}.${BUILD_NUMBER}\"\nTAG_NAME=\"latest-release-v${MAJOR}.${MINOR}\"\n\nif [ -f \"settings.gradle.kts\" ]; then\n  APP_NAME=$(grep 'rootProject.name' settings.gradle.kts | sed -E \"s/.*=.*[\\\"'](.*)[\\\"']/\\1/\")\nelif [ -f \"settings.gradle\" ]; then\n  APP_NAME=$(grep 'rootProject.name' settings.gradle | sed -E \"s/.*=.*[\\\"'](.*)[\\\"']/\\1/\")\nelse\n  APP_NAME=\"App\"\nfi\n\nAPK_ORIGINAL=$(find app/build/outputs/apk/release -name \"*.apk\" | head -n 1)\nif [ -z \"$APK_ORIGINAL\" ]; then\n  echo \"Error: No APK found in app/build/outputs/apk/release/\"\n  find app/build/outputs/ -name \"*.apk\"\n  exit 1\nfi\n\nTARGET_NAME=\"${APP_NAME}-${VERSION_NAME}-release.apk\"\nmv \"$APK_ORIGINAL\" \"$TARGET_NAME\"\n\ngit config user.name \"github-actions[bot]\"\ngit config user.email \"41898282+github-actions[bot]@users.noreply.github.com\"\n\ngit tag -fa \"$TAG_NAME\" -m \"Latest Release Build\"\ngit push origin \"$TAG_NAME\" --force\n\nif gh release view \"$TAG_NAME\" > /dev/null 2>&1; then\n  echo \"Updating existing release...\"\n  gh release edit \"$TAG_NAME\" \\\n    --title \"Latest Release v${MAJOR}.${MINOR} (${VERSION_NAME})\" \\\n    --notes \"Release build from commit $TARGET_SHA\"\n  gh release upload \"$TAG_NAME\" \"$TARGET_NAME\" --clobber\nelse\n  echo \"Creating new release...\"\n  gh release create \"$TAG_NAME\" \"$TARGET_NAME\" \\\n    --title \"Latest Release v${MAJOR}.${MINOR} (${VERSION_NAME})\" \\\n    --notes \"Release build from commit $TARGET_SHA\"\nfi\n"
+    needs: v_31e2f79fe72366a0__central_check_start
+    if: ${{ (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) && (inputs.shared_variant == '31e2f79fe72366a0') }}
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+  v_31e2f79fe72366a0__central_check_finish:
+    if: ${{ (always()) && (inputs.shared_variant == '31e2f79fe72366a0') }}
+    needs:
+      - v_31e2f79fe72366a0__central_check_start
+      - v_31e2f79fe72366a0__build_and_release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+  v_33ea15551e1da2d4__central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from the shared HereLiesAz/workflows catalog.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    if: ${{ inputs.shared_variant == '33ea15551e1da2d4' }}
+  v_33ea15551e1da2d4__build_and_release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+      - name: Inject Google Services
+        env:
+          GOOGLE_SERVICES_API_KEY: ${{ secrets.GOOGLE_SERVICES_API_KEY }}
+          PROJECT_ID: ${{ secrets.PROJECT_ID }}
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          ARCORE_API_KEY: ${{ secrets.ARCORE_API_KEY }}
+        run: "if [ -f \"app/google-services.json.template\" ]; then\n  echo \"Template found. Injecting secrets...\"\n  sed -e 's/{{\\([^}]*\\)}}/${\\1}/g' app/google-services.json.template | envsubst > app/google-services.json\nelse\n  echo \"Warning: google-services.json.template not found. Skipping injection.\"\nfi\n\n# Inject ARCore API Key into local.properties for build.gradle.kts to pick up\necho \"ARCORE_API_KEY=$ARCORE_API_KEY\" >> local.properties\n"
+      - name: Generate Keystore from Secrets
+        env:
+          KEYSTORE_PRIVATE: ${{ secrets.KEYSTORE_PRIVATE }}
+          KEYSTORE_CHAIN: ${{ secrets.KEYSTORE_CHAIN }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: "echo \"Generating keystore from certificate chain and private key...\"\n\n# Write the private key and certificate chain to temporary files\necho \"$KEYSTORE_PRIVATE\" > private_key.pem\necho \"$KEYSTORE_CHAIN\" > certificate_chain.crt\n\n# Create a PKCS12 file from the key and certificate chain\nopenssl pkcs12 -export -in certificate_chain.crt -inkey private_key.pem \\\n  -name \"$KEY_ALIAS\" -out keystore.p12 \\\n  -password pass:\"$KEYSTORE_PASSWORD\"\n\n# Convert the PKCS12 file to a JKS keystore\nkeytool -importkeystore -srckeystore keystore.p12 -srcstoretype PKCS12 \\\n  -destkeystore app/keystore.jks -deststoretype JKS \\\n  -srcstorepass \"$KEYSTORE_PASSWORD\" \\\n  -deststorepass \"$KEYSTORE_PASSWORD\" \\\n  -alias \"$KEY_ALIAS\" -noprompt\n\necho \"Keystore generated successfully at app/keystore.jks\"\n\n# Clean up temporary files\nrm private_key.pem certificate_chain.crt keystore.p12\n"
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        with:
+          cache-read-only: false
+          dependency-graph: disabled
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Build Release APK
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: "./gradlew assembleRelease \\\n  -Pandroid.injected.signing.store.file=$(pwd)/app/keystore.jks \\\n  -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \\\n  -Pandroid.injected.signing.key.alias=$KEY_ALIAS \\\n  -Pandroid.injected.signing.key.password=$KEY_PASSWORD\n"
+      - name: Prepare Release
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: "# version.properties is the single source of truth — no git-derived\n# patch/build numbers. VERSION_NAME mirrors the APK's internal\n# versionName.versionCode (e.g. 1.0.5.16).\nMAJOR=$(grep 'versionMajor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nMINOR=$(grep 'versionMinor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nPATCH=$(grep 'versionPatch=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nBUILD=$(grep 'versionBuild=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\n\nVERSION_NAME=\"${MAJOR}.${MINOR}.${PATCH}.${BUILD}\"\nTAG_NAME=\"latest-release-v${MAJOR}.${MINOR}\"\n\n# Dynamic app name from settings.gradle.kts\nAPP_NAME=$(grep 'rootProject.name' settings.gradle.kts | sed -E \"s/.*=.*[\\\"'](.*)[\\\"']/\\1/\" || echo \"App\")\n\n# Locate built APK\nAPK_ORIGINAL=$(find app/build/outputs/apk/release -name \"*.apk\" | head -n 1)\nif [ -z \"$APK_ORIGINAL\" ]; then\n  echo \"Error: No APK found in app/build/outputs/apk/release/\"\n  find app/build/outputs/ -name \"*.apk\"\n  exit 1\nfi\n\nTARGET_NAME=\"${APP_NAME}-${VERSION_NAME}-release.apk\"\nmv \"$APK_ORIGINAL\" \"$TARGET_NAME\"\n\ngit config user.name \"github-actions[bot]\"\ngit config user.email \"41898282+github-actions[bot]@users.noreply.github.com\"\n\n# Force update tag to current commit\ngit tag -fa \"$TAG_NAME\" -m \"Latest Release Build\"\ngit push origin \"$TAG_NAME\" --force\n\n# Create or update release\nif gh release view \"$TAG_NAME\" > /dev/null 2>&1; then\n  echo \"Updating existing release...\"\n  gh release edit \"$TAG_NAME\" \\\n    --title \"Latest Release v${MAJOR}.${MINOR} (${VERSION_NAME})\" \\\n    --notes \"Release build from commit $TARGET_SHA\"\n  gh release upload \"$TAG_NAME\" \"$TARGET_NAME\" --clobber\nelse\n  echo \"Creating new release...\"\n  gh release create \"$TAG_NAME\" \"$TARGET_NAME\" \\\n    --title \"Latest Release v${MAJOR}.${MINOR} (${VERSION_NAME})\" \\\n    --notes \"Release build from commit $TARGET_SHA\"\nfi\n"
+    needs: v_33ea15551e1da2d4__central_check_start
+    if: ${{ (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) && (inputs.shared_variant == '33ea15551e1da2d4') }}
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+  v_33ea15551e1da2d4__central_check_finish:
+    if: ${{ (always()) && (inputs.shared_variant == '33ea15551e1da2d4') }}
+    needs:
+      - v_33ea15551e1da2d4__central_check_start
+      - v_33ea15551e1da2d4__build_and_release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+  v_a23fd235311d814c__central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from the shared HereLiesAz/workflows catalog.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    if: ${{ inputs.shared_variant == 'a23fd235311d814c' }}
+  v_a23fd235311d814c__build_and_release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+      - name: Inject Google Services
+        env:
+          GOOGLE_SERVICES_API_KEY: ${{ secrets.GOOGLE_SERVICES_API_KEY }}
+          PROJECT_ID: ${{ secrets.PROJECT_ID }}
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          ARCORE_API_KEY: ${{ secrets.ARCORE_API_KEY }}
+        run: "if [ -f \"app/google-services.json.template\" ]; then\n  echo \"Template found. Injecting secrets...\"\n  sed -e 's/{{\\([^}]*\\)}}/${\\1}/g' app/google-services.json.template | envsubst > app/google-services.json\nelse\n  echo \"Warning: google-services.json.template not found. Skipping injection.\"\nfi\n\n# Inject ARCore API Key into local.properties for build.gradle.kts to pick up\necho \"ARCORE_API_KEY=$ARCORE_API_KEY\" >> local.properties\n"
+      - name: Decode signing keystore
+        env:
+          KEYSTORE_RAW: ${{ secrets.KEYSTORE_RAW }}
+        run: "if [ -z \"$KEYSTORE_RAW\" ]; then\n  echo \"::error::KEYSTORE_RAW secret is empty — cannot produce a signed build.\"\n  exit 1\nfi\necho \"$KEYSTORE_RAW\" | base64 -d > app/keystore.jks\nif [ ! -s app/keystore.jks ]; then\n  echo \"::error::Decoded keystore is empty — KEYSTORE_RAW is not valid base64.\"\n  exit 1\nfi\necho \"Keystore decoded to app/keystore.jks ($(stat -c%s app/keystore.jks) bytes)\"\n"
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          java-version: '21'
+          distribution: temurin
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6.3.0
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        with:
+          cache-read-only: false
+          dependency-graph: disabled
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Build Release APK
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          KEYSTORE_FILE: ${{ github.workspace }}/app/keystore.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: "./gradlew assembleRelease\n"
+      - name: Prepare Release
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: "# version.properties is the SINGLE SOURCE OF TRUTH for the version. The gradle build above\n# already incremented versionBuild (the Android versionCode) and versionPatch and baked them\n# into the APK; read the SAME values here so the release name and tag match the artifact\n# exactly. NEVER derive the version from the git commit count — that scheme collides with\n# versionBuild and causes Play \"downgrade\" (versionCode regression) rejections.\nMAJOR=$(grep '^versionMajor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nMINOR=$(grep '^versionMinor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nPATCH=$(grep '^versionPatch=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nBUILD_NUMBER=$(grep '^versionBuild=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\n\nVERSION_NAME=\"${MAJOR}.${MINOR}.${PATCH}.${BUILD_NUMBER}\"\nTAG_NAME=\"latest-release-v${MAJOR}.${MINOR}\"\n\n# Locate built APK\nAPK_ORIGINAL=$(find app/build/outputs/apk/release -name \"*.apk\" | head -n 1)\nif [ -z \"$APK_ORIGINAL\" ]; then\n  echo \"Error: No APK found in app/build/outputs/apk/release/\"\n  find app/build/outputs/ -name \"*.apk\"\n  exit 1\nfi\n\nTARGET_NAME=\"GraffitiXR-${VERSION_NAME}-release.apk\"\nmv \"$APK_ORIGINAL\" \"$TARGET_NAME\"\n\ngit config user.name \"github-actions[bot]\"\ngit config user.email \"41898282+github-actions[bot]@users.noreply.github.com\"\n\n# Force update tag to current commit\ngit tag -fa \"$TAG_NAME\" -m \"Latest Release Build\"\ngit push origin \"$TAG_NAME\" --force\n\n# Create or update release\nif gh release view \"$TAG_NAME\" > /dev/null 2>&1; then\n  echo \"Updating existing release...\"\n  gh release edit \"$TAG_NAME\" \\\n    --title \"Latest Release v${MAJOR}.${MINOR} (${VERSION_NAME})\" \\\n    --notes \"Release build from commit $TARGET_SHA\"\n  gh release upload \"$TAG_NAME\" \"$TARGET_NAME\" --clobber\nelse\n  echo \"Creating new release...\"\n  gh release create \"$TAG_NAME\" \"$TARGET_NAME\" \\\n    --title \"Latest Release v${MAJOR}.${MINOR} (${VERSION_NAME})\" \\\n    --notes \"Release build from commit $TARGET_SHA\"\nfi\n"
+    needs: v_a23fd235311d814c__central_check_start
+    if: ${{ (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) && (inputs.shared_variant == 'a23fd235311d814c') }}
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+  v_a23fd235311d814c__central_check_finish:
+    if: ${{ (always()) && (inputs.shared_variant == 'a23fd235311d814c') }}
+    needs:
+      - v_a23fd235311d814c__central_check_start
+      - v_a23fd235311d814c__build_and_release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+  v_c67c127b0d461762__central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from the shared HereLiesAz/workflows catalog.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    if: ${{ inputs.shared_variant == 'c67c127b0d461762' }}
+  v_c67c127b0d461762__build_android:
+    runs-on: ubuntu-latest
+    outputs:
+      version_name: ${{ steps.versioninfo.outputs.version_name }}
+      tag_name: ${{ steps.versioninfo.outputs.tag_name }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+      - name: Inject Google Services
+        env:
+          GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES }}
+        run: "if [ -n \"$GOOGLE_SERVICES\" ]; then\n  echo \"$GOOGLE_SERVICES\" > app/google-services.json\nfi\n"
+      - name: Decode signing keystore
+        env:
+          KEYSTORE_RAW: ${{ secrets.KEYSTORE_RAW }}
+        run: "if [ -z \"$KEYSTORE_RAW\" ]; then\n  echo \"::error::KEYSTORE_RAW secret is empty — cannot produce a signed build.\"\n  exit 1\nfi\necho \"$KEYSTORE_RAW\" | base64 -d > app/keystore.jks\nif [ ! -s app/keystore.jks ]; then\n  echo \"::error::Decoded keystore is empty — KEYSTORE_RAW is not valid base64.\"\n  exit 1\nfi\necho \"Keystore decoded to app/keystore.jks ($(stat -c%s app/keystore.jks) bytes)\"\n"
+      - name: Set up JDK 21
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6
+        with:
+          java-version: '21'
+          distribution: temurin
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        with:
+          cache-read-only: false
+          dependency-graph: disabled
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Build Release APK
+        env:
+          KEYSTORE_FILE: ${{ github.workspace }}/app/keystore.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: "./gradlew assembleRelease\n"
+      - name: Compute release version/tag names
+        id: versioninfo
+        run: "# version.properties is the SINGLE SOURCE OF TRUTH for the version. The gradle build above\n# already incremented versionBuild (the Android versionCode) and versionPatch and baked them\n# into the APK; read the SAME values here so every job downstream (desktop packaging doesn't\n# need them, but publish-release does) agrees on exactly what this run built. NEVER derive\n# the version from the git commit count — that scheme collides with versionBuild and causes\n# Play \"downgrade\" (versionCode regression) rejections.\nMAJOR=$(grep '^versionMajor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nMINOR=$(grep '^versionMinor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nPATCH=$(grep '^versionPatch=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nBUILD_NUMBER=$(grep '^versionBuild=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\n\nVERSION_NAME=\"${MAJOR}.${MINOR}.${PATCH}.${BUILD_NUMBER}\"\nTAG_NAME=\"latest-release-v${MAJOR}.${MINOR}\"\n\necho \"version_name=$VERSION_NAME\" >> \"$GITHUB_OUTPUT\"\necho \"tag_name=$TAG_NAME\" >> \"$GITHUB_OUTPUT\"\n"
+      - name: Rename APK for release
+        run: "APK_ORIGINAL=$(find app/build/outputs/apk/release -name \"*.apk\" | head -n 1)\nif [ -z \"$APK_ORIGINAL\" ]; then\n  echo \"Error: No APK found in app/build/outputs/apk/release/\"\n  find app/build/outputs/ -name \"*.apk\"\n  exit 1\nfi\nmkdir -p release-artifacts\ncp \"$APK_ORIGINAL\" \"release-artifacts/Graffux-${{ steps.versioninfo.outputs.version_name }}-release.apk\"\n"
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: android-apk
+          path: release-artifacts/*.apk
+          if-no-files-found: error
+    needs: v_c67c127b0d461762__central_check_start
+    if: ${{ (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) && (inputs.shared_variant == 'c67c127b0d461762') }}
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+  v_c67c127b0d461762__build_desktop_linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+      - name: Set up JDK 21
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6
+        with:
+          java-version: '21'
+          distribution: temurin
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        with:
+          cache-read-only: false
+          dependency-graph: disabled
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Install native packaging tools
+        run: sudo apt-get update && sudo apt-get install -y fakeroot rpm
+      - name: Build Linux .deb and .rpm
+        run: ./gradlew :desktop:packageDeb :desktop:packageRpm
+      - name: Upload Linux desktop artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: desktop-linux
+          path: "desktop/build/compose/binaries/main/deb/*.deb\ndesktop/build/compose/binaries/main/rpm/*.rpm\n"
+          if-no-files-found: error
+    needs: v_c67c127b0d461762__central_check_start
+    if: ${{ (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) && (inputs.shared_variant == 'c67c127b0d461762') }}
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+  v_c67c127b0d461762__build_desktop_windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+      - name: Set up JDK 21
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6
+        with:
+          java-version: '21'
+          distribution: temurin
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb
+        with:
+          cache-read-only: false
+          dependency-graph: disabled
+      - name: Ensure WiX Toolset is on PATH
+        shell: pwsh
+        run: "if (Get-Command candle.exe -ErrorAction SilentlyContinue) {\n  Write-Host \"WiX Toolset already on PATH.\"\n} else {\n  choco install wixtoolset --version=3.14.1 -y --no-progress\n  $wixBin = Get-ChildItem \"C:\\Program Files (x86)\\WiX Toolset*\\bin\" -Directory -ErrorAction SilentlyContinue | Select-Object -First 1\n  if (-not $wixBin) {\n    Write-Error \"WiX install did not produce a bin directory at the expected path — packageMsi will fail.\"\n    exit 1\n  }\n  Add-Content -Path $env:GITHUB_PATH -Value $wixBin.FullName\n}\n"
+      - name: Build Windows .msi
+        run: ./gradlew.bat :desktop:packageMsi
+      - name: Upload Windows desktop artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: desktop-windows
+          path: desktop/build/compose/binaries/main/msi/*.msi
+          if-no-files-found: error
+    needs: v_c67c127b0d461762__central_check_start
+    if: ${{ (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) && (inputs.shared_variant == 'c67c127b0d461762') }}
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+  v_c67c127b0d461762__publish_release:
+    needs:
+      - v_c67c127b0d461762__central_check_start
+      - v_c67c127b0d461762__build_android
+      - v_c67c127b0d461762__build_desktop_linux
+      - v_c67c127b0d461762__build_desktop_windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+      - name: Download all release artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          path: downloaded-artifacts
+      - name: Create or update release with every platform's build
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          VERSION_NAME: ${{ needs.v_c67c127b0d461762__build_android.outputs.version_name }}
+          TAG_NAME: ${{ needs.v_c67c127b0d461762__build_android.outputs.tag_name }}
+        run: "ASSETS=$(find downloaded-artifacts -type f \\( -name '*.apk' -o -name '*.deb' -o -name '*.rpm' -o -name '*.msi' \\))\nif [ -z \"$ASSETS\" ]; then\n  echo \"::error::No release assets found after downloading artifacts.\"\n  exit 1\nfi\necho \"Release assets:\"\necho \"$ASSETS\"\n\ngit config user.name \"github-actions[bot]\"\ngit config user.email \"41898282+github-actions[bot]@users.noreply.github.com\"\n\n# Force update tag to current commit\ngit tag -fa \"$TAG_NAME\" -m \"Latest Release Build\"\ngit push origin \"$TAG_NAME\" --force\n\nTITLE=\"Latest Release v${TAG_NAME#latest-release-v} (${VERSION_NAME})\"\nNOTES=\"Release build from commit $TARGET_SHA — Android APK plus Linux (.deb/.rpm) and Windows (.msi) desktop builds.\"\n\n# Create or update release\nif gh release view \"$TAG_NAME\" > /dev/null 2>&1; then\n  echo \"Updating existing release...\"\n  gh release edit \"$TAG_NAME\" --title \"$TITLE\" --notes \"$NOTES\"\n  gh release upload \"$TAG_NAME\" $ASSETS --clobber\nelse\n  echo \"Creating new release...\"\n  gh release create \"$TAG_NAME\" $ASSETS --title \"$TITLE\" --notes \"$NOTES\"\nfi\n"
+    if: ${{ (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) && (inputs.shared_variant == 'c67c127b0d461762') }}
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+  v_c67c127b0d461762__central_check_finish:
+    if: ${{ (always()) && (inputs.shared_variant == 'c67c127b0d461762') }}
+    needs:
+      - v_c67c127b0d461762__central_check_start
+      - v_c67c127b0d461762__build_android
+      - v_c67c127b0d461762__build_desktop_linux
+      - v_c67c127b0d461762__build_desktop_windows
+      - v_c67c127b0d461762__publish_release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+  v_cc5d9775a1b164bb__central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from the shared HereLiesAz/workflows catalog.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    if: ${{ inputs.shared_variant == 'cc5d9775a1b164bb' }}
+  v_cc5d9775a1b164bb__build_and_release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        env:
+          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+      - name: Inject Google Services
+        env:
+          GOOGLE_SERVICES_API_KEY: ${{ secrets.GOOGLE_SERVICES_API_KEY }}
+          PROJECT_ID: ${{ secrets.PROJECT_ID }}
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          CUSTOM_API_KEY: ${{ secrets.CUSTOM_API_KEY }}
+        run: "if [ -f \"app/google-services.json.template\" ]; then\n  echo \"Template found. Injecting secrets...\"\n  sed -e 's/{{\\([^}]*\\)}}/${\\1}/g' app/google-services.json.template | envsubst > app/google-services.json\nelse\n  echo \"Warning: google-services.json.template not found. Skipping injection.\"\nfi\n# Add any extra local.properties keys below:\n# echo \"CUSTOM_API_KEY=$CUSTOM_API_KEY\" >> local.properties\n"
+      - name: Decode signing keystore
+        env:
+          KEYSTORE_RAW: ${{ secrets.KEYSTORE_RAW }}
+        run: "if [ -z \"$KEYSTORE_RAW\" ]; then\n  echo \"::error::KEYSTORE_RAW secret is empty — cannot produce a signed build.\"\n  exit 1\nfi\necho \"$KEYSTORE_RAW\" | base64 -d > app/keystore.jks\nif [ ! -s app/keystore.jks ]; then\n  echo \"::error::Decoded keystore is empty — KEYSTORE_RAW is not valid base64.\"\n  exit 1\nfi\necho \"Keystore decoded to app/keystore.jks ($(stat -c%s app/keystore.jks) bytes)\"\n"
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: temurin
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        env:
+          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        with:
+          cache-read-only: false
+          dependency-graph: disabled
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Build Release APK
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          KEYSTORE_FILE: ${{ github.workspace }}/app/keystore.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew assembleRelease
+      - name: Prepare Release
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: "MAJOR=$(grep '^versionMajor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nMINOR=$(grep '^versionMinor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nPATCH=$(grep '^versionPatch=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nBUILD_NUMBER=$(grep '^versionBuild=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nVERSION_NAME=\"${MAJOR}.${MINOR}.${PATCH}.${BUILD_NUMBER}\"\nTAG_NAME=\"latest-release-v${MAJOR}.${MINOR}\"\n\nif [ -f \"settings.gradle.kts\" ]; then\n  APP_NAME=$(grep 'rootProject.name' settings.gradle.kts | sed -E \"s/.*=.*[\\\"'](.*)[\\\"']/\\1/\")\nelif [ -f \"settings.gradle\" ]; then\n  APP_NAME=$(grep 'rootProject.name' settings.gradle | sed -E \"s/.*=.*[\\\"'](.*)[\\\"']/\\1/\")\nelse\n  APP_NAME=\"App\"\nfi\n\nAPK_ORIGINAL=$(find app/build/outputs/apk/release -name \"*.apk\" | head -n 1)\nif [ -z \"$APK_ORIGINAL\" ]; then\n  echo \"Error: No APK found in app/build/outputs/apk/release/\"\n  find app/build/outputs/ -name \"*.apk\"\n  exit 1\nfi\n\nTARGET_NAME=\"${APP_NAME}-${VERSION_NAME}-release.apk\"\nmv \"$APK_ORIGINAL\" \"$TARGET_NAME\"\n\ngit config user.name \"github-actions[bot]\"\ngit config user.email \"41898282+github-actions[bot]@users.noreply.github.com\"\n\ngit tag -fa \"$TAG_NAME\" -m \"Latest Release Build\"\ngit push origin \"$TAG_NAME\" --force\n\nif gh release view \"$TAG_NAME\" > /dev/null 2>&1; then\n  echo \"Updating existing release...\"\n  gh release edit \"$TAG_NAME\" \\\n    --title \"Latest Release v${MAJOR}.${MINOR} (${VERSION_NAME})\" \\\n    --notes \"Release build from commit $TARGET_SHA\"\n  gh release upload \"$TAG_NAME\" \"$TARGET_NAME\" --clobber\nelse\n  echo \"Creating new release...\"\n  gh release create \"$TAG_NAME\" \"$TARGET_NAME\" \\\n    --title \"Latest Release v${MAJOR}.${MINOR} (${VERSION_NAME})\" \\\n    --notes \"Release build from commit $TARGET_SHA\"\nfi\n"
+    needs: v_cc5d9775a1b164bb__central_check_start
+    if: ${{ (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) && (inputs.shared_variant == 'cc5d9775a1b164bb') }}
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+  v_cc5d9775a1b164bb__central_check_finish:
+    if: ${{ (always()) && (inputs.shared_variant == 'cc5d9775a1b164bb') }}
+    needs:
+      - v_cc5d9775a1b164bb__central_check_start
+      - v_cc5d9775a1b164bb__build_and_release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+  v_e1a80a63ce7ee353__central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from the shared HereLiesAz/workflows catalog.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    concurrency:
+      group: release-apk-publish-${{ inputs.shared_variant }}
+      cancel-in-progress: false
+    if: ${{ inputs.shared_variant == 'e1a80a63ce7ee353' }}
+  v_e1a80a63ce7ee353__build_and_release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+      - name: Create google-services.json
+        env:
+          GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES }}
+        run: "if [ -n \"$GOOGLE_SERVICES\" ]; then\n  echo \"$GOOGLE_SERVICES\" > app/google-services.json\nfi\n"
+      - name: Generate Keystore from Secrets
+        env:
+          KEYSTORE_PRIVATE: ${{ secrets.KEYSTORE_PRIVATE }}
+          KEYSTORE_CHAIN: ${{ secrets.KEYSTORE_CHAIN }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: "echo \"Generating keystore from certificate chain and private key...\"\n\n# Write the private key and certificate chain to temporary files\necho \"$KEYSTORE_PRIVATE\" > private_key.pem\necho \"$KEYSTORE_CHAIN\" > certificate_chain.crt\n\n# Create a PKCS12 file from the key and certificate chain\nopenssl pkcs12 -export -in certificate_chain.crt -inkey private_key.pem \\\n  -name \"$KEY_ALIAS\" -out keystore.p12 \\\n  -password pass:\"$KEYSTORE_PASSWORD\"\n\n# Convert the PKCS12 file to a JKS keystore\nkeytool -importkeystore -srckeystore keystore.p12 -srcstoretype PKCS12 \\\n  -destkeystore app/keystore.jks -deststoretype JKS \\\n  -srcstorepass \"$KEYSTORE_PASSWORD\" \\\n  -deststorepass \"$KEYSTORE_PASSWORD\" \\\n  -alias \"$KEY_ALIAS\" -noprompt\n\necho \"Keystore generated successfully at app/keystore.jks\"\n\n# Clean up temporary files\nrm private_key.pem certificate_chain.crt keystore.p12\n"
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          java-version: '17'
+          distribution: temurin
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        with:
+          cache-read-only: false
+          dependency-graph: disabled
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Build Release APK
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: "# version.properties auto-increments inside the build — no version override is passed.\n# The GitHub-distributed APK is the `github` flavor: no ads, self-updates from Releases.\n./gradlew assembleGithubRelease \\\n  -Pandroid.injected.signing.store.file=$(pwd)/app/keystore.jks \\\n  -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \\\n  -Pandroid.injected.signing.key.alias=$KEY_ALIAS \\\n  -Pandroid.injected.signing.key.password=$KEY_PASSWORD\n"
+      - name: Prepare Release
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: "# Read Patch/Build straight from version.properties — the Gradle build that just ran\n# (assembleGithubRelease, above) already computed them at configuration time and wrote\n# the result back to this exact file (see build.gradle.kts's versioning block), and that\n# write is what's actually baked into the APK's versionCode/versionName. This step used\n# to re-derive its own PATCH/BUILD_NUMBER independently via `git rev-list`/`git blame` —\n# a separate, stale approximation that ignored the file Gradle had just written and\n# didn't match it: BUILD_NUMBER was raw `git rev-list --count HEAD` (a small number),\n# while the real versionBuild is offset by a monotonic floor (205920500+) and\n# auto-incremented, so the GitHub Release's title/tag/filename showed a version like\n# \"1.1.5.1502\" for an APK whose actual embedded versionCode was ~205921443. Reading the\n# file directly guarantees the release name matches what's actually inside the APK.\nMAJOR=$(grep 'versionMajor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nMINOR=$(grep 'versionMinor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nPATCH=$(grep 'versionPatch=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nBUILD_NUMBER=$(grep 'versionBuild=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\n\nVERSION_NAME=\"${MAJOR}.${MINOR}.${PATCH}.${BUILD_NUMBER}\"\nTAG_NAME=\"latest-release-v${MAJOR}.${MINOR}\"\n\n# Locate built APK (github flavor → app/build/outputs/apk/github/release)\nAPK_ORIGINAL=$(find app/build/outputs/apk/github/release -name \"*.apk\" | head -n 1)\nif [ -z \"$APK_ORIGINAL\" ]; then\n  echo \"Error: No APK found in app/build/outputs/apk/github/release/\"\n  find app/build/outputs/ -name \"*.apk\"\n  exit 1\nfi\n\nAPP_NAME=$(grep 'rootProject.name' settings.gradle.kts | sed -E \"s/.*=.*[\\\"'](.*)[\\\"']/\\1/\")\n[ -z \"$APP_NAME\" ] && APP_NAME=\"Guillotine\"\nTARGET_NAME=\"${APP_NAME}-${VERSION_NAME}-release.apk\"\nmv \"$APK_ORIGINAL\" \"$TARGET_NAME\"\n\n# R8's mapping.txt is the only way to deobfuscate a crash stack trace from this APK\n# (minifyEnabled/shrinkResources are on for release — see app/build.gradle.kts). Unlike\n# the play flavor's AAB (release-aab.yml), which Play Console deobfuscates automatically\n# from bundle metadata, this github-flavor APK has no such backend — so the mapping file\n# has to be captured here or a real-device crash like \"fi3.a\" is unreadable. Uploaded to\n# the same release tag as the APK (clobbered on every run, same as the APK itself) so the\n# mapping always matches whatever build is currently live for self-updating installs.\nMAPPING_ORIGINAL=\"app/build/outputs/mapping/githubRelease/mapping.txt\"\nMAPPING_TARGET=\"\"\nif [ -f \"$MAPPING_ORIGINAL\" ]; then\n  MAPPING_TARGET=\"${APP_NAME}-${VERSION_NAME}-mapping.txt\"\n  cp \"$MAPPING_ORIGINAL\" \"$MAPPING_TARGET\"\nelse\n  echo \"::warning::No mapping.txt found at $MAPPING_ORIGINAL — release APK crashes won't be deobfuscatable.\"\nfi\n\ngit config user.name \"github-actions[bot]\"\ngit config user.email \"41898282+github-actions[bot]@users.noreply.github.com\"\n\n# Force update tag to current commit\ngit tag -fa \"$TAG_NAME\" -m \"Latest Release Build\"\ngit push origin \"$TAG_NAME\" --force\n\n# Create or update release\nif gh release view \"$TAG_NAME\" > /dev/null 2>&1; then\n  echo \"Updating existing release...\"\n  gh release edit \"$TAG_NAME\" \\\n    --title \"Latest Release v${MAJOR}.${MINOR} (${VERSION_NAME})\" \\\n    --notes \"Release build from commit $TARGET_SHA\"\n  gh release upload \"$TAG_NAME\" \"$TARGET_NAME\" --clobber\nelse\n  echo \"Creating new release...\"\n  gh release create \"$TAG_NAME\" \"$TARGET_NAME\" \\\n    --title \"Latest Release v${MAJOR}.${MINOR} (${VERSION_NAME})\" \\\n    --notes \"Release build from commit $TARGET_SHA\"\nfi\n\nif [ -n \"$MAPPING_TARGET\" ]; then\n  gh release upload \"$TAG_NAME\" \"$MAPPING_TARGET\" --clobber\nfi\n"
+    needs: v_e1a80a63ce7ee353__central_check_start
+    if: ${{ (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) && (inputs.shared_variant == 'e1a80a63ce7ee353') }}
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    concurrency:
+      group: release-apk-publish-${{ inputs.shared_variant }}
+      cancel-in-progress: false
+  v_e1a80a63ce7ee353__central_check_finish:
+    if: ${{ (always()) && (inputs.shared_variant == 'e1a80a63ce7ee353') }}
+    needs:
+      - v_e1a80a63ce7ee353__central_check_start
+      - v_e1a80a63ce7ee353__build_and_release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    concurrency:
+      group: release-apk-publish-${{ inputs.shared_variant }}
+      cancel-in-progress: false

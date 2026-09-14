@@ -83,6 +83,8 @@ def semantic_family_slug(workflow_name: str, source_path: str, compiled_text: st
     source_slug = slugify(PurePosixPath(source_path).stem)
     lowered = (workflow_name + "\n" + source_path + "\n" + compiled_text).casefold()
 
+    if name_slug == "clear-cache" and "gh cache list --ref" in lowered:
+        return "ref-cache-cleanup"
     if "glee" in lowered:
         return "legacy-glee"
     if "codeql" in lowered:

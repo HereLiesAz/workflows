@@ -18,6 +18,11 @@ from typing import Any
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
+try:
+    from .shared_workflow_library import add_shared_variant, semantic_family_slug, shared_workflow_path
+except ImportError:
+    from shared_workflow_library import add_shared_variant, semantic_family_slug, shared_workflow_path
+
 API_VERSION = "2026-03-10"
 PROXY_MARKER = "# centralized-by: HereLiesAz/workflows"
 OWNER_LOGIN = "HereLiesAz"
@@ -29,10 +34,10 @@ WORKER_VARIABLE = "WORKFLOWS_GATEWAY_URL"
 # Curated, target-aware shared workflows. These are real reusable implementations,
 # not per-repository compiled copies.
 CATALOG_PATH_OVERRIDES = {
-    ".github/workflows/jules-dispatch.yml": ".github/workflows/catalog-jules-dispatch.yml",
-    ".github/workflows/jules-glee.yml": ".github/workflows/catalog-jules-glee.yml",
-    ".github/workflows/backup.yml": ".github/workflows/catalog-context-backup.yml",
-    ".github/workflows/clear_cache.yml": ".github/workflows/catalog-clear-cache.yml",
+    ".github/workflows/jules-dispatch.yml": ".github/workflows/jules-dispatch.yml",
+    ".github/workflows/jules-glee.yml": ".github/workflows/jules-glee.yml",
+    ".github/workflows/backup.yml": ".github/workflows/context-backup.yml",
+    ".github/workflows/clear_cache.yml": ".github/workflows/clear-cache.yml",
 }
 
 yaml = YAML()
@@ -930,7 +935,6 @@ def sync_repository(gh: GitHub, full_name: str, worker_url: str, dry_run: bool =
         raise RuntimeError(".github/workflows is not a directory")
 
     results: list[dict[str, Any]] = []
-    catalog_paths = discover_catalog_workflow_paths(gh)
     if worker_url and not dry_run:
         gh.upsert_variable(repo["full_name"], WORKER_VARIABLE, worker_url.rstrip("/"))
 
@@ -959,6 +963,29 @@ def sync_repository(gh: GitHub, full_name: str, worker_url: str, dry_run: bool =
         slug = slugify(path)
         registry_source = f"registry/{repo_id}/{slug}.source.yml"
 
+        if "glee" in workflow_name.casefold() and path != ".github/workflows/jules-glee.yml":
+            blockers = [
+                "legacy Glee workflow disabled: Glee may only use the canonical repoless Jules API audit and one PR comment"
+            ]
+            workflows_manifest[path] = {
+                "status": "blocked",
+                "source_sha256": source_hash,
+                "name": workflow_name,
+                "blockers": blockers,
+                "registry_source": registry_source,
+                "updated_at": now_iso(),
+            }
+            if not dry_run:
+                gh.put_file(
+                    CENTRAL_REPOSITORY,
+                    registry_source,
+                    source_text,
+                    f"Register disabled legacy Glee workflow {repo['full_name']}:{path}",
+                    branch="main",
+                )
+            results.append({"path": path, "status": "blocked", "blockers": blockers})
+            continue
+
         if contains_workflow_call(parsed.get("on")):
             workflows_manifest[path] = {"status": "library", "name": workflow_name, "source_sha256": source_hash, "registry_source": registry_source, "updated_at": now_iso()}
             if not dry_run:
@@ -976,7 +1003,7 @@ def sync_repository(gh: GitHub, full_name: str, worker_url: str, dry_run: bool =
                 workflows_manifest[path] = {"status": "blocked", "name": workflow_name, "source_sha256": source_hash, "blockers": [f"catalog override is missing: {override}"], "updated_at": now_iso()}
                 results.append({"path": path, "status": "blocked", "blockers": [f"catalog override is missing: {override}"]})
                 continue
-            workflows_manifest[path] = {"status": "active", "name": workflow_name, "source_sha256": source_hash, "registry_source": registry_source, "central_workflow": override, "catalog": "curated", "updated_at": now_iso()}
+            workflows_manifest[path] = {"status": "active", "name": workflow_name, "source_sha256": source_hash, "registry_source": registry_source, "central_workflow": override, "binding": "curated", "updated_at": now_iso()}
             if not dry_run:
                 gh.put_file(CENTRAL_REPOSITORY, registry_source, source_text, f"Register {repo['full_name']}:{path}", branch="main")
                 proxy = build_proxy(source_text, path, source_hash, workflow_name)
@@ -1000,25 +1027,60 @@ def sync_repository(gh: GitHub, full_name: str, worker_url: str, dry_run: bool =
             results.append({"path": path, "status": "local", "blockers": blockers})
             continue
 
-        c_hash = catalog_hash(expanded)
-        central_workflow = catalog_paths.get(c_hash[:16]) or catalog_workflow_path(expanded, workflow_name)
-        catalog_paths[c_hash[:16]] = central_workflow
+        implementation_hash = catalog_hash(expanded)
+        shared_variant = implementation_hash[:16]
         try:
-            compiled = compile_central(dump_yaml(expanded), {"full_name": "HereLiesAz/workflows-catalog", "private": True}, f"catalog/{c_hash}", workflow_name)
+            compiled = compile_central(
+                dump_yaml(expanded),
+                {"full_name": "HereLiesAz/workflows-library", "private": True},
+                f"shared/{implementation_hash}",
+                workflow_name,
+            )
+            family_slug = semantic_family_slug(workflow_name, path, compiled)
+            central_workflow = shared_workflow_path(workflow_name, path, compiled)
+            existing_shared = None
+            try:
+                existing_shared, _ = gh.get_file(CENTRAL_REPOSITORY, central_workflow, ref="main")
+            except ApiError as exc:
+                if "-> 404:" not in str(exc):
+                    raise
+            shared_text = add_shared_variant(
+                existing_shared,
+                family_slug,
+                shared_variant,
+                compiled,
+            )
             proxy = build_proxy(source_text, path, source_hash, workflow_name)
         except Exception as exc:
             workflows_manifest[path] = {"status": "local", "source_sha256": source_hash, "name": workflow_name, "blockers": [str(exc)], "registry_source": registry_source, "updated_at": now_iso()}
             if not dry_run and is_proxy:
-                gh.put_file(repo["full_name"], path, source_text, f"Restore local workflow {path}; catalog compilation failed", branch=default_branch)
+                gh.put_file(repo["full_name"], path, source_text, f"Restore local workflow {path}; shared-library compilation failed", branch=default_branch)
             results.append({"path": path, "status": "local", "blockers": [str(exc)]})
             continue
 
-        workflows_manifest[path] = {"status": "active", "name": workflow_name, "source_sha256": source_hash, "registry_source": registry_source, "central_workflow": central_workflow, "catalog": "content-addressed", "catalog_hash": c_hash, "updated_at": now_iso()}
+        workflows_manifest[path] = {
+            "status": "active",
+            "name": workflow_name,
+            "source_sha256": source_hash,
+            "registry_source": registry_source,
+            "central_workflow": central_workflow,
+            "binding": "shared-variant",
+            "implementation_sha256": implementation_hash,
+            "shared_variant": shared_variant,
+            "updated_at": now_iso(),
+        }
         if not dry_run:
             gh.put_file(CENTRAL_REPOSITORY, registry_source, source_text, f"Register {repo['full_name']}:{path}", branch="main")
-            gh.put_file(CENTRAL_REPOSITORY, central_workflow, compiled, f"Update shared workflow catalog {c_hash[:16]}", branch="main")
-            gh.put_file(repo["full_name"], path, proxy, f"Refresh {path} from shared catalog via {CENTRAL_REPOSITORY}", branch=default_branch)
-        results.append({"path": path, "status": "catalog", "central_workflow": central_workflow, "catalog_hash": c_hash, "source_sha256": source_hash})
+            gh.put_file(CENTRAL_REPOSITORY, central_workflow, shared_text, f"Update shared workflow family {family_slug}", branch="main")
+            gh.put_file(repo["full_name"], path, proxy, f"Refresh {path} from shared workflow library via {CENTRAL_REPOSITORY}", branch=default_branch)
+        results.append({
+            "path": path,
+            "status": "shared",
+            "central_workflow": central_workflow,
+            "implementation_sha256": implementation_hash,
+            "shared_variant": shared_variant,
+            "source_sha256": source_hash,
+        })
 
     manifest["last_sync_at"] = now_iso()
     manifest["worker_url_configured"] = bool(worker_url)

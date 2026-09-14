@@ -11,14 +11,15 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/android_ci_jules.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "f6876c329406ebbd654dff74d8f94dc699ff73fb4ad1f1e86acfb1c19b2fba21",
-      "central_workflow": ".github/workflows/catalog-android-ci-jules-f6876c329406ebbd.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/android-ci.yml",
+      "implementation_sha256": "f6876c329406ebbd654dff74d8f94dc699ff73fb4ad1f1e86acfb1c19b2fba21",
       "name": "Android CI (Jules)",
       "registry_source": "registry/1065113129/android_ci_jules-294d5140.source.yml",
+      "shared_variant": "f6876c329406ebbd",
       "source_sha256": "6f25a5f112d324c4bb19236302c860917f1e65e984e919e778afdd634a97336d",
       "status": "active",
-      "updated_at": "2026-09-14T01:02:37+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/assign-jules.yml": {
       "blockers": [
@@ -31,33 +32,35 @@
       "updated_at": "2026-09-14T01:02:39+00:00"
     },
     ".github/workflows/jules-glee.yml": {
-      "catalog": "curated",
-      "central_workflow": ".github/workflows/catalog-jules-glee.yml",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/jules-glee.yml",
       "name": "\ud83d\ude08 Glee Audit",
       "registry_source": "registry/1065113129/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",
-      "updated_at": "2026-09-14T01:02:41+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/release.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "3c4ec11ce5f01ca4f7313d0879456a2ce18988408080ba2ffeae35c64960bc75",
-      "central_workflow": ".github/workflows/catalog-release-3c4ec11ce5f01ca4.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/ftp-deploy.yml",
+      "implementation_sha256": "3c4ec11ce5f01ca4f7313d0879456a2ce18988408080ba2ffeae35c64960bc75",
       "name": "Release",
       "registry_source": "registry/1065113129/release-16911b98.source.yml",
+      "shared_variant": "3c4ec11ce5f01ca4",
       "source_sha256": "2ba572086d48250fa2f3afb2fb919716ee21b76145e1e13714be032381268601",
       "status": "active",
-      "updated_at": "2026-09-14T01:02:42+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/web_ci_pages.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "3f16ab045bc2253852fba86bcf9c7195751605ccfffa93c9195c12e26621c7ee",
-      "central_workflow": ".github/workflows/catalog-deploy-to-github-pages-3f16ab045bc22538.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/github-pages.yml",
+      "implementation_sha256": "3f16ab045bc2253852fba86bcf9c7195751605ccfffa93c9195c12e26621c7ee",
       "name": "Deploy to GitHub Pages",
       "registry_source": "registry/1065113129/web_ci_pages-7a1c9369.source.yml",
+      "shared_variant": "3f16ab045bc22538",
       "source_sha256": "cc2d72e8a350842a31603cccd062dffe45d4848b46dd0dc5ff7e56f82301c496",
       "status": "active",
-      "updated_at": "2026-09-14T01:02:45+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     }
   }
 }

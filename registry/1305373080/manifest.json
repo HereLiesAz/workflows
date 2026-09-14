@@ -11,33 +11,35 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/jules-glee.yml": {
-      "catalog": "curated",
-      "central_workflow": ".github/workflows/catalog-jules-glee.yml",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/jules-glee.yml",
       "name": "\ud83d\ude08 Glee Audit",
       "registry_source": "registry/1305373080/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",
-      "updated_at": "2026-09-14T01:23:14+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/release.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "cc11f4dcc7f24069bd90a539fc14c85bfdb4dfdb322389f45765e04d5cf4e89a",
-      "central_workflow": ".github/workflows/catalog-release-cc11f4dcc7f24069.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/ftp-deploy.yml",
+      "implementation_sha256": "cc11f4dcc7f24069bd90a539fc14c85bfdb4dfdb322389f45765e04d5cf4e89a",
       "name": "release",
       "registry_source": "registry/1305373080/release-16911b98.source.yml",
+      "shared_variant": "cc11f4dcc7f24069",
       "source_sha256": "2035037f33e3e03869b40dee3f370dc5ddc7624d7739a14387e75279d789464a",
       "status": "active",
-      "updated_at": "2026-09-14T01:23:16+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/sign-azp.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "2ccbbd5c3657a3622842020ff95b045411ef43ba6e42edca04b352c9089b6e27",
-      "central_workflow": ".github/workflows/catalog-sign-azp-2ccbbd5c3657a362.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/sign-azp.yml",
+      "implementation_sha256": "2ccbbd5c3657a3622842020ff95b045411ef43ba6e42edca04b352c9089b6e27",
       "name": "sign-azp",
       "registry_source": "registry/1305373080/sign-azp-fcd21605.source.yml",
+      "shared_variant": "2ccbbd5c3657a362",
       "source_sha256": "39ea6636c4df27ad72afc857325be6c5850c014589e7542ab529bda5e644b565",
       "status": "active",
-      "updated_at": "2026-09-14T01:23:18+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     }
   }
 }

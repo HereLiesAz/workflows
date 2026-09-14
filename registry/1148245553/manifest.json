@@ -28,72 +28,77 @@
       "updated_at": "2026-09-14T01:06:37+00:00"
     },
     ".github/workflows/android-release-aab.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "42a3f5af9ecea757b74eef1d2922685dc26374814e3f8132a1cc4ffc3d5703ff",
-      "central_workflow": ".github/workflows/catalog-build-publish-aab-play-42a3f5af9ecea757.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/google-play.yml",
+      "implementation_sha256": "42a3f5af9ecea757b74eef1d2922685dc26374814e3f8132a1cc4ffc3d5703ff",
       "name": "Build & Publish AAB (Play)",
       "registry_source": "registry/1148245553/android-release-aab-c7afaeed.source.yml",
+      "shared_variant": "42a3f5af9ecea757",
       "source_sha256": "c7e435bc33db1508560b4f5e700570d3f9544ce3d2efa16b4b7df2a60ee3c1f4",
       "status": "active",
-      "updated_at": "2026-09-14T01:06:38+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/android-release-apk.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "31e2f79fe72366a00cf075af76d7c9fa6e31b41a5d81fcf59a2f0ea218b7e04e",
-      "central_workflow": ".github/workflows/catalog-compile-and-release-apk-31e2f79fe72366a0.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/android-release.yml",
+      "implementation_sha256": "31e2f79fe72366a00cf075af76d7c9fa6e31b41a5d81fcf59a2f0ea218b7e04e",
       "name": "Compile and Release APK",
       "registry_source": "registry/1148245553/android-release-apk-f927747f.source.yml",
+      "shared_variant": "31e2f79fe72366a0",
       "source_sha256": "41ccb8c30d393fdc42a44d3b208b179f948ebc44e1c316c4e78b76f627f3bb3c",
       "status": "active",
-      "updated_at": "2026-09-14T01:06:41+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/android-update-libs.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "ae32a79237de31ef7d09c983969642705753f0c5bbcb366b0642609f7e38ef49",
-      "central_workflow": ".github/workflows/catalog-update-dependencies-ae32a79237de31ef.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/update-dependencies.yml",
+      "implementation_sha256": "ae32a79237de31ef7d09c983969642705753f0c5bbcb366b0642609f7e38ef49",
       "name": "Update Dependencies",
       "registry_source": "registry/1148245553/android-update-libs-46df0ebe.source.yml",
+      "shared_variant": "ae32a79237de31ef",
       "source_sha256": "05e2b3435ae6c44dfac330372257beb8ccd0b4046cd7fb66bff57fabefb799e3",
       "status": "active",
-      "updated_at": "2026-09-14T01:06:43+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/backup.yml": {
-      "catalog": "curated",
-      "central_workflow": ".github/workflows/catalog-context-backup.yml",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/context-backup.yml",
       "name": "Context Backup (Universal Surgical)",
       "registry_source": "registry/1148245553/backup-d598524a.source.yml",
       "source_sha256": "3a4f16e99f43e7ff92c92791ff368bc12e612766d692ac424a0c843deea01c71",
       "status": "active",
-      "updated_at": "2026-09-14T01:06:46+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/clear_cache.yml": {
-      "catalog": "curated",
-      "central_workflow": ".github/workflows/catalog-clear-cache.yml",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/clear-cache.yml",
       "name": "Clear Gradle Cache",
       "registry_source": "registry/1148245553/clear_cache-7bd18479.source.yml",
       "source_sha256": "5d40dac9f75a6e3e651ff6a4b1c8e7bf52b09178d0aa30c586d3fbef46694fca",
       "status": "active",
-      "updated_at": "2026-09-14T01:06:47+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/code-quality.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "6d33a4ac4f80e0204d92104b41b148b1c7985b71c982ff541e8879fceb6a7272",
-      "central_workflow": ".github/workflows/catalog-code-quality-6d33a4ac4f80e020.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/code-quality.yml",
+      "implementation_sha256": "6d33a4ac4f80e0204d92104b41b148b1c7985b71c982ff541e8879fceb6a7272",
       "name": "Code Quality",
       "registry_source": "registry/1148245553/code-quality-dd34ada1.source.yml",
+      "shared_variant": "6d33a4ac4f80e020",
       "source_sha256": "e0453104ae87efbcbaff88ffbf48bb4f13960d6793b9b0961e26930e9738b5c3",
       "status": "active",
-      "updated_at": "2026-09-14T01:06:49+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/deploy-sftp.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "8d49901b5104a9f7cf6201cc3602a514fe726df6d4c060dbde54434186734506",
-      "central_workflow": ".github/workflows/catalog-deploy-over-ftp-8d49901b5104a9f7.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/sftp-deploy.yml",
+      "implementation_sha256": "8d49901b5104a9f7cf6201cc3602a514fe726df6d4c060dbde54434186734506",
       "name": "Deploy over FTP",
       "registry_source": "registry/1148245553/deploy-sftp-1401405c.source.yml",
+      "shared_variant": "8d49901b5104a9f7",
       "source_sha256": "b0ef23a564e122b032f710d57a50a0d08fa49b142386df869c99f960f4e5be8b",
       "status": "active",
-      "updated_at": "2026-09-14T01:06:51+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/jekyll-gh-pages.yml": {
       "blockers": [
@@ -107,22 +112,22 @@
       "updated_at": "2026-09-14T01:06:54+00:00"
     },
     ".github/workflows/jules-dispatch.yml": {
-      "catalog": "curated",
-      "central_workflow": ".github/workflows/catalog-jules-dispatch.yml",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/jules-dispatch.yml",
       "name": "\ud83d\udd00 Jules Dispatch",
       "registry_source": "registry/1148245553/jules-dispatch-800d0b01.source.yml",
       "source_sha256": "17c13d04cfa6d1e55af692790eaab5608a1b4b511a1f66e56ec133a8803eb5da",
       "status": "active",
-      "updated_at": "2026-09-14T01:06:55+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/jules-glee.yml": {
-      "catalog": "curated",
-      "central_workflow": ".github/workflows/catalog-jules-glee.yml",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/jules-glee.yml",
       "name": "\ud83d\ude08 Glee Audit",
       "registry_source": "registry/1148245553/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",
-      "updated_at": "2026-09-14T01:06:56+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/jules-invoke.yml": {
       "name": "\u25b6\ufe0f Jules Invoke",
@@ -167,14 +172,15 @@
       "updated_at": "2026-09-14T01:07:01+00:00"
     },
     ".github/workflows/merged-build.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "b260fcfb1d8a906f6e6b61819987161912b1aef180610483eb5e7ba76c0a2789",
-      "central_workflow": ".github/workflows/catalog-merged-build-release-b260fcfb1d8a906f.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/merged-build-release.yml",
+      "implementation_sha256": "b260fcfb1d8a906f6e6b61819987161912b1aef180610483eb5e7ba76c0a2789",
       "name": "Merged Build & Release",
       "registry_source": "registry/1148245553/merged-build-7328551a.source.yml",
+      "shared_variant": "b260fcfb1d8a906f",
       "source_sha256": "e92084b6fddbc2347ef9b23c344d25fa643c2a8ac99a68326d4be33037b7b419",
       "status": "active",
-      "updated_at": "2026-09-14T01:07:02+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/release-play.yml": {
       "name": "Release to Play",
@@ -195,24 +201,26 @@
       "updated_at": "2026-09-14T01:07:05+00:00"
     },
     ".github/workflows/summary.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "d825bd202905b6c6ea9d4c61fe3c25f7bef34caafb651ea101316e61f0628df7",
-      "central_workflow": ".github/workflows/catalog-summarize-new-issues-d825bd202905b6c6.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/issue-summary.yml",
+      "implementation_sha256": "d825bd202905b6c6ea9d4c61fe3c25f7bef34caafb651ea101316e61f0628df7",
       "name": "Summarize new issues",
       "registry_source": "registry/1148245553/summary-bc1f0d2a.source.yml",
+      "shared_variant": "d825bd202905b6c6",
       "source_sha256": "9158d4587eeca12602514ad7da12f02c600029539ba1567bf63b405d972b65ff",
       "status": "active",
-      "updated_at": "2026-09-14T01:07:06+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/update-libs.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "81dfe1db213276ebddd7882021cfcd02b3537d832fe2ae2ead1d9cfbed66efd8",
-      "central_workflow": ".github/workflows/catalog-update-dependencies-81dfe1db213276eb.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/update-dependencies.yml",
+      "implementation_sha256": "81dfe1db213276ebddd7882021cfcd02b3537d832fe2ae2ead1d9cfbed66efd8",
       "name": "Update Dependencies",
       "registry_source": "registry/1148245553/update-libs-70ffc54c.source.yml",
+      "shared_variant": "81dfe1db213276eb",
       "source_sha256": "8e5f1bac9cf34a4b89d0d49d1a137c46a18212420d820f3103e5020b6628a0ff",
       "status": "active",
-      "updated_at": "2026-09-14T01:07:08+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     }
   }
 }

@@ -11,14 +11,15 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/antigravity-branch-manager.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "ff96108b43922c2b728b1bea787de943dc122a9f7f8f89ee4399267f5f4dfb88",
-      "central_workflow": ".github/workflows/catalog-antigravity-branch-manager-ff96108b43922c2b.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/antigravity-branch-manager.yml",
+      "implementation_sha256": "ff96108b43922c2b728b1bea787de943dc122a9f7f8f89ee4399267f5f4dfb88",
       "name": "Antigravity Branch Manager",
       "registry_source": "registry/1085343418/antigravity-branch-manager-27e78ee4.source.yml",
+      "shared_variant": "ff96108b43922c2b",
       "source_sha256": "46809ad74981ac249317826863a775894f8e23be394683d5f4231349716a096c",
       "status": "active",
-      "updated_at": "2026-09-14T01:07:41+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/antigravity-dispatch.yml": {
       "blockers": [
@@ -38,14 +39,15 @@
       "updated_at": "2026-09-14T01:07:45+00:00"
     },
     ".github/workflows/antigravity-issue-handler.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "c7f39e08c5f396a81122bb501c75b6d9cfacdd8b328819a7c70dfb273e4fa319",
-      "central_workflow": ".github/workflows/catalog-antigravity-issue-handler-c7f39e08c5f396a8.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/antigravity-issue-handler.yml",
+      "implementation_sha256": "c7f39e08c5f396a81122bb501c75b6d9cfacdd8b328819a7c70dfb273e4fa319",
       "name": "Antigravity Issue Handler",
       "registry_source": "registry/1085343418/antigravity-issue-handler-23241b3b.source.yml",
+      "shared_variant": "c7f39e08c5f396a8",
       "source_sha256": "c33c11ed3f31fdf45ff1f9970b9f0f7b9ccf9a3b4062148bdeb71c74d518b878",
       "status": "active",
-      "updated_at": "2026-09-14T01:07:46+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/antigravity-review.yml": {
       "name": "\ud83d\udd0e Antigravity Review",
@@ -74,13 +76,13 @@
       "updated_at": "2026-09-14T01:07:50+00:00"
     },
     ".github/workflows/backup.yml": {
-      "catalog": "curated",
-      "central_workflow": ".github/workflows/catalog-context-backup.yml",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/context-backup.yml",
       "name": "Context Backup (Universal Surgical)",
       "registry_source": "registry/1085343418/backup-d598524a.source.yml",
       "source_sha256": "3a4f16e99f43e7ff92c92791ff368bc12e612766d692ac424a0c843deea01c71",
       "status": "active",
-      "updated_at": "2026-09-14T01:07:51+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/build-and-release.yml": {
       "blockers": [
@@ -93,23 +95,24 @@
       "updated_at": "2026-09-14T01:07:52+00:00"
     },
     ".github/workflows/clear_cache.yml": {
-      "catalog": "curated",
-      "central_workflow": ".github/workflows/catalog-clear-cache.yml",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/clear-cache.yml",
       "name": "Clear Gradle Cache",
       "registry_source": "registry/1085343418/clear_cache-7bd18479.source.yml",
       "source_sha256": "52b698849a1934ee79c32781fb1bdf7461cdc96581cbd933965d03285dd4f66b",
       "status": "active",
-      "updated_at": "2026-09-14T01:07:53+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/codeql.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "ecd55f85915733e12dc6bdf4c7719c8ab1546e383ddf4236d6bfad6587adc071",
-      "central_workflow": ".github/workflows/catalog-codeql-ecd55f85915733e1.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/codeql.yml",
+      "implementation_sha256": "ecd55f85915733e12dc6bdf4c7719c8ab1546e383ddf4236d6bfad6587adc071",
       "name": "CodeQL",
       "registry_source": "registry/1085343418/codeql-37c182e8.source.yml",
+      "shared_variant": "ecd55f85915733e1",
       "source_sha256": "b1daefb6a9ccf116f965927078d197b7fd77c4e35093258e05c5a0c5c0660417",
       "status": "active",
-      "updated_at": "2026-09-14T01:07:55+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/dependency-submission.yml": {
       "blockers": [
@@ -133,23 +136,24 @@
       "updated_at": "2026-09-14T01:07:57+00:00"
     },
     ".github/workflows/jules-glee.yml": {
-      "catalog": "curated",
-      "central_workflow": ".github/workflows/catalog-jules-glee.yml",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/jules-glee.yml",
       "name": "\ud83d\ude08 Glee Audit",
       "registry_source": "registry/1085343418/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",
-      "updated_at": "2026-09-14T01:07:58+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/pr-check.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "44c4c828307b05a1b9fbff35a596a06a8ba0afa922b230850eda910f86c8e114",
-      "central_workflow": ".github/workflows/catalog-pr-check-44c4c828307b05a1.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/pr-check.yml",
+      "implementation_sha256": "44c4c828307b05a1b9fbff35a596a06a8ba0afa922b230850eda910f86c8e114",
       "name": "PR Check",
       "registry_source": "registry/1085343418/pr-check-7500c833.source.yml",
+      "shared_variant": "44c4c828307b05a1",
       "source_sha256": "8d0bee7aa3ab78d04396737b8f3fdde27eb3f4164f501979a811cac647b569b7",
       "status": "active",
-      "updated_at": "2026-09-14T01:08:00+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/pr-contribution-guidelines-review.yml": {
       "blockers": [
@@ -162,24 +166,26 @@
       "updated_at": "2026-09-14T01:08:02+00:00"
     },
     ".github/workflows/publish-play.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "a459099d862c1251ef802a8fbe54f5bd64b65c1d5a663b6c58bda5da6742f826",
-      "central_workflow": ".github/workflows/catalog-publish-aab-to-play-a459099d862c1251.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/google-play.yml",
+      "implementation_sha256": "a459099d862c1251ef802a8fbe54f5bd64b65c1d5a663b6c58bda5da6742f826",
       "name": "Publish AAB to Play",
       "registry_source": "registry/1085343418/publish-play-a3a94793.source.yml",
+      "shared_variant": "a459099d862c1251",
       "source_sha256": "9f62916fd29cb8ceed1a342fe12a5e7d3edeea9b81603064406163ed81453127",
       "status": "active",
-      "updated_at": "2026-09-14T01:08:03+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/summary.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "6d72dc760e4e88c72bf97e4c3942d5f23e0fa82bd528e95aadc785d9a074926d",
-      "central_workflow": ".github/workflows/catalog-summarize-new-issues-6d72dc760e4e88c7.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/issue-summary.yml",
+      "implementation_sha256": "6d72dc760e4e88c72bf97e4c3942d5f23e0fa82bd528e95aadc785d9a074926d",
       "name": "Summarize new issues",
       "registry_source": "registry/1085343418/summary-bc1f0d2a.source.yml",
+      "shared_variant": "6d72dc760e4e88c7",
       "source_sha256": "d457c0809e0b9d1cd9a70044eaab8f8e0aa11197ba25a0a9c97aab620f155afa",
       "status": "active",
-      "updated_at": "2026-09-14T01:08:05+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     }
   }
 }

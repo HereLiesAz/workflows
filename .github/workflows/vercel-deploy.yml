@@ -1,0 +1,478 @@
+# Central semantic shared-workflow family.
+# Public identity is the filename; implementation hashes are internal registry metadata only.
+# Do not edit generated variant jobs by hand; update the source workflow or synchronizer.
+name: Shared · Vercel Deploy
+run-name: ${{ inputs.target_repository }} · ${{ inputs.source_workflow_path }}
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_ref:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+      shared_variant:
+        required: true
+        type: string
+        description: Internal implementation selector from the central registry.
+jobs:
+  shared_variant_guard:
+    runs-on: ubuntu-latest
+    permissions: {}
+    env:
+      SHARED_VARIANT: ${{ inputs.shared_variant }}
+    steps:
+      - name: Validate registered shared workflow variant
+        shell: bash
+        run: "set -euo pipefail\ncase \"$SHARED_VARIANT\" in\n  12d9b8574b66d6f9|5b52ad49cc81d807|ebf04cd63dc3a32d) ;;\n  *) echo \"Unknown shared workflow variant: $SHARED_VARIANT\" >&2; exit 1 ;;\nesac\n"
+  v_12d9b8574b66d6f9__central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from the shared HereLiesAz/workflows catalog.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    if: ${{ inputs.shared_variant == '12d9b8574b66d6f9' }}
+  v_12d9b8574b66d6f9__logs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Vercel deployment build logs
+        env:
+          TOKEN: ${{ secrets.VERCEL_API_KEY }}
+          DEP_INPUT: ${{ fromJSON(inputs.target_inputs_json).deployment }}
+        run: "set -uo pipefail\nAPI=https://api.vercel.com\nauth=(-H \"Authorization: Bearer $TOKEN\")\n\necho \"token length: ${#TOKEN} (should be ~24 for a Vercel token)\"\necho \"=== whoami (/v2/user) ===\"\ncode=$(curl -s -o /tmp/u.json -w \"%{http_code}\" \"${auth[@]}\" \"$API/v2/user\")\necho \"/v2/user -> HTTP $code\"\nhead -c 600 /tmp/u.json; echo\n\necho \"=== teams (/v2/teams) ===\"\nteamsRaw=$(curl -s \"${auth[@]}\" \"$API/v2/teams\")\necho \"$teamsRaw\" | jq -r '.teams[]? | \"\\(.id)  \\(.slug)  \\(.name)\"' 2>/dev/null || echo \"$teamsRaw\" | head -c 800\n\n# Try each known scope: personal, then every team, then the slug from the deploy URL.\nslugFromUrl=\"azs-projects-e393a284\"\nscopes=$(echo \"$teamsRaw\" | jq -r '.teams[]?.id' 2>/dev/null)\necho \"=== searching for the storefront project across scopes ===\"\npid=\"\"; teamId=\"\"\nfor tid in \"\" $scopes; do\n  q=\"limit=100\"; [ -n \"$tid\" ] && q=\"$q&teamId=$tid\"\n  resp=$(curl -s \"${auth[@]}\" \"$API/v9/projects?$q\")\n  names=$(echo \"$resp\" | jq -r '.projects[]?.name' 2>/dev/null | tr '\\n' ' ')\n  echo \"scope [${tid:-personal}]: ${names:-<none/err>}\"\n  hit=$(echo \"$resp\" | jq -r '.projects[]? | select(.name|test(\"storefront|azphalt\";\"i\")) | .id' 2>/dev/null | head -1)\n  if [ -n \"$hit\" ]; then pid=\"$hit\"; teamId=\"$tid\"; break; fi\ndone\n# Fallback: resolve the team by the slug embedded in the deploy URL.\nif [ -z \"$pid\" ]; then\n  resp=$(curl -s \"${auth[@]}\" \"$API/v9/projects?limit=100&slug=$slugFromUrl\")\n  pid=$(echo \"$resp\" | jq -r '.projects[]? | select(.name|test(\"storefront|azphalt\";\"i\")) | .id' 2>/dev/null | head -1)\n  tid2=$(curl -s \"${auth[@]}\" \"$API/v2/teams?slug=$slugFromUrl\" | jq -r '.id // .teams[0].id // empty' 2>/dev/null)\n  [ -n \"$tid2\" ] && teamId=\"$tid2\"\nfi\ntq=\"\"; [ -n \"$teamId\" ] && tq=\"&teamId=$teamId\"\nif [ -z \"$pid\" ]; then echo \"Could not find the storefront project in any accessible scope.\"; exit 1; fi\necho \"project: $pid   team: ${teamId:-<personal>}\"\n\nif [ -n \"$DEP_INPUT\" ]; then\n  did=\"$DEP_INPUT\"\nelse\n  deps=$(curl -s \"${auth[@]}\" \"$API/v6/deployments?projectId=$pid&limit=1$tq\")\n  did=$(echo \"$deps\" | jq -r '.deployments[0].uid // empty')\n  echo \"state:  $(echo \"$deps\" | jq -r '.deployments[0].state // .deployments[0].readyState // \"?\"')\"\n  echo \"url:    https://$(echo \"$deps\" | jq -r '.deployments[0].url // \"?\"')\"\n  echo \"commit: $(echo \"$deps\" | jq -r '.deployments[0].meta.githubCommitSha // \"?\"' | cut -c1-7)\"\nfi\necho \"deployment: $did\"\necho \"=================== BUILD LOGS ===================\"\nlogs=$(curl -s \"${auth[@]}\" \"$API/v3/deployments/$did/events?builds=1&limit=1000$tq\")\nout=$(echo \"$logs\" | jq -r '.[]? | (.payload.text // .text // empty)' 2>/dev/null || true)\nif [ -n \"$out\" ]; then echo \"$out\"; else echo \"(no parsed text — raw payload:)\"; echo \"$logs\" | head -c 4000; fi\necho \"\"\necho \"=================================================\"\n"
+    needs: v_12d9b8574b66d6f9__central_check_start
+    if: ${{ (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) && (inputs.shared_variant == '12d9b8574b66d6f9') }}
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+  v_12d9b8574b66d6f9__central_check_finish:
+    if: ${{ (always()) && (inputs.shared_variant == '12d9b8574b66d6f9') }}
+    needs:
+      - v_12d9b8574b66d6f9__central_check_start
+      - v_12d9b8574b66d6f9__logs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+  v_5b52ad49cc81d807__central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from the shared HereLiesAz/workflows catalog.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    concurrency:
+      group: deploy-storefront-${{ inputs.shared_variant }}
+      cancel-in-progress: true
+    if: ${{ inputs.shared_variant == '5b52ad49cc81d807' }}
+  v_5b52ad49cc81d807__deploy:
+    runs-on: ubuntu-latest
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+      - name: Setup Java (for the Kotlin/Wasm Gradle build)
+        uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: '17'
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - name: Build Kotlin/Wasm bundle (emits into apps/storefront/public)
+        working-directory: apps/storefront-cmp
+        run: ./gradlew wasmJsBrowserDistribution --no-daemon --stacktrace
+      - name: Verify the WASM loader was produced
+        run: "test -f apps/storefront/public/storefront-cmp.js || { echo \"storefront-cmp.js was not emitted\"; exit 1; }\nls -la apps/storefront/public/*.wasm apps/storefront/public/storefront-cmp.js\n"
+      - name: Install workspace deps
+        run: pnpm install --frozen-lockfile
+      - name: Build @azphalt/azp (build-catalog imports it at runtime)
+        run: pnpm --filter "@azphalt/azp..." build
+      - name: Verify the committed catalog matches its pinned sources
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: pnpm --filter @azphalt/storefront build-catalog --check
+      - name: Build & embed the docs site (served at azphalt.org via host rewrites)
+        run: pnpm --filter @azphalt/storefront embed-docs
+      - name: Resolve Vercel org & project ids
+        run: "set -uo pipefail\nAPI=https://api.vercel.com\nauth=(-H \"Authorization: Bearer $VERCEL_TOKEN\")\nteamId=$(curl -s \"${auth[@]}\" \"$API/v2/teams\" | jq -r '.teams[0].id // empty')\ntq=\"\"; [ -n \"$teamId\" ] && tq=\"&teamId=$teamId\"\npid=$(curl -s \"${auth[@]}\" \"$API/v9/projects?limit=100$tq\" | jq -r '.projects[] | select(.name|test(\"storefront|azphalt\";\"i\")) | .id' | head -1)\nif [ -z \"$pid\" ]; then echo \"Could not resolve Vercel project id\"; exit 1; fi\necho \"VERCEL_ORG_ID=$teamId\" >> \"$GITHUB_ENV\"\necho \"VERCEL_PROJECT_ID=$pid\" >> \"$GITHUB_ENV\"\necho \"Resolved org=$teamId project=$pid\"\n"
+      - name: Vercel pull / build / deploy (prebuilt, production)
+        run: "npx --yes vercel@latest pull --yes --environment=production --token=\"$VERCEL_TOKEN\"\nnpx --yes vercel@latest build --prod --token=\"$VERCEL_TOKEN\"\nurl=$(npx --yes vercel@latest deploy --prebuilt --prod --token=\"$VERCEL_TOKEN\")\necho \"Deployed: $url\"\necho \"### Deployed: $url\" >> \"$GITHUB_STEP_SUMMARY\"\n"
+    needs: v_5b52ad49cc81d807__central_check_start
+    if: ${{ (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) && (inputs.shared_variant == '5b52ad49cc81d807') }}
+    permissions:
+      contents: read
+    concurrency:
+      group: deploy-storefront-${{ inputs.shared_variant }}
+      cancel-in-progress: true
+  v_5b52ad49cc81d807__central_check_finish:
+    if: ${{ (always()) && (inputs.shared_variant == '5b52ad49cc81d807') }}
+    needs:
+      - v_5b52ad49cc81d807__central_check_start
+      - v_5b52ad49cc81d807__deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    concurrency:
+      group: deploy-storefront-${{ inputs.shared_variant }}
+      cancel-in-progress: true
+  v_ebf04cd63dc3a32d__central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from the shared HereLiesAz/workflows catalog.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    concurrency:
+      group: provision-storage-${{ inputs.shared_variant }}
+      cancel-in-progress: false
+    if: ${{ inputs.shared_variant == 'ebf04cd63dc3a32d' }}
+  v_ebf04cd63dc3a32d__provision:
+    runs-on: ubuntu-latest
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_API_KEY }}
+      APPLY: ${{ fromJSON(inputs.target_inputs_json).apply }}
+    steps:
+      - name: Resolve team & project
+        run: "set -uo pipefail\nAPI=https://api.vercel.com\nauth=(-H \"Authorization: Bearer $VERCEL_TOKEN\")\nif [ -z \"${VERCEL_TOKEN:-}\" ]; then echo \"::error::VERCEL_API_KEY is not set\"; exit 1; fi\n\nteamId=$(curl -s \"${auth[@]}\" \"$API/v2/teams\" | jq -r '.teams[0].id // empty')\ntq=\"\"; [ -n \"$teamId\" ] && tq=\"?teamId=$teamId\"\npid=$(curl -s \"${auth[@]}\" \"$API/v9/projects?limit=100${teamId:+&teamId=$teamId}\" \\\n      | jq -r '.projects[] | select(.name|test(\"storefront|azphalt\";\"i\")) | .id' | head -1)\nif [ -z \"$pid\" ]; then echo \"::error::could not resolve the Vercel project id\"; exit 1; fi\n\necho \"TEAM_ID=$teamId\" >> \"$GITHUB_ENV\"\necho \"TQ=$tq\"          >> \"$GITHUB_ENV\"\necho \"PROJECT_ID=$pid\" >> \"$GITHUB_ENV\"\necho \"Resolved team=${teamId:-<personal>} project=$pid\"\n"
+      - name: Report current storage state
+        run: "set -uo pipefail\nAPI=https://api.vercel.com\nauth=(-H \"Authorization: Bearer $VERCEL_TOKEN\")\n\nenvs=$(curl -s \"${auth[@]}\" \"$API/v10/projects/$PROJECT_ID/env${TQ}\")\nhave_db=$(echo \"$envs\"   | jq -r '[.envs[]? | select(.key==\"DATABASE_URL\")]          | length')\nhave_blob=$(echo \"$envs\" | jq -r '[.envs[]? | select(.key==\"BLOB_READ_WRITE_TOKEN\")] | length')\necho \"DATABASE_URL set:          $([ \"$have_db\" -gt 0 ] && echo yes || echo NO)\"\necho \"BLOB_READ_WRITE_TOKEN set: $([ \"$have_blob\" -gt 0 ] && echo yes || echo NO)\"\necho \"HAVE_DB=$have_db\"     >> \"$GITHUB_ENV\"\necho \"HAVE_BLOB=$have_blob\" >> \"$GITHUB_ENV\"\n\necho \"--- existing stores on this account ---\"\ncurl -s \"${auth[@]}\" \"$API/v1/storage/stores${TQ}\" \\\n  | jq -r '.stores[]? | \"  \\(.type)\\t\\(.name)\\t\\(.id)\"' || echo \"  (none / unreadable)\"\n"
+      - name: Provision + connect Vercel Blob
+        if: ${{ fromJSON(inputs.target_inputs_json).apply == 'true' }}
+        run: "set -uo pipefail\nAPI=https://api.vercel.com\nauth=(-H \"Authorization: Bearer $VERCEL_TOKEN\" -H \"Content-Type: application/json\")\n\nif [ \"$HAVE_BLOB\" -gt 0 ]; then echo \"BLOB_READ_WRITE_TOKEN already set — leaving alone.\"; exit 0; fi\n\n# Reuse a blob store named azphalt-registry if it exists, so re-dispatching doesn't pile up stores.\nstoreId=$(curl -s \"${auth[@]}\" \"$API/v1/storage/stores${TQ}\" \\\n          | jq -r '.stores[]? | select(.type==\"blob\" and .name==\"azphalt-registry\") | .id' | head -1)\n\nif [ -z \"$storeId\" ]; then\n  echo \"Creating blob store azphalt-registry …\"\n  body=$(curl -s -w '\\n%{http_code}' \"${auth[@]}\" -X POST \\\n         \"$API/v1/storage/stores/blob${TQ}\" -d '{\"name\":\"azphalt-registry\"}')\n  code=$(echo \"$body\" | tail -1); json=$(echo \"$body\" | sed '$d')\n  echo \"create -> HTTP $code\"; echo \"$json\" | head -c 800; echo\n  [ \"$code\" = \"200\" ] || [ \"$code\" = \"201\" ] || { echo \"::error::blob store creation failed\"; exit 1; }\n  storeId=$(echo \"$json\" | jq -r '.store.id // .id // empty')\nelse\n  echo \"Reusing existing blob store $storeId\"\nfi\n[ -n \"$storeId\" ] || { echo \"::error::no blob store id\"; exit 1; }\n\necho \"Connecting store $storeId to project $PROJECT_ID …\"\nbody=$(curl -s -w '\\n%{http_code}' \"${auth[@]}\" -X POST \\\n       \"$API/v1/storage/stores/$storeId/connections${TQ}\" \\\n       -d \"{\\\"projectId\\\":\\\"$PROJECT_ID\\\",\\\"envVarEnvironments\\\":[\\\"production\\\",\\\"preview\\\",\\\"development\\\"]}\")\ncode=$(echo \"$body\" | tail -1)\necho \"connect -> HTTP $code\"; echo \"$body\" | sed '$d' | head -c 800; echo\n# Connecting is what mints BLOB_READ_WRITE_TOKEN on the project; a 409 means it already is.\ncase \"$code\" in 200|201|409) ;; *) echo \"::error::connect failed\"; exit 1;; esac\n"
+      - name: Connect Postgres for DATABASE_URL
+        if: ${{ fromJSON(inputs.target_inputs_json).apply == 'true' }}
+        run: "set -uo pipefail\nAPI=https://api.vercel.com\nauth=(-H \"Authorization: Bearer $VERCEL_TOKEN\" -H \"Content-Type: application/json\")\n\nif [ \"$HAVE_DB\" -gt 0 ]; then echo \"DATABASE_URL already set — leaving alone.\"; exit 0; fi\n\npg=$(curl -s \"${auth[@]}\" \"$API/v1/storage/stores${TQ}\" \\\n     | jq -r '.stores[]? | select(.type|test(\"postgres|neon\";\"i\")) | .id' | head -1)\n\nif [ -z \"$pg\" ]; then\n  echo \"::error::No Postgres/Neon store exists on this account, and one cannot be purchased through this API token.\"\n  echo \"Add it once from the Vercel dashboard, then re-dispatch this workflow:\"\n  echo \"  Vercel -> the azphalt project -> Storage -> Create Database -> Neon (Postgres)\"\n  echo \"  Connect it to this project, selecting Production / Preview / Development.\"\n  echo \"Connecting sets DATABASE_URL automatically. Blob (above) is already handled.\"\n  echo \"Until DATABASE_URL is set the storefront stays on the ephemeral store and\"\n  echo \"POST /api/publish keeps answering 503.\"\n  exit 1\nfi\n\necho \"Connecting existing Postgres store $pg to project $PROJECT_ID …\"\nbody=$(curl -s -w '\\n%{http_code}' \"${auth[@]}\" -X POST \\\n       \"$API/v1/storage/stores/$pg/connections${TQ}\" \\\n       -d \"{\\\"projectId\\\":\\\"$PROJECT_ID\\\",\\\"envVarEnvironments\\\":[\\\"production\\\",\\\"preview\\\",\\\"development\\\"]}\")\ncode=$(echo \"$body\" | tail -1)\necho \"connect -> HTTP $code\"; echo \"$body\" | sed '$d' | head -c 800; echo\ncase \"$code\" in 200|201|409) ;; *) echo \"::error::connect failed\"; exit 1;; esac\n"
+      - name: Final state
+        if: always()
+        run: "set -uo pipefail\nAPI=https://api.vercel.com\nauth=(-H \"Authorization: Bearer $VERCEL_TOKEN\")\nenvs=$(curl -s \"${auth[@]}\" \"$API/v10/projects/$PROJECT_ID/env${TQ}\")\ndb=$(echo \"$envs\"   | jq -r '[.envs[]? | select(.key==\"DATABASE_URL\")]          | length')\nbl=$(echo \"$envs\" | jq -r '[.envs[]? | select(.key==\"BLOB_READ_WRITE_TOKEN\")] | length')\n{\n  echo \"### Storage state\"\n  echo \"- DATABASE_URL: $([ \"$db\" -gt 0 ] && echo set || echo **unset**)\"\n  echo \"- BLOB_READ_WRITE_TOKEN: $([ \"$bl\" -gt 0 ] && echo set || echo **unset**)\"\n  if [ \"$db\" -gt 0 ] && [ \"$bl\" -gt 0 ]; then\n    echo \"\"\n    echo \"Both set. Redeploy so the build picks them up, then seed once:\"\n    echo '```sh'\n    echo 'DATABASE_URL=… BLOB_READ_WRITE_TOKEN=… pnpm --filter @azphalt/storefront seed'\n    echo '```'\n  else\n    echo \"\"\n    echo \"Still ephemeral — publishes cannot persist and /api/publish will answer 503.\"\n  fi\n} >> \"$GITHUB_STEP_SUMMARY\"\n"
+    needs: v_ebf04cd63dc3a32d__central_check_start
+    if: ${{ (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) && (inputs.shared_variant == 'ebf04cd63dc3a32d') }}
+    permissions:
+      contents: read
+    concurrency:
+      group: provision-storage-${{ inputs.shared_variant }}
+      cancel-in-progress: false
+  v_ebf04cd63dc3a32d__central_check_finish:
+    if: ${{ (always()) && (inputs.shared_variant == 'ebf04cd63dc3a32d') }}
+    needs:
+      - v_ebf04cd63dc3a32d__central_check_start
+      - v_ebf04cd63dc3a32d__provision
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    concurrency:
+      group: provision-storage-${{ inputs.shared_variant }}
+      cancel-in-progress: false

@@ -122,18 +122,23 @@ jobs:
           assert 'if not is_proxy:\n                    proxy = build_proxy' not in synchronizer_source
           assert 'if not is_proxy:\n                gh.put_file(repo["full_name"], path, proxy' not in synchronizer_source
 
-          glee_source = Path('.github/workflows/catalog-jules-glee.yml').read_text(encoding='utf-8')
+          glee_source = Path('.github/workflows/jules-glee.yml').read_text(encoding='utf-8')
           assert 'ANALYSIS-ONLY, REPOLESS audit' in glee_source
           assert 'AUTOMATION_MODE_UNSPECIFIED' in glee_source
-          assert 'sourceContext' not in glee_source
+          assert 'has("sourceContext") | not' in glee_source
           assert 'sources/github/' not in glee_source
           assert 'AUTO_CREATE_PR' not in glee_source
+          assert '.outputs[]?; .pullRequest? != null' in glee_source
+          assert '.activities[]?.artifacts[]?; .changeSet? != null' in glee_source
           assert "inputs.target_event_name == 'pull_request_target'" in glee_source
           assert "fromJSON(inputs.target_event_json).action == 'opened'" in glee_source
           assert '<!-- glee-audit -->' in glee_source
 
           dispatcher_source = Path('scripts/dispatch_request.py').read_text(encoding='utf-8')
           assert 'source_path == ".github/workflows/jules-dispatch.yml" and event_name == "pull_request"' in dispatcher_source
+          assert 'source_path == ".github/workflows/jules-glee.yml"' in dispatcher_source
+          assert 'event_name != "pull_request_target"' in dispatcher_source
+          assert 'shared_variant' in dispatcher_source
 
           def expression(body: str) -> str:
               return '${' + '{ ' + body + ' }}'
@@ -214,7 +219,7 @@ jobs:
           assert 'DISPATCH_EVENT_JSON=' in glee_proxy
 
           malformed = []
-          for path in Path('.github/workflows').glob('catalog-*.y*ml'):
+          for path in Path('.github/workflows').glob('*.y*ml'):
               text = path.read_text(encoding='utf-8')
               if '.fromJSON(inputs.target_inputs_json).' in text or '.fromJSON(inputs.target_vars_json).' in text:
                   malformed.append(str(path))

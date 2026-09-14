@@ -21,13 +21,13 @@
       "updated_at": "2026-09-14T01:01:39+00:00"
     },
     ".github/workflows/backup.yml": {
-      "catalog": "curated",
-      "central_workflow": ".github/workflows/catalog-context-backup.yml",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/context-backup.yml",
       "name": "Context Backup (Universal Surgical)",
       "registry_source": "registry/962304765/backup-d598524a.source.yml",
       "source_sha256": "7b5078fd680ca4758350d8bfb6e11d675bf62a7a12bb35cd38f3a5fcb5a81349",
       "status": "active",
-      "updated_at": "2026-09-14T01:01:40+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/build-release.yml": {
       "blockers": [
@@ -50,13 +50,13 @@
       "updated_at": "2026-09-14T01:01:42+00:00"
     },
     ".github/workflows/jules-glee.yml": {
-      "catalog": "curated",
-      "central_workflow": ".github/workflows/catalog-jules-glee.yml",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/jules-glee.yml",
       "name": "\ud83d\ude08 Glee Audit",
       "registry_source": "registry/962304765/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",
-      "updated_at": "2026-09-14T01:01:43+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/merged-build.yml": {
       "blockers": [
@@ -69,14 +69,15 @@
       "updated_at": "2026-09-14T01:01:45+00:00"
     },
     ".github/workflows/stale.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "062f09ed325faa79fdad80c794e17fa3ea0990798dd00bbdddca385e6027224e",
-      "central_workflow": ".github/workflows/catalog-mark-stale-issues-and-pull-requests-062f09ed325faa79.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/mark-stale-issues-and-pull-requests.yml",
+      "implementation_sha256": "062f09ed325faa79fdad80c794e17fa3ea0990798dd00bbdddca385e6027224e",
       "name": "Mark stale issues and pull requests",
       "registry_source": "registry/962304765/stale-1d19aad7.source.yml",
+      "shared_variant": "062f09ed325faa79",
       "source_sha256": "43aa629c2e3b6ec4283e5c5ffe0524b608d1de63b76dd5ede504cbb4a82685a5",
       "status": "active",
-      "updated_at": "2026-09-14T01:01:46+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     }
   }
 }

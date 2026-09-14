@@ -11,24 +11,26 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/codeql.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "3e934ff83b6357da3f082a29d196d3ecae9e74912cc630440a7035501342a714",
-      "central_workflow": ".github/workflows/catalog-codeql-3e934ff83b6357da.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/codeql.yml",
+      "implementation_sha256": "3e934ff83b6357da3f082a29d196d3ecae9e74912cc630440a7035501342a714",
       "name": "CodeQL",
       "registry_source": "registry/1305527054/codeql-37c182e8.source.yml",
+      "shared_variant": "3e934ff83b6357da",
       "source_sha256": "1c85cedbe13e2334c6ec9d887ee06ee6fc81827311b8ed50278de225b90f17ba",
       "status": "active",
-      "updated_at": "2026-09-14T01:09:47+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/desktop.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "7501ae3d34e1198f9ae2febda6de93161a4db82d54d840f65b9fb38b66f25729",
-      "central_workflow": ".github/workflows/catalog-build-desktop-executables-7501ae3d34e1198f.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/build-desktop-executables.yml",
+      "implementation_sha256": "7501ae3d34e1198f9ae2febda6de93161a4db82d54d840f65b9fb38b66f25729",
       "name": "Build Desktop Executables",
       "registry_source": "registry/1305527054/desktop-6b2aeac3.source.yml",
+      "shared_variant": "7501ae3d34e1198f",
       "source_sha256": "f085283d13372c3d20dfeb8e47b3fe2541f7c912f15c30547257aa22c11be7c2",
       "status": "active",
-      "updated_at": "2026-09-14T01:09:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/gemini-dispatch.yml": {
       "blockers": [
@@ -73,13 +75,13 @@
       "updated_at": "2026-09-14T01:09:56+00:00"
     },
     ".github/workflows/jules-glee.yml": {
-      "catalog": "curated",
-      "central_workflow": ".github/workflows/catalog-jules-glee.yml",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/jules-glee.yml",
       "name": "\ud83d\ude08 Glee Audit",
       "registry_source": "registry/1305527054/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",
-      "updated_at": "2026-09-14T01:09:57+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/merged-build.yml": {
       "blockers": [
@@ -92,14 +94,15 @@
       "updated_at": "2026-09-14T01:09:59+00:00"
     },
     ".github/workflows/release-aab.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "1085effe2ad07ef18ce1006701d16b09f818ed46720771fc3bc873ab705ee1d5",
-      "central_workflow": ".github/workflows/catalog-build-publish-aab-play-1085effe2ad07ef1.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/google-play.yml",
+      "implementation_sha256": "1085effe2ad07ef18ce1006701d16b09f818ed46720771fc3bc873ab705ee1d5",
       "name": "Build & Publish AAB (Play)",
       "registry_source": "registry/1305527054/release-aab-b108bf8f.source.yml",
+      "shared_variant": "1085effe2ad07ef1",
       "source_sha256": "e27bd12865d67d2b1c70163a463a38a043c90869fd8d319a4097d7b2412852ed",
       "status": "active",
-      "updated_at": "2026-09-14T01:10:00+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/static.yml": {
       "blockers": [

@@ -11,13 +11,13 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/jules-glee.yml": {
-      "catalog": "curated",
-      "central_workflow": ".github/workflows/catalog-jules-glee.yml",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/jules-glee.yml",
       "name": "\ud83d\ude08 Glee Audit",
       "registry_source": "registry/1350968130/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",
-      "updated_at": "2026-09-14T02:01:03+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/pages.yml": {
       "blockers": [
@@ -31,14 +31,15 @@
       "updated_at": "2026-09-14T02:01:04+00:00"
     },
     ".github/workflows/release.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "e531b4457e126d6decf837fe3a44e7f59c15c3d2982b927a376394bf493254f5",
-      "central_workflow": ".github/workflows/catalog-publish-release-e531b4457e126d6d.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/ftp-deploy.yml",
+      "implementation_sha256": "e531b4457e126d6decf837fe3a44e7f59c15c3d2982b927a376394bf493254f5",
       "name": "Publish release",
       "registry_source": "registry/1350968130/release-16911b98.source.yml",
+      "shared_variant": "e531b4457e126d6d",
       "source_sha256": "3ee242e7f4214889ba314e70ef51aec8553ec25bfe5965b9bfb7a89ea08e4a9d",
       "status": "active",
-      "updated_at": "2026-09-14T02:01:05+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     }
   }
 }

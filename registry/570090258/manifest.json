@@ -11,43 +11,46 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/codeql-analysis.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "5402a90bd83f1ce904517f97cad006e750c5102fb1b9c7e5c047987779643a31",
-      "central_workflow": ".github/workflows/catalog-codeql-5402a90bd83f1ce9.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/codeql.yml",
+      "implementation_sha256": "5402a90bd83f1ce904517f97cad006e750c5102fb1b9c7e5c047987779643a31",
       "name": "CodeQL",
       "registry_source": "registry/570090258/codeql-analysis-c3aa8b7f.source.yml",
+      "shared_variant": "5402a90bd83f1ce9",
       "source_sha256": "9e3b56da6fe8e52662f6e9fff25d1bfb9d4285673008a6b13cc4af7ccbed2e59",
       "status": "active",
-      "updated_at": "2026-09-14T02:10:13+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/dockerci.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "424edadec7da3c69fdf1befe14566c1e0e5fe0050c9fce2bbb22c8907fcb2a29",
-      "central_workflow": ".github/workflows/catalog-theharvester-docker-image-ci-424edadec7da3c69.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/theharvester-docker-image-ci.yml",
+      "implementation_sha256": "424edadec7da3c69fdf1befe14566c1e0e5fe0050c9fce2bbb22c8907fcb2a29",
       "name": "TheHarvester Docker Image CI",
       "registry_source": "registry/570090258/dockerci-0f6f0cb2.source.yml",
+      "shared_variant": "424edadec7da3c69",
       "source_sha256": "f8094e4c2c08c047dc17b2ccb7766dab14eeb775d66238b2c1f93c06fe995cce",
       "status": "active",
-      "updated_at": "2026-09-14T02:10:16+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/jules-glee.yml": {
-      "catalog": "curated",
-      "central_workflow": ".github/workflows/catalog-jules-glee.yml",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/jules-glee.yml",
       "name": "\ud83d\ude08 Glee Audit",
       "registry_source": "registry/570090258/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",
-      "updated_at": "2026-09-14T02:10:18+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/theHarvester.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "e520adff9b7d729fa9df6a6c8e98c67702d6bbe1c51908174215f3953f5d15d5",
-      "central_workflow": ".github/workflows/catalog-theharvester-python-ci-e520adff9b7d729f.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/theharvester-python-ci.yml",
+      "implementation_sha256": "e520adff9b7d729fa9df6a6c8e98c67702d6bbe1c51908174215f3953f5d15d5",
       "name": "TheHarvester Python CI",
       "registry_source": "registry/570090258/theharvester-22b98fac.source.yml",
+      "shared_variant": "e520adff9b7d729f",
       "source_sha256": "76ed7e227ffb3569d5c7ff6dc196e029a9be297c6e18413c0dce509f48d0a1ac",
       "status": "active",
-      "updated_at": "2026-09-14T02:10:20+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     }
   }
 }

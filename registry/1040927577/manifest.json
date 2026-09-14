@@ -11,13 +11,13 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/jules-glee.yml": {
-      "catalog": "curated",
-      "central_workflow": ".github/workflows/catalog-jules-glee.yml",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/jules-glee.yml",
       "name": "\ud83d\ude08 Glee Audit",
       "registry_source": "registry/1040927577/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",
-      "updated_at": "2026-09-14T01:10:06+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/merged-build.yml": {
       "blockers": [
@@ -30,14 +30,15 @@
       "updated_at": "2026-09-14T01:10:08+00:00"
     },
     ".github/workflows/release-apk.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "1dce34c08abc5f8e7378dd7a884ab01df00b46278e534f36e82f0fb580e5404b",
-      "central_workflow": ".github/workflows/catalog-release-apk-1dce34c08abc5f8e.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/android-release.yml",
+      "implementation_sha256": "1dce34c08abc5f8e7378dd7a884ab01df00b46278e534f36e82f0fb580e5404b",
       "name": "Release APK",
       "registry_source": "registry/1040927577/release-apk-da6a1dd6.source.yml",
+      "shared_variant": "1dce34c08abc5f8e",
       "source_sha256": "09588a228454cd17abb67313111597bf62edf69ac9286a225bed91913b7ffb35",
       "status": "active",
-      "updated_at": "2026-09-14T01:10:09+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     }
   }
 }

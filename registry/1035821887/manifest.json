@@ -11,14 +11,15 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/build-installer.yml": {
-      "catalog": "content-addressed",
-      "catalog_hash": "d594ffe46755236b3a6dde4eab432c13a012db37e11afd340f9f4734a0d24a99",
-      "central_workflow": ".github/workflows/catalog-build-installer-d594ffe46755236b.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/build-installer.yml",
+      "implementation_sha256": "d594ffe46755236b3a6dde4eab432c13a012db37e11afd340f9f4734a0d24a99",
       "name": "Build Installer",
       "registry_source": "registry/1035821887/build-installer-45bcb117.source.yml",
+      "shared_variant": "d594ffe46755236b",
       "source_sha256": "ecaa174d3910d20491133343eb12f16cb2979108025efeced85d28a9b6e7c9b1",
       "status": "active",
-      "updated_at": "2026-09-14T01:07:14+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/build.yml": {
       "blockers": [
@@ -31,13 +32,13 @@
       "updated_at": "2026-09-14T01:07:16+00:00"
     },
     ".github/workflows/jules-glee.yml": {
-      "catalog": "curated",
-      "central_workflow": ".github/workflows/catalog-jules-glee.yml",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/jules-glee.yml",
       "name": "\ud83d\ude08 Glee Audit",
       "registry_source": "registry/1035821887/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",
-      "updated_at": "2026-09-14T01:07:17+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/jules.yml": {
       "blockers": [

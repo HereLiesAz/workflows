@@ -1,0 +1,233 @@
+# Central semantic shared-workflow family.
+# Public identity is the filename; implementation hashes are internal registry metadata only.
+# Do not edit generated variant jobs by hand; update the source workflow or synchronizer.
+name: Shared · Cmp Client Build
+run-name: ${{ inputs.target_repository }} · ${{ inputs.source_workflow_path }}
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_ref:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+      shared_variant:
+        required: true
+        type: string
+        description: Internal implementation selector from the central registry.
+jobs:
+  shared_variant_guard:
+    runs-on: ubuntu-latest
+    permissions: {}
+    env:
+      SHARED_VARIANT: ${{ inputs.shared_variant }}
+    steps:
+      - name: Validate registered shared workflow variant
+        shell: bash
+        run: "set -euo pipefail\ncase \"$SHARED_VARIANT\" in\n  f3485c0d418b3157) ;;\n  *) echo \"Unknown shared workflow variant: $SHARED_VARIANT\" >&2; exit 1 ;;\nesac\n"
+  v_f3485c0d418b3157__central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from the shared HereLiesAz/workflows catalog.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    concurrency:
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_head_ref || inputs.target_ref }}-${{ inputs.shared_variant }}
+      cancel-in-progress: true
+    if: ${{ inputs.shared_variant == 'f3485c0d418b3157' }}
+  v_f3485c0d418b3157__build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: cmp
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Run shared tests
+        run: ./gradlew :shared:desktopTest --stacktrace
+      - name: Build Android APK
+        run: ./gradlew :composeApp:assembleDebug --stacktrace
+      - name: Build desktop JAR
+        run: ./gradlew :composeApp:desktopJar --stacktrace
+      - name: Upload test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmp-test-report
+          path: cmp/shared/build/reports/tests/
+          retention-days: 7
+    needs: v_f3485c0d418b3157__central_check_start
+    if: ${{ (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) && (inputs.shared_variant == 'f3485c0d418b3157') }}
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    concurrency:
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_head_ref || inputs.target_ref }}-${{ inputs.shared_variant }}
+      cancel-in-progress: true
+  v_f3485c0d418b3157__central_check_finish:
+    if: ${{ (always()) && (inputs.shared_variant == 'f3485c0d418b3157') }}
+    needs:
+      - v_f3485c0d418b3157__central_check_start
+      - v_f3485c0d418b3157__build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    concurrency:
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_head_ref || inputs.target_ref }}-${{ inputs.shared_variant }}
+      cancel-in-progress: true

@@ -1,0 +1,69 @@
+name: Deploy T2V Space
+
+# Pushes the hf-space/ folder to Guillotine's Hugging Face Space, which backs the app's keyless
+# "Guillotine (free)" text-to-video provider. Runs entirely on the GitHub runner. Manual trigger only.
+#
+# Requirements:
+#   - Repo secret HF_TOKEN: a Hugging Face *write* token (Settings → Secrets and variables → Actions →
+#     New repository secret → name HF_TOKEN). The token is never printed.
+#   - A Hugging Face **Pro** subscription on the token's account: hosting a Gradio Space (even on
+#     cpu-basic) and using ZeroGPU both require Pro — without it, create_repo returns 402 Payment
+#     Required. One Pro plan on the owner account serves every app user through this shared Space.
+#
+# After it runs, the Space is at https://huggingface.co/spaces/HereLiesAz/guillotine-t2v and serves at
+# https://hereliesaz-guillotine-t2v.hf.space. Enable ZeroGPU in the Space's Settings → Hardware for it
+# to actually generate. (No Pro? The app's free-video base URL is overridable — point it at any
+# compatible public Gradio T2V Space, or use the bring-your-own-key paid providers.)
+
+on:
+  workflow_dispatch:
+    inputs:
+      space_id:
+        description: "Destination Space repo id"
+        type: string
+        default: "HereLiesAz/guillotine-t2v"
+
+# Least privilege: this workflow only checks out the repo and pushes to an external Hugging Face
+# Space (via HF_TOKEN), so the GitHub token needs nothing beyond read.
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install huggingface_hub
+        run: pip install -U "huggingface_hub"
+
+      - name: Push hf-space/ → HF Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          SPACE_ID: ${{ inputs.space_id }}
+        run: |
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+
+          assert os.environ.get("HF_TOKEN"), "HF_TOKEN secret is not set"
+          repo_id = os.environ.get("SPACE_ID", "HereLiesAz/guillotine-t2v")
+          api = HfApi(token=os.environ["HF_TOKEN"])
+
+          api.create_repo(repo_id, repo_type="space", space_sdk="gradio", exist_ok=True)
+          api.upload_folder(
+              folder_path="hf-space",
+              repo_id=repo_id,
+              repo_type="space",
+              commit_message="Deploy Guillotine free T2V Space",
+          )
+          print(f"Deployed: https://huggingface.co/spaces/{repo_id}")
+          print("Enable ZeroGPU in the Space's Settings -> Hardware to activate generation.")
+          PY

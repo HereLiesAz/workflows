@@ -1,0 +1,56 @@
+name: Jules Issue Handler
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  handle-issue:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Assign Jules
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const assignee = 'gemini-code-assist';
+            try {
+              await github.rest.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                assignees: [assignee]
+              });
+            } catch (error) {
+              console.log(`Failed to assign ${assignee}: ${error.message}`);
+              // Continue even if assignment fails (e.g. if user doesn't exist or permissions issue)
+            }
+
+      - name: Invoke Jules
+        if: contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association)
+        uses: google-labs-code/jules-invoke@v1
+        with:
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          prompt: |
+            You are Jules, an expert software engineer and security agent.
+            Your task is to resolve the reported issue by analyzing the codebase, implementing changes, and verifying them.
+
+            **Issue Details**
+            **Title:** ${{ github.event.issue.title }}
+            **Body:**
+            ${{ github.event.issue.body }}
+
+            **Plan**
+            1. **Analyze**: Understand the issue and identify the root cause or feature requirements.
+            2. **Implement**: Make necessary code changes. Ensure they are minimal and focused.
+            3. **Verify**: Run relevant tests or verification steps to ensure the fix works and causes no regressions.
+            4. **Finalize**: Once verified, close the issue.
+
+            **Constraints**
+            - Prioritize security fixes immediately.
+            - Do not introduce regressions.
+            - Follow existing coding style and conventions.

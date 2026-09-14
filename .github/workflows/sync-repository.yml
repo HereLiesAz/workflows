@@ -44,7 +44,7 @@ jobs:
           if [[ "${{ inputs.dry_run }}" == "true" ]]; then
             args+=(--dry-run)
           fi
-          python scripts/sync_repository.py "${args[@]}" --json-output sync-result.json
+          python scripts/retry_repository_sync.py "${args[@]}" --json-output sync-result.json
 
       - name: Write summary
         if: ${{ always() && hashFiles('sync-result.json') != '' }}

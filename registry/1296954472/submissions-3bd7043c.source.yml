@@ -1,0 +1,24 @@
+name: Submissions
+
+# Validate registry submissions on any PR that adds/changes a folder under submissions/.
+# Packages each submission into a .azp and verifies it (see submissions/README.md).
+on:
+  pull_request:
+    paths:
+      - "submissions/**"
+
+permissions: read-all
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      # Build the checker and its dependencies (@azphalt/azp, @azphalt/azdk).
+      - run: pnpm --filter "@azphalt/submit-check..." build
+      - run: pnpm --filter @azphalt/submit-check validate

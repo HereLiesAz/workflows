@@ -103,7 +103,11 @@ jobs:
       - name: Smoke-test workflow compiler
         run: |
           python - <<'PY'
+          from pathlib import Path
           from scripts.sync_repository import build_proxy, compile_central, load_yaml, sha256_text
+
+          def expression(body: str) -> str:
+              return '${' + '{ ' + body + ' }}'
 
           source = '''
           name: Fixture
@@ -114,12 +118,26 @@ jobs:
             test:
               runs-on: ubuntu-latest
               env:
-                EVENT_INPUT: ${{ github.event.inputs.example }}
-                DIRECT_INPUT: ${{ inputs.example }}
+                EVENT_INPUT: __EVENT_INPUT__
+                DIRECT_INPUT: __DIRECT_INPUT__
+                DIRECT_VAR: __DIRECT_VAR__
               steps:
                 - uses: actions/checkout@v4
-                - run: echo '${{ github.repository }}' '${{ github.event.pull_request.number }}' '${{ github.event.inputs.example }}'
+                - id: vars
+                  run: echo "tag=value" >> "$GITHUB_OUTPUT"
+                - run: echo '__REPOSITORY__' '__PR_NUMBER__' '__EVENT_INPUT__' '__STEP_OUTPUT__'
           '''
+          replacements = {
+              '__EVENT_INPUT__': expression('github.event.inputs.example'),
+              '__DIRECT_INPUT__': expression('inputs.example'),
+              '__DIRECT_VAR__': expression('vars.example'),
+              '__REPOSITORY__': expression('github.repository'),
+              '__PR_NUMBER__': expression('github.event.pull_request.number'),
+              '__STEP_OUTPUT__': expression('steps.vars.outputs.tag'),
+          }
+          for marker, value in replacements.items():
+              source = source.replace(marker, value)
+
           target = {
               'full_name': 'HereLiesAz/fixture',
               'private': False,
@@ -146,10 +164,22 @@ jobs:
           assert list(proxy_doc['jobs']) == ['central-dispatch']
           assert 'fromJSON(inputs.target_event_json)_name' not in central
           assert 'fromJSON(inputs.target_event_json).fromJSON(inputs.target_inputs_json)' not in central
+          assert 'fromJSON(inputs.target_event_json).fromJSON(inputs.target_vars_json)' not in central
           assert 'fromJSON(inputs.target_event_json).inputs.example' in central
           assert 'fromJSON(inputs.target_inputs_json).example' in central
+          assert 'fromJSON(inputs.target_vars_json).example' in central
+          assert 'steps.vars.outputs.tag' in central
+          assert 'steps.fromJSON(inputs.target_vars_json)' not in central
           assert "startsWith(github.event.comment.body, '@jules')" in jules_proxy
           assert "startsWith(github.event.review.body, '@jules')" in jules_proxy
+
+          malformed = []
+          for path in Path('.github/workflows').glob('catalog-*.y*ml'):
+              text = path.read_text(encoding='utf-8')
+              if '.fromJSON(inputs.target_inputs_json).' in text or '.fromJSON(inputs.target_vars_json).' in text:
+                  malformed.append(str(path))
+          assert not malformed, f'malformed generated catalog expressions: {malformed}'
+
           print('compiler smoke test passed')
           PY
 

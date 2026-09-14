@@ -113,9 +113,12 @@ jobs:
           jobs:
             test:
               runs-on: ubuntu-latest
+              env:
+                EVENT_INPUT: ${{ github.event.inputs.example }}
+                DIRECT_INPUT: ${{ inputs.example }}
               steps:
                 - uses: actions/checkout@v4
-                - run: echo '${{ github.repository }}' '${{ github.event.pull_request.number }}'
+                - run: echo '${{ github.repository }}' '${{ github.event.pull_request.number }}' '${{ github.event.inputs.example }}'
           '''
           target = {
               'full_name': 'HereLiesAz/fixture',
@@ -142,6 +145,9 @@ jobs:
           assert proxy_doc['permissions']['id-token'] == 'write'
           assert list(proxy_doc['jobs']) == ['central-dispatch']
           assert 'fromJSON(inputs.target_event_json)_name' not in central
+          assert 'fromJSON(inputs.target_event_json).fromJSON(inputs.target_inputs_json)' not in central
+          assert 'fromJSON(inputs.target_event_json).inputs.example' in central
+          assert 'fromJSON(inputs.target_inputs_json).example' in central
           assert "startsWith(github.event.comment.body, '@jules')" in jules_proxy
           assert "startsWith(github.event.review.body, '@jules')" in jules_proxy
           print('compiler smoke test passed')

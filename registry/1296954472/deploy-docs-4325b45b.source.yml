@@ -1,0 +1,54 @@
+name: Deploy Docs
+
+# Build the VitePress documentation site (docs/) and publish it to GitHub Pages — the STANDALONE
+# alternative for hosting azphalt.org. The PRIMARY hosting needs no DNS/dashboard step: the storefront's
+# own Vercel deployment already serves azphalt.org and maps that host onto the embedded docs (see
+# apps/storefront/middleware.ts + scripts/embed-docs.mjs). To switch to Pages instead, enable Pages
+# (Settings → Pages → Source: GitHub Actions) and point azphalt.org's DNS at GitHub Pages; until then
+# this just builds and uploads the artifact without affecting the live domain.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'spec/**'
+      - '.github/workflows/deploy-docs.yml'
+  workflow_dispatch:
+
+# Least privilege for a Pages deploy: read the repo, write the Pages artifact, mint the deploy token.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One in-flight Pages deploy at a time; a newer push supersedes an older run rather than racing it.
+concurrency:
+  group: deploy-docs
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      # The docs workspace is self-contained (VitePress + Vue); install just it, then build.
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @azphalt/docs build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/.vitepress/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,43 @@
+name: release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      # Fetch each upstream model, rename to the host-canonical filename, and checksum it.
+      # MODEL_URL[...] repo variables override the defaults below if an upstream path changes.
+      - name: Fetch embedding.onnx
+        run: |
+          curl -fL "${{ vars.MODEL_URL || 'https://huggingface.co/onnx-community/wespeaker-voxceleb-resnet34-LM/resolve/main/embedding.onnx' }}" -o "embedding.onnx"
+          echo "embedding_onnx_sha=$(sha256sum 'embedding.onnx' | cut -d' ' -f1)" >> "$GITHUB_ENV"
+          echo "embedding_onnx_size=$(stat -c%s 'embedding.onnx')" >> "$GITHUB_ENV"
+      - name: Inject checksum + byteSize into manifest
+        run: |
+          node -e '
+            const fs=require("fs");
+            const m=JSON.parse(fs.readFileSync("manifest.json","utf8"));
+            for (const a of m.assets) {
+              const fn=a.remoteUrl.split("/").pop().replace(/\./g,"_");
+              a.checksum="sha256-"+process.env[fn+"_sha"];
+              a.byteSize=Number(process.env[fn+"_size"]);
+            }
+            fs.writeFileSync("manifest.json",JSON.stringify(m,null,2));
+          '
+      - name: Pack .azp
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            *.azp
+            embedding.onnx

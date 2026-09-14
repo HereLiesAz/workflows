@@ -1,0 +1,43 @@
+name: Mirror docs over SFTP
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - ".github/workflows/deploy-sftp.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: sftp-deploy
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: Mirror docs
+        env:
+          HOST: ${{ secrets.FTP_SERVER }}
+          USERNAME: ${{ secrets.FTP_USERNAME }}
+          PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          PORT: ${{ vars.SFTP_PORT || '22' }}
+          REMOTE_DIR: ${{ vars.FTP_SERVER_DIR || '/app' }}
+        run: |
+          set -euo pipefail
+          USER_TRIMMED=$(printf '%s' "$USERNAME" | tr -d ' \t\r\n')
+          PW_TRIMMED=$(printf '%s' "$PASSWORD" | tr -d '\r\n')
+
+          lftp -u "$USER_TRIMMED","$PW_TRIMMED" \
+            -p "$PORT" \
+            -e "set sftp:auto-confirm yes; mirror -R --verbose ./docs/ $REMOTE_DIR; quit" \
+            sftp://"$HOST"

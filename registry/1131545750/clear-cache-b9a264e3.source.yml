@@ -1,0 +1,33 @@
+name: Clear Cache
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  clear-cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clear caches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Fetching list of cache keys..."
+          cacheKeysForPR=$(gh cache list --ref $GITHUB_REF --limit 100 --json id --jq '.[].id')
+
+          # If no caches, exit
+          if [ -z "$cacheKeysForPR" ]; then
+            echo "No caches found."
+            exit 0
+          fi
+
+          echo "Deleting caches..."
+          for cacheKey in $cacheKeysForPR
+          do
+              gh cache delete $cacheKey
+          done
+          echo "Done"

@@ -52,6 +52,10 @@ jobs:
                   doc = yaml.load(handle)
               if not isinstance(doc, dict) or 'jobs' not in doc:
                   raise SystemExit(f'invalid workflow: {path}')
+              if path.name.startswith('catalog-'):
+                  triggers = doc.get('on')
+                  if not isinstance(triggers, dict) or set(triggers) != {'workflow_dispatch'}:
+                      raise SystemExit(f'catalog workflow must be dispatch-only: {path}: on={triggers!r}')
               print(path)
           PY
 

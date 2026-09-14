@@ -1,0 +1,374 @@
+name: Merged Build & Release
+
+on:
+  # This workflow builds the release APK and, on main, publishes it —
+  # it has no reason to run on every branch push or on PRs (PR-side
+  # rules/functions coverage already comes from rules-tests.yml; this
+  # one is specifically the Android release pipeline). Previously also
+  # had `branches: ["**"]` on push plus a pull_request trigger, which
+  # meant a single commit on an open PR's branch fired two separate
+  # runs — one from each trigger, in different concurrency groups, so
+  # neither cancelled the other. Restricting to main-only removes the
+  # PR-side run entirely rather than just deduping it.
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+# ⚡ Concurrency: cancels an in-progress run for the same branch when a
+# new one starts. head_ref (set for pull_request-family events, the
+# PR's source branch) falls back to ref (set for push/workflow_dispatch)
+# so a manual dispatch against a non-main branch still gets its own
+# group instead of colliding with whatever ref happened to run last.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      checks: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Reports presence/absence only — never the values — for the
+      # four secrets the next step needs. Added because "the secret is
+      # definitely set" and "secrets.KEYSTORE_PRIVATE resolves empty
+      # at runtime" turned out to both be true at once here: the
+      # workflow only ever reported the first symptom (empty), with no
+      # way to tell whether ALL four were missing or just one, or
+      # distinguish a genuinely-unset secret from an empty-string
+      # value. GitHub Actions secret names are matched exactly
+      # (case-sensitive) against what's configured in Settings →
+      # Secrets and variables → Actions → Repository secrets — a name
+      # that doesn't match byte-for-byte (typo, extra whitespace,
+      # different casing) resolves to empty with no error, identical
+      # to the secret never having been added at all.
+      - name: Check keystore secret presence (names only, never values)
+        env:
+          KEYSTORE_PRIVATE: ${{ secrets.KEYSTORE_PRIVATE }}
+          KEYSTORE_CHAIN: ${{ secrets.KEYSTORE_CHAIN }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          echo "Keystore secret status (values never printed, only whether each is set):"
+          for name in KEYSTORE_PRIVATE KEYSTORE_CHAIN KEYSTORE_PASSWORD KEY_ALIAS; do
+            if [[ -n "${!name}" ]]; then
+              echo "  $name: set"
+            else
+              echo "  $name: MISSING or empty"
+            fi
+          done
+
+      - name: Generate Keystore from Secrets
+        env:
+          KEYSTORE_PRIVATE: ${{ secrets.KEYSTORE_PRIVATE }}
+          KEYSTORE_CHAIN: ${{ secrets.KEYSTORE_CHAIN }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          if [[ -n "$KEYSTORE_PRIVATE" ]]; then
+            echo "Generating keystore from certificate chain and private key..."
+
+            # Write the private key and certificate chain to temporary files
+            echo "$KEYSTORE_PRIVATE" > private_key.pem
+            echo "$KEYSTORE_CHAIN" > certificate_chain.crt
+
+            # Create a PKCS12 file from the key and certificate chain
+            openssl pkcs12 -export -in certificate_chain.crt -inkey private_key.pem \
+              -name "$KEY_ALIAS" -out keystore.p12 \
+              -password pass:"$KEYSTORE_PASSWORD"
+
+            # Convert the PKCS12 file to a JKS keystore. Written under
+            # android/app/ — the Capacitor Android app's actual
+            # location; this previously wrote to app/keystore.jks (a
+            # directory that doesn't exist in this repo), so the
+            # existence check below always failed and every release
+            # silently fell back to the default debug keystore.
+            keytool -importkeystore -srckeystore keystore.p12 -srcstoretype PKCS12 \
+              -destkeystore android/app/keystore.jks -deststoretype JKS \
+              -srcstorepass "$KEYSTORE_PASSWORD" \
+              -deststorepass "$KEYSTORE_PASSWORD" \
+              -alias "$KEY_ALIAS" -noprompt
+
+            echo "Keystore generated successfully at android/app/keystore.jks"
+
+            # Clean up temporary files
+            rm private_key.pem certificate_chain.crt keystore.p12
+          elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+            # A push-to-main build is the one that gets published (see
+            # the RELEASE STEPS below) — silently falling back to a
+            # fresh debug keystore here means the APK is signed with a
+            # DIFFERENT key than whatever the previous release used
+            # (each CI run's default debug keystore is regenerated,
+            # not reused), which makes every existing installed copy
+            # fail INSTALL_FAILED_UPDATE_INCOMPATIBLE on the next
+            # update with no warning to anyone. A missing keystore
+            # secret on a release build must fail the build, not
+            # silently ship an unusable release.
+            echo "::error::KEYSTORE_PRIVATE is not set. Refusing to publish a release build signed with an ephemeral debug keystore — every existing install would fail to update. Set the KEYSTORE_* secrets, or don't push to main."
+            exit 1
+          else
+            echo "Warning: KEYSTORE_PRIVATE secret is missing. Skipping custom keystore generation (fine for a non-release PR/branch build)."
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Generate google-services.json
+        env:
+          # Preferred: the entire google-services.json file as downloaded
+          # from the Firebase console, pasted whole into this one secret.
+          # When set, the script below writes it out as-is (after
+          # validating the package name/app ID) and ignores everything
+          # else in this block.
+          GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES }}
+          # Fallback, used only when GOOGLE_SERVICES is not set: assemble
+          # the file field-by-field from the same Firebase Web SDK
+          # secrets used for the web build, plus FIREBASE_ANDROID_APP_ID.
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          # The Android app's Firebase app ID — a DIFFERENT app in the
+          # same project than the web one VITE_FIREBASE_APP_ID holds
+          # (1:<n>:android:... vs 1:<n>:web:...). Every APK built before
+          # this secret existed shipped the web ID in
+          # google-services.json, which initializes Firebase fine and
+          # then has every FCM token request rejected, because that ID
+          # is not bound to com.HereLiesAz.BarBacker.
+          FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+          # Optional. Firebase auto-creates an unrestricted "Android
+          # key" alongside the browser key; set this if the browser key
+          # in VITE_FIREBASE_API_KEY is HTTP-referrer restricted.
+          FIREBASE_ANDROID_API_KEY: ${{ secrets.FIREBASE_ANDROID_API_KEY }}
+        run: |
+          # The step that used to live here looked for
+          # app/google-services.json.template using secret names
+          # (GOOGLE_SERVICES_API_KEY, PROJECT_ID, CLIENT_ID) that exist
+          # nowhere else in this repo, at a path ("app/") that isn't
+          # where the Capacitor Android app lives ("android/app/"), and
+          # no such template file was ever checked in — so the
+          # injection silently no-op'd on every run and every built APK
+          # shipped with FCM compiled out. This script writes directly
+          # to android/app/google-services.json, from the GOOGLE_SERVICES
+          # secret if set, otherwise synthesized from the VITE_FIREBASE_*
+          # secrets used for the web build below.
+          node scripts/generate-google-services.js
+
+      - name: Build Web App
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_VAPID_KEY: ${{ secrets.VITE_FIREBASE_VAPID_KEY }}
+          VITE_ICAL_FEED_BASE_URL: ${{ secrets.VITE_ICAL_FEED_BASE_URL }}
+        run: npm run build
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x android/gradlew
+
+      - name: Compute Version
+        # Run BEFORE the Gradle build (not just before the release
+        # step, as this used to be computed) so the version actually
+        # baked into versionCode/versionName by android/app/build.gradle
+        # (see its defaultConfig block) is the same one used for the
+        # release artifact's filename/tag below — previously
+        # versionBuild was passed as a Gradle property but nothing in
+        # build.gradle ever read it, so every APK ever built reported
+        # versionCode 1 / versionName "1.0" regardless of which commit
+        # built it.
+        id: version
+        run: |
+          export BUILD_NUMBER=$(git rev-list --count HEAD)
+          MAJOR=$(grep 'versionMajor=' version.properties | cut -d'=' -f2)
+          MINOR=$(grep 'versionMinor=' version.properties | cut -d'=' -f2)
+
+          # Calculate Patch version programmatically based on commits since Minor update
+          MINOR_COMMIT=$(git blame -L '/versionMinor=/',+1 version.properties | awk '{print $1}' | tr -d '^')
+          if [ -n "$MINOR_COMMIT" ]; then
+            PATCH=$(git rev-list --count $MINOR_COMMIT..HEAD)
+          else
+            PATCH=$(grep 'versionPatch=' version.properties | cut -d'=' -f2)
+          fi
+
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
+          echo "VERSION_MAJOR=$MAJOR" >> $GITHUB_ENV
+          echo "VERSION_MINOR=$MINOR" >> $GITHUB_ENV
+          echo "VERSION_PATCH=$PATCH" >> $GITHUB_ENV
+          echo "VERSION_NAME=$MAJOR.$MINOR.$PATCH.$BUILD_NUMBER" >> $GITHUB_ENV
+          echo "TAG_NAME=latest-debug-v${MAJOR}.${MINOR}" >> $GITHUB_ENV
+
+      - name: Build with Gradle
+        id: gradle-build
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set +e
+          VERSION_PROPS="-PversionMajor=$VERSION_MAJOR -PversionMinor=$VERSION_MINOR -PversionPatch=$VERSION_PATCH -PversionBuild=$BUILD_NUMBER"
+
+          # Build the APK
+          if [ -f "android/app/keystore.jks" ]; then
+            echo "Building with custom keystore..."
+            ./android/gradlew assembleDebug $VERSION_PROPS --build-cache \
+              -Pandroid.injected.signing.store.file=$(pwd)/android/app/keystore.jks \
+              -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
+              -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
+              -Pandroid.injected.signing.key.password=$KEY_PASSWORD \
+              -p android > build.log 2>&1
+          else
+            echo "Building with default debug keystore..."
+            ./android/gradlew assembleDebug $VERSION_PROPS --build-cache -p android > build.log 2>&1
+          fi
+          
+          EXIT_CODE=$?
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          cat build.log
+          exit $EXIT_CODE
+
+      # ------------------------------------------------------------------
+      # FAILURE HANDLING
+      # ------------------------------------------------------------------
+      # Only file a failure issue on push-to-main. PR-side failures
+      # already surface in the PR's Checks tab; opening an issue per
+      # PR-build attempt produces a new issue on every retry and
+      # spams the tracker with duplicates.
+      - name: Report Failure to Jules
+        if: failure() && steps.gradle-build.outcome == 'failure' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            let logTail = 'Log file not found.';
+            try { logTail = fs.readFileSync('build.log', 'utf8').slice(-4000); } catch (e) {}
+            
+            const assignee = 'gemini-code-assist';
+            
+            try {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Build Failure on ${context.eventName === 'pull_request' ? 'PR #' + context.issue.number : context.ref}`,
+                body: `@${assignee} /jules debug this build error\n\n**Log:**\n\`\`\`\n${logTail}\n\`\`\``,
+                labels: ['jules', 'bug'],
+                assignees: [assignee]
+              });
+            } catch (error) {
+              console.log("Failed to create issue with assignee. Retrying without assignee.");
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Build Failure on ${context.eventName === 'pull_request' ? 'PR #' + context.issue.number : context.ref}`,
+                body: `@${assignee} /jules debug this build error\n\n**Log:**\n\`\`\`\n${logTail}\n\`\`\``,
+                labels: ['jules', 'bug']
+              });
+            }
+
+      # ------------------------------------------------------------------
+      # RELEASE STEPS — only for a push to main. Previously this was
+      # gated on `github.event_name == 'push'` alone, with no ref
+      # check — since the top-level trigger is `push: branches: ["**"]`
+      # (every branch, for the build+test signal), that meant pushing
+      # ANY branch — including an in-progress feature branch — force-
+      # moved the public "Latest Debug Build" release tag and
+      # overwrote its APK with whatever that branch's unreviewed
+      # commit produced.
+      # ------------------------------------------------------------------
+      - name: Prepare Release Variables
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: release_vars
+        run: |
+          # VERSION_NAME/TAG_NAME come from the "Compute Version" step
+          # above (run before the Gradle build itself, so the version
+          # baked into the APK's versionCode/versionName matches what
+          # this step names the release artifact as).
+
+          # Dynamic App Name from settings.gradle
+          if [ -f "android/settings.gradle.kts" ]; then
+             APP_NAME=$(grep 'rootProject.name' android/settings.gradle.kts | sed -E "s/.*=.*[\"'](.*)[\"']/\1/")
+          elif [ -f "android/settings.gradle" ]; then
+             APP_NAME=$(grep 'rootProject.name' android/settings.gradle | sed -E "s/.*=.*[\"'](.*)[\"']/\1/")
+          else
+             APP_NAME="App"
+          fi
+
+          # Locate built APK
+          APK_ORIGINAL=$(find android/app/build/outputs/apk/debug -name "*.apk" | head -n 1)
+
+          if [ -z "$APK_ORIGINAL" ]; then
+             echo "Error: No APK found to release!"
+             exit 1
+          fi
+
+          TARGET_NAME="${APP_NAME}-${VERSION_NAME}-debug.apk"
+
+          # Rename for release
+          mv "$APK_ORIGINAL" "$TARGET_NAME"
+
+          echo "APK_FILE=$TARGET_NAME" >> $GITHUB_ENV
+
+      - name: Publish Release
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Force update tag to point to current commit
+          git tag -fa $TAG_NAME -m "Latest Debug Build"
+          git push origin $TAG_NAME --force
+
+          # Check if release exists
+          if gh release view $TAG_NAME > /dev/null 2>&1; then
+             echo "Updating existing release..."
+
+             gh release edit $TAG_NAME --prerelease \
+               --title "Latest Debug Build ($TAG_NAME)" \
+               --notes "Auto-build from commit $GITHUB_SHA" \
+               --target $GITHUB_SHA
+
+             # Clobber ensures that if we re-run the workflow on the exact same commit, it replaces the APK instead of failing.
+             gh release upload $TAG_NAME "$APK_FILE" --clobber
+          else
+             echo "Creating new release..."
+             gh release create $TAG_NAME "$APK_FILE" --prerelease \
+               --title "Latest Debug Build ($TAG_NAME)" \
+               --notes "Auto-build from commit $GITHUB_SHA" \
+               --target $GITHUB_SHA
+          fi

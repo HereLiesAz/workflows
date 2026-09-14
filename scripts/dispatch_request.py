@@ -24,7 +24,7 @@ def require(value: str, name: str) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Validate and dispatch an absorbed central workflow.")
+    parser = argparse.ArgumentParser(description="Validate and dispatch a central shared workflow.")
     parser.add_argument("--request", required=True, help="JSON request file")
     args = parser.parse_args()
 
@@ -40,8 +40,22 @@ def main() -> int:
     event_name = require(str(request.get("event_name", "")), "event_name")
     event = request.get("event") or {}
 
+    # Glee is strictly an audit of an already-existing pull request. It is not a
+    # general Jules task and is never dispatched for any other event shape.
+    if source_path == ".github/workflows/jules-glee.yml":
+        pull_request = event.get("pull_request") or {}
+        pr_number = pull_request.get("number") or event.get("number")
+        if event_name != "pull_request_target" or event.get("action") != "opened" or not pr_number:
+            print(json.dumps({
+                "status": "ignored",
+                "reason": "Glee only audits an existing pull request when it is opened",
+                "repository": repository,
+                "source_workflow": source_path,
+            }, indent=2, sort_keys=True))
+            return 0
+
     # Glee owns automatic PR-open auditing. Jules Dispatch is reserved for
-    # explicit @jules interactions and issue triage, so an ordinary opened PR
+    # explicit @jules interactions and issue triage, so an ordinary PR event
     # must never start a repository-connected Jules session or create a follow-up PR.
     if source_path == ".github/workflows/jules-dispatch.yml" and event_name == "pull_request":
         print(json.dumps({
@@ -99,7 +113,7 @@ def main() -> int:
         "target_ref_type": str(request.get("ref_type", "")),
         "target_head_ref": str(request.get("head_ref", "")),
         "target_base_ref": str(request.get("base_ref", "")),
-        "target_actor": require(str(request.get("actor", "")), "actor"),
+        "target_actor": require(str(request.get("actor", "")), "target_actor"),
         "target_actor_id": str(request.get("actor_id", "")),
         "target_event_name": event_name,
         "target_event_json": json.dumps(event, separators=(",", ":")),
@@ -113,6 +127,10 @@ def main() -> int:
         "source_workflow_path": source_path,
         "source_sha256": source_sha256,
     }
+
+    shared_variant = str(entry.get("shared_variant") or "")
+    if shared_variant:
+        dispatch_inputs["shared_variant"] = shared_variant
 
     body = {"ref": "main", "inputs": dispatch_inputs}
     endpoint = f"/repos/{CENTRAL_REPOSITORY}/actions/workflows/{workflow_id}/dispatches"
@@ -128,6 +146,7 @@ def main() -> int:
                 "repository": repository,
                 "source_workflow": source_path,
                 "central_workflow": central_workflow,
+                "shared_variant": shared_variant or None,
                 "dispatch_response": response,
             }, indent=2, sort_keys=True))
             return 0

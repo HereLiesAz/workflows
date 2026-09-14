@@ -104,7 +104,19 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          from scripts import retry_repository_sync as retry_sync
+          from scripts import sync_repository_catalog as catalog_core
           from scripts.sync_repository import build_proxy, compile_central, load_yaml, sha256_text
+
+          assert issubclass(retry_sync.IdempotentGitHub, catalog_core.GitHub)
+
+          synchronizer_source = Path('scripts/sync_repository_catalog.py').read_text(encoding='utf-8')
+          assert 'item = self.contents(full_name, path, ref=branch)' in synchronizer_source
+          assert 'if current == content:' in synchronizer_source
+          assert 'existing.get("value") == value' in synchronizer_source
+          assert 'f"Refresh {path} from shared catalog via {CENTRAL_REPOSITORY}"' in synchronizer_source
+          assert 'if not is_proxy:\n                    proxy = build_proxy' not in synchronizer_source
+          assert 'if not is_proxy:\n                gh.put_file(repo["full_name"], path, proxy' not in synchronizer_source
 
           def expression(body: str) -> str:
               return '${' + '{ ' + body + ' }}'
@@ -170,6 +182,7 @@ jobs:
           assert 'fromJSON(inputs.target_vars_json).example' in central
           assert 'steps.vars.outputs.tag' in central
           assert 'steps.fromJSON(inputs.target_vars_json)' not in central
+          assert 'DISPATCH_EVENT_JSON=' in jules_proxy
           assert "startsWith(github.event.comment.body, '@jules')" in jules_proxy
           assert "startsWith(github.event.review.body, '@jules')" in jules_proxy
 

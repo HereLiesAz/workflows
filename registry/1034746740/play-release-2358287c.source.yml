@@ -1,0 +1,161 @@
+name: Play Release (AAB)
+
+# Manually-triggered build + publish of a signed Android App Bundle to the Google
+# Play Console. Defaults are deliberately safe: internal track, draft status, and
+# publishing OFF (build + upload the .aab as a CI artifact only). Flip `publish` on
+# to actually push to Play.
+on:
+  workflow_dispatch:
+    inputs:
+      track:
+        description: "Play track to release to"
+        type: choice
+        default: internal
+        options:
+          - internal
+          - alpha
+          - beta
+          - production
+      status:
+        description: "Release status on the chosen track"
+        type: choice
+        default: draft
+        options:
+          - draft
+          - completed
+      publish:
+        description: "Publish to Play (off = build + upload the .aab artifact only)"
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      track:
+        type: string
+        default: internal
+      status:
+        type: string
+        default: completed
+      publish:
+        type: boolean
+        default: true
+
+jobs:
+  bundle-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Generate Keystore from Secrets
+        env:
+          KEYSTORE_PRIVATE: ${{ secrets.KEYSTORE_PRIVATE }}
+          KEYSTORE_CHAIN: ${{ secrets.KEYSTORE_CHAIN }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          echo "Generating keystore from certificate chain and private key..."
+          echo "$KEYSTORE_PRIVATE" > private_key.pem
+          echo "$KEYSTORE_CHAIN" > certificate_chain.crt
+
+          openssl pkcs12 -export -in certificate_chain.crt -inkey private_key.pem \
+            -name "$KEY_ALIAS" -out keystore.p12 \
+            -password pass:"$KEYSTORE_PASSWORD"
+
+          keytool -importkeystore -srckeystore keystore.p12 -srcstoretype PKCS12 \
+            -destkeystore app/keystore.jks -deststoretype JKS \
+            -srcstorepass "$KEYSTORE_PASSWORD" \
+            -deststorepass "$KEYSTORE_PASSWORD" \
+            -alias "$KEY_ALIAS" -noprompt
+
+          echo "Keystore generated at app/keystore.jks"
+          rm private_key.pem certificate_chain.crt keystore.p12
+
+      - name: Inject Google Services
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            echo "Injecting google-services.json from secret..."
+            echo "$GOOGLE_SERVICES_JSON" > app/google-services.json
+          else
+            echo "Warning: GOOGLE_SERVICES secret is empty."
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        with:
+          cache-read-only: false
+          dependency-graph: disabled
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # Build the signed Play (AdMob) App Bundle. versionCode is read from
+      # version.properties (versionBuild). The Android App Bundle automatically
+      # produces per-device density, ABI, and language splits at install time.
+      - name: Build signed AAB
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "Building bundlePlayRelease..."
+          ./gradlew bundlePlayRelease --build-cache \
+            -Pandroid.injected.signing.store.file=$(pwd)/app/keystore.jks \
+            -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
+            -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
+            -Pandroid.injected.signing.key.password=$KEY_PASSWORD
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add version.properties
+          git commit -m "Auto-increment version.properties from Play Release [skip ci]" || echo "No changes"
+          # Pull latest changes from main to avoid conflicts before pushing
+          git pull --rebase origin main || true
+          git push origin HEAD:main || echo "Push failed"
+
+      - name: Locate AAB
+        id: aab
+        run: |
+          AAB=$(find app/build/outputs/bundle/playRelease -name "*.aab" | head -n 1)
+          if [ -z "$AAB" ]; then
+            echo "No .aab produced!" >&2
+            exit 1
+          fi
+          echo "path=$AAB" >> "$GITHUB_OUTPUT"
+          echo "Found AAB: $AAB"
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qard-play-release-aab
+          path: ${{ steps.aab.outputs.path }}
+          if-no-files-found: error
+
+      # applicationId is com.hereliesaz.qard for both flavors (no suffix), so the
+      # Play packageName is fixed; r0adkll has no "read from build" hook, hence the
+      # explicit value here. Keep it in sync with app/build.gradle.kts applicationId.
+      - name: Publish to Google Play
+        if: ${{ inputs.publish }}
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.hereliesaz.qard
+          releaseFiles: ${{ steps.aab.outputs.path }}
+          track: ${{ inputs.track }}
+          status: ${{ inputs.status }}

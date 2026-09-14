@@ -2,9 +2,6 @@ name: Sync all owned repositories
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - .github/workflows/sync-all-repositories.yml
 
 run-name: sync-all · ${{ github.run_number }}
 
@@ -13,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: workflow-sync-all-repositories-v5
+  group: workflow-sync-all-repositories-v6
   cancel-in-progress: false
 
 env:
@@ -131,7 +128,7 @@ jobs:
 
             while true; do
               : > "$err"
-              if python scripts/sync_repository.py \
+              if python scripts/retry_repository_sync.py \
                 --repository "$repo" \
                 --worker-url "$WORKER_URL" \
                 --dry-run \
@@ -209,7 +206,7 @@ jobs:
 
             while true; do
               : > "$err"
-              if python scripts/sync_repository.py \
+              if python scripts/retry_repository_sync.py \
                 --repository "$repo" \
                 --worker-url "$WORKER_URL" \
                 --json-output "$out" 2>"$err"; then
@@ -245,6 +242,10 @@ jobs:
               printf '%s\n' "$repo" >> migration-results/apply-failures.txt
             fi
             echo "::endgroup::"
+
+            if (( index < total )); then
+              sleep 15
+            fi
           done < <(jq -r '.[]' <<<"$REPOSITORIES_JSON")
 
           if [[ -s migration-results/apply-failures.txt ]]; then

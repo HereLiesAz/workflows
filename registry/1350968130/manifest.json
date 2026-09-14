@@ -1,0 +1,44 @@
+{
+  "last_sync_at": "2026-09-14T02:01:08+00:00",
+  "repository": {
+    "default_branch": "master",
+    "full_name": "HereLiesAz/azrienoch",
+    "id": 1350968130,
+    "owner_id": 103241502,
+    "owner_login": "HereLiesAz"
+  },
+  "schema": 2,
+  "worker_url_configured": true,
+  "workflows": {
+    ".github/workflows/jules-glee.yml": {
+      "catalog": "curated",
+      "central_workflow": ".github/workflows/catalog-jules-glee.yml",
+      "name": "\ud83d\ude08 Glee Audit",
+      "registry_source": "registry/1350968130/jules-glee-0de23ac9.source.yml",
+      "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
+      "status": "active",
+      "updated_at": "2026-09-14T02:01:03+00:00"
+    },
+    ".github/workflows/pages.yml": {
+      "blockers": [
+        "job 'deploy' deploys to the runner repository's github-pages environment",
+        "job 'deploy' step 4 uses repository-bound action 'actions/deploy-pages@v4'"
+      ],
+      "name": "Publish specimen to GitHub Pages",
+      "registry_source": "registry/1350968130/pages-80c02bfb.source.yml",
+      "source_sha256": "8c1fe05f2160212731aef9575fe6c71a7ef265b2bad1d2735894e8c77b793688",
+      "status": "local",
+      "updated_at": "2026-09-14T02:01:04+00:00"
+    },
+    ".github/workflows/release.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "e531b4457e126d6decf837fe3a44e7f59c15c3d2982b927a376394bf493254f5",
+      "central_workflow": ".github/workflows/catalog-e531b4457e126d6d.yml",
+      "name": "Publish release",
+      "registry_source": "registry/1350968130/release-16911b98.source.yml",
+      "source_sha256": "3ee242e7f4214889ba314e70ef51aec8553ec25bfe5965b9bfb7a89ea08e4a9d",
+      "status": "active",
+      "updated_at": "2026-09-14T02:01:05+00:00"
+    }
+  }
+}

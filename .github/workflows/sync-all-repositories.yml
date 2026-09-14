@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: workflow-sync-all-repositories-v4
+  group: workflow-sync-all-repositories-v5
   cancel-in-progress: false
 
 env:
@@ -117,42 +117,47 @@ jobs:
       - name: Install controller dependency
         run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
 
-      - name: Wait for GitHub API capacity
-        shell: bash
-        run: |
-          set -euo pipefail
-          while true; do
-            rate_json="$(gh api rate_limit)"
-            remaining="$(jq -r '.resources.core.remaining' <<<"$rate_json")"
-            reset="$(jq -r '.resources.core.reset' <<<"$rate_json")"
-
-            if (( remaining >= 500 )); then
-              echo "GitHub API capacity available: ${remaining} core requests remaining."
-              break
-            fi
-
-            now="$(date +%s)"
-            sleep_for=$((reset - now + 15))
-            if (( sleep_for < 15 )); then
-              sleep_for=15
-            fi
-            echo "GitHub API budget low (${remaining} remaining); pausing until reset."
-            sleep "$sleep_for"
-          done
-
       - name: Revalidate the two cleaned repositories
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p migration-results/revalidated
 
+          sync_with_rate_limit_retry() {
+            local repo="$1"
+            local out="$2"
+            local err
+            err="$(mktemp)"
+
+            while true; do
+              : > "$err"
+              if python scripts/sync_repository.py \
+                --repository "$repo" \
+                --worker-url "$WORKER_URL" \
+                --dry-run \
+                --json-output "$out" 2>"$err"; then
+                cat "$err" >&2
+                rm -f "$err"
+                return 0
+              fi
+
+              cat "$err" >&2
+              if grep -Eqi 'API rate limit exceeded|secondary rate limit|exceeded a secondary rate limit' "$err"; then
+                echo "::warning::GitHub rate-limited $repo; retrying this repository after a cooldown."
+                sleep 300
+                continue
+              fi
+
+              rm -f "$err"
+              return 1
+            done
+          }
+
           for repo in HereLiesAz/QaRd HereLiesAz/TheLexorcist; do
             safe_name="$(printf '%s' "$repo" | tr '/:' '--')"
-            python scripts/sync_repository.py \
-              --repository "$repo" \
-              --worker-url "$WORKER_URL" \
-              --dry-run \
-              --json-output "migration-results/revalidated/${safe_name}.json"
+            sync_with_rate_limit_retry \
+              "$repo" \
+              "migration-results/revalidated/${safe_name}.json"
           done
 
           {
@@ -196,44 +201,44 @@ jobs:
           total="$(jq 'length' <<<"$REPOSITORIES_JSON")"
           index=0
 
-          wait_for_capacity() {
-            local rate_json remaining reset now sleep_for
-            while true; do
-              rate_json="$(gh api rate_limit)"
-              remaining="$(jq -r '.resources.core.remaining' <<<"$rate_json")"
-              reset="$(jq -r '.resources.core.reset' <<<"$rate_json")"
+          sync_with_rate_limit_retry() {
+            local repo="$1"
+            local out="$2"
+            local err
+            err="$(mktemp)"
 
-              if (( remaining >= 250 )); then
-                echo "GitHub API capacity available: ${remaining} core requests remaining."
+            while true; do
+              : > "$err"
+              if python scripts/sync_repository.py \
+                --repository "$repo" \
+                --worker-url "$WORKER_URL" \
+                --json-output "$out" 2>"$err"; then
+                cat "$err" >&2
+                rm -f "$err"
                 return 0
               fi
 
-              now="$(date +%s)"
-              sleep_for=$((reset - now + 15))
-              if (( sleep_for < 15 )); then
-                sleep_for=15
+              cat "$err" >&2
+              if grep -Eqi 'API rate limit exceeded|secondary rate limit|exceeded a secondary rate limit' "$err"; then
+                echo "::warning::GitHub rate-limited $repo; retrying this repository after a cooldown."
+                sleep 300
+                continue
               fi
-              echo "GitHub API budget low (${remaining} remaining); pausing until reset."
-              sleep "$sleep_for"
+
+              rm -f "$err"
+              return 1
             done
           }
-
-          wait_for_capacity
 
           while IFS= read -r repo; do
             [[ -n "$repo" ]] || continue
             index=$((index + 1))
 
-            wait_for_capacity
-
             safe_name="$(printf '%s' "$repo" | tr '/:' '--')"
             out="migration-results/applied/${safe_name}.json"
 
             echo "::group::[$index/$total] Apply sync $repo"
-            if python scripts/sync_repository.py \
-              --repository "$repo" \
-              --worker-url "$WORKER_URL" \
-              --json-output "$out"; then
+            if sync_with_rate_limit_retry "$repo" "$out"; then
               echo "Apply passed: $repo"
             else
               echo "::error::Apply failed: $repo"

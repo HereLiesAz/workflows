@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import urllib.parse
 
 try:
@@ -16,6 +17,33 @@ except ImportError:
 
 _base_compile_central = core.compile_central
 _base_build_proxy = core.build_proxy
+
+
+def _rewrite_expression_string(text: str) -> str:
+    # Rewrite standalone workflow inputs/vars, but leave github.event.inputs.* and
+    # github.event.vars.* intact until github.event itself is translated below.
+    # Otherwise github.event.inputs.foo becomes the syntactically invalid
+    # fromJSON(inputs.target_event_json).fromJSON(inputs.target_inputs_json).foo.
+    text = re.sub(
+        r"(?<!github\.event\.)\binputs\.([A-Za-z_][A-Za-z0-9_-]*)",
+        r"fromJSON(inputs.target_inputs_json).\1",
+        text,
+    )
+    text = re.sub(
+        r"(?<!github\.event\.)\bvars\.([A-Za-z_][A-Za-z0-9_-]*)",
+        r"fromJSON(inputs.target_vars_json).\1",
+        text,
+    )
+    for old, new in sorted(core.CONTEXT_REPLACEMENTS, key=lambda pair: len(pair[0]), reverse=True):
+        text = text.replace(old, new)
+    if "github.event" in text:
+        text = text.replace("github.event.", "fromJSON(inputs.target_event_json).")
+        text = text.replace("github.event", "fromJSON(inputs.target_event_json)")
+    return text
+
+
+# rewrite_recursive/rewrite_run_string resolve this global at runtime.
+core.rewrite_expression_string = _rewrite_expression_string
 
 
 def compile_central(source_text: str, target: dict, source_path: str, check_name: str) -> str:
@@ -186,7 +214,8 @@ def build_proxy(source_text: str, source_path: str, source_hash: str, workflow_n
 
 # The core synchronizer resolves these globals at runtime, so patching them here
 # makes generated shared workflows use PAT-compatible statuses, curated payload
-# minimization, and the same Jules event gate as the live catalog.
+# minimization, the same Jules event gate as the live catalog, and safe event
+# expression rewriting.
 core.compile_central = compile_central
 core.build_proxy = build_proxy
 

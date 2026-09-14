@@ -1,0 +1,67 @@
+name: Release
+
+# Changesets-driven release. On every push to main this either opens/updates a
+# "Version Packages" PR (accumulating the pending changesets into version bumps +
+# changelogs) or, once that PR is merged, publishes the bumped packages to npm.
+on:
+  push:
+    branches: [main]
+  # Manual trigger, so the first publish (and any retry after fixing the npm token /
+  # org) is a single "Run workflow" click instead of a dummy commit to main.
+  workflow_dispatch: {}
+
+# Never let two releases publish concurrently.
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the version PR / tags
+      pull-requests: write # open the version PR
+      id-token: write # npm provenance
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - run: corepack enable
+      # Update npm to the latest release (changesets/pnpm shell out to npm for
+      # provenance/auth; keep it current).
+      # Pin npm@10 — npm v11 dropped --git-checks which changesets/pnpm still pass.
+      - run: npm install -g npm@10
+      - run: pnpm install --frozen-lockfile
+      # Preflight: identify who the token authenticates as, and turn npm's opaque "E404
+      # on publish" into a clear verdict. `pnpm whoami` succeeding prints the npm username
+      # the token maps to (the token, not a separate secret, IS your identity) — so a later
+      # publish 404 is a *write* problem (read-only token, not an org member, or an
+      # unverified account email), not a bad token. Failing means the token is
+      # missing/invalid. Non-fatal either way.
+      - name: Diagnose npm auth (non-fatal)
+        continue-on-error: true
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+        run: |
+          if who=$(pnpm whoami --registry=https://registry.npmjs.org); then
+            echo "::notice::NPM_AUTH_TOKEN authenticates as npm user '$who'. If publish still 404s, it's a WRITE issue — the token is read-only, '$who' isn't a member of the @azphalt org with publish rights, or the account email is unverified."
+          else
+            echo "::warning::pnpm whoami FAILED — NPM_AUTH_TOKEN is missing, malformed, or invalid. It must be a classic *Automation* (write) token, saved verbatim as the NPM_AUTH_TOKEN repo secret."
+          fi
+      - name: Create the Version PR, or publish to npm
+        uses: changesets/action@v1
+        with:
+          # Bump versions + changelogs (opens/updates the "Version Packages" PR).
+          version: pnpm run version
+          # After that PR merges, build + test + publish the bumped packages.
+          publish: pnpm run release
+          commit: "chore: version packages"
+          title: "chore: version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The npm automation token, stored as the NPM_AUTH_TOKEN repo secret. npm reads
+          # NODE_AUTH_TOKEN at publish time (setup-node wired the registry into .npmrc above).
+          NPM_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}

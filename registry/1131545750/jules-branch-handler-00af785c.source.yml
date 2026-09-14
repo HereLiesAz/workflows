@@ -1,0 +1,71 @@
+name: Jules Branch Handler
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  manage_branch:
+    # SECURITY: issue_comment always runs in the base-repo context
+    # with full secrets access, even for a comment on a PR opened
+    # from a fork — unlike pull_request, there is no fork/base split
+    # here. Without an author_association check, ANY GitHub user could
+    # comment "@google-labs-jules" on any open PR (including a
+    # malicious fork's own PR) and hand this job's JULES_API_KEY/
+    # GH_TOKEN to an autonomous agent explicitly instructed to merge
+    # into the default branch. author_association is populated by
+    # GitHub itself from the commenter's actual repo permissions, not
+    # anything the commenter controls, so this can't be spoofed the
+    # way a body/actor-name check could be.
+    if: |
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@google-labs-jules')) &&
+      github.actor != 'google-labs-jules[bot]' && github.actor != 'google-labs-jules' &&
+      github.actor != 'github-actions[bot]' && github.actor != 'github-actions' &&
+      !endsWith(github.actor, '[bot]') &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: google-labs-code/jules-action@v1.0.0
+        with:
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          github_token: ${{ secrets.GH_TOKEN }}
+          prompt: |
+            You are Jules, a skilled software engineer and autonomous branch manager.
+
+            # Context
+            Event: ${{ github.event_name }}
+            Ref: ${{ github.ref }}
+            Repo: ${{ github.repository }}
+            Actor: ${{ github.actor }}
+
+            # Goal
+            Your goal is to manage the lifecycle of the branch/PR to completion (Merge or Close).
+
+            # Instructions
+            1. **Identify the Branch/PR**:
+               - If triggered by `pull_request`*, the branch is `${{ github.head_ref }}`.
+               - If triggered by `issue_comment`, identify the PR #${{ github.event.issue.number }}.
+
+            2. **Evaluate & Verify**:
+               - Examine the code changes. Are they valid and necessary?
+               - IF INVALID/UNNECESSARY: Close the PR and delete the branch. Comment with your reasoning.
+
+            3. **Review & Fix**:
+               - Review the code yourself. Fix any bugs, style issues, or bad practices you find.
+               - **Address Reviewer Feedback**: If this run was triggered by a review or comment, or if there are open comments, FIX THEM.
+               - **Resolve Conflicts**: Check for merge conflicts. If they exist, rebase or merge the target branch and resolve them.
+
+            4. **Merge**:
+               - If the PR is valid, approved (or valid enough in your judgment), and passes your verification:
+               - MERGE the Pull Request into the default branch.
+
+            5. **Cleanup**:
+               - Upon successful merge (or rejection), ensure the PR is closed and the branch is deleted.
+
+            # Constraints
+            - Do not merge if there are failing status checks (unless you can fix them).
+            - Be helpful and constructive.

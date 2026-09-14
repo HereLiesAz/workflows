@@ -1,0 +1,34 @@
+{
+  "last_sync_at": "2026-09-14T01:11:12+00:00",
+  "repository": {
+    "default_branch": "main",
+    "full_name": "HereLiesAz/QuantumKerning",
+    "id": 1003114206,
+    "owner_id": 103241502,
+    "owner_login": "HereLiesAz"
+  },
+  "schema": 2,
+  "worker_url_configured": true,
+  "workflows": {
+    ".github/workflows/jules-glee.yml": {
+      "catalog": "curated",
+      "central_workflow": ".github/workflows/catalog-jules-glee.yml",
+      "name": "\ud83d\ude08 Glee Audit",
+      "registry_source": "registry/1003114206/jules-glee-0de23ac9.source.yml",
+      "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
+      "status": "active",
+      "updated_at": "2026-09-14T01:11:10+00:00"
+    },
+    ".github/workflows/static.yml": {
+      "blockers": [
+        "job 'deploy' deploys to the runner repository's github-pages environment",
+        "job 'deploy' step 4 uses repository-bound action 'actions/deploy-pages@v4'"
+      ],
+      "name": "Deploy static content to Pages",
+      "registry_source": "registry/1003114206/static-876bb641.source.yml",
+      "source_sha256": "efb50260b6f1003a19d220d34b4152f5913b98d4d6d91b2dce7205b0572ac0e7",
+      "status": "local",
+      "updated_at": "2026-09-14T01:11:11+00:00"
+    }
+  }
+}

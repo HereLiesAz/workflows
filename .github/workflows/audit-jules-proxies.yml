@@ -1,0 +1,133 @@
+name: Audit live Jules proxies
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/audit-jules-proxies.yml
+
+run-name: audit-jules-proxies · ${{ github.run_number }}
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      BASELINE_DRY_RUN_ID: "34791565740"
+    steps:
+      - name: Build verified repository list
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > /tmp/repos.txt
+          for page in 1 2 3; do
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${BASELINE_DRY_RUN_ID}/jobs?per_page=100&page=${page}" \
+              --jq '.jobs[] | select(.name | startswith("dry_run (")) | .name' \
+              | sed -e 's/^dry_run (//' -e 's/)$//' >> /tmp/repos.txt
+          done
+          sort -u -o /tmp/repos.txt /tmp/repos.txt
+          count="$(grep -cve '^$' /tmp/repos.txt || true)"
+          [[ "$count" == "252" ]] || { echo "Expected 252 repositories, found $count" >&2; exit 1; }
+          if grep -Eq '^HereLiesAz/(workflows|NoLAWallet|NoLAWallet-id)$' /tmp/repos.txt; then
+            echo 'Excluded repository appeared in audit baseline.' >&2
+            exit 1
+          fi
+          echo "Auditing $count repositories."
+
+      - name: Audit current Jules proxies
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > /tmp/stale.txt
+          : > /tmp/checked.txt
+
+          fetch_file() {
+            local repo="$1"
+            local path="$2"
+            local response
+            local err
+            err="$(mktemp)"
+            if ! response="$(gh api "repos/${repo}/contents/${path}" 2>"$err")"; then
+              if grep -q '404' "$err"; then
+                rm -f "$err"
+                return 2
+              fi
+              cat "$err" >&2
+              rm -f "$err"
+              return 1
+            fi
+            rm -f "$err"
+            jq -r '.content' <<<"$response" | tr -d '\n' | base64 --decode
+          }
+
+          while IFS= read -r repo; do
+            [[ -n "$repo" ]] || continue
+
+            for kind in jules-dispatch jules-glee; do
+              path=".github/workflows/${kind}.yml"
+              content=""
+              rc=0
+              content="$(fetch_file "$repo" "$path")" || rc=$?
+              if [[ "$rc" == "2" ]]; then
+                continue
+              elif [[ "$rc" != "0" ]]; then
+                echo "Failed to read ${repo}:${path}" >&2
+                exit "$rc"
+              fi
+
+              if ! grep -q '^# centralized-by: HereLiesAz/workflows' <<<"$content"; then
+                continue
+              fi
+
+              printf '%s %s\n' "$repo" "$kind" >> /tmp/checked.txt
+
+              if [[ "$kind" == "jules-dispatch" ]]; then
+                if ! grep -Eq 'DISPATCH_EVENT_JSON=' <<<"$content"; then
+                  printf '%s %s missing-compact-event\n' "$repo" "$kind" >> /tmp/stale.txt
+                fi
+                if ! grep -q "startsWith(github.event.comment.body, '@jules')" <<<"$content"; then
+                  printf '%s %s missing-comment-gate\n' "$repo" "$kind" >> /tmp/stale.txt
+                fi
+                if ! grep -q "startsWith(github.event.review.body, '@jules')" <<<"$content"; then
+                  printf '%s %s missing-review-gate\n' "$repo" "$kind" >> /tmp/stale.txt
+                fi
+              else
+                if ! grep -Eq 'DISPATCH_EVENT_JSON=|dispatch_event=' <<<"$content"; then
+                  printf '%s %s missing-compact-event\n' "$repo" "$kind" >> /tmp/stale.txt
+                fi
+                if ! grep -Eq 'pull_request_target' <<<"$content"; then
+                  printf '%s %s wrong-trigger\n' "$repo" "$kind" >> /tmp/stale.txt
+                fi
+              fi
+            done
+          done < /tmp/repos.txt
+
+          checked="$(wc -l < /tmp/checked.txt | tr -d ' ')"
+          stale="$(wc -l < /tmp/stale.txt | tr -d ' ')"
+          echo "Checked $checked centralized Jules proxy files."
+          echo "Found $stale stale condition(s)."
+          if [[ -s /tmp/stale.txt ]]; then
+            echo 'STALE PROXIES:'
+            sort -u /tmp/stale.txt
+          else
+            echo 'All live centralized Jules proxies satisfy compacting and gate checks.'
+          fi
+
+          {
+            echo '## Live Jules proxy audit'
+            echo
+            echo "- Repositories: **252**"
+            echo "- Centralized Jules proxy files checked: **$checked**"
+            echo "- Stale conditions: **$stale**"
+            if [[ -s /tmp/stale.txt ]]; then
+              echo
+              echo '```text'
+              sort -u /tmp/stale.txt
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

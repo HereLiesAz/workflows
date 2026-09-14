@@ -1,0 +1,63 @@
+name: CMP Client Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cmp/**'
+      - '.github/workflows/cmp-build.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'cmp/**'
+      - '.github/workflows/cmp-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Matches the convention in build-mobile.yml: keying on head_ref for pull
+# requests means successive pushes to one branch supersede each other,
+# rather than each queuing its own full Gradle run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: cmp
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Only the Android and desktop targets build here. The iOS targets
+      # are declared in the same Gradle build but need a macOS runner with
+      # Xcode to compile, so they are checked separately rather than
+      # silently skipped in a way that reads as passing.
+      - name: Run shared tests
+        run: ./gradlew :shared:desktopTest --stacktrace
+
+      - name: Build Android APK
+        run: ./gradlew :composeApp:assembleDebug --stacktrace
+
+      - name: Build desktop JAR
+        run: ./gradlew :composeApp:desktopJar --stacktrace
+
+      - name: Upload test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmp-test-report
+          path: cmp/shared/build/reports/tests/
+          retention-days: 7

@@ -6,7 +6,7 @@ name: Deploy over FTP
 # ProFTPD mod_sftp/0.9.9's password auth is incompatible with sshpass.
 #
 # Required secrets: FTP_SERVER, FTP_USERNAME, FTP_PASSWORD
-# Optional vars:    SFTP_PORT (default 22), FTP_SERVER_DIR (default /app)
+# Optional vars:    SFTP_PORT (default 22), FTP_SERVER_DIR (default /graffitixr)
 
 on:
   push:
@@ -44,7 +44,7 @@ jobs:
           USERNAME: ${{ secrets.FTP_USERNAME }}
           PASSWORD: ${{ secrets.FTP_PASSWORD }}
           PORT: ${{ vars.SFTP_PORT || '22' }}
-          REMOTE_DIR: ${{ vars.FTP_SERVER_DIR || '/app' }}
+          REMOTE_DIR: ${{ vars.FTP_SERVER_DIR || '/graffitixr' }}
         run: |
           set -e
           sudo apt-get install -y lftp

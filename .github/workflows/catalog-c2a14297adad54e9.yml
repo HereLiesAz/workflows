@@ -180,15 +180,15 @@ jobs:
           path: ${{ steps.aab.outputs.aab_path }}
           if-no-files-found: error
       - name: Set up Python
-        if: ${{ inputs.target_event_name == 'push' || fromJSON(inputs.target_event_json).fromJSON(inputs.target_inputs_json).dry_run != 'true' }}
+        if: ${{ inputs.target_event_name == 'push' || fromJSON(inputs.target_event_json).inputs.dry_run != 'true' }}
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - name: Install Play publishing dependencies
-        if: ${{ inputs.target_event_name == 'push' || fromJSON(inputs.target_event_json).fromJSON(inputs.target_inputs_json).dry_run != 'true' }}
+        if: ${{ inputs.target_event_name == 'push' || fromJSON(inputs.target_event_json).inputs.dry_run != 'true' }}
         run: pip install --disable-pip-version-check google-api-python-client google-auth
       - name: Publish to Google Play
-        if: ${{ inputs.target_event_name == 'push' || fromJSON(inputs.target_event_json).fromJSON(inputs.target_inputs_json).dry_run != 'true' }}
+        if: ${{ inputs.target_event_name == 'push' || fromJSON(inputs.target_event_json).inputs.dry_run != 'true' }}
         env:
           PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           PLAY_PACKAGE_NAME: ${{ steps.pkg.outputs.package_name }}

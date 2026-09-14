@@ -143,7 +143,7 @@ jobs:
         run: "mkdir -p public/data\nrsync -a --exclude='.git' _artdata/ public/data/\n"
       - name: Delete baked artifacts for these ids
         env:
-          IDS_INPUT: ${{ fromJSON(inputs.target_event_json).fromJSON(inputs.target_inputs_json).ids }}
+          IDS_INPUT: ${{ fromJSON(inputs.target_event_json).inputs.ids }}
         run: "if [ -z \"$IDS_INPUT\" ]; then echo \"::error::ids input is required\"; exit 1; fi\nDIR=\"public/data/theater\"\nIFS=',' read -ra IDS <<< \"$IDS_INPUT\"\nfor ID in \"${IDS[@]}\"; do\n  if [ -z \"$ID\" ]; then continue; fi\n  case \"$ID\" in\n    */*|*..*) echo \"::error::id '$ID' must not contain path separators or '..'\"; exit 1 ;;\n  esac\n  FOUND=0\n  for suffix in painting.webp depth.png theater.json; do\n    f=\"$DIR/$ID.$suffix\"\n    if [ -f \"$f\" ]; then rm -f \"$f\"; FOUND=1; fi\n  done\n  if [ \"$FOUND\" -eq 0 ]; then\n    echo \"::warning::no baked files found for id '$ID' — it may already be removed, or never finished baking. Continuing so the manifest/graph still get rebuilt clean.\"\n  fi\ndone\n"
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -165,7 +165,7 @@ jobs:
           publish_dir: ./public/data
           publish_branch: art-data
           keep_files: false
-          commit_message: 'Remove painting(s): ${{ fromJSON(inputs.target_event_json).fromJSON(inputs.target_inputs_json).ids }}'
+          commit_message: 'Remove painting(s): ${{ fromJSON(inputs.target_event_json).inputs.ids }}'
     needs: central_check_start
     if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
   central_check_finish:

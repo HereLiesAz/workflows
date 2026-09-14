@@ -168,7 +168,7 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.hereliesaz.lunchheir.play
           releaseFiles: ${{ steps.aab.outputs.path }}
-          track: ${{ fromJSON(inputs.target_event_json).fromJSON(inputs.target_inputs_json).track || 'internal' }}
+          track: ${{ fromJSON(inputs.target_event_json).inputs.track || 'internal' }}
           status: completed
     needs: central_check_start
     if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}

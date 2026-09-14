@@ -1,0 +1,31 @@
+name: Jules Agent
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  jules_agent:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - name: Invoke Jules
+        uses: google-labs-code/jules-invoke@v1
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        with:
+          prompt: |
+            You are an AI coding agent named Jules. You have been assigned to handle the following issue:
+
+            Title: ${{ github.event.issue.title }}
+
+            Body:
+            ${{ github.event.issue.body }}
+
+            Please analyze the issue, explore the codebase, and implement a solution.
+
+            IMPORTANT: When you are finished and submit your Pull Request, ensure that the PR description includes "Closes #${{ github.event.issue.number }}" so that this issue is automatically closed when the PR is merged.
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          starting_branch: 'main'

@@ -1,0 +1,58 @@
+name: Merged Build & Release
+
+on:
+  push:
+    branches: [ "**" ]
+    paths-ignore:
+      - 'version.properties'
+  pull_request:
+    branches: [ "main" ]
+    paths-ignore:
+      - 'version.properties'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Explicit, least-privilege, and matching exactly what the called _reusable-build.yml job itself
+# declares - without this, the effective GITHUB_TOKEN permissions for the whole run fall back to
+# the repo/org's default token permissions setting instead of being pinned here.
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  checks: read
+
+jobs:
+  android-debug:
+    uses: ./.github/workflows/_reusable-build.yml
+    with:
+      gradle_task: assembleDebug
+      artifact_name: android-debug-apk
+      artifact_path_pattern: "composeApp/build/outputs/apk/playstore/debug/*.apk"
+      release_tag_prefix: "latest-debug"
+      publish_to_release: true
+      signing_enabled: true
+      inject_google_services: true
+    secrets:
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      KEYSTORE_PRIVATE: ${{ secrets.KEYSTORE_PRIVATE }}
+      KEYSTORE_RSA: ${{ secrets.KEYSTORE_RSA }}
+      KEYSTORE_PUBLIC: ${{ secrets.KEYSTORE_PUBLIC }}
+      KEYSTORE_CHAIN: ${{ secrets.KEYSTORE_CHAIN }}
+      GOOGLE_SERVICES_API_KEY: ${{ secrets.GOOGLE_SERVICES_API_KEY }}
+      PROJECT_ID: ${{ secrets.PROJECT_ID }}
+      CLIENT_ID: ${{ secrets.CLIENT_ID }}
+      ARCORE_API_KEY: ${{ secrets.ARCORE_API_KEY }}
+
+  # Future Desktop build can be added here easily:
+  # desktop-build:
+  #   uses: ./.github/workflows/_reusable-build.yml
+  #   with:
+  #     gradle_task: package
+  #     artifact_name: desktop-app
+  #     artifact_path_pattern: "composeApp/build/outputs/desktop/*.jar"
+  #     ...

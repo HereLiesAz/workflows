@@ -1,0 +1,57 @@
+name: Jules Security Fixer
+
+# NOTE: `code_scanning_alert`, `dependabot_alert`, and `secret_scanning_alert`
+# are NOT valid GitHub Actions `on:` trigger events (confirmed against GitHub's
+# own docs) — they were in this file for a long time as dead triggers with
+# dead corresponding job steps below. Worse: an unrecognized key anywhere
+# under `on:` makes GitHub reject the ENTIRE workflow file, so even the two
+# genuinely valid triggers here (`issues`, `workflow_dispatch`) never ran
+# either. This file has been failing on every single push since before this
+# repo's earliest recorded run of it. Only real, supported triggers below.
+#
+# There is no native Actions trigger for "a new Dependabot/code-scanning/
+# secret-scanning alert was created." The closest supported replacement is a
+# `schedule:`-triggered job that polls `gh api .../dependabot/alerts` itself,
+# which is a materially different job body (loop over alerts, no
+# `github.event.alert.*` payload to read from) — not added here; flag as
+# follow-up if automated alert remediation is wanted.
+
+on:
+  issues:
+    types: [opened, labeled]
+  workflow_dispatch:
+
+jobs:
+  fix_security_alert:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Invoke Jules for Security Issue
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'issues' &&
+           (contains(github.event.issue.labels.*.name, 'security') || contains(github.event.issue.title, 'security')))
+        # SUPPLY CHAIN: unpinned. This action runs with repository secrets in
+        # scope, and @main means whatever its author pushes next runs here with
+        # no review. Pin to a release tag or a commit SHA. Left unpinned only
+        # because the pinning SHA could not be resolved offline -- do not treat
+        # this comment as the fix.
+        uses: google-labs-code/jules-action@main
+        with:
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          prompt: |
+            You are an expert security engineer named Jules.
+            A security-related issue has been reported:
+
+            Title: ${{ github.event.issue.title }}
+            Body:
+            ${{ github.event.issue.body }}
+
+            Your task:
+            1. Analyze the reported security issue.
+            2. Determine if a code change is needed and implement it.
+            3. Verify the fix and ensure no regressions are introduced.
+            4. Create a Pull Request with the fix. Include "Fixes #${{ github.event.issue.number }}" in the PR description.

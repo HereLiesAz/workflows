@@ -1,0 +1,247 @@
+name: App Release
+
+# One commit, one version, every artifact.
+#
+# This replaces two workflows that both fired on a push to main and did not order between themselves:
+# one bumped the version and built the APK, the other built the desktop installers with the version
+# frozen. The result was that a single commit produced an APK and three installers carrying *different*
+# numbers — which makes `version.properties` useless, since the whole point of one source of truth is
+# that everything built from one commit agrees.
+#
+# So the bump is its own job now, it happens exactly once, and every build job checks out the commit it
+# produced. Nothing downstream is allowed to move the number: they all run with
+# AZPHALT_VERSION_FROZEN=1 and read what `version` decided.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# Serialised and never cancelled: this pushes to the branch it triggers on, so two overlapping runs
+# would race on version.properties, and a cancelled run could leave a tag with no release or a release
+# with no commit.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # The only job that writes anything. Bumps once, commits, tags, and tells everyone else which commit
+  # to build and what to call it.
+  version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      sha: ${{ steps.commit.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Pushes made with GITHUB_TOKEN do not trigger workflows, which is what stops this job — a
+          # push to main that itself pushes to main — from re-triggering itself forever.
+          persist-credentials: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Bump the version
+        id: bump
+        run: |
+          version="$(node tools/version.mjs bump)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Releasing $version"
+
+      # Committed before the tag and before anything builds, so the tag points at a commit that
+      # actually contains the version it claims. A tag disagreeing with the file would make the file
+      # untrustworthy, which is the one thing it cannot be.
+      - name: Commit and tag
+        id: commit
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add version.properties
+          if git diff --cached --quiet; then
+            echo "::error::version.properties did not change — the bump did not happen" >&2
+            exit 1
+          fi
+          git commit -m "chore(version): $VERSION [skip ci]"
+          # Another workflow or a person can land on main between the checkout and this push. Rebasing
+          # keeps their commit; the retry covers a second push arriving during the rebase itself.
+          pushed=""
+          for attempt in 1 2 3 4 5; do
+            if git push origin HEAD:main; then
+              pushed="yes"
+              echo "pushed on attempt $attempt"
+              break
+            fi
+            echo "push rejected, rebasing (attempt $attempt)"
+            git pull --rebase origin main
+            sleep $((attempt * 3))
+          done
+          if [ -z "$pushed" ]; then
+            echo "::error::could not push the version commit after 5 attempts" >&2
+            exit 1
+          fi
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+          # The sha every build job checks out. Read after the rebase loop, so it is the commit that
+          # actually landed rather than the one we hoped would.
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  android:
+    needs: version
+    runs-on: ubuntu-latest
+    env:
+      # Read the version, never move it. The `version` job already decided.
+      AZPHALT_VERSION_FROZEN: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: '17'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Write google-services.json when Firebase is configured
+        env:
+          GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES }}
+        run: node .github/scripts/write-google-services.mjs
+
+      - name: Assemble the debug APK
+        working-directory: apps/storefront-cmp
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      # The name comes from `output-metadata.json`, and the script asserts the APK really carries the
+      # version this run bumped to — a mislabelled artifact on a real release cannot be taken back.
+      - name: Name the APK for its version
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: node .github/scripts/name-debug-apk.mjs "$VERSION" "azphalt-store-$VERSION-debug.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: azphalt-store-*.apk
+          if-no-files-found: error
+
+  desktop:
+    needs: version
+    strategy:
+      # One runner failing should not deprive the release of the other two platforms' installers; the
+      # release job publishes what it got and says what is missing.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      AZPHALT_VERSION_FROZEN: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build the desktop distribution
+        working-directory: apps/storefront-cmp
+        run: ./gradlew packageReleaseDistributionForCurrentOS
+
+      # A RELEASE build emits into `main-release/`, not `main/` — the msi/dmg/deb land under
+      # `main-release/{msi,dmg,deb}/`.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: apps/storefront-cmp/build/compose/binaries/main-release/
+          if-no-files-found: error
+
+  release:
+    needs: [version, android, desktop]
+    # `always()` so a single platform failing still ships the rest. Without it one red desktop runner
+    # would mean no release at all, including the APK that built fine.
+    if: ${{ always() && needs.version.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+          merge-multiple: true
+
+      - name: List what arrived
+        # Printed because the release body claims which platforms are present, and a silent gap between
+        # that claim and the assets is exactly the kind of thing nobody notices for a month.
+        run: |
+          find ./artifacts -type f \( -name '*.apk' -o -name '*.msi' -o -name '*.dmg' -o -name '*.deb' \) -print
+          total=0
+          for kind in apk msi dmg deb; do
+            count=$(find ./artifacts -type f -name "*.$kind" | wc -l)
+            total=$((total + count))
+            [ "$count" -gt 0 ] || echo "::warning::no .$kind in this release — that platform's build did not produce one"
+          done
+          # A release with no assets is worse than no release: the tag exists, so it looks shipped.
+          if [ "$total" -eq 0 ]; then
+            echo "::error::every build job failed — refusing to publish an empty release for a tag that already exists" >&2
+            exit 1
+          fi
+
+      # The versioned release: every artifact from this commit, all carrying the same number.
+      - name: Publish the versioned release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.version.outputs.version }}
+          name: Azphalt ${{ needs.version.outputs.version }}
+          # Prerelease because the APK is debug-signed. The rolling `latest` release below stays the
+          # non-prerelease one, so it remains what the repository page shows as Latest.
+          prerelease: true
+          body: |
+            Every artifact built from commit ${{ needs.version.outputs.sha }}, all at version
+            `${{ needs.version.outputs.version }}` (`versionCode` = the fourth number).
+
+            - **Android** — `azphalt-store-*-debug.apk`. Debug-signed: uninstall any other build of
+              `store.azphalt.storefront` first, because Android refuses an install whose signing key
+              differs from the installed app's. Not for distribution; the Play build is separate and
+              release-signed.
+            - **Desktop** — `.msi` (Windows), `.dmg` (macOS), `.deb` (Linux).
+          files: |
+            ./artifacts/**/*.apk
+            ./artifacts/**/*.msi
+            ./artifacts/**/*.dmg
+            ./artifacts/**/*.deb
+
+      # The rolling tag the desktop workflow used to publish, kept so existing download links keep
+      # working. Same assets, same version — it is a pointer at the newest release, not a second one.
+      - name: Update the rolling 'latest' release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          target_commitish: ${{ needs.version.outputs.sha }}
+          name: Azphalt (Latest)
+          body: |
+            Rolling release — the newest build of everything, currently version
+            `${{ needs.version.outputs.version }}`.
+
+            Desktop installers for Windows, macOS and Linux, plus the debug Android APK. Permanent
+            per-version links live on the versioned releases.
+          files: |
+            ./artifacts/**/*.apk
+            ./artifacts/**/*.msi
+            ./artifacts/**/*.dmg
+            ./artifacts/**/*.deb

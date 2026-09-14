@@ -1,0 +1,185 @@
+{
+  "last_sync_at": "2026-09-14T01:08:07+00:00",
+  "repository": {
+    "default_branch": "master",
+    "full_name": "HereLiesAz/IDEaz",
+    "id": 1085343418,
+    "owner_id": 103241502,
+    "owner_login": "HereLiesAz"
+  },
+  "schema": 2,
+  "worker_url_configured": true,
+  "workflows": {
+    ".github/workflows/antigravity-branch-manager.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "ff96108b43922c2b728b1bea787de943dc122a9f7f8f89ee4399267f5f4dfb88",
+      "central_workflow": ".github/workflows/catalog-ff96108b43922c2b.yml",
+      "name": "Antigravity Branch Manager",
+      "registry_source": "registry/1085343418/antigravity-branch-manager-27e78ee4.source.yml",
+      "source_sha256": "46809ad74981ac249317826863a775894f8e23be394683d5f4231349716a096c",
+      "status": "active",
+      "updated_at": "2026-09-14T01:07:41+00:00"
+    },
+    ".github/workflows/antigravity-dispatch.yml": {
+      "blockers": [
+        "job 'triage' is depended on downstream and expands to 2 jobs; only single-job dependency aliasing is supported"
+      ],
+      "name": "\ud83d\udd00 Antigravity Dispatch",
+      "registry_source": "registry/1085343418/antigravity-dispatch-1d3b5794.source.yml",
+      "source_sha256": "164f8ad3192db8b9452ce50fcb3ffb9c526f25991719b9f69fe03a4fa6d3774d",
+      "status": "local",
+      "updated_at": "2026-09-14T01:07:44+00:00"
+    },
+    ".github/workflows/antigravity-invoke.yml": {
+      "name": "\u25b6\ufe0f Antigravity Invoke",
+      "registry_source": "registry/1085343418/antigravity-invoke-68995e5d.source.yml",
+      "source_sha256": "c48ff2e1ed75038cc4adcd27a1b4149c53df56db76f548154d24bdf6f3040c41",
+      "status": "library",
+      "updated_at": "2026-09-14T01:07:45+00:00"
+    },
+    ".github/workflows/antigravity-issue-handler.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "c7f39e08c5f396a81122bb501c75b6d9cfacdd8b328819a7c70dfb273e4fa319",
+      "central_workflow": ".github/workflows/catalog-c7f39e08c5f396a8.yml",
+      "name": "Antigravity Issue Handler",
+      "registry_source": "registry/1085343418/antigravity-issue-handler-23241b3b.source.yml",
+      "source_sha256": "c33c11ed3f31fdf45ff1f9970b9f0f7b9ccf9a3b4062148bdeb71c74d518b878",
+      "status": "active",
+      "updated_at": "2026-09-14T01:07:46+00:00"
+    },
+    ".github/workflows/antigravity-review.yml": {
+      "name": "\ud83d\udd0e Antigravity Review",
+      "registry_source": "registry/1085343418/antigravity-review-aa31df84.source.yml",
+      "source_sha256": "945a3d9936d3d28135cefeb18e43fe94ce3e3faad5ac2ce0afd7569c467c345a",
+      "status": "library",
+      "updated_at": "2026-09-14T01:07:48+00:00"
+    },
+    ".github/workflows/antigravity-scheduled-triage.yml": {
+      "blockers": [
+        "job 'label' step 2 uses actions/github-script with runner-repository context",
+        "job 'triage' step 3 uses actions/github-script with runner-repository context",
+        "job 'triage' step 4 uses actions/github-script with runner-repository context"
+      ],
+      "name": "\ud83d\udccb Antigravity Scheduled Issue Triage",
+      "registry_source": "registry/1085343418/antigravity-scheduled-triage-a345106b.source.yml",
+      "source_sha256": "fb24594c498a0749087b5f9670404ffade14b59af0d9cb412389ae688b4b7d32",
+      "status": "local",
+      "updated_at": "2026-09-14T01:07:49+00:00"
+    },
+    ".github/workflows/antigravity-triage.yml": {
+      "name": "\ud83d\udd00 Antigravity Triage",
+      "registry_source": "registry/1085343418/antigravity-triage-9953fc0b.source.yml",
+      "source_sha256": "a69f1cddb64845abbdc9939c053f3c217111952c46013e8fa78022e5a385712f",
+      "status": "library",
+      "updated_at": "2026-09-14T01:07:50+00:00"
+    },
+    ".github/workflows/backup.yml": {
+      "catalog": "curated",
+      "central_workflow": ".github/workflows/catalog-context-backup.yml",
+      "name": "Context Backup (Universal Surgical)",
+      "registry_source": "registry/1085343418/backup-d598524a.source.yml",
+      "source_sha256": "3a4f16e99f43e7ff92c92791ff368bc12e612766d692ac424a0c843deea01c71",
+      "status": "active",
+      "updated_at": "2026-09-14T01:07:51+00:00"
+    },
+    ".github/workflows/build-and-release.yml": {
+      "blockers": [
+        "job 'build-and-release' step 8 uses actions/github-script with runner-repository context"
+      ],
+      "name": "Merged Build & Release",
+      "registry_source": "registry/1085343418/build-and-release-45f9c346.source.yml",
+      "source_sha256": "291a99f2278fe31afb964bcf09ece08f2a66ffb0f21b8827a0b72763c58816ce",
+      "status": "local",
+      "updated_at": "2026-09-14T01:07:52+00:00"
+    },
+    ".github/workflows/clear_cache.yml": {
+      "catalog": "curated",
+      "central_workflow": ".github/workflows/catalog-clear-cache.yml",
+      "name": "Clear Gradle Cache",
+      "registry_source": "registry/1085343418/clear_cache-7bd18479.source.yml",
+      "source_sha256": "52b698849a1934ee79c32781fb1bdf7461cdc96581cbd933965d03285dd4f66b",
+      "status": "active",
+      "updated_at": "2026-09-14T01:07:53+00:00"
+    },
+    ".github/workflows/codeql.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "ecd55f85915733e12dc6bdf4c7719c8ab1546e383ddf4236d6bfad6587adc071",
+      "central_workflow": ".github/workflows/catalog-ecd55f85915733e1.yml",
+      "name": "CodeQL",
+      "registry_source": "registry/1085343418/codeql-37c182e8.source.yml",
+      "source_sha256": "b1daefb6a9ccf116f965927078d197b7fd77c4e35093258e05c5a0c5c0660417",
+      "status": "active",
+      "updated_at": "2026-09-14T01:07:55+00:00"
+    },
+    ".github/workflows/dependency-submission.yml": {
+      "blockers": [
+        "job 'dependency-submission' step 3 uses repository-bound action 'gradle/actions/dependency-submission@v6'"
+      ],
+      "name": "Dependency Submission",
+      "registry_source": "registry/1085343418/dependency-submission-a80520d4.source.yml",
+      "source_sha256": "34840ab393f8792ccd2c632dbbbba7ab26893b4fa8198c1497de2341de0683e7",
+      "status": "local",
+      "updated_at": "2026-09-14T01:07:57+00:00"
+    },
+    ".github/workflows/jekyll-gh-pages.yml": {
+      "blockers": [
+        "job 'deploy' deploys to the runner repository's github-pages environment",
+        "job 'deploy' step 1 uses repository-bound action 'actions/deploy-pages@v5'"
+      ],
+      "name": "Deploy Jekyll with GitHub Pages dependencies preinstalled",
+      "registry_source": "registry/1085343418/jekyll-gh-pages-5de61e74.source.yml",
+      "source_sha256": "df768712b928b06b5d5c6b7dff576c86b59ec7fd6e9e1e5fc3936bc6b2d6f78d",
+      "status": "local",
+      "updated_at": "2026-09-14T01:07:57+00:00"
+    },
+    ".github/workflows/jules-glee.yml": {
+      "catalog": "curated",
+      "central_workflow": ".github/workflows/catalog-jules-glee.yml",
+      "name": "\ud83d\ude08 Glee Audit",
+      "registry_source": "registry/1085343418/jules-glee-0de23ac9.source.yml",
+      "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
+      "status": "active",
+      "updated_at": "2026-09-14T01:07:58+00:00"
+    },
+    ".github/workflows/pr-check.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "44c4c828307b05a1b9fbff35a596a06a8ba0afa922b230850eda910f86c8e114",
+      "central_workflow": ".github/workflows/catalog-44c4c828307b05a1.yml",
+      "name": "PR Check",
+      "registry_source": "registry/1085343418/pr-check-7500c833.source.yml",
+      "source_sha256": "8d0bee7aa3ab78d04396737b8f3fdde27eb3f4164f501979a811cac647b569b7",
+      "status": "active",
+      "updated_at": "2026-09-14T01:08:00+00:00"
+    },
+    ".github/workflows/pr-contribution-guidelines-review.yml": {
+      "blockers": [
+        "job 'validate-pr' step 6 uses actions/github-script with runner-repository context"
+      ],
+      "name": "\ud83d\udcd0 Enforce Contribution Guidelines",
+      "registry_source": "registry/1085343418/pr-contribution-guidelines-review-fc3ba3ac.source.yml",
+      "source_sha256": "216bf6129a718aa9b0361d75b38d04c34814adc7ce8dfc49cc4b754054204661",
+      "status": "local",
+      "updated_at": "2026-09-14T01:08:02+00:00"
+    },
+    ".github/workflows/publish-play.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "a459099d862c1251ef802a8fbe54f5bd64b65c1d5a663b6c58bda5da6742f826",
+      "central_workflow": ".github/workflows/catalog-a459099d862c1251.yml",
+      "name": "Publish AAB to Play",
+      "registry_source": "registry/1085343418/publish-play-a3a94793.source.yml",
+      "source_sha256": "9f62916fd29cb8ceed1a342fe12a5e7d3edeea9b81603064406163ed81453127",
+      "status": "active",
+      "updated_at": "2026-09-14T01:08:03+00:00"
+    },
+    ".github/workflows/summary.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "6d72dc760e4e88c72bf97e4c3942d5f23e0fa82bd528e95aadc785d9a074926d",
+      "central_workflow": ".github/workflows/catalog-6d72dc760e4e88c7.yml",
+      "name": "Summarize new issues",
+      "registry_source": "registry/1085343418/summary-bc1f0d2a.source.yml",
+      "source_sha256": "d457c0809e0b9d1cd9a70044eaab8f8e0aa11197ba25a0a9c97aab620f155afa",
+      "status": "active",
+      "updated_at": "2026-09-14T01:08:05+00:00"
+    }
+  }
+}

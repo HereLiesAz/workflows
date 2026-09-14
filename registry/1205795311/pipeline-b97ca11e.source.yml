@@ -1,0 +1,56 @@
+name: PaperPlanes Wizard Pipeline
+
+on:
+  repository_dispatch:
+    types: [pipeline_trigger]
+
+permissions:
+  contents: write
+  actions: read
+
+# Fix: Prevents multiple pipelines from running at the same time and conflicting
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  execute_step:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout reality
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install google-generativeai torch diffusers transformers accelerate pillow numpy opencv-python-headless rembg[cli]
+
+      - name: Execute Pipeline Job
+        env:
+          TARGET_LAYERS: ${{ github.event.client_payload.layers || '6' }}
+          MANUAL_COORDS: ${{ github.event.client_payload.coords || '' }}
+          CUSTOM_PROMPT: ${{ github.event.client_payload.prompt || '' }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          mkdir -p workspace
+          python pipeline.py ${{ github.event.client_payload.job }}
+
+      - name: Atomic Commit and Push
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes."
+          else
+            git commit -m "Step complete: ${{ github.event.client_payload.job }}"
+            git pull --rebase origin main
+            git push origin main
+          fi

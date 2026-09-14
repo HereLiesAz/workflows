@@ -1,0 +1,43 @@
+{
+  "last_sync_at": "2026-09-14T01:11:53+00:00",
+  "repository": {
+    "default_branch": "main",
+    "full_name": "HereLiesAz/RedBlightDistrict",
+    "id": 1228954520,
+    "owner_id": 103241502,
+    "owner_login": "HereLiesAz"
+  },
+  "schema": 2,
+  "worker_url_configured": true,
+  "workflows": {
+    ".github/workflows/jules-glee.yml": {
+      "catalog": "curated",
+      "central_workflow": ".github/workflows/catalog-jules-glee.yml",
+      "name": "\ud83d\ude08 Glee Audit",
+      "registry_source": "registry/1228954520/jules-glee-0de23ac9.source.yml",
+      "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
+      "status": "active",
+      "updated_at": "2026-09-14T01:11:48+00:00"
+    },
+    ".github/workflows/merged-build.yml": {
+      "blockers": [
+        "job 'build-and-release' step 9 uses actions/github-script with runner-repository context"
+      ],
+      "name": "Build and Release",
+      "registry_source": "registry/1228954520/merged-build-7328551a.source.yml",
+      "source_sha256": "97c2590aab69123294ee2fc8f3ca1111e416300670d8edc6f85f814b93f76390",
+      "status": "local",
+      "updated_at": "2026-09-14T01:11:50+00:00"
+    },
+    ".github/workflows/update_database.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "75a514cbfa593ca6fc34b021355cb472b3ecc6bed5c2411c255ad35230b54d20",
+      "central_workflow": ".github/workflows/catalog-75a514cbfa593ca6.yml",
+      "name": "Update Database",
+      "registry_source": "registry/1228954520/update_database-4aeb95df.source.yml",
+      "source_sha256": "432a15600d3db633816bb54edd84ff730b6ff88adb03c823ee336b108c727efe",
+      "status": "active",
+      "updated_at": "2026-09-14T01:11:51+00:00"
+    }
+  }
+}

@@ -1,0 +1,141 @@
+{
+  "last_sync_at": "2026-09-14T02:09:09+00:00",
+  "repository": {
+    "default_branch": "master",
+    "full_name": "HereLiesAz/pwnagotchiOnAndroid",
+    "id": 1082265303,
+    "owner_id": 103241502,
+    "owner_login": "HereLiesAz"
+  },
+  "schema": 2,
+  "worker_url_configured": true,
+  "workflows": {
+    ".github/workflows/backup.yml": {
+      "catalog": "curated",
+      "central_workflow": ".github/workflows/catalog-context-backup.yml",
+      "name": "Context Backup (Universal Surgical)",
+      "registry_source": "registry/1082265303/backup-d598524a.source.yml",
+      "source_sha256": "7b5078fd680ca4758350d8bfb6e11d675bf62a7a12bb35cd38f3a5fcb5a81349",
+      "status": "active",
+      "updated_at": "2026-09-14T02:08:47+00:00"
+    },
+    ".github/workflows/build_release.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "6d878bef8f6f2aedd54821e32c0ea3c90cabb7618cbe5105083fb3de414bef31",
+      "central_workflow": ".github/workflows/catalog-6d878bef8f6f2aed.yml",
+      "name": "Build and Release",
+      "registry_source": "registry/1082265303/build_release-65a3e906.source.yml",
+      "source_sha256": "d8c9826d6991f1fd657934457f0a73d3e018ccbc802e0186c4b40a501d621337",
+      "status": "active",
+      "updated_at": "2026-09-14T02:08:49+00:00"
+    },
+    ".github/workflows/clear_cache.yml": {
+      "catalog": "curated",
+      "central_workflow": ".github/workflows/catalog-clear-cache.yml",
+      "name": "Clear Gradle Cache",
+      "registry_source": "registry/1082265303/clear_cache-7bd18479.source.yml",
+      "source_sha256": "69e0fd458df23070990fb3b1782bfbcd38998a8a45e1b426d4102bf0c4351dc8",
+      "status": "active",
+      "updated_at": "2026-09-14T02:08:52+00:00"
+    },
+    ".github/workflows/jules-agent.yml": {
+      "blockers": [
+        "job 'jules-triage' step 2 uses repository-bound action 'google-labs-code/jules-invoke@v1'"
+      ],
+      "name": "Jules Agent",
+      "registry_source": "registry/1082265303/jules-agent-e0063890.source.yml",
+      "source_sha256": "c70af099487391978aefb76ce818520a944c13219a2b3e7693014b8b17156f5c",
+      "status": "local",
+      "updated_at": "2026-09-14T02:08:53+00:00"
+    },
+    ".github/workflows/jules-auto-merge.yml": {
+      "blockers": [
+        "job 'jules-branch-manager' step 2 uses repository-bound action 'google-labs-code/jules-invoke@v1'"
+      ],
+      "name": "Jules Auto-Merge Branch",
+      "registry_source": "registry/1082265303/jules-auto-merge-9008b8c6.source.yml",
+      "source_sha256": "782286d4c59457bc50331f9f0b9c8fc4898f0328b28eb4f945ed3d0e469003d3",
+      "status": "local",
+      "updated_at": "2026-09-14T02:08:54+00:00"
+    },
+    ".github/workflows/jules-glee.yml": {
+      "catalog": "curated",
+      "central_workflow": ".github/workflows/catalog-jules-glee.yml",
+      "name": "\ud83d\ude08 Glee Audit",
+      "registry_source": "registry/1082265303/jules-glee-0de23ac9.source.yml",
+      "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
+      "status": "active",
+      "updated_at": "2026-09-14T02:08:55+00:00"
+    },
+    ".github/workflows/jules-issue-handler.yml": {
+      "blockers": [
+        "job 'handle-issue' step 1 uses repository-bound action 'google-labs-code/jules-invoke@v1'"
+      ],
+      "name": "Jules Issue Handler",
+      "registry_source": "registry/1082265303/jules-issue-handler-f9e1d4df.source.yml",
+      "source_sha256": "054b614a9d2ee730100b644a3c9dcd350c2e39999ff33cb3d676287d1dcde3c1",
+      "status": "local",
+      "updated_at": "2026-09-14T02:08:57+00:00"
+    },
+    ".github/workflows/label.yml": {
+      "blockers": [
+        "job 'label' step 1 uses repository-bound action 'actions/labeler@v4'"
+      ],
+      "name": "Labeler",
+      "registry_source": "registry/1082265303/label-04cea97c.source.yml",
+      "source_sha256": "071048f136942a70d914adcb7a25a7ac8780cee966082ce54240386a641e8b98",
+      "status": "local",
+      "updated_at": "2026-09-14T02:08:58+00:00"
+    },
+    ".github/workflows/merged-build.yml": {
+      "blockers": [
+        "job 'build-and-release' step 8 uses actions/github-script with runner-repository context"
+      ],
+      "name": "Merged Build & Release",
+      "registry_source": "registry/1082265303/merged-build-7328551a.source.yml",
+      "source_sha256": "812d6ecfc7a55b21cd52ca0478b7658252df9c4ab9161b0f6457337924384025",
+      "status": "local",
+      "updated_at": "2026-09-14T02:08:59+00:00"
+    },
+    ".github/workflows/python-package.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "7ed29ad4277f6c7e34c871d6d3c67b071d1c30f1ad47481d35affb6f74ca92ec",
+      "central_workflow": ".github/workflows/catalog-7ed29ad4277f6c7e.yml",
+      "name": "Python package",
+      "registry_source": "registry/1082265303/python-package-b77754b2.source.yml",
+      "source_sha256": "1e1a288d8b11d79b01237145826c5d0dd03a1398dc40685fefbe5ab1e9ec66e7",
+      "status": "active",
+      "updated_at": "2026-09-14T02:09:00+00:00"
+    },
+    ".github/workflows/python-publish.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "54cf527a08b3e0e4908b728bfb05ccb0edfb48c89f9fc239fb43450034302c52",
+      "central_workflow": ".github/workflows/catalog-54cf527a08b3e0e4.yml",
+      "name": "Upload Python Package",
+      "registry_source": "registry/1082265303/python-publish-1fcf5f9f.source.yml",
+      "source_sha256": "88d3deb6ad29f0d7955ad6e13f163fd2bfeeb9f91f7646cabe201571d80eac0a",
+      "status": "active",
+      "updated_at": "2026-09-14T02:09:02+00:00"
+    },
+    ".github/workflows/summary.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "137fd34630f76a160a7f03189e47182780b4910054b1a4892684f2ef5925746f",
+      "central_workflow": ".github/workflows/catalog-137fd34630f76a16.yml",
+      "name": "Summarize new issues",
+      "registry_source": "registry/1082265303/summary-bc1f0d2a.source.yml",
+      "source_sha256": "796ddbe048f79d73cbc353f7f6c7a2f9730c92e285c4c69c66e7177834d617f3",
+      "status": "active",
+      "updated_at": "2026-09-14T02:09:04+00:00"
+    },
+    ".github/workflows/update-libs.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "884022df399e26313e255d135435eb7c4f2ba83f791aa17bd21114ae53309417",
+      "central_workflow": ".github/workflows/catalog-884022df399e2631.yml",
+      "name": "Update Dependencies",
+      "registry_source": "registry/1082265303/update-libs-70ffc54c.source.yml",
+      "source_sha256": "ba191c6a57ff4008bd50e08df3f5b931095de753fddb7a669f3d66445c2032a0",
+      "status": "active",
+      "updated_at": "2026-09-14T02:09:07+00:00"
+    }
+  }
+}

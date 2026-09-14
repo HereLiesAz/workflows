@@ -1,0 +1,50 @@
+name: Publish single package (retry)
+
+# Precise, resilient publish of ONE package with backoff on npm's E429
+# new-package rate limit. The initial release published 26/27 packages, then
+# npm rate-limited the last name (@azphalt/azdk); re-running the full Release
+# just re-attempts it immediately and re-trips the limit. This retries that one
+# package alone with growing waits (see scripts/publish-one-retry.sh).
+#
+# Runs automatically on push to main (so merging the fix finishes the publish
+# with no manual step) AND on demand for any package. It is a no-op once the
+# target package is already live, so it's safe to leave in place — a
+# self-healing guard against a partial release.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "Package name to publish (must already be at its target version in the repo)"
+        required: true
+        default: "@azphalt/azdk"
+
+# The package to publish. `workflow_dispatch` supplies it; `push` defaults to sdk.
+env:
+  PACKAGE: ${{ inputs.package || '@azphalt/azdk' }}
+
+concurrency: ${{ github.workflow }}-${{ inputs.package || '@azphalt/azdk' }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # npm provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - run: corepack enable
+      # Pin npm@10 — npm v11 dropped --git-checks which pnpm still passes.
+      - run: npm install -g npm@10
+      - run: pnpm install --frozen-lockfile
+      # Build just the target package and its workspace build-deps.
+      - run: pnpm --filter "$PACKAGE..." build
+      - name: Publish with E429 backoff
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+        run: bash scripts/publish-one-retry.sh "$PACKAGE"

@@ -1,0 +1,62 @@
+name: Publish (staged)
+
+# Staged / phased publish of every publishable package to npm, on demand.
+#
+# Publishes in batches under a staging dist-tag with cool-downs between each call
+# and each stage (scripts/publish-staged.sh) — so a burst of new-package publishes
+# stays under npm's per-account rate limit — then, when asked, promotes the staged
+# versions to `latest` (scripts/promote-latest.sh). Idempotent: already-live
+# versions are skipped, so it is safe to re-run to resume a partial release.
+on:
+  workflow_dispatch:
+    inputs:
+      stageSize:
+        description: "Packages per stage"
+        default: "5"
+      stageCooldown:
+        description: "Seconds to wait between stages"
+        default: "120"
+      callCooldown:
+        description: "Seconds to wait before each publish call"
+        default: "30"
+      stagingTag:
+        description: "npm dist-tag to publish under"
+        default: "staging"
+      promote:
+        description: "Promote the staged versions to 'latest' after publishing"
+        type: boolean
+        default: false
+
+concurrency: ${{ github.workflow }}
+
+jobs:
+  staged:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # npm provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - run: corepack enable
+      # Pin npm@10 — npm v11 dropped --git-checks which pnpm still passes.
+      - run: npm install -g npm@10
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Staged publish (under the staging tag)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+          STAGE_SIZE: ${{ inputs.stageSize }}
+          STAGE_COOLDOWN: ${{ inputs.stageCooldown }}
+          PUBLISH_COOLDOWN: ${{ inputs.callCooldown }}
+          PUBLISH_TAG: ${{ inputs.stagingTag }}
+        run: bash scripts/publish-staged.sh
+      - name: Promote to latest
+        if: ${{ inputs.promote }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+        run: bash scripts/promote-latest.sh

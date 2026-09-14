@@ -1,0 +1,73 @@
+# Publishes the Dokka-generated API reference (Markdown, via the DokkaMarkdownPlugin registered
+# in convey/build.gradle.kts) to this repo's wiki on every push to main. Only touches the
+# `api-reference/` subtree of the wiki -- any hand-written wiki pages elsewhere are left alone.
+name: Publish API reference
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Publish API reference to wiki
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platforms;android-35 build-tools;35.0.0'
+
+      - name: Generate API reference (Markdown)
+        run: ./gradlew :convey:dokkaGenerateMarkdown --stacktrace
+
+      - name: Clone wiki
+        run: |
+          git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" wiki
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update api-reference/ in wiki
+        run: |
+          rm -rf wiki/api-reference
+          mkdir -p wiki/api-reference
+          cp -r convey/build/dokka/markdown/convey/. wiki/api-reference/
+          if [ ! -f wiki/Home.md ]; then
+            echo "# convey" > wiki/Home.md
+            echo "" >> wiki/Home.md
+            echo "See the [API reference](api-reference/index.md)." >> wiki/Home.md
+          elif ! grep -q "api-reference" wiki/Home.md; then
+            echo "" >> wiki/Home.md
+            echo "See the [API reference](api-reference/index.md)." >> wiki/Home.md
+          fi
+
+      - name: Push wiki
+        working-directory: wiki
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to publish."
+          else
+            git commit -m "Update API reference from ${GITHUB_SHA}"
+            git push
+          fi

@@ -1,0 +1,70 @@
+# Publishes demo/index.html as the repo's GitHub Pages site, alongside the built library
+# (dist/convey-web.js + convey-web.css, plus the kinetic-typography entry point and its
+# data chunks) it imports directly via <script type="module">. The demo is a plain
+# framework-free HTML page -- no bundler step of its own -- so this workflow's only job is
+# to build the library and lay every dist/ output next to it in the Pages artifact.
+
+name: Deploy demo to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'demo/**'
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - 'tsconfig.json'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build library
+        run: npm run build
+
+      - name: Assemble Pages site
+        run: |
+          mkdir -p site
+          cp demo/index.html site/index.html
+          cp dist/*.js dist/*.css site/
+          cp -r demo/fonts site/fonts
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

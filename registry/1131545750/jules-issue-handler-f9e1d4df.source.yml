@@ -1,0 +1,42 @@
+name: Jules Issue Handler
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  handle_issue:
+    # SECURITY: this workflow feeds the issue title/body directly into
+    # an autonomous coding agent's prompt (see below) and grants it
+    # issues:write. Without an author_association check, literally
+    # anyone who can open an issue on this public repo could steer
+    # that agent via prompt injection in the issue body — and, chained
+    # with jules-branch-handler.yml's merge-on-comment flow, turn that
+    # into an unauthorized merge to main. author_association reflects
+    # the issue author's actual repo permissions as GitHub itself
+    # computed them, not anything the author controls.
+    if: |
+      github.actor != 'google-labs-jules[bot]' && github.actor != 'google-labs-jules' &&
+      github.actor != 'github-actions[bot]' && github.actor != 'github-actions' &&
+      !endsWith(github.actor, '[bot]') &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: google-labs-code/jules-action@v1.0.0
+        with:
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          prompt: |
+            You are Jules, a skilled software engineer.
+            You have been assigned to issue #${{ github.event.issue.number }}: "${{ github.event.issue.title }}".
+
+            Description:
+            ${{ github.event.issue.body }}
+
+            Please analyze the codebase and resolve this issue.
+            If it requires code changes, create a Pull Request.
+            If it is a question, answer it.
+
+            IMPORTANT: Once you have completed the task (submitted a PR or answered the question), you MUST close the issue #${{ github.event.issue.number }}.

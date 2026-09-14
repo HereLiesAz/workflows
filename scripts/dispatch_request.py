@@ -40,6 +40,18 @@ def main() -> int:
     event_name = require(str(request.get("event_name", "")), "event_name")
     event = request.get("event") or {}
 
+    # Glee owns automatic PR-open auditing. Jules Dispatch is reserved for
+    # explicit @jules interactions and issue triage, so an ordinary opened PR
+    # must never start a repository-connected Jules session or create a follow-up PR.
+    if source_path == ".github/workflows/jules-dispatch.yml" and event_name == "pull_request":
+        print(json.dumps({
+            "status": "ignored",
+            "reason": "automatic pull-request auditing belongs to the comment-only Glee workflow",
+            "repository": repository,
+            "source_workflow": source_path,
+        }, indent=2, sort_keys=True))
+        return 0
+
     if event_name in {"pull_request", "pull_request_target"}:
         head_repo = (((event.get("pull_request") or {}).get("head") or {}).get("repo") or {})
         if head_repo.get("fork") is True:

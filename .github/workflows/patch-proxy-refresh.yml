@@ -39,114 +39,61 @@ jobs:
           from pathlib import Path
 
           path = Path('scripts/sync_repository_catalog.py')
-          text = path.read_text(encoding='utf-8')
+          lines = path.read_text(encoding='utf-8').splitlines()
 
-          old = '''    def put_file(self, full_name: str, path: str, content: str, message: str, branch: str | None = None) -> None:
-        quoted = urllib.parse.quote(path, safe="/")
-        existing_sha = None
-        try:
-            item = self.contents(full_name, path)
-            if isinstance(item, dict):
-                existing_sha = item.get("sha")
-        except ApiError as exc:
-            if "-> 404:" not in str(exc):
-                raise
+          old_get = '            item = self.contents(full_name, path)'
+          if lines.count(old_get) != 1:
+              raise SystemExit(f'Expected one branch-unaware contents lookup, found {lines.count(old_get)}')
+          lines[lines.index(old_get)] = '            item = self.contents(full_name, path, ref=branch)'
 
-        body: dict[str, Any] = {
-            "message": message,
-            "content": base64.b64encode(content.encode()).decode(),
-        }
-        if existing_sha:
-            body["sha"] = existing_sha
-        if branch:
-            body["branch"] = branch
-        self.json("PUT", f"/repos/{full_name}/contents/{quoted}", body)
+          sha_line = '                existing_sha = item.get("sha")'
+          if lines.count(sha_line) != 1:
+              raise SystemExit(f'Expected one existing SHA assignment, found {lines.count(sha_line)}')
+          i = lines.index(sha_line)
+          lines[i + 1:i + 1] = [
+              '                encoded = item.get("content")',
+              '                if isinstance(encoded, str):',
+              '                    current = base64.b64decode(encoded).decode()',
+              '                    if current == content:',
+              '                        return',
+          ]
 
-    def upsert_variable(self, full_name: str, name: str, value: str) -> None:
-        quoted = urllib.parse.quote(name, safe="")
-        try:
-            self.json("GET", f"/repos/{full_name}/actions/variables/{quoted}")
-            self.json("PATCH", f"/repos/{full_name}/actions/variables/{quoted}", {"name": name, "value": value})
-        except ApiError as exc:
-            if "-> 404:" not in str(exc):
-                raise
-            self.json("POST", f"/repos/{full_name}/actions/variables", {"name": name, "value": value})
-'''
-          new = '''    def put_file(self, full_name: str, path: str, content: str, message: str, branch: str | None = None) -> None:
-        quoted = urllib.parse.quote(path, safe="/")
-        existing_sha = None
-        try:
-            item = self.contents(full_name, path, ref=branch)
-            if isinstance(item, dict):
-                existing_sha = item.get("sha")
-                encoded = item.get("content")
-                if isinstance(encoded, str):
-                    current = base64.b64decode(encoded).decode()
-                    if current == content:
-                        return
-        except ApiError as exc:
-            if "-> 404:" not in str(exc):
-                raise
+          get_variable = '            self.json("GET", f"/repos/{full_name}/actions/variables/{quoted}")'
+          if lines.count(get_variable) != 1:
+              raise SystemExit(f'Expected one variable GET, found {lines.count(get_variable)}')
+          i = lines.index(get_variable)
+          lines[i:i + 1] = [
+              '            existing = self.json("GET", f"/repos/{full_name}/actions/variables/{quoted}")',
+              '            if isinstance(existing, dict) and existing.get("value") == value:',
+              '                return',
+          ]
 
-        body: dict[str, Any] = {
-            "message": message,
-            "content": base64.b64encode(content.encode()).decode(),
-        }
-        if existing_sha:
-            body["sha"] = existing_sha
-        if branch:
-            body["branch"] = branch
-        self.json("PUT", f"/repos/{full_name}/contents/{quoted}", body)
+          curated_guard = '                if not is_proxy:'
+          curated_candidates = [
+              i for i, line in enumerate(lines[:-2])
+              if line == curated_guard and 'proxy = build_proxy(' in lines[i + 1]
+          ]
+          if len(curated_candidates) != 1:
+              raise SystemExit(f'Expected one curated stale-proxy guard, found {len(curated_candidates)}')
+          i = curated_candidates[0]
+          proxy_line = lines[i + 1][4:]
+          write_line = lines[i + 2][4:].replace('f"Bind {path} to shared catalog via {CENTRAL_REPOSITORY}"', 'f"Refresh {path} from shared catalog via {CENTRAL_REPOSITORY}"')
+          lines[i:i + 3] = [proxy_line, write_line]
 
-    def upsert_variable(self, full_name: str, name: str, value: str) -> None:
-        quoted = urllib.parse.quote(name, safe="")
-        try:
-            existing = self.json("GET", f"/repos/{full_name}/actions/variables/{quoted}")
-            if isinstance(existing, dict) and existing.get("value") == value:
-                return
-            self.json("PATCH", f"/repos/{full_name}/actions/variables/{quoted}", {"name": name, "value": value})
-        except ApiError as exc:
-            if "-> 404:" not in str(exc):
-                raise
-            self.json("POST", f"/repos/{full_name}/actions/variables", {"name": name, "value": value})
-'''
-          if old not in text:
-              raise SystemExit('GitHub writer block did not match expected source')
-          text = text.replace(old, new, 1)
+          content_guard = '            if not is_proxy:'
+          content_candidates = [
+              i for i, line in enumerate(lines[:-1])
+              if line == content_guard and 'gh.put_file(repo["full_name"], path, proxy' in lines[i + 1]
+          ]
+          if len(content_candidates) != 1:
+              raise SystemExit(f'Expected one content-addressed stale-proxy guard, found {len(content_candidates)}')
+          i = content_candidates[0]
+          write_line = lines[i + 1][4:].replace('f"Bind {path} to shared catalog via {CENTRAL_REPOSITORY}"', 'f"Refresh {path} from shared catalog via {CENTRAL_REPOSITORY}"')
+          lines[i:i + 2] = [write_line]
 
-          old = '''            if not dry_run:
-                gh.put_file(CENTRAL_REPOSITORY, registry_source, source_text, f"Register {repo['full_name']}:{path}", branch="main")
-                if not is_proxy:
-                    proxy = build_proxy(source_text, path, source_hash, workflow_name)
-                    gh.put_file(repo["full_name"], path, proxy, f"Bind {path} to shared catalog via {CENTRAL_REPOSITORY}", branch=default_branch)
-'''
-          new = '''            if not dry_run:
-                gh.put_file(CENTRAL_REPOSITORY, registry_source, source_text, f"Register {repo['full_name']}:{path}", branch="main")
-                proxy = build_proxy(source_text, path, source_hash, workflow_name)
-                gh.put_file(repo["full_name"], path, proxy, f"Refresh {path} from shared catalog via {CENTRAL_REPOSITORY}", branch=default_branch)
-'''
-          if old not in text:
-              raise SystemExit('Curated proxy write block did not match expected source')
-          text = text.replace(old, new, 1)
-
-          old = '''        if not dry_run:
-            gh.put_file(CENTRAL_REPOSITORY, registry_source, source_text, f"Register {repo['full_name']}:{path}", branch="main")
-            gh.put_file(CENTRAL_REPOSITORY, central_workflow, compiled, f"Update shared workflow catalog {c_hash[:16]}", branch="main")
-            if not is_proxy:
-                gh.put_file(repo["full_name"], path, proxy, f"Bind {path} to shared catalog via {CENTRAL_REPOSITORY}", branch=default_branch)
-'''
-          new = '''        if not dry_run:
-            gh.put_file(CENTRAL_REPOSITORY, registry_source, source_text, f"Register {repo['full_name']}:{path}", branch="main")
-            gh.put_file(CENTRAL_REPOSITORY, central_workflow, compiled, f"Update shared workflow catalog {c_hash[:16]}", branch="main")
-            gh.put_file(repo["full_name"], path, proxy, f"Refresh {path} from shared catalog via {CENTRAL_REPOSITORY}", branch=default_branch)
-'''
-          if old not in text:
-              raise SystemExit('Content-addressed proxy write block did not match expected source')
-          text = text.replace(old, new, 1)
-
+          text = '\n'.join(lines) + '\n'
           if 'if not is_proxy:\n                    proxy = build_proxy' in text:
               raise SystemExit('Curated stale-proxy guard still present')
-
           path.write_text(text, encoding='utf-8')
           PY
 
@@ -175,11 +122,11 @@ jobs:
           from scripts import sync_repository_catalog as core
 
           target = 'HereLiesAz/haive'
-          path = '.github/workflows/jules-dispatch.yml'
+          workflow_path = '.github/workflows/jules-dispatch.yml'
           gh = IdempotentGitHub(os.environ['GH_TOKEN'])
           repo = gh.repo(target)
           manifest = core.load_manifest(gh, int(repo['id']))
-          entry = (manifest.get('workflows') or {}).get(path)
+          entry = (manifest.get('workflows') or {}).get(workflow_path)
           if not isinstance(entry, dict):
               raise SystemExit('Haive Jules Dispatch manifest entry is missing')
           source_path = entry.get('registry_source')
@@ -189,17 +136,17 @@ jobs:
           source_hash = core.sha256_text(source)
           parsed = core.load_yaml(source)
           name = str(parsed.get('name') or 'Jules Dispatch')
-          desired = sync.build_proxy(source, path, source_hash, name)
+          desired = sync.build_proxy(source, workflow_path, source_hash, name)
           if 'DISPATCH_EVENT_JSON=' not in desired:
               raise SystemExit('Generated Jules Dispatch proxy is not compacting its event payload')
           gh.put_file(
               target,
-              path,
+              workflow_path,
               desired,
               'Refresh Jules Dispatch central proxy',
               branch=repo['default_branch'],
           )
-          print(json.dumps({'repository': target, 'path': path, 'source_sha256': source_hash}, indent=2))
+          print(json.dumps({'repository': target, 'path': workflow_path, 'source_sha256': source_hash}, indent=2))
           PY
 
       - name: Verify live Haive proxy

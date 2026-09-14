@@ -1,0 +1,93 @@
+{
+  "last_sync_at": "2026-09-14T01:12:59+00:00",
+  "repository": {
+    "default_branch": "main",
+    "full_name": "HereLiesAz/TheLexorcist",
+    "id": 1044343870,
+    "owner_id": 103241502,
+    "owner_login": "HereLiesAz"
+  },
+  "schema": 2,
+  "worker_url_configured": true,
+  "workflows": {
+    ".github/workflows/android.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "a7cb5b6a9274f7222de60e58a10fe422eefacf1dfcd4628f8cf578c11943a147",
+      "central_workflow": ".github/workflows/catalog-a7cb5b6a9274f722.yml",
+      "name": "Build & Publish Release APK",
+      "registry_source": "registry/1044343870/android-3f3614b6.source.yml",
+      "source_sha256": "67ce04785215b3aacb24ff9d7703d6e87bfed3aacdf4ab3bd780540c47bb18cb",
+      "status": "active",
+      "updated_at": "2026-09-14T01:12:48+00:00"
+    },
+    ".github/workflows/backup.yml": {
+      "catalog": "curated",
+      "central_workflow": ".github/workflows/catalog-context-backup.yml",
+      "name": "Context Backup (Universal Surgical)",
+      "registry_source": "registry/1044343870/backup-d598524a.source.yml",
+      "source_sha256": "7b5078fd680ca4758350d8bfb6e11d675bf62a7a12bb35cd38f3a5fcb5a81349",
+      "status": "active",
+      "updated_at": "2026-09-14T01:12:50+00:00"
+    },
+    ".github/workflows/build.yml": {
+      "blockers": [
+        "job 'build-and-release' step 9 uses actions/github-script with runner-repository context"
+      ],
+      "name": "Merged Build & Release",
+      "registry_source": "registry/1044343870/build-fe77d5d1.source.yml",
+      "source_sha256": "b75c12050be29dd33419d4b4f97ecf4dca79a71f645dfab793abea27f05f6ea2",
+      "status": "local",
+      "updated_at": "2026-09-14T01:12:52+00:00"
+    },
+    ".github/workflows/ci.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "68abd6bac3e63f205ca10125864d3a29078a18c5894544542cefc708d3208eae",
+      "central_workflow": ".github/workflows/catalog-68abd6bac3e63f20.yml",
+      "name": "CI",
+      "registry_source": "registry/1044343870/ci-899ce9c2.source.yml",
+      "source_sha256": "9f8da3bca25bfd3dc0b79ccbf911454b10d940e597e3bfeed73995cdc8bd8551",
+      "status": "active",
+      "updated_at": "2026-09-14T01:12:53+00:00"
+    },
+    ".github/workflows/jekyll-gh-pages.yml": {
+      "blockers": [
+        "job 'deploy' deploys to the runner repository's github-pages environment",
+        "job 'deploy' step 1 uses repository-bound action 'actions/deploy-pages@v4'"
+      ],
+      "name": "Deploy Jekyll with GitHub Pages dependencies preinstalled",
+      "registry_source": "registry/1044343870/jekyll-gh-pages-5de61e74.source.yml",
+      "source_sha256": "3e9c30b39b55ab79fec1e7c9fa92b1fb931865c263534450fe9880e3384070be",
+      "status": "local",
+      "updated_at": "2026-09-14T01:12:55+00:00"
+    },
+    ".github/workflows/jules-glee.yml": {
+      "catalog": "curated",
+      "central_workflow": ".github/workflows/catalog-jules-glee.yml",
+      "name": "\ud83d\ude08 Glee Audit",
+      "registry_source": "registry/1044343870/jules-glee-0de23ac9.source.yml",
+      "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
+      "status": "active",
+      "updated_at": "2026-09-14T01:12:56+00:00"
+    },
+    ".github/workflows/jules.yml": {
+      "blockers": [
+        "job 'handle_issue' step 1 uses repository-bound action 'google-labs-code/jules-invoke@main'"
+      ],
+      "name": "Jules Issue Handler",
+      "registry_source": "registry/1044343870/jules-f6e68594.source.yml",
+      "source_sha256": "c689a44e89bf2d058dac94e528148b35680dca9517028026bdc7d9a275fb615a",
+      "status": "local",
+      "updated_at": "2026-09-14T01:12:58+00:00"
+    },
+    ".github/workflows/jules_branch_pr.yml": {
+      "blockers": [
+        "job 'handle_branch' step 1 uses repository-bound action 'google-labs-code/jules-invoke@main'"
+      ],
+      "name": "Jules Branch PR Handler",
+      "registry_source": "registry/1044343870/jules_branch_pr-3fa70349.source.yml",
+      "source_sha256": "0b6425cfb535149b5cfd3db7d15c40f4489de4f3b7ee92f36319991150e519ae",
+      "status": "local",
+      "updated_at": "2026-09-14T01:12:59+00:00"
+    }
+  }
+}

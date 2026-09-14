@@ -1,0 +1,70 @@
+name: Enrich Bar Data
+permissions:
+  contents: read
+  issues: write
+on:
+  schedule:
+    # Runs every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  enrich:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: |
+          npm install firebase-admin playwright
+          npx playwright install chromium --with-deps
+
+      - name: Run Enrichment Script
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node scripts/enrich-bars.js
+
+      - name: Report Failure
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            // Runs every 6 hours (4x/day) — without a dedupe check, an
+            // ongoing failure (expired secret, persistent bug) files 4
+            // duplicate issues per day it stays broken. Reuse an
+            // existing open one instead, matching nag.yml's fix for
+            // the identical failure-reporting pattern.
+            const title = `Workflow Failed: ${context.workflow}`;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'workflow-failure',
+            });
+            const match = existing.data.find(i => i.title === title);
+
+            if (match) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: match.number,
+                body: `Failed again: ${runUrl}`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body: `The workflow failed. See logs: ${runUrl}`,
+                labels: ['workflow-failure'],
+                assignees: ['Jules'],
+              });
+            }

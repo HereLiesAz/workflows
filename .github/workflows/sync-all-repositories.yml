@@ -9,192 +9,97 @@ on:
 run-name: sync-all · ${{ github.run_number }}
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
-  group: workflow-sync-all-repositories-v2
+  group: workflow-sync-all-repositories-v3
   cancel-in-progress: false
 
 env:
   WORKER_URL: https://workflows.hereliesaz.workers.dev
+  BASELINE_DRY_RUN_ID: "34791565740"
 
 jobs:
-  discover:
+  baseline:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     outputs:
-      repositories: ${{ steps.discover.outputs.repositories }}
-      count: ${{ steps.discover.outputs.count }}
+      repositories: ${{ steps.baseline.outputs.repositories }}
+      count: ${{ steps.baseline.outputs.count }}
     steps:
-      - name: Discover owned repositories and verify token access
-        id: discover
+      - name: Reuse the successful account-wide dry-run baseline
+        id: baseline
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
 
-          : > /tmp/eligible.txt
-          : > /tmp/with-workflows.txt
-          : > /tmp/without-workflows.txt
-          : > /tmp/inaccessible.txt
+          : > /tmp/repos.txt
+          : > /tmp/non_success.txt
 
-          gh api --paginate -X GET user/repos \
-            -f affiliation=owner \
-            -f per_page=100 \
-            --jq '.[] | select(.owner.login == "HereLiesAz" and .owner.id == 103241502 and (.archived | not)) | .full_name' \
-            | sort -u \
-            | while IFS= read -r repo; do
-                case "$repo" in
-                  HereLiesAz/workflows|HereLiesAz/NoLAWallet|HereLiesAz/NoLAWallet-id)
-                    continue
-                    ;;
-                esac
-                printf '%s\n' "$repo"
-              done > /tmp/eligible.txt
-
-          if ! grep -Fxq 'HereLiesAz/new-project' /tmp/eligible.txt; then
-            echo "::error::GH_TOKEN cannot see HereLiesAz/new-project. Give GH_TOKEN access to all non-wallet repositories (or All repositories) before rerunning."
-            exit 1
-          fi
-
-          while IFS= read -r repo; do
-            [[ -n "$repo" ]] || continue
-
-            if ! workflows_json="$(gh api "repos/$repo/contents/.github/workflows" 2>/dev/null)"; then
-              printf '%s\n' "$repo" >> /tmp/without-workflows.txt
-              continue
-            fi
-
-            workflow_count="$(
-              jq '[.[] | select(.type == "file" and (.name | test("\\.ya?ml$"; "i")))] | length' \
-                <<<"$workflows_json"
+          for page in 1 2 3; do
+            jobs_json="$(
+              gh api \
+                "repos/${GITHUB_REPOSITORY}/actions/runs/${BASELINE_DRY_RUN_ID}/jobs?per_page=100&page=${page}"
             )"
 
-            if (( workflow_count == 0 )); then
-              printf '%s\n' "$repo" >> /tmp/without-workflows.txt
-              continue
-            fi
+            jq -r '
+              .jobs[]
+              | select(.name | startswith("dry_run ("))
+              | select(.conclusion != "success")
+              | "\(.name): \(.conclusion)"
+            ' <<<"$jobs_json" >> /tmp/non_success.txt
 
-            if ! gh api "repos/$repo/actions/variables?per_page=1" >/dev/null 2>&1; then
-              printf '%s\n' "$repo" >> /tmp/inaccessible.txt
-              continue
-            fi
+            jq -r '
+              .jobs[]
+              | select(.name | startswith("dry_run ("))
+              | .name
+              | sub("^dry_run \\("; "")
+              | sub("\\)$"; "")
+            ' <<<"$jobs_json" >> /tmp/repos.txt
+          done
 
-            printf '%s\n' "$repo" >> /tmp/with-workflows.txt
-          done < /tmp/eligible.txt
+          sort -u -o /tmp/repos.txt /tmp/repos.txt
 
-          if [[ -s /tmp/inaccessible.txt ]]; then
-            echo "::error::GH_TOKEN lacks repository-scoped workflow/variable access for one or more repositories. No migrations were started."
-            echo "Repositories requiring GH_TOKEN access:"
-            cat /tmp/inaccessible.txt
-            {
-              echo "## GH_TOKEN access required"
-              echo
-              sed 's/^/- `/' /tmp/inaccessible.txt | sed 's/$/`/'
-            } >> "$GITHUB_STEP_SUMMARY"
+          if [[ -s /tmp/non_success.txt ]]; then
+            echo "::error::The baseline contains a non-successful repository dry-run."
+            cat /tmp/non_success.txt
             exit 1
           fi
 
-          if grep -Eq '^HereLiesAz/(NoLAWallet|NoLAWallet-id)$' /tmp/with-workflows.txt; then
-            echo "::error::NoLAWallet exclusion invariant failed."
+          if grep -Eq '^HereLiesAz/(workflows|NoLAWallet|NoLAWallet-id)$' /tmp/repos.txt; then
+            echo "::error::Excluded repository appeared in the dry-run baseline."
             exit 1
           fi
 
-          repositories="$(jq -Rsc 'split("\n") | map(select(length > 0))' /tmp/with-workflows.txt)"
-          count="$(jq 'length' <<<"$repositories")"
-          eligible_count="$(grep -cve '^$' /tmp/eligible.txt || true)"
-          no_workflow_count="$(grep -cve '^$' /tmp/without-workflows.txt || true)"
+          count="$(grep -cve '^$' /tmp/repos.txt || true)"
+          if [[ "$count" != "252" ]]; then
+            echo "::error::Expected 252 successful baseline repositories; found $count."
+            exit 1
+          fi
 
+          repositories="$(jq -Rsc 'split("\n") | map(select(length > 0))' /tmp/repos.txt)"
           echo "repositories=$repositories" >> "$GITHUB_OUTPUT"
           echo "count=$count" >> "$GITHUB_OUTPUT"
 
           {
-            echo "## Live repository discovery"
+            echo "## Migration baseline"
             echo
-            echo "- Eligible owned repositories discovered: **$eligible_count**"
-            echo "- Explicitly excluded: \`HereLiesAz/workflows\`, \`HereLiesAz/NoLAWallet\`, \`HereLiesAz/NoLAWallet-id\`"
-            echo "- Repositories with Actions workflows: **$count**"
-            echo "- Repositories without Actions workflows: **$no_workflow_count**"
+            echo "- Reusing **252/252 successful dry-runs** from run \`${BASELINE_DRY_RUN_ID}\`."
+            echo "- NoLAWallet repositories remain excluded."
+            echo "- This run performs only the apply phase; it does not repeat the API-heavy dry-run sweep."
           } >> "$GITHUB_STEP_SUMMARY"
-
-  dry_run:
-    needs: discover
-    if: ${{ needs.discover.outputs.count != '0' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 180
-    env:
-      GH_TOKEN: ${{ secrets.GH_TOKEN }}
-      REPOSITORIES_JSON: ${{ needs.discover.outputs.repositories }}
-    steps:
-      - name: Check out central controller
-        uses: actions/checkout@v4
-
-      - name: Install controller dependency
-        run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
-
-      - name: Dry sync every repository
-        shell: bash
-        run: |
-          set -uo pipefail
-          mkdir -p migration-results/dry
-          : > migration-results/dry-failures.txt
-
-          total="$(jq 'length' <<<"$REPOSITORIES_JSON")"
-          index=0
-
-          while IFS= read -r repo; do
-            [[ -n "$repo" ]] || continue
-            index=$((index + 1))
-            safe_name="$(printf '%s' "$repo" | tr '/:' '--')"
-            out="migration-results/dry/${safe_name}.json"
-
-            echo "::group::[$index/$total] Dry sync $repo"
-            if python scripts/sync_repository.py \
-              --repository "$repo" \
-              --worker-url "$WORKER_URL" \
-              --dry-run \
-              --json-output "$out"; then
-              echo "Dry sync passed: $repo"
-            else
-              echo "::error::Dry sync failed: $repo"
-              printf '%s\n' "$repo" >> migration-results/dry-failures.txt
-            fi
-            echo "::endgroup::"
-          done < <(jq -r '.[]' <<<"$REPOSITORIES_JSON")
-
-          if [[ -s migration-results/dry-failures.txt ]]; then
-            echo "## Dry-run failures" >> "$GITHUB_STEP_SUMMARY"
-            sed 's/^/- `/' migration-results/dry-failures.txt | sed 's/$/`/' >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
-
-          {
-            echo "## Dry-run gate"
-            echo
-            echo "All **$total** repository dry-runs passed."
-            echo
-            echo "No target repository has been changed yet."
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload dry-run results
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: workflow-sync-dry-all
-          path: migration-results/
-          retention-days: 30
 
   apply:
-    needs:
-      - discover
-      - dry_run
-    if: ${{ needs.discover.outputs.count != '0' && needs.dry_run.result == 'success' }}
+    needs: baseline
+    if: ${{ needs.baseline.outputs.count == '252' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    timeout-minutes: 360
     env:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
-      REPOSITORIES_JSON: ${{ needs.discover.outputs.repositories }}
+      REPOSITORIES_JSON: ${{ needs.baseline.outputs.repositories }}
     steps:
       - name: Check out central controller
         uses: actions/checkout@v4
@@ -202,7 +107,7 @@ jobs:
       - name: Install controller dependency
         run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
 
-      - name: Apply sync sequentially
+      - name: Apply all baseline repositories with rate-limit throttling
         shell: bash
         run: |
           set -uo pipefail
@@ -212,9 +117,34 @@ jobs:
           total="$(jq 'length' <<<"$REPOSITORIES_JSON")"
           index=0
 
+          wait_for_capacity() {
+            local remaining reset now sleep_for
+            while true; do
+              remaining="$(gh api rate_limit --jq '.resources.core.remaining')"
+              reset="$(gh api rate_limit --jq '.resources.core.reset')"
+              if (( remaining >= 250 )); then
+                echo "GitHub API capacity available: ${remaining} core requests remaining."
+                return 0
+              fi
+
+              now="$(date +%s)"
+              sleep_for=$((reset - now + 10))
+              if (( sleep_for < 10 )); then
+                sleep_for=10
+              fi
+              echo "GitHub API budget low (${remaining} remaining); pausing until the published reset."
+              sleep "$sleep_for"
+            done
+          }
+
+          wait_for_capacity
+
           while IFS= read -r repo; do
             [[ -n "$repo" ]] || continue
             index=$((index + 1))
+
+            wait_for_capacity
+
             safe_name="$(printf '%s' "$repo" | tr '/:' '--')"
             out="migration-results/applied/${safe_name}.json"
 
@@ -240,7 +170,7 @@ jobs:
           {
             echo "## Account-wide migration"
             echo
-            echo "Successfully synchronized **$total** repositories."
+            echo "Successfully synchronized **$total** repositories from the verified dry-run baseline."
             echo
             echo "Excluded throughout: \`HereLiesAz/workflows\`, \`HereLiesAz/NoLAWallet\`, \`HereLiesAz/NoLAWallet-id\`."
           } >> "$GITHUB_STEP_SUMMARY"

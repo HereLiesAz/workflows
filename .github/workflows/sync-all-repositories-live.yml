@@ -1,0 +1,263 @@
+name: Sync all owned repositories
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/sync-all-repositories.yml
+
+run-name: sync-all · ${{ github.run_number }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workflow-sync-all-repositories
+  cancel-in-progress: false
+
+env:
+  WORKER_URL: https://workflows.hereliesaz.workers.dev
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      repositories: ${{ steps.discover.outputs.repositories }}
+      count: ${{ steps.discover.outputs.count }}
+    steps:
+      - name: Discover owned repositories and verify token access
+        id: discover
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          : > /tmp/eligible.txt
+          : > /tmp/with-workflows.txt
+          : > /tmp/without-workflows.txt
+          : > /tmp/inaccessible.txt
+
+          # Enumerate the account live. Do not maintain a stale repository list here.
+          gh api --paginate -X GET user/repos \
+            -f affiliation=owner \
+            -f per_page=100 \
+            --jq '.[] | select(.owner.login == "HereLiesAz" and .owner.id == 103241502 and (.archived | not)) | .full_name' \
+            | sort -u \
+            | while IFS= read -r repo; do
+                case "$repo" in
+                  HereLiesAz/workflows|HereLiesAz/NoLAWallet|HereLiesAz/NoLAWallet-id)
+                    continue
+                    ;;
+                esac
+                printf '%s\n' "$repo"
+              done > /tmp/eligible.txt
+
+          # The only currently-private eligible repository is a useful canary:
+          # if it is absent, the fine-grained PAT is not covering the full account.
+          if ! grep -Fxq 'HereLiesAz/new-project' /tmp/eligible.txt; then
+            echo "::error::GH_TOKEN cannot see HereLiesAz/new-project. Give GH_TOKEN access to all non-wallet repositories (or All repositories) before rerunning."
+            exit 1
+          fi
+
+          while IFS= read -r repo; do
+            [[ -n "$repo" ]] || continue
+
+            if ! workflows_json="$(gh api "repos/$repo/contents/.github/workflows" 2>/dev/null)"; then
+              printf '%s\n' "$repo" >> /tmp/without-workflows.txt
+              continue
+            fi
+
+            workflow_count="$(
+              jq '[.[] | select(.type == "file" and (.name | test("\\.ya?ml$"; "i")))] | length' \
+                <<<"$workflows_json"
+            )"
+
+            if (( workflow_count == 0 )); then
+              printf '%s\n' "$repo" >> /tmp/without-workflows.txt
+              continue
+            fi
+
+            # This endpoint requires repository-scoped Actions Variables access,
+            # so it catches public repositories that the PAT can read publicly
+            # but is not actually authorized to manage.
+            if ! gh api "repos/$repo/actions/variables?per_page=1" >/dev/null 2>&1; then
+              printf '%s\n' "$repo" >> /tmp/inaccessible.txt
+              continue
+            fi
+
+            printf '%s\n' "$repo" >> /tmp/with-workflows.txt
+          done < /tmp/eligible.txt
+
+          if [[ -s /tmp/inaccessible.txt ]]; then
+            echo "::error::GH_TOKEN lacks repository-scoped workflow/variable access for one or more repositories. No migrations were started."
+            echo "Repositories requiring GH_TOKEN access:"
+            cat /tmp/inaccessible.txt
+            {
+              echo "## GH_TOKEN access required"
+              echo
+              sed 's/^/- `/' /tmp/inaccessible.txt | sed 's/$/`/'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          if grep -Eq '^HereLiesAz/(NoLAWallet|NoLAWallet-id)$' /tmp/with-workflows.txt; then
+            echo "::error::NoLAWallet exclusion invariant failed."
+            exit 1
+          fi
+
+          repositories="$(jq -Rsc 'split("\n") | map(select(length > 0))' /tmp/with-workflows.txt)"
+          count="$(jq 'length' <<<"$repositories")"
+          eligible_count="$(grep -cve '^$' /tmp/eligible.txt || true)"
+          no_workflow_count="$(grep -cve '^$' /tmp/without-workflows.txt || true)"
+
+          echo "repositories=$repositories" >> "$GITHUB_OUTPUT"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Live repository discovery"
+            echo
+            echo "- Eligible owned repositories discovered: **$eligible_count**"
+            echo "- Explicitly excluded: \`HereLiesAz/workflows\`, \`HereLiesAz/NoLAWallet\`, \`HereLiesAz/NoLAWallet-id\`"
+            echo "- Repositories with Actions workflows: **$count**"
+            echo "- Repositories without Actions workflows: **$no_workflow_count**"
+            echo
+            echo "### Dry-run targets"
+            sed 's/^/- `/' /tmp/with-workflows.txt | sed 's/$/`/'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  dry_run:
+    needs: discover
+    if: ${{ needs.discover.outputs.count != '0' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        repository: ${{ fromJSON(needs.discover.outputs.repositories) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out central controller
+        uses: actions/checkout@v4
+
+      - name: Install controller dependency
+        run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
+
+      - name: Dry sync
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          TARGET_REPOSITORY: ${{ matrix.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p migration-results
+          python scripts/sync_repository.py \
+            --repository "$TARGET_REPOSITORY" \
+            --worker-url "$WORKER_URL" \
+            --dry-run \
+            --json-output migration-results/dry-run.json
+
+      - name: Write dry-run summary
+        if: ${{ always() }}
+        env:
+          TARGET_REPOSITORY: ${{ matrix.repository }}
+        shell: bash
+        run: |
+          {
+            echo "## Dry run · $TARGET_REPOSITORY"
+            if [[ -f migration-results/dry-run.json ]]; then
+              echo '```json'
+              jq '{repository, repository_id, results, policy_cleanup}' migration-results/dry-run.json
+              echo '```'
+            else
+              echo "Dry run did not produce a result file."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Name dry-run artifact
+        if: ${{ always() }}
+        id: artifact
+        env:
+          TARGET_REPOSITORY: ${{ matrix.repository }}
+        shell: bash
+        run: |
+          safe_name="$(printf '%s' "$TARGET_REPOSITORY" | tr '/:' '--')"
+          echo "name=workflow-sync-dry-$safe_name" >> "$GITHUB_OUTPUT"
+
+      - name: Upload dry-run result
+        if: ${{ always() && hashFiles('migration-results/*.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: migration-results/
+          retention-days: 30
+
+  apply:
+    needs:
+      - discover
+      - dry_run
+    if: ${{ needs.discover.outputs.count != '0' && needs.dry_run.result == 'success' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        repository: ${{ fromJSON(needs.discover.outputs.repositories) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out central controller
+        uses: actions/checkout@v4
+
+      - name: Install controller dependency
+        run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
+
+      - name: Apply sync
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          TARGET_REPOSITORY: ${{ matrix.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p migration-results
+          python scripts/sync_repository.py \
+            --repository "$TARGET_REPOSITORY" \
+            --worker-url "$WORKER_URL" \
+            --json-output migration-results/applied.json
+
+      - name: Write applied summary
+        if: ${{ always() }}
+        env:
+          TARGET_REPOSITORY: ${{ matrix.repository }}
+        shell: bash
+        run: |
+          {
+            echo "## Applied · $TARGET_REPOSITORY"
+            if [[ -f migration-results/applied.json ]]; then
+              echo '```json'
+              jq '{repository, repository_id, results, policy_cleanup, garbage_collected}' migration-results/applied.json
+              echo '```'
+            else
+              echo "Apply did not produce a result file."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Name applied artifact
+        if: ${{ always() }}
+        id: artifact
+        env:
+          TARGET_REPOSITORY: ${{ matrix.repository }}
+        shell: bash
+        run: |
+          safe_name="$(printf '%s' "$TARGET_REPOSITORY" | tr '/:' '--')"
+          echo "name=workflow-sync-applied-$safe_name" >> "$GITHUB_OUTPUT"
+
+      - name: Upload applied result
+        if: ${{ always() && hashFiles('migration-results/*.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: migration-results/
+          retention-days: 30

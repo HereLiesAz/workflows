@@ -7,8 +7,12 @@ import json
 import os
 import urllib.parse
 
-import sync_repository as sync
-import sync_repository_catalog as core
+try:
+    from . import sync_repository as sync
+    from . import sync_repository_catalog as core
+except ImportError:
+    import sync_repository as sync
+    import sync_repository_catalog as core
 
 
 class IdempotentGitHub(core.GitHub):

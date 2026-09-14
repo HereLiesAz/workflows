@@ -1,4 +1,4 @@
-name: Patch proxy refresh behavior
+name: Verify proxy refresh behavior
 
 on:
   workflow_dispatch:
@@ -6,109 +6,51 @@ on:
     paths:
       - .github/workflows/patch-proxy-refresh.yml
 
-run-name: patch-proxy-refresh · ${{ github.run_number }}
+run-name: verify-proxy-refresh · ${{ github.run_number }}
 
 permissions:
   contents: read
 
 concurrency:
-  group: patch-proxy-refresh
+  group: verify-proxy-refresh
   cancel-in-progress: false
 
 jobs:
-  patch:
+  verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     env:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
-      WORKER_URL: https://workflows.hereliesaz.workers.dev
     steps:
       - name: Check out controller
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GH_TOKEN }}
 
       - name: Install dependency
         run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
 
-      - name: Patch synchronizer
+      - name: Verify synchronizer hardening
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
 
-          path = Path('scripts/sync_repository_catalog.py')
-          lines = path.read_text(encoding='utf-8').splitlines()
-
-          old_get = '            item = self.contents(full_name, path)'
-          if lines.count(old_get) != 1:
-              raise SystemExit(f'Expected one branch-unaware contents lookup, found {lines.count(old_get)}')
-          lines[lines.index(old_get)] = '            item = self.contents(full_name, path, ref=branch)'
-
-          sha_line = '                existing_sha = item.get("sha")'
-          if lines.count(sha_line) != 1:
-              raise SystemExit(f'Expected one existing SHA assignment, found {lines.count(sha_line)}')
-          i = lines.index(sha_line)
-          lines[i + 1:i + 1] = [
-              '                encoded = item.get("content")',
-              '                if isinstance(encoded, str):',
-              '                    current = base64.b64decode(encoded).decode()',
-              '                    if current == content:',
-              '                        return',
+          text = Path('scripts/sync_repository_catalog.py').read_text(encoding='utf-8')
+          required = [
+              'item = self.contents(full_name, path, ref=branch)',
+              'if current == content:',
+              'existing.get("value") == value',
+              'f"Refresh {path} from shared catalog via {CENTRAL_REPOSITORY}"',
           ]
-
-          get_variable = '            self.json("GET", f"/repos/{full_name}/actions/variables/{quoted}")'
-          if lines.count(get_variable) != 1:
-              raise SystemExit(f'Expected one variable GET, found {lines.count(get_variable)}')
-          i = lines.index(get_variable)
-          lines[i:i + 1] = [
-              '            existing = self.json("GET", f"/repos/{full_name}/actions/variables/{quoted}")',
-              '            if isinstance(existing, dict) and existing.get("value") == value:',
-              '                return',
-          ]
-
-          curated_guard = '                if not is_proxy:'
-          curated_candidates = [
-              i for i, line in enumerate(lines[:-2])
-              if line == curated_guard and 'proxy = build_proxy(' in lines[i + 1]
-          ]
-          if len(curated_candidates) != 1:
-              raise SystemExit(f'Expected one curated stale-proxy guard, found {len(curated_candidates)}')
-          i = curated_candidates[0]
-          proxy_line = lines[i + 1][4:]
-          write_line = lines[i + 2][4:].replace('f"Bind {path} to shared catalog via {CENTRAL_REPOSITORY}"', 'f"Refresh {path} from shared catalog via {CENTRAL_REPOSITORY}"')
-          lines[i:i + 3] = [proxy_line, write_line]
-
-          content_guard = '            if not is_proxy:'
-          content_candidates = [
-              i for i, line in enumerate(lines[:-1])
-              if line == content_guard and 'gh.put_file(repo["full_name"], path, proxy' in lines[i + 1]
-          ]
-          if len(content_candidates) != 1:
-              raise SystemExit(f'Expected one content-addressed stale-proxy guard, found {len(content_candidates)}')
-          i = content_candidates[0]
-          write_line = lines[i + 1][4:].replace('f"Bind {path} to shared catalog via {CENTRAL_REPOSITORY}"', 'f"Refresh {path} from shared catalog via {CENTRAL_REPOSITORY}"')
-          lines[i:i + 2] = [write_line]
-
-          text = '\n'.join(lines) + '\n'
+          missing = [needle for needle in required if needle not in text]
+          if missing:
+              raise SystemExit('Synchronizer hardening missing: ' + ', '.join(missing))
           if 'if not is_proxy:\n                    proxy = build_proxy' in text:
               raise SystemExit('Curated stale-proxy guard still present')
-          path.write_text(text, encoding='utf-8')
+          print('Synchronizer regenerates active proxies with idempotent writes.')
           PY
 
           python -m py_compile scripts/sync_repository_catalog.py scripts/sync_repository.py scripts/retry_repository_sync.py
-
-      - name: Commit core patch
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "HereLiesAz workflow controller"
-          git config user.email "103241502+HereLiesAz@users.noreply.github.com"
-          git add scripts/sync_repository_catalog.py
-          git commit -m "Refresh existing central proxies during sync"
-          git push origin HEAD:main
-          git pull --ff-only origin main
 
       - name: Refresh only Haive Jules Dispatch proxy
         shell: bash

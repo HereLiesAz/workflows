@@ -1,0 +1,75 @@
+name: Repair central catalog expressions
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/repair-catalog-expressions.yml
+
+run-name: repair-catalog-expressions · ${{ github.run_number }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repair-central-catalog-expressions
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out central controller
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Repair malformed github.event.inputs expressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          bad_inputs = "fromJSON(inputs.target_event_json).fromJSON(inputs.target_inputs_json)."
+          good_inputs = "fromJSON(inputs.target_event_json).inputs."
+          bad_vars = "fromJSON(inputs.target_event_json).fromJSON(inputs.target_vars_json)."
+          good_vars = "fromJSON(inputs.target_event_json).vars."
+
+          changed = []
+          for path in sorted(Path('.github/workflows').glob('catalog-*.y*ml')):
+              text = path.read_text(encoding='utf-8')
+              repaired = text.replace(bad_inputs, good_inputs).replace(bad_vars, good_vars)
+              if repaired != text:
+                  path.write_text(repaired, encoding='utf-8')
+                  changed.append(str(path))
+
+          remaining = []
+          for path in sorted(Path('.github/workflows').glob('catalog-*.y*ml')):
+              text = path.read_text(encoding='utf-8')
+              if bad_inputs in text or bad_vars in text:
+                  remaining.append(str(path))
+
+          if remaining:
+              raise SystemExit('Malformed catalog expressions remain: ' + ', '.join(remaining))
+
+          print(f'Repaired {len(changed)} catalog workflow(s).')
+          for path in changed:
+              print(path)
+          PY
+
+      - name: Commit repaired catalogs
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- .github/workflows/catalog-*.yml .github/workflows/catalog-*.yaml; then
+            echo "No catalog repairs were necessary."
+            exit 0
+          fi
+
+          git config user.name "HereLiesAz workflow controller"
+          git config user.email "103241502+HereLiesAz@users.noreply.github.com"
+          git add .github/workflows/catalog-*.yml .github/workflows/catalog-*.yaml
+          git commit -m "Repair malformed github.event.inputs catalog expressions"
+          git push origin HEAD:main

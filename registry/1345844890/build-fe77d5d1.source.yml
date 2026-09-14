@@ -1,0 +1,65 @@
+# Nothing here caught it before: this repo had no CI, no CI caught that `convey/` had no
+# settings.gradle.kts/wrapper/version catalog at all (so JitPack, and every consumer relying on
+# it, silently failed to resolve `main-SNAPSHOT` on every push), and that once a Gradle project
+# existed, essentially none of the pre-existing library code actually compiled. This exists so
+# that never goes unnoticed again.
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  wrapper:
+    name: Validate Gradle wrapper
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate wrapper checksum
+        uses: gradle/actions/wrapper-validation@v6
+
+  build:
+    name: Build convey
+    needs: wrapper
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platforms;android-35 build-tools;35.0.0'
+
+      # iOS targets (iosX64/iosArm64/iosSimulatorArm64) require a macOS host for Kotlin/Native's
+      # own toolchain; Kotlin Multiplatform auto-disables them on this Linux runner
+      # (kotlin.native.ignoreDisabledTargets=true in gradle.properties), same as it does locally
+      # in this environment. Desktop, Android, and wasmJs are the targets this actually validates.
+      - name: Build convey
+        run: ./gradlew :convey:build --stacktrace
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports
+          path: 'convey/build/reports/tests/'
+          retention-days: 7
+          if-no-files-found: ignore

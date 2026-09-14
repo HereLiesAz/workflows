@@ -25,12 +25,12 @@ def _rewrite_expression_string(text: str) -> str:
     # Otherwise github.event.inputs.foo becomes the syntactically invalid
     # fromJSON(inputs.target_event_json).fromJSON(inputs.target_inputs_json).foo.
     text = re.sub(
-        r"(?<!github\.event\.)\binputs\.([A-Za-z_][A-Za-z0-9_-]*)",
+        r"(?<![A-Za-z0-9_.-])inputs\.([A-Za-z_][A-Za-z0-9_-]*)",
         r"fromJSON(inputs.target_inputs_json).\1",
         text,
     )
     text = re.sub(
-        r"(?<!github\.event\.)\bvars\.([A-Za-z_][A-Za-z0-9_-]*)",
+        r"(?<![A-Za-z0-9_.-])vars\.([A-Za-z_][A-Za-z0-9_-]*)",
         r"fromJSON(inputs.target_vars_json).\1",
         text,
     )

@@ -165,7 +165,7 @@ jobs:
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: "TAG=\"${{ steps.fromJSON(inputs.target_vars_json).outputs.tag }}\"\nif gh release view \"$TAG\" > /dev/null 2>&1; then\n  gh release upload \"$TAG\" \"${{ steps.fromJSON(inputs.target_vars_json).outputs.apk }}\" --clobber\nelse\n  gh release create \"$TAG\" \"${{ steps.fromJSON(inputs.target_vars_json).outputs.apk }}\" --latest \\\n    --title \"Lunch Heir ${{ steps.fromJSON(inputs.target_vars_json).outputs.version }}\" \\\n    --notes \"Signed release build from commit $TARGET_SHA\" \\\n    --target \"$TARGET_SHA\"\nfi\n"
+        run: "TAG=\"${{ steps.vars.outputs.tag }}\"\nif gh release view \"$TAG\" > /dev/null 2>&1; then\n  gh release upload \"$TAG\" \"${{ steps.vars.outputs.apk }}\" --clobber\nelse\n  gh release create \"$TAG\" \"${{ steps.vars.outputs.apk }}\" --latest \\\n    --title \"Lunch Heir ${{ steps.vars.outputs.version }}\" \\\n    --notes \"Signed release build from commit $TARGET_SHA\" \\\n    --target \"$TARGET_SHA\"\nfi\n"
     needs: central_check_start
     if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
   central_check_finish:

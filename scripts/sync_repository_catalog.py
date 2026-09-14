@@ -585,8 +585,8 @@ RUN_ENV_REPLACEMENTS = [
 
 
 def rewrite_expression_string(text: str) -> str:
-    text = re.sub(r"\binputs\.([A-Za-z_][A-Za-z0-9_-]*)", r"fromJSON(inputs.target_inputs_json).\1", text)
-    text = re.sub(r"\bvars\.([A-Za-z_][A-Za-z0-9_-]*)", r"fromJSON(inputs.target_vars_json).\1", text)
+    text = re.sub(r"(?<![A-Za-z0-9_.-])inputs\.([A-Za-z_][A-Za-z0-9_-]*)", r"fromJSON(inputs.target_inputs_json).\1", text)
+    text = re.sub(r"(?<![A-Za-z0-9_.-])vars\.([A-Za-z_][A-Za-z0-9_-]*)", r"fromJSON(inputs.target_vars_json).\1", text)
     for old, new in sorted(CONTEXT_REPLACEMENTS, key=lambda pair: len(pair[0]), reverse=True):
         text = text.replace(old, new)
     if "github.event" in text:

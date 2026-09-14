@@ -1,0 +1,119 @@
+name: Build & Deploy Storefront to Vercel
+
+# The "proper" pipeline: build the Kotlin/Wasm UI bundle with Gradle (GitHub
+# Actions has a JDK; Vercel's build image does not), then build the Next app and
+# deploy the prebuilt output to Vercel with the API token. This lets the WASM be
+# built in CI instead of committed to the repo.
+#
+# The sole deploy path: Vercel's own Git auto-deploy is disabled via
+# apps/storefront/vercel.json (git.deploymentEnabled.main=false), because Vercel's
+# build image has no JDK to build the Kotlin/Wasm bundle. This runs on every push
+# to main (and on demand) — Actions has a JDK, so it builds the WASM here.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/storefront/**'
+      - 'apps/storefront-cmp/**'
+      - 'packages/**'
+      - '.github/workflows/deploy-storefront.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-storefront
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java (for the Kotlin/Wasm Gradle build)
+        uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: '17'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9.15.0'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Build Kotlin/Wasm bundle (emits into apps/storefront/public)
+        working-directory: apps/storefront-cmp
+        run: ./gradlew wasmJsBrowserDistribution --no-daemon --stacktrace
+
+      - name: Verify the WASM loader was produced
+        run: |
+          test -f apps/storefront/public/storefront-cmp.js || { echo "storefront-cmp.js was not emitted"; exit 1; }
+          ls -la apps/storefront/public/*.wasm apps/storefront/public/storefront-cmp.js
+
+      - name: Install workspace deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Build @azphalt/azp (build-catalog imports it at runtime)
+        # `pnpm install` links the workspace packages but does not compile them, and build-catalog
+        # imports `@azphalt/azp`'s compiled `dist/` for writeAzp/signAzp. Without this the verify
+        # step below dies with ERR_MODULE_NOT_FOUND before it checks anything — which is exactly how
+        # it failed, silently leaving production on a stale deployment. The `...` suffix builds azp
+        # together with its workspace dependencies.
+        run: pnpm --filter "@azphalt/azp..." build
+
+      - name: Verify the committed catalog matches its pinned sources
+        # The `.azp` bytes under registry/packages/ are committed, so a deploy needs no network for
+        # them. This re-derives each one from the commit the lockfile pins and fails on any integrity
+        # mismatch — a deploy is the last place to notice that what is about to be served differs
+        # from what was reviewed.
+        #
+        # `--check` compares `integrity` (the digest of the UNSIGNED package) rather than the built
+        # bytes, and writes nothing. A byte comparison would be wrong here: signing changes the
+        # bytes, so the first deploy after the signing key is configured would "fail verification"
+        # against a catalog that was committed unsigned, with nothing actually wrong. The signing key
+        # is deliberately absent from this step for the same reason — a deploy verifies provenance of
+        # content, it does not re-sign. Signing belongs to registry-sync.yml, whose output is
+        # reviewed in a PR.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pnpm --filter @azphalt/storefront build-catalog --check
+
+      - name: Build & embed the docs site (served at azphalt.org via host rewrites)
+        # Builds the VitePress docs into apps/storefront/public/_docs so the same deployment that
+        # serves azphalt.store also serves the docs at azphalt.org (see next.config.mjs host rewrites).
+        run: pnpm --filter @azphalt/storefront embed-docs
+
+      - name: Resolve Vercel org & project ids
+        run: |
+          set -uo pipefail
+          API=https://api.vercel.com
+          auth=(-H "Authorization: Bearer $VERCEL_TOKEN")
+          teamId=$(curl -s "${auth[@]}" "$API/v2/teams" | jq -r '.teams[0].id // empty')
+          tq=""; [ -n "$teamId" ] && tq="&teamId=$teamId"
+          pid=$(curl -s "${auth[@]}" "$API/v9/projects?limit=100$tq" | jq -r '.projects[] | select(.name|test("storefront|azphalt";"i")) | .id' | head -1)
+          if [ -z "$pid" ]; then echo "Could not resolve Vercel project id"; exit 1; fi
+          echo "VERCEL_ORG_ID=$teamId" >> "$GITHUB_ENV"
+          echo "VERCEL_PROJECT_ID=$pid" >> "$GITHUB_ENV"
+          echo "Resolved org=$teamId project=$pid"
+
+      - name: Vercel pull / build / deploy (prebuilt, production)
+        # NOTE: do not try to switch off the demo examples with an env var here. `seedCatalog` runs at
+        # module load inside the deployed serverless function, so anything exported on this step is
+        # long gone by then. `lib/catalog.ts` keys off `VERCEL`, which the platform sets in the
+        # runtime, and turns them off in a deployment on its own.
+        run: |
+          npx --yes vercel@latest pull --yes --environment=production --token="$VERCEL_TOKEN"
+          npx --yes vercel@latest build --prod --token="$VERCEL_TOKEN"
+          url=$(npx --yes vercel@latest deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          echo "Deployed: $url"
+          echo "### Deployed: $url" >> "$GITHUB_STEP_SUMMARY"

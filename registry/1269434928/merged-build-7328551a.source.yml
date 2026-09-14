@@ -1,0 +1,263 @@
+name: Merged Build & Release
+
+on:
+  push:
+    branches: [ "**" ]
+    # version.properties is auto-incremented on disk by every Gradle build (see build.gradle.kts),
+    # but nothing in this repo currently commits that bump back — no workflow runs `git commit` on
+    # it (verified: only update-libs.yml commits anything, and that's `libs/`, unrelated). If that
+    # ever changes, a commit touching only this file shouldn't trigger a full rebuild here.
+    paths-ignore:
+      - version.properties
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+# ⚡ Concurrency: Cancels the entire job if a new push comes in.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege by default: most jobs only build/test. The release job that tags + uploads a
+# GitHub Release raises its own permission to `contents: write` (see its job-level `permissions`).
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Create google-services.json
+        env:
+          GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES" ]; then
+            echo "$GOOGLE_SERVICES" > app/google-services.json
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: false
+          dependency-graph: disabled
+
+      # The app pins an explicit debug signing config (app/build.gradle.kts) to
+      # ~/.android/debug.keystore, so AGP no longer auto-generates it — create the
+      # standard debug keystore on the runner so the debug build can sign.
+      - name: Generate debug keystore
+        run: |
+          KEYSTORE="$HOME/.android/debug.keystore"
+          if [ ! -f "$KEYSTORE" ]; then
+            mkdir -p "$HOME/.android"
+            keytool -genkeypair -v \
+              -keystore "$KEYSTORE" \
+              -storepass android -keypass android \
+              -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Run unit tests
+        run: |
+          chmod +x gradlew
+          # The app has product flavors (github/play), so the variant-specific unit-test task is
+          # testGithubDebugUnitTest; `test` still aggregates every module's unit tests.
+          ./gradlew testGithubDebugUnitTest test --continue --build-cache
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: unit-test-reports
+          path: '**/build/reports/tests/'
+
+  build-and-release:
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      checks: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Create google-services.json
+        env:
+          GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES" ]; then
+            echo "$GOOGLE_SERVICES" > app/google-services.json
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: false
+          dependency-graph: disabled
+
+      # The app pins an explicit debug signing config (app/build.gradle.kts) to
+      # ~/.android/debug.keystore, so AGP no longer auto-generates it — create the
+      # standard debug keystore on the runner so the debug build can sign.
+      - name: Generate debug keystore
+        run: |
+          KEYSTORE="$HOME/.android/debug.keystore"
+          if [ ! -f "$KEYSTORE" ]; then
+            mkdir -p "$HOME/.android"
+            keytool -genkeypair -v \
+              -keystore "$KEYSTORE" \
+              -storepass android -keypass android \
+              -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build with Gradle
+        id: gradle-build
+        run: |
+          set +e
+          # version.properties auto-increments inside the build — no version override is passed.
+          # The direct-download (github) flavor is the one shipped as a debug APK here (no ads).
+          ./gradlew assembleGithubDebug --build-cache > build.log 2>&1
+
+          EXIT_CODE=$?
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          cat build.log
+          exit $EXIT_CODE
+
+      # ------------------------------------------------------------------
+      # FAILURE HANDLING
+      # ------------------------------------------------------------------
+      - name: Report Failure to Jules
+        if: failure() && steps.gradle-build.outcome == 'failure'
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            let logTail = 'Log file not found.';
+            try { logTail = fs.readFileSync('build.log', 'utf8').slice(-4000); } catch (e) {}
+
+            const assignee = 'gemini-code-assist';
+
+            try {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Build Failure on ${context.eventName === 'pull_request' ? 'PR #' + context.issue.number : context.ref}`,
+                body: `@${assignee} /jules debug this build error\n\n**Log:**\n\`\`\`\n${logTail}\n\`\`\``,
+                labels: ['jules', 'bug'],
+                assignees: [assignee]
+              });
+            } catch (error) {
+              console.log("Failed to create issue with assignee. Retrying without assignee.");
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Build Failure on ${context.eventName === 'pull_request' ? 'PR #' + context.issue.number : context.ref}`,
+                body: `@${assignee} /jules debug this build error\n\n**Log:**\n\`\`\`\n${logTail}\n\`\`\``,
+                labels: ['jules', 'bug']
+              });
+            }
+
+      # ------------------------------------------------------------------
+      # RELEASE STEPS (Only run on PUSH, not Pull Requests)
+      # ------------------------------------------------------------------
+      - name: Prepare Release Variables
+        # Only the default branch publishes the canonical latest-debug release. Feature/PR branches
+        # still build + test above (the real gate) but must not overwrite the shared release or tag.
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: release_vars
+        run: |
+          # Read straight from version.properties — the Gradle build above (assembleGithubDebug)
+          # already computed Patch/Build at configuration time and wrote them back to this exact
+          # file, and that write is what's actually baked into the APK's versionCode/versionName.
+          # This used to re-derive its own PATCH/BUILD_NUMBER independently via `git rev-list`/
+          # `git blame` (same bug as release-apk.yml's "Prepare Release" step, fixed alongside
+          # this one) — a stale approximation that ignored the file Gradle had just written:
+          # BUILD_NUMBER was raw `git rev-list --count HEAD`, not the real versionBuild (which is
+          # offset by a monotonic floor and auto-incremented), so the release name never matched
+          # what was actually inside the APK.
+          MAJOR=$(grep 'versionMajor=' version.properties | cut -d'=' -f2 | tr -d '\r ')
+          MINOR=$(grep 'versionMinor=' version.properties | cut -d'=' -f2 | tr -d '\r ')
+          PATCH=$(grep 'versionPatch=' version.properties | cut -d'=' -f2 | tr -d '\r ')
+          BUILD_NUMBER=$(grep 'versionBuild=' version.properties | cut -d'=' -f2 | tr -d '\r ')
+
+          VERSION_NAME="$MAJOR.$MINOR.$PATCH.$BUILD_NUMBER"
+
+          TAG_NAME="latest-debug-v${MAJOR}.${MINOR}"
+
+          # Dynamic App Name from settings.gradle
+          if [ -f "settings.gradle.kts" ]; then
+             APP_NAME=$(grep 'rootProject.name' settings.gradle.kts | sed -E "s/.*=.*[\"'](.*)[\"']/\1/")
+          elif [ -f "settings.gradle" ]; then
+             APP_NAME=$(grep 'rootProject.name' settings.gradle | sed -E "s/.*=.*[\"'](.*)[\"']/\1/")
+          else
+             APP_NAME="App"
+          fi
+
+          # Locate built APK (github flavor → app/build/outputs/apk/github/debug)
+          APK_ORIGINAL=$(find app/build/outputs/apk/github/debug -name "*.apk" | head -n 1)
+
+          if [ -z "$APK_ORIGINAL" ]; then
+             echo "Error: No APK found to release!"
+             exit 1
+          fi
+
+          TARGET_NAME="${APP_NAME}-${VERSION_NAME}-debug.apk"
+
+          # Rename for release
+          mv "$APK_ORIGINAL" "$TARGET_NAME"
+
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+          echo "APK_FILE=$TARGET_NAME" >> $GITHUB_ENV
+
+      - name: Publish Release
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Force update tag to point to current commit
+          git tag -fa $TAG_NAME -m "Latest Debug Build"
+          git push origin $TAG_NAME --force
+
+          # Idempotent create-or-update: `gh release view` can report a false "not found" (e.g. right
+          # after the tag is force-moved), which previously sent us down the "create" path against an
+          # existing release and failed the job. Instead: try to create; if it already exists, edit it;
+          # then always upload the APK with --clobber so a re-run on the same commit replaces it.
+          if ! gh release create "$TAG_NAME" "$APK_FILE" --prerelease \
+                 --title "Latest Debug Build ($TAG_NAME)" \
+                 --notes "Auto-build from commit $GITHUB_SHA" \
+                 --target "$GITHUB_SHA" 2>/dev/null; then
+             echo "Release exists — updating..."
+             gh release edit "$TAG_NAME" --prerelease \
+               --title "Latest Debug Build ($TAG_NAME)" \
+               --notes "Auto-build from commit $GITHUB_SHA" \
+               --target "$GITHUB_SHA"
+             gh release upload "$TAG_NAME" "$APK_FILE" --clobber
+          fi

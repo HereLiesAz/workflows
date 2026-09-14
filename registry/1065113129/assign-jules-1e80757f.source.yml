@@ -1,0 +1,39 @@
+name: Assign Jules to Issues
+
+on:
+  issues:
+    types: [opened]
+  repository_advisory:
+    types: [published]
+
+jobs:
+  assign_and_solve:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Invoke Jules
+        uses: google-labs-code/jules-invoke@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        with:
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          prompt: |
+            You are an AI coding agent. Please address the following issue/advisory:
+
+            Title: ${{ github.event.issue.title || github.event.repository_advisory.summary }}
+
+            Body:
+            ${{ github.event.issue.body || github.event.repository_advisory.description }}
+
+            Your goal is to resolve this issue.
+
+            Guidelines:
+            1. Assign this issue to yourself if possible.
+            2. Follow the project's contribution guidelines:
+               - Create the required `app/src/main/kotlin/com/hereliesaz/click/utils/Secrets.kt` placeholder file (content: `package com.hereliesaz.click.utils; object Secrets { const val API_KEY = ""; const val GITHUB_USER = ""; const val REPO_SOURCE = "" }`) before compiling.
+               - Run unit tests to ensure correctness (`./gradlew testDebugUnitTest`).
+               - Update documentation in `/docs` if necessary.
+               - Ensure the build passes (`./gradlew assembleDebug`).
+            3. When you have verified the fix or feature, CLOSE the issue.

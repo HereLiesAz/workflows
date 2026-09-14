@@ -100,9 +100,14 @@ class GitHub:
         quoted = urllib.parse.quote(path, safe="/")
         existing_sha = None
         try:
-            item = self.contents(full_name, path)
+            item = self.contents(full_name, path, ref=branch)
             if isinstance(item, dict):
                 existing_sha = item.get("sha")
+                encoded = item.get("content")
+                if isinstance(encoded, str):
+                    current = base64.b64decode(encoded).decode()
+                    if current == content:
+                        return
         except ApiError as exc:
             if "-> 404:" not in str(exc):
                 raise
@@ -120,7 +125,9 @@ class GitHub:
     def upsert_variable(self, full_name: str, name: str, value: str) -> None:
         quoted = urllib.parse.quote(name, safe="")
         try:
-            self.json("GET", f"/repos/{full_name}/actions/variables/{quoted}")
+            existing = self.json("GET", f"/repos/{full_name}/actions/variables/{quoted}")
+            if isinstance(existing, dict) and existing.get("value") == value:
+                return
             self.json("PATCH", f"/repos/{full_name}/actions/variables/{quoted}", {"name": name, "value": value})
         except ApiError as exc:
             if "-> 404:" not in str(exc):
@@ -945,9 +952,8 @@ def sync_repository(gh: GitHub, full_name: str, worker_url: str, dry_run: bool =
             workflows_manifest[path] = {"status": "active", "name": workflow_name, "source_sha256": source_hash, "registry_source": registry_source, "central_workflow": override, "catalog": "curated", "updated_at": now_iso()}
             if not dry_run:
                 gh.put_file(CENTRAL_REPOSITORY, registry_source, source_text, f"Register {repo['full_name']}:{path}", branch="main")
-                if not is_proxy:
-                    proxy = build_proxy(source_text, path, source_hash, workflow_name)
-                    gh.put_file(repo["full_name"], path, proxy, f"Bind {path} to shared catalog via {CENTRAL_REPOSITORY}", branch=default_branch)
+                proxy = build_proxy(source_text, path, source_hash, workflow_name)
+                gh.put_file(repo["full_name"], path, proxy, f"Refresh {path} from shared catalog via {CENTRAL_REPOSITORY}", branch=default_branch)
             results.append({"path": path, "status": "catalog", "central_workflow": override, "source_sha256": source_hash})
             continue
 
@@ -983,8 +989,7 @@ def sync_repository(gh: GitHub, full_name: str, worker_url: str, dry_run: bool =
         if not dry_run:
             gh.put_file(CENTRAL_REPOSITORY, registry_source, source_text, f"Register {repo['full_name']}:{path}", branch="main")
             gh.put_file(CENTRAL_REPOSITORY, central_workflow, compiled, f"Update shared workflow catalog {c_hash[:16]}", branch="main")
-            if not is_proxy:
-                gh.put_file(repo["full_name"], path, proxy, f"Bind {path} to shared catalog via {CENTRAL_REPOSITORY}", branch=default_branch)
+            gh.put_file(repo["full_name"], path, proxy, f"Refresh {path} from shared catalog via {CENTRAL_REPOSITORY}", branch=default_branch)
         results.append({"path": path, "status": "catalog", "central_workflow": central_workflow, "catalog_hash": c_hash, "source_sha256": source_hash})
 
     manifest["last_sync_at"] = now_iso()

@@ -1,0 +1,43 @@
+name: Publish to GitHub Packages
+
+# Single source of truth for publishing the React package. A second workflow
+# (npm-publish.yml) used to publish the same package on `release: published`, so a
+# tagged release fired both and whichever lost the race failed on a duplicate version.
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@HereLiesAz'
+
+      - name: Enable Corepack (for yarn)
+        run: corepack enable
+
+      - name: Install dependencies
+        working-directory: ./aznavrail-react
+        run: yarn install
+
+      - name: Build
+        working-directory: ./aznavrail-react
+        run: yarn build
+
+      - name: Publish to GitHub Packages
+        working-directory: ./aznavrail-react
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

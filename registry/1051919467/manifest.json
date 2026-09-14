@@ -1,0 +1,72 @@
+{
+  "last_sync_at": "2026-09-14T01:01:35+00:00",
+  "repository": {
+    "default_branch": "master",
+    "full_name": "HereLiesAz/BarCodeNcrypt",
+    "id": 1051919467,
+    "owner_id": 103241502,
+    "owner_login": "HereLiesAz"
+  },
+  "schema": 2,
+  "worker_url_configured": true,
+  "workflows": {
+    ".github/workflows/backup.yml": {
+      "catalog": "curated",
+      "central_workflow": ".github/workflows/catalog-context-backup.yml",
+      "name": "Context Backup (Universal Surgical)",
+      "registry_source": "registry/1051919467/backup-d598524a.source.yml",
+      "source_sha256": "7b5078fd680ca4758350d8bfb6e11d675bf62a7a12bb35cd38f3a5fcb5a81349",
+      "status": "active",
+      "updated_at": "2026-09-14T01:01:26+00:00"
+    },
+    ".github/workflows/build.yml": {
+      "blockers": [
+        "job 'build-and-release' step 8 uses actions/github-script with runner-repository context"
+      ],
+      "name": "Merged Build & Release",
+      "registry_source": "registry/1051919467/build-fe77d5d1.source.yml",
+      "source_sha256": "243d7df0cabeb1a00e84537c04fae49867fca65de74adcca1ecb7fceac322ac3",
+      "status": "local",
+      "updated_at": "2026-09-14T01:01:28+00:00"
+    },
+    ".github/workflows/ci.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "436937107080774ffd7be9b1351470c6ccda745631b476bce9bd1b9be8721524",
+      "central_workflow": ".github/workflows/catalog-436937107080774f.yml",
+      "name": "CI",
+      "registry_source": "registry/1051919467/ci-899ce9c2.source.yml",
+      "source_sha256": "9d710d704948517eac8a176456f42023b054ec0340c2d0d26ff6735cea491e68",
+      "status": "active",
+      "updated_at": "2026-09-14T01:01:29+00:00"
+    },
+    ".github/workflows/jules-glee.yml": {
+      "catalog": "curated",
+      "central_workflow": ".github/workflows/catalog-jules-glee.yml",
+      "name": "\ud83d\ude08 Glee Audit",
+      "registry_source": "registry/1051919467/jules-glee-0de23ac9.source.yml",
+      "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
+      "status": "active",
+      "updated_at": "2026-09-14T01:01:31+00:00"
+    },
+    ".github/workflows/jules.yml": {
+      "blockers": [
+        "job 'jules_agent' step 1 uses repository-bound action 'google-labs-code/jules-invoke@v1'"
+      ],
+      "name": "Jules Agent",
+      "registry_source": "registry/1051919467/jules-f6e68594.source.yml",
+      "source_sha256": "6e5938fc4a946f3befb7928220252dca5e20eda33c3253127f09a4c49c6fb658",
+      "status": "local",
+      "updated_at": "2026-09-14T01:01:32+00:00"
+    },
+    ".github/workflows/release.yml": {
+      "catalog": "content-addressed",
+      "catalog_hash": "043e9d80a19ee35e891e93041b6b86296b196e70bfa8d847b00e80124fc7668a",
+      "central_workflow": ".github/workflows/catalog-043e9d80a19ee35e.yml",
+      "name": "Release AAB",
+      "registry_source": "registry/1051919467/release-16911b98.source.yml",
+      "source_sha256": "ef6ce22a4bb768ce4fc6639046ec5b3af1478710d52bb13a0b236695f4bb05f5",
+      "status": "active",
+      "updated_at": "2026-09-14T01:01:33+00:00"
+    }
+  }
+}

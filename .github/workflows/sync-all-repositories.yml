@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: workflow-sync-all-repositories-v3
+  group: workflow-sync-all-repositories-v4
   cancel-in-progress: false
 
 env:
@@ -28,7 +28,7 @@ jobs:
       repositories: ${{ steps.baseline.outputs.repositories }}
       count: ${{ steps.baseline.outputs.count }}
     steps:
-      - name: Reuse the successful account-wide dry-run baseline
+      - name: Verify and reuse the account-wide dry-run baseline
         id: baseline
         env:
           GH_TOKEN: ${{ github.token }}
@@ -37,7 +37,7 @@ jobs:
           set -euo pipefail
 
           : > /tmp/repos.txt
-          : > /tmp/non_success.txt
+          : > /tmp/failures.txt
 
           for page in 1 2 3; do
             jobs_json="$(
@@ -48,26 +48,23 @@ jobs:
             jq -r '
               .jobs[]
               | select(.name | startswith("dry_run ("))
-              | select(.conclusion != "success")
-              | "\(.name): \(.conclusion)"
-            ' <<<"$jobs_json" >> /tmp/non_success.txt
-
-            jq -r '
-              .jobs[]
-              | select(.name | startswith("dry_run ("))
               | .name
               | sub("^dry_run \\("; "")
               | sub("\\)$"; "")
             ' <<<"$jobs_json" >> /tmp/repos.txt
+
+            jq -r '
+              .jobs[]
+              | select(.name | startswith("dry_run ("))
+              | select(.conclusion != "success")
+              | .name
+              | sub("^dry_run \\("; "")
+              | sub("\\)$"; "")
+            ' <<<"$jobs_json" >> /tmp/failures.txt
           done
 
           sort -u -o /tmp/repos.txt /tmp/repos.txt
-
-          if [[ -s /tmp/non_success.txt ]]; then
-            echo "::error::The baseline contains a non-successful repository dry-run."
-            cat /tmp/non_success.txt
-            exit 1
-          fi
+          sort -u -o /tmp/failures.txt /tmp/failures.txt
 
           if grep -Eq '^HereLiesAz/(workflows|NoLAWallet|NoLAWallet-id)$' /tmp/repos.txt; then
             echo "::error::Excluded repository appeared in the dry-run baseline."
@@ -76,7 +73,18 @@ jobs:
 
           count="$(grep -cve '^$' /tmp/repos.txt || true)"
           if [[ "$count" != "252" ]]; then
-            echo "::error::Expected 252 successful baseline repositories; found $count."
+            echo "::error::Expected 252 baseline repositories; found $count."
+            exit 1
+          fi
+
+          cat > /tmp/expected-failures.txt <<'FAILURES'
+          HereLiesAz/QaRd
+          HereLiesAz/TheLexorcist
+          FAILURES
+          sort -u -o /tmp/expected-failures.txt /tmp/expected-failures.txt
+
+          if ! diff -u /tmp/expected-failures.txt /tmp/failures.txt; then
+            echo "::error::Historical dry-run failures differ from the two investigated repositories."
             exit 1
           fi
 
@@ -85,16 +93,87 @@ jobs:
           echo "count=$count" >> "$GITHUB_OUTPUT"
 
           {
-            echo "## Migration baseline"
+            echo "## Verified migration baseline"
             echo
-            echo "- Reusing **252/252 successful dry-runs** from run \`${BASELINE_DRY_RUN_ID}\`."
-            echo "- NoLAWallet repositories remain excluded."
-            echo "- This run performs only the apply phase; it does not repeat the API-heavy dry-run sweep."
+            echo "- Baseline repositories: **252**"
+            echo "- Successful historical dry-runs: **250**"
+            echo "- Repositories requiring targeted revalidation: **2**"
+            echo "  - \`HereLiesAz/QaRd\`"
+            echo "  - \`HereLiesAz/TheLexorcist\`"
+            echo "- Excluded throughout: \`HereLiesAz/workflows\`, \`HereLiesAz/NoLAWallet\`, \`HereLiesAz/NoLAWallet-id\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  apply:
+  revalidate:
     needs: baseline
     if: ${{ needs.baseline.outputs.count == '252' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+    steps:
+      - name: Check out central controller
+        uses: actions/checkout@v4
+
+      - name: Install controller dependency
+        run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
+
+      - name: Wait for GitHub API capacity
+        shell: bash
+        run: |
+          set -euo pipefail
+          while true; do
+            rate_json="$(gh api rate_limit)"
+            remaining="$(jq -r '.resources.core.remaining' <<<"$rate_json")"
+            reset="$(jq -r '.resources.core.reset' <<<"$rate_json")"
+
+            if (( remaining >= 500 )); then
+              echo "GitHub API capacity available: ${remaining} core requests remaining."
+              break
+            fi
+
+            now="$(date +%s)"
+            sleep_for=$((reset - now + 15))
+            if (( sleep_for < 15 )); then
+              sleep_for=15
+            fi
+            echo "GitHub API budget low (${remaining} remaining); pausing until reset."
+            sleep "$sleep_for"
+          done
+
+      - name: Revalidate the two cleaned repositories
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p migration-results/revalidated
+
+          for repo in HereLiesAz/QaRd HereLiesAz/TheLexorcist; do
+            safe_name="$(printf '%s' "$repo" | tr '/:' '--')"
+            python scripts/sync_repository.py \
+              --repository "$repo" \
+              --worker-url "$WORKER_URL" \
+              --dry-run \
+              --json-output "migration-results/revalidated/${safe_name}.json"
+          done
+
+          {
+            echo "## Targeted revalidation"
+            echo
+            echo "Both previously failing repositories now pass dry-run validation."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload targeted revalidation
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: workflow-sync-targeted-revalidation
+          path: migration-results/
+          retention-days: 30
+
+  apply:
+    needs:
+      - baseline
+      - revalidate
+    if: ${{ needs.baseline.outputs.count == '252' && needs.revalidate.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 360
     env:
@@ -107,7 +186,7 @@ jobs:
       - name: Install controller dependency
         run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
 
-      - name: Apply all baseline repositories with rate-limit throttling
+      - name: Apply all verified repositories with rate-limit throttling
         shell: bash
         run: |
           set -uo pipefail
@@ -118,21 +197,23 @@ jobs:
           index=0
 
           wait_for_capacity() {
-            local remaining reset now sleep_for
+            local rate_json remaining reset now sleep_for
             while true; do
-              remaining="$(gh api rate_limit --jq '.resources.core.remaining')"
-              reset="$(gh api rate_limit --jq '.resources.core.reset')"
+              rate_json="$(gh api rate_limit)"
+              remaining="$(jq -r '.resources.core.remaining' <<<"$rate_json")"
+              reset="$(jq -r '.resources.core.reset' <<<"$rate_json")"
+
               if (( remaining >= 250 )); then
                 echo "GitHub API capacity available: ${remaining} core requests remaining."
                 return 0
               fi
 
               now="$(date +%s)"
-              sleep_for=$((reset - now + 10))
-              if (( sleep_for < 10 )); then
-                sleep_for=10
+              sleep_for=$((reset - now + 15))
+              if (( sleep_for < 15 )); then
+                sleep_for=15
               fi
-              echo "GitHub API budget low (${remaining} remaining); pausing until the published reset."
+              echo "GitHub API budget low (${remaining} remaining); pausing until reset."
               sleep "$sleep_for"
             done
           }
@@ -170,7 +251,7 @@ jobs:
           {
             echo "## Account-wide migration"
             echo
-            echo "Successfully synchronized **$total** repositories from the verified dry-run baseline."
+            echo "Successfully synchronized **$total** repositories."
             echo
             echo "Excluded throughout: \`HereLiesAz/workflows\`, \`HereLiesAz/NoLAWallet\`, \`HereLiesAz/NoLAWallet-id\`."
           } >> "$GITHUB_STEP_SUMMARY"

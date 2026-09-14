@@ -1,0 +1,184 @@
+name: Reusable Build
+
+on:
+  workflow_call:
+    inputs:
+      gradle_task:
+        required: true
+        type: string
+      extra_gradle_args:
+        required: false
+        type: string
+        default: ''
+      artifact_name:
+        required: true
+        type: string
+      artifact_path_pattern:
+        required: true
+        type: string
+      release_tag_prefix:
+        required: false
+        type: string
+        default: 'v'
+      publish_to_release:
+        required: false
+        type: boolean
+        default: false
+      signing_enabled:
+        required: false
+        type: boolean
+        default: false
+      inject_google_services:
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      KEYSTORE_PASSWORD:
+        required: false
+      KEY_ALIAS:
+        required: false
+      KEY_PASSWORD:
+        required: false
+      KEYSTORE_PRIVATE:
+        required: false
+      KEYSTORE_RSA:
+        required: false
+      KEYSTORE_PUBLIC:
+        required: false
+      KEYSTORE_CHAIN:
+        required: false
+      GOOGLE_SERVICES_API_KEY:
+        required: false
+      PROJECT_ID:
+        required: false
+      CLIENT_ID:
+        required: false
+      ARCORE_API_KEY:
+        required: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      checks: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Inject Google Services
+        if: ${{ inputs.inject_google_services }}
+        env:
+          GOOGLE_SERVICES_API_KEY: ${{ secrets.GOOGLE_SERVICES_API_KEY }}
+          PROJECT_ID: ${{ secrets.PROJECT_ID }}
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          ARCORE_API_KEY: ${{ secrets.ARCORE_API_KEY }}
+        run: |
+          if [ -f "composeApp/google-services.json.template" ]; then
+            sed -e 's/{{\([^}]*\)}}/${\1}/g' composeApp/google-services.json.template | envsubst > composeApp/google-services.json
+          fi
+          echo "ARCORE_API_KEY=$ARCORE_API_KEY" >> local.properties
+
+      - name: Prepare Android Keystore
+        if: ${{ inputs.signing_enabled }}
+        id: keystore
+        uses: ./.github/actions/android-keystore
+        with:
+          keystore-private: ${{ secrets.KEYSTORE_PRIVATE }}
+          keystore-rsa: ${{ secrets.KEYSTORE_RSA }}
+          keystore-public: ${{ secrets.KEYSTORE_PUBLIC }}
+          keystore-chain: ${{ secrets.KEYSTORE_CHAIN }}
+          keystore-password: ${{ secrets.KEYSTORE_PASSWORD }}
+          key-alias: ${{ secrets.KEY_ALIAS }}
+          key-password: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Compute Version
+        run: ./gradlew -q printVersionEnv
+
+      - name: Build with Gradle
+        id: gradle-build
+        env:
+          # Signing secrets passed as environment variables — not as -P command-line args —
+          # so they're not visible in /proc/pid/cmdline or runner audit logs.
+          KEYSTORE_FILE: ${{ steps.keystore.outputs.keystore-path }}
+          KEYSTORE_TYPE: ${{ steps.keystore.outputs.store-type }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          ./gradlew ${{ inputs.gradle_task }} ${{ inputs.extra_gradle_args }} -PversionBuild=$VERSION_BUILD -PversionName=$VERSION_NAME --build-cache
+
+      # Only master/main ever gets an auto-bump commit - a feature branch that also bumped its
+      # own copy of version.properties independently is exactly what produced a real merge
+      # collision in this repo's history (branch and master both pushed bump commits from the
+      # same starting point, and the merge had to silently pick one, discarding the other).
+      # Restricting this to master makes the counter a single serialized sequence instead of one
+      # that forks and has to be reconciled by luck during a merge.
+      - name: Commit and push version bump
+        if: success() && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+        run: ./gradlew incrementAndPushVersion
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ inputs.artifact_name }}-${{ env.VERSION_NAME }}
+          path: ${{ inputs.artifact_path_pattern }}
+
+      - name: Publish Release
+        if: ${{ success() && inputs.publish_to_release && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="${{ inputs.release_tag_prefix }}-v${VERSION_MAJOR}.${VERSION_MINOR}"
+          git fetch origin --tags --force --quiet
+          git tag -fa "$TAG_NAME" -m "Automated Release"
+          git push origin "refs/tags/$TAG_NAME" --force
+
+          # `gh release edit` only works on a release that already exists - it can't create one,
+          # so the first build under a new TAG_NAME (e.g. right after a versionMajor/versionMinor
+          # bump, since that's what TAG_NAME is keyed on) had no release to edit and failed the
+          # whole step with "release not found".
+          RELEASE_EXISTS=false
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            RELEASE_EXISTS=true
+            gh release edit "$TAG_NAME" --prerelease --title "Latest Build ($TAG_NAME)" --notes "Auto-build from $GITHUB_SHA" --target "$GITHUB_SHA"
+          else
+            gh release create "$TAG_NAME" --prerelease --title "Latest Build ($TAG_NAME)" --notes "Auto-build from $GITHUB_SHA" --target "$GITHUB_SHA"
+          fi
+
+          # Every build's own versioned APK accumulates here on purpose - older builds are kept,
+          # not deleted, so a previously-shared download link keeps working and the release page
+          # is a real history. But GitHub's asset list sorts alphabetically, not by version or
+          # date - "...0.7.9....apk" sorts *after* "...0.7.11....apk" - so with several versions
+          # sitting side by side, nothing marks which one is actually current. Alongside each
+          # file's own versioned name, also upload it under a second, fixed "-latest.apk" name
+          # that always sits at the same spot in the list and always gets overwritten
+          # (--clobber) with whatever just built - an unambiguous, permanent link to "whatever's
+          # newest right now" that coexists with the growing version history instead of replacing
+          # it.
+          for FILE in ${{ inputs.artifact_path_pattern }}; do
+            [ -f "$FILE" ] || continue
+            gh release upload "$TAG_NAME" "$FILE" --clobber
+            BASE="$(basename "$FILE")"
+            ALIAS="$(echo "$BASE" | sed -E 's/-[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\.apk$/-latest.apk/')"
+            if [ "$ALIAS" != "$BASE" ]; then
+              ALIAS_PATH="$(dirname "$FILE")/$ALIAS"
+              cp "$FILE" "$ALIAS_PATH"
+              gh release upload "$TAG_NAME" "$ALIAS_PATH" --clobber
+            fi
+          done

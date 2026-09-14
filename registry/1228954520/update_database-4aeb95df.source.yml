@@ -1,0 +1,68 @@
+name: Update Database
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Run daily at midnight UTC
+  workflow_dispatch: # Allow manual trigger
+  repository_dispatch:
+    types: [update-database] # Allow API trigger
+
+jobs:
+  update-database:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Run Database Updater
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.SHEETS_API }}
+        run: python scripts/update_database.py
+
+      - name: Enrich properties (best-effort)
+        if: success()
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.SHEETS_API }}
+          ENRICH_MAX_PER_RUN: '100'
+          ENRICH_MIN_INTERVAL_S: '1.0'
+        run: python -m scripts.enrich_properties || echo "enrichment failed; continuing"
+
+      - name: Ingest demolitions (best-effort)
+        if: success()
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.SHEETS_API }}
+        run: python -m scripts.ingest_demolitions || echo "demolition ingest failed; continuing"
+
+      - name: Ingest permits (best-effort)
+        if: success()
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.SHEETS_API }}
+          PERMITS_MIN_INTERVAL_S: '0.5'
+          PERMITS_MAX_PER_RUN: '100'
+        run: python -m scripts.ingest_permits || echo "permits ingest failed; continuing"
+
+      - name: Ingest OSM features (best-effort)
+        if: success()
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.SHEETS_API }}
+        run: python -m scripts.ingest_osm || echo "OSM ingest failed; continuing"
+
+      - name: Classify graffiti (best-effort)
+        if: success()
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.SHEETS_API }}
+          STREETVIEW_DRIVE_FOLDER_ID: ${{ secrets.STREETVIEW_DRIVE_FOLDER_ID }}
+          MODEL_PATH: models/model.onnx
+          GRAFFITI_MAX_PER_RUN: '50'
+          GRAFFITI_MIN_INTERVAL_S: '4.0'
+        run: python -m scripts.classify_graffiti || echo "graffiti classification failed; continuing"

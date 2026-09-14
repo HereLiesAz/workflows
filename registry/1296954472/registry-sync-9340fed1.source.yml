@@ -1,0 +1,221 @@
+name: Sync registry from extension repos
+
+# Rebuild the store's catalog from the extension repos and open a PR when anything moved.
+#
+# `apps/storefront/registry/sources.json` pins every extension to one commit sha, and
+# `registry/packages/*.azp` holds the exact bytes built from those commits. Both are committed, so
+# what the store serves is whatever is on `main` — there is no database to drift from the repo and
+# no runtime write path that can put a package into the store without a commit.
+#
+# This job rebuilds the packages and — if that produced a diff — opens a PR. **Merging that PR is the
+# publish step.** Nothing reaches the store until a human approves the diff, which is the whole point
+# of doing it this way: the review that gates a plugin update is a GitHub review, not an API call.
+#
+# It runs in one of two modes, because "publish what the lockfile already pins" and "go see whether
+# any extension moved" are different questions, and answering both in one run makes each harder to
+# review:
+#
+#   pinned  Build every source at the sha `sources.json` already pins. This is what publishes a newly
+#           added extension: its PR only edits the lockfile, so its bytes do not exist in
+#           registry/packages until a sync runs. Every existing pin stays exactly where it is, so the
+#           diff is confined to the packages that were genuinely missing.
+#   latest  Re-resolve every pinned repo to its default-branch head first, then build. This is how
+#           upstream extension updates get picked up, and it necessarily touches all ~130 pins.
+#
+# Schedule and repository_dispatch runs use `latest` — catching upstream movement is the entire reason
+# they fire. A push that edits `sources.json` on main uses `pinned`: something was just added or
+# re-pinned deliberately, and the job is to publish exactly that. A manual run defaults to `pinned`
+# too, because that is the usual reason to click Run workflow.
+#
+# Merging then triggers `deploy-storefront.yml` (it watches `apps/storefront/**`), which rebuilds and
+# redeploys. Every serverless instance reads the same committed bytes at cold start, so the catalog
+# is identical everywhere with no Postgres and no Blob store.
+on:
+  # Instant path: an extension repo posts a repository_dispatch after its own PR merges.
+  #   curl -X POST -H "Authorization: Bearer $TOKEN" \
+  #        -H "Accept: application/vnd.github+json" \
+  #        https://api.github.com/repos/HereLiesAz/azphalt/dispatches \
+  #        -d '{"event_type":"extension-updated"}'
+  repository_dispatch:
+    types: [extension-updated]
+  # Catch-all: extensions that have not wired the dispatch still get picked up within the day, with
+  # no per-repo setup at all. A no-op run costs one tarball fetch per pinned source and opens nothing.
+  schedule:
+    - cron: "17 6 * * *"
+  # Adding an extension is a lockfile edit — its PR appends to sources.json and nothing else, so its
+  # bytes do not exist under registry/packages until a sync builds them. Firing on that merge makes a
+  # new extension publish itself instead of waiting for someone to remember to dispatch this by hand.
+  #
+  # This cannot recurse. A pinned run's own PR does not touch sources.json (only packages/ and
+  # catalog.json), so merging it does not match this filter. A latest run's PR does re-pin
+  # sources.json, so merging that one fires a pinned run — which finds the catalog already matches
+  # the lockfile, produces no diff, and exits without opening anything. One idle run, not a loop.
+  push:
+    branches: [main]
+    paths:
+      - "apps/storefront/registry/sources.json"
+      # A merged submission is built into the baked catalog by the same `build-catalog` run, so the
+      # merge that accepts the source is what should go build its bytes. Without this a submission
+      # sat on main until the nightly run noticed it — and, before submissions were folded in at all,
+      # never reached the store.
+      #
+      # This does not recurse for the same reason the lockfile path does not: a sync's own PR touches
+      # `registry/packages/` and `catalog.json`, never `submissions/`, so merging it matches nothing
+      # here.
+      - "submissions/**"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "pinned = publish sources at the shas already pinned; latest = also re-pin every source to its default-branch head"
+        type: choice
+        default: pinned
+        options:
+          - pinned
+          - latest
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: registry-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '9.15.0'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build the workspace packages these scripts import at runtime
+        # `pnpm install` links the workspace packages but does not compile them, so anything importing
+        # a sibling's `dist/` fails with ERR_MODULE_NOT_FOUND until it is built. build-catalog needs
+        # `@azphalt/azp` (writeAzp/signAzp); build-previews additionally needs
+        # `@azphalt/runtime-reference`, because it generates a preview by actually executing the
+        # filter. The `...` suffix builds each together with its workspace dependencies.
+        run: pnpm --filter "@azphalt/azp..." --filter "@azphalt/runtime-reference..." build
+
+      - name: Decide what this run syncs
+        id: mode
+        # Only a manual run gets to choose. Every other trigger has one right answer and is pinned to
+        # it here rather than read from an input, so no dispatch payload can talk the job out of the
+        # guarantee its trigger exists to provide: a push that edited the lockfile publishes exactly
+        # what the lockfile now says, and schedule/repository_dispatch always go look upstream.
+        env:
+          MODE: ${{ github.event_name == 'push' && 'pinned' || github.event_name == 'workflow_dispatch' && inputs.mode || 'latest' }}
+        run: |
+          set -euo pipefail
+          case "$MODE" in
+            pinned) flags="--update" ;;
+            latest) flags="--update --latest" ;;
+            *) echo "::error::unknown sync mode '$MODE'"; exit 1 ;;
+          esac
+          echo "mode=$MODE"    >> "$GITHUB_OUTPUT"
+          echo "flags=$flags"  >> "$GITHUB_OUTPUT"
+          echo "Sync mode: **$MODE** (\`build-catalog $flags\`)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build the catalog
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signing the catalog here is what gives packages provenance. Without it they still verify
+          # for integrity, but pin no publisher key — so a host cannot tell a later update apart from
+          # a third party's (spec/package-format.md § Publisher continuity).
+          AZPHALT_PACKAGE_SIGNING_KEY: ${{ secrets.AZPHALT_PACKAGE_SIGNING_KEY }}
+          AZPHALT_PACKAGE_SIGNING_KEY_ID: ${{ secrets.AZPHALT_PACKAGE_SIGNING_KEY_ID }}
+        run: pnpm --filter @azphalt/storefront build-catalog ${{ steps.mode.outputs.flags }}
+
+      - name: Regenerate the store previews
+        # Previews are rendered *from* the built packages — filters are executed, motion presets are
+        # sampled — so they are only as current as the catalog they were generated against. Running
+        # this by hand meant a rebuilt package kept whatever picture it had last time, which is the
+        # one failure mode a preview must not have: confidently showing what the extension used to do.
+        run: pnpm --filter @azphalt/storefront build-previews
+
+      - name: Open a PR if the catalog moved
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MODE: ${{ steps.mode.outputs.mode }}
+        run: |
+          set -euo pipefail
+          if [ "$MODE" = latest ]; then
+            what="Re-pinned each source in apps/storefront/registry/sources.json to its default-branch head and rebuilt registry/packages/."
+          else
+            what="Rebuilt registry/packages/ from the shas apps/storefront/registry/sources.json already pins. No source's ref was moved, so anything new here is a package that was pinned but never built."
+          fi
+          if git diff --quiet -- apps/storefront/registry; then
+            echo "Catalog unchanged — nothing to publish."
+            echo "Catalog unchanged." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          branch=registry-sync/$MODE-$(date -u +%Y%m%d-%H%M%S)
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add apps/storefront/registry
+          # Repeated -m rather than one multi-line string: git joins them with blank lines, and every
+          # line here stays indented inside the `run: |` block. A message body written at column 0
+          # would terminate the block scalar, and YAML would then read it as further workflow keys.
+          git commit \
+            -m "chore(registry): sync catalog from extension repos ($MODE)" \
+            -m "$what" \
+            -m "Merging this publishes the new bytes; deploy-storefront then rebuilds and redeploys."
+          git push -u origin "$branch"
+
+          # A summary of what actually moved, so the reviewer sees the change in package terms rather
+          # than as a wall of binary diffs.
+          {
+            echo "Sync mode: **$MODE**."
+            echo ""
+            echo "$what"
+            echo ""
+            echo "## Packages first built here"
+            echo ""
+            echo "Bytes that did not exist in the catalog before this run — i.e. sources that were"
+            echo "pinned in the lockfile but never published."
+            echo '```'
+            git diff --diff-filter=A --name-only "origin/${GITHUB_REF_NAME}...$branch" \
+              -- apps/storefront/registry/packages \
+              | sed 's#.*/##' || true
+            echo '```'
+            echo ""
+            echo "## Lockfile changes"
+            echo '```'
+            git diff "origin/${GITHUB_REF_NAME}...$branch" -- apps/storefront/registry/sources.json \
+              | grep -E '^[+-] +"(id|ref|version)"' || echo "(no lockfile field changes)"
+            echo '```'
+          } > /tmp/pr-body.md
+
+          # Opening the PR is best-effort. A repo with "Allow GitHub Actions to create and approve
+          # pull requests" switched off rejects this with a GraphQL permissions error — and failing
+          # the run there would throw away work that already succeeded: the rebuilt, signed catalog
+          # is pushed and safe on "$branch". Report how to open it by hand instead.
+          if gh pr create --draft \
+               --title "chore(registry): sync catalog from extension repos ($MODE)" \
+               --body-file /tmp/pr-body.md; then
+            cat /tmp/pr-body.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::Could not open the PR automatically — the catalog is pushed to $branch."
+            {
+              echo "### Catalog rebuilt, PR not opened"
+              echo ""
+              echo "The rebuilt catalog is on \`$branch\`. Opening its PR failed, most likely because"
+              echo "**Settings → Actions → General → Workflow permissions → \"Allow GitHub Actions to"
+              echo "create and approve pull requests\"** is off."
+              echo ""
+              echo "Open it here: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/${GITHUB_REF_NAME}...${branch}?expand=1"
+              echo ""
+              cat /tmp/pr-body.md
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi

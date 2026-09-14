@@ -1,0 +1,53 @@
+name: Migrate catalog workflow filenames
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/rename-catalog-workflows.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out central controller
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+          fetch-depth: 0
+
+      - name: Install migration dependency
+        run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
+
+      - name: Rename generated catalog workflows and update registry
+        run: python scripts/migrate_catalog_names.py
+
+      - name: Validate migration diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          if git status --short | grep -E '(^|[[:space:]])\.github/workflows/catalog-[0-9a-f]{16}\.ya?ml$'; then
+            echo '::error::A hash-only catalog filename remains after migration.'
+            exit 1
+          fi
+          git status --short
+
+      - name: Commit migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Az'
+          git config user.email '103241502+HereLiesAz@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No catalog naming changes were necessary.'
+            exit 0
+          fi
+          git commit -m 'Name generated catalog workflows descriptively'
+          git push origin HEAD:main

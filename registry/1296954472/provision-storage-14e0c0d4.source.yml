@@ -1,0 +1,166 @@
+name: Provision durable storage (manual)
+
+# Give the storefront a durable registry store.
+#
+# Without `DATABASE_URL` **and** `BLOB_READ_WRITE_TOKEN`, `apps/storefront/lib/catalog.ts` falls back
+# to a process-local `NpmStore` that every serverless instance rebuilds from the seed catalog at
+# module load. Reads look healthy the whole time, so the failure is invisible: a publish survives
+# only until the instance that served it recycles. (`POST /api/publish` now answers 503 rather than
+# pretending otherwise.)
+#
+# MANUAL ONLY. This creates billable resources on the connected Vercel account, so it never runs on
+# push. Dispatch it deliberately. It is idempotent: an env var that is already set is left alone, and
+# a store whose name already exists is reused rather than duplicated.
+#
+# Vercel Blob can be created and connected entirely through the API, so this workflow does that.
+# Neon Postgres is a Marketplace product — provisioning it involves a purchase flow this token
+# cannot drive — so for `DATABASE_URL` the workflow connects an existing Postgres store if it finds
+# one, and otherwise stops with instructions rather than half-configuring the project.
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "false = report what would change and stop; true = actually create/connect"
+        required: false
+        default: "false"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: provision-storage
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_API_KEY }}
+      APPLY: ${{ inputs.apply }}
+    steps:
+      - name: Resolve team & project
+        run: |
+          set -uo pipefail
+          API=https://api.vercel.com
+          auth=(-H "Authorization: Bearer $VERCEL_TOKEN")
+          if [ -z "${VERCEL_TOKEN:-}" ]; then echo "::error::VERCEL_API_KEY is not set"; exit 1; fi
+
+          teamId=$(curl -s "${auth[@]}" "$API/v2/teams" | jq -r '.teams[0].id // empty')
+          tq=""; [ -n "$teamId" ] && tq="?teamId=$teamId"
+          pid=$(curl -s "${auth[@]}" "$API/v9/projects?limit=100${teamId:+&teamId=$teamId}" \
+                | jq -r '.projects[] | select(.name|test("storefront|azphalt";"i")) | .id' | head -1)
+          if [ -z "$pid" ]; then echo "::error::could not resolve the Vercel project id"; exit 1; fi
+
+          echo "TEAM_ID=$teamId" >> "$GITHUB_ENV"
+          echo "TQ=$tq"          >> "$GITHUB_ENV"
+          echo "PROJECT_ID=$pid" >> "$GITHUB_ENV"
+          echo "Resolved team=${teamId:-<personal>} project=$pid"
+
+      - name: Report current storage state
+        run: |
+          set -uo pipefail
+          API=https://api.vercel.com
+          auth=(-H "Authorization: Bearer $VERCEL_TOKEN")
+
+          envs=$(curl -s "${auth[@]}" "$API/v10/projects/$PROJECT_ID/env${TQ}")
+          have_db=$(echo "$envs"   | jq -r '[.envs[]? | select(.key=="DATABASE_URL")]          | length')
+          have_blob=$(echo "$envs" | jq -r '[.envs[]? | select(.key=="BLOB_READ_WRITE_TOKEN")] | length')
+          echo "DATABASE_URL set:          $([ "$have_db" -gt 0 ] && echo yes || echo NO)"
+          echo "BLOB_READ_WRITE_TOKEN set: $([ "$have_blob" -gt 0 ] && echo yes || echo NO)"
+          echo "HAVE_DB=$have_db"     >> "$GITHUB_ENV"
+          echo "HAVE_BLOB=$have_blob" >> "$GITHUB_ENV"
+
+          echo "--- existing stores on this account ---"
+          curl -s "${auth[@]}" "$API/v1/storage/stores${TQ}" \
+            | jq -r '.stores[]? | "  \(.type)\t\(.name)\t\(.id)"' || echo "  (none / unreadable)"
+
+      - name: Provision + connect Vercel Blob
+        if: ${{ inputs.apply == 'true' }}
+        run: |
+          set -uo pipefail
+          API=https://api.vercel.com
+          auth=(-H "Authorization: Bearer $VERCEL_TOKEN" -H "Content-Type: application/json")
+
+          if [ "$HAVE_BLOB" -gt 0 ]; then echo "BLOB_READ_WRITE_TOKEN already set — leaving alone."; exit 0; fi
+
+          # Reuse a blob store named azphalt-registry if it exists, so re-dispatching doesn't pile up stores.
+          storeId=$(curl -s "${auth[@]}" "$API/v1/storage/stores${TQ}" \
+                    | jq -r '.stores[]? | select(.type=="blob" and .name=="azphalt-registry") | .id' | head -1)
+
+          if [ -z "$storeId" ]; then
+            echo "Creating blob store azphalt-registry …"
+            body=$(curl -s -w '\n%{http_code}' "${auth[@]}" -X POST \
+                   "$API/v1/storage/stores/blob${TQ}" -d '{"name":"azphalt-registry"}')
+            code=$(echo "$body" | tail -1); json=$(echo "$body" | sed '$d')
+            echo "create -> HTTP $code"; echo "$json" | head -c 800; echo
+            [ "$code" = "200" ] || [ "$code" = "201" ] || { echo "::error::blob store creation failed"; exit 1; }
+            storeId=$(echo "$json" | jq -r '.store.id // .id // empty')
+          else
+            echo "Reusing existing blob store $storeId"
+          fi
+          [ -n "$storeId" ] || { echo "::error::no blob store id"; exit 1; }
+
+          echo "Connecting store $storeId to project $PROJECT_ID …"
+          body=$(curl -s -w '\n%{http_code}' "${auth[@]}" -X POST \
+                 "$API/v1/storage/stores/$storeId/connections${TQ}" \
+                 -d "{\"projectId\":\"$PROJECT_ID\",\"envVarEnvironments\":[\"production\",\"preview\",\"development\"]}")
+          code=$(echo "$body" | tail -1)
+          echo "connect -> HTTP $code"; echo "$body" | sed '$d' | head -c 800; echo
+          # Connecting is what mints BLOB_READ_WRITE_TOKEN on the project; a 409 means it already is.
+          case "$code" in 200|201|409) ;; *) echo "::error::connect failed"; exit 1;; esac
+
+      - name: Connect Postgres for DATABASE_URL
+        if: ${{ inputs.apply == 'true' }}
+        run: |
+          set -uo pipefail
+          API=https://api.vercel.com
+          auth=(-H "Authorization: Bearer $VERCEL_TOKEN" -H "Content-Type: application/json")
+
+          if [ "$HAVE_DB" -gt 0 ]; then echo "DATABASE_URL already set — leaving alone."; exit 0; fi
+
+          pg=$(curl -s "${auth[@]}" "$API/v1/storage/stores${TQ}" \
+               | jq -r '.stores[]? | select(.type|test("postgres|neon";"i")) | .id' | head -1)
+
+          if [ -z "$pg" ]; then
+            echo "::error::No Postgres/Neon store exists on this account, and one cannot be purchased through this API token."
+            echo "Add it once from the Vercel dashboard, then re-dispatch this workflow:"
+            echo "  Vercel -> the azphalt project -> Storage -> Create Database -> Neon (Postgres)"
+            echo "  Connect it to this project, selecting Production / Preview / Development."
+            echo "Connecting sets DATABASE_URL automatically. Blob (above) is already handled."
+            echo "Until DATABASE_URL is set the storefront stays on the ephemeral store and"
+            echo "POST /api/publish keeps answering 503."
+            exit 1
+          fi
+
+          echo "Connecting existing Postgres store $pg to project $PROJECT_ID …"
+          body=$(curl -s -w '\n%{http_code}' "${auth[@]}" -X POST \
+                 "$API/v1/storage/stores/$pg/connections${TQ}" \
+                 -d "{\"projectId\":\"$PROJECT_ID\",\"envVarEnvironments\":[\"production\",\"preview\",\"development\"]}")
+          code=$(echo "$body" | tail -1)
+          echo "connect -> HTTP $code"; echo "$body" | sed '$d' | head -c 800; echo
+          case "$code" in 200|201|409) ;; *) echo "::error::connect failed"; exit 1;; esac
+
+      - name: Final state
+        if: always()
+        run: |
+          set -uo pipefail
+          API=https://api.vercel.com
+          auth=(-H "Authorization: Bearer $VERCEL_TOKEN")
+          envs=$(curl -s "${auth[@]}" "$API/v10/projects/$PROJECT_ID/env${TQ}")
+          db=$(echo "$envs"   | jq -r '[.envs[]? | select(.key=="DATABASE_URL")]          | length')
+          bl=$(echo "$envs" | jq -r '[.envs[]? | select(.key=="BLOB_READ_WRITE_TOKEN")] | length')
+          {
+            echo "### Storage state"
+            echo "- DATABASE_URL: $([ "$db" -gt 0 ] && echo set || echo **unset**)"
+            echo "- BLOB_READ_WRITE_TOKEN: $([ "$bl" -gt 0 ] && echo set || echo **unset**)"
+            if [ "$db" -gt 0 ] && [ "$bl" -gt 0 ]; then
+              echo ""
+              echo "Both set. Redeploy so the build picks them up, then seed once:"
+              echo '```sh'
+              echo 'DATABASE_URL=… BLOB_READ_WRITE_TOKEN=… pnpm --filter @azphalt/storefront seed'
+              echo '```'
+            else
+              echo ""
+              echo "Still ephemeral — publishes cannot persist and /api/publish will answer 503."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

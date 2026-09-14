@@ -23,7 +23,7 @@
     ".github/workflows/android-release-aab.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "42a3f5af9ecea757b74eef1d2922685dc26374814e3f8132a1cc4ffc3d5703ff",
-      "central_workflow": ".github/workflows/catalog-42a3f5af9ecea757.yml",
+      "central_workflow": ".github/workflows/catalog-build-publish-aab-play-42a3f5af9ecea757.yml",
       "name": "Build & Publish AAB (Play)",
       "registry_source": "registry/1038280487/android-release-aab-c7afaeed.source.yml",
       "source_sha256": "c7e435bc33db1508560b4f5e700570d3f9544ce3d2efa16b4b7df2a60ee3c1f4",
@@ -33,7 +33,7 @@
     ".github/workflows/android-release-apk.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "31e2f79fe72366a00cf075af76d7c9fa6e31b41a5d81fcf59a2f0ea218b7e04e",
-      "central_workflow": ".github/workflows/catalog-31e2f79fe72366a0.yml",
+      "central_workflow": ".github/workflows/catalog-compile-and-release-apk-31e2f79fe72366a0.yml",
       "name": "Compile and Release APK",
       "registry_source": "registry/1038280487/android-release-apk-f927747f.source.yml",
       "source_sha256": "41ccb8c30d393fdc42a44d3b208b179f948ebc44e1c316c4e78b76f627f3bb3c",
@@ -43,7 +43,7 @@
     ".github/workflows/android-sample-build.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "bb019062355e0196d704170d8b8e73ebf73b37314a82891d19398abb15ed8f29",
-      "central_workflow": ".github/workflows/catalog-bb019062355e0196.yml",
+      "central_workflow": ".github/workflows/catalog-android-sample-build-bb019062355e0196.yml",
       "name": "Android Sample Build",
       "registry_source": "registry/1038280487/android-sample-build-19cd3ec2.source.yml",
       "source_sha256": "04bc19c34394c47f3e26abcf16d76e0996a2df376a4a92720b5745926423fee8",
@@ -53,7 +53,7 @@
     ".github/workflows/android-update-libs.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "ae32a79237de31ef7d09c983969642705753f0c5bbcb366b0642609f7e38ef49",
-      "central_workflow": ".github/workflows/catalog-ae32a79237de31ef.yml",
+      "central_workflow": ".github/workflows/catalog-update-dependencies-ae32a79237de31ef.yml",
       "name": "Update Dependencies",
       "registry_source": "registry/1038280487/android-update-libs-46df0ebe.source.yml",
       "source_sha256": "05e2b3435ae6c44dfac330372257beb8ccd0b4046cd7fb66bff57fabefb799e3",
@@ -63,7 +63,7 @@
     ".github/workflows/apply-unattached-visibility.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "457264a4a81b7cacf1b9d2150b115ffe358faeab1f5603d0cbb6888d29dd1011",
-      "central_workflow": ".github/workflows/catalog-457264a4a81b7cac.yml",
+      "central_workflow": ".github/workflows/catalog-apply-unattached-overflow-and-visibility-457264a4a81b7cac.yml",
       "name": "Apply unattached overflow and visibility",
       "registry_source": "registry/1038280487/apply-unattached-visibility-0c3b96a9.source.yml",
       "source_sha256": "b661f9612e43a5d1cc49fc9e266d283bb25fb5c037ba8543df6ff8ac1ba2ed6d",
@@ -82,7 +82,7 @@
     ".github/workflows/bump-more-from-az.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "417677918d64457bb4fda3a70aa11d43adb1ce2d4bfc73fa0ac96dafa7e22e0e",
-      "central_workflow": ".github/workflows/catalog-417677918d64457b.yml",
+      "central_workflow": ".github/workflows/catalog-bake-more-from-az-417677918d64457b.yml",
       "name": "Bake more-from-az",
       "registry_source": "registry/1038280487/bump-more-from-az-c2e387eb.source.yml",
       "source_sha256": "e144627a504a0d9c127cf6efe9d59d7f273098811d3e5e76bf35a14599be026c",
@@ -92,7 +92,7 @@
     ".github/workflows/chatgpt-vendor-artifact.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "9d6d9e835de2066f1e3ef05f8764a1bb70d5299ac11c260b01f845c48ce3da24",
-      "central_workflow": ".github/workflows/catalog-9d6d9e835de2066f.yml",
+      "central_workflow": ".github/workflows/catalog-build-aznavrail-vendor-artifact-9d6d9e835de2066f.yml",
       "name": "Build AzNavRail vendor artifact",
       "registry_source": "registry/1038280487/chatgpt-vendor-artifact-8c779cbb.source.yml",
       "source_sha256": "c9deeea2082e80732953f95c1cf9a3bc7e7630dab48aa7d39e16e0b0ba8601b8",
@@ -111,7 +111,7 @@
     ".github/workflows/codeql.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "91722bf0d3bcdfdd2f52657c1c2ac6a91af1cbb9d54a5caf75f0982a05ebf746",
-      "central_workflow": ".github/workflows/catalog-91722bf0d3bcdfdd.yml",
+      "central_workflow": ".github/workflows/catalog-codeql-91722bf0d3bcdfdd.yml",
       "name": "CodeQL",
       "registry_source": "registry/1038280487/codeql-37c182e8.source.yml",
       "source_sha256": "a524ceeb0890b7c6ec820412ee6568fde448310a8fdea8cf80179553e7d281f9",
@@ -121,7 +121,7 @@
     ".github/workflows/deploy-sftp.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "8d49901b5104a9f7cf6201cc3602a514fe726df6d4c060dbde54434186734506",
-      "central_workflow": ".github/workflows/catalog-8d49901b5104a9f7.yml",
+      "central_workflow": ".github/workflows/catalog-deploy-over-ftp-8d49901b5104a9f7.yml",
       "name": "Deploy over FTP",
       "registry_source": "registry/1038280487/deploy-sftp-1401405c.source.yml",
       "source_sha256": "b0ef23a564e122b032f710d57a50a0d08fa49b142386df869c99f960f4e5be8b",
@@ -131,7 +131,7 @@
     ".github/workflows/gradle-publish.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "41afc1fa7ad4b01808470fdd9c7073f066b3806f90642086f062364e7b675851",
-      "central_workflow": ".github/workflows/catalog-41afc1fa7ad4b018.yml",
+      "central_workflow": ".github/workflows/catalog-gradle-package-41afc1fa7ad4b018.yml",
       "name": "Gradle Package",
       "registry_source": "registry/1038280487/gradle-publish-2f015cef.source.yml",
       "source_sha256": "03e2f1e420d12d9cc0a7cdbd64594ac76c6f5025b064f43083b57b0714cf087a",
@@ -212,7 +212,7 @@
     ".github/workflows/publish-npm.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "5d2db838a544c815a9f764981bc02a247f108346bf900b2048a1dd6fd171cc17",
-      "central_workflow": ".github/workflows/catalog-5d2db838a544c815.yml",
+      "central_workflow": ".github/workflows/catalog-publish-to-github-packages-5d2db838a544c815.yml",
       "name": "Publish to GitHub Packages",
       "registry_source": "registry/1038280487/publish-npm-106ed605.source.yml",
       "source_sha256": "70516095978d4884e183505d261e2485f1b35c7b8835e69d13a726da077ca285",
@@ -233,7 +233,7 @@
     ".github/workflows/summary.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "d825bd202905b6c6ea9d4c61fe3c25f7bef34caafb651ea101316e61f0628df7",
-      "central_workflow": ".github/workflows/catalog-d825bd202905b6c6.yml",
+      "central_workflow": ".github/workflows/catalog-summarize-new-issues-d825bd202905b6c6.yml",
       "name": "Summarize new issues",
       "registry_source": "registry/1038280487/summary-bc1f0d2a.source.yml",
       "source_sha256": "9158d4587eeca12602514ad7da12f02c600029539ba1567bf63b405d972b65ff",
@@ -243,7 +243,7 @@
     ".github/workflows/sync-embedded-guide.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "cf6b6eabe291b701b1b3a26c5fec11c67d85eda5436de60a80a11b50156c7ed6",
-      "central_workflow": ".github/workflows/catalog-cf6b6eabe291b701.yml",
+      "central_workflow": ".github/workflows/catalog-sync-embedded-guide-cf6b6eabe291b701.yml",
       "name": "Sync embedded guide",
       "registry_source": "registry/1038280487/sync-embedded-guide-75198352.source.yml",
       "source_sha256": "b4ab8a77c76716142d05268b84c737aaa5cc5a8b5c490564a3a93ef8e785de3f",
@@ -253,7 +253,7 @@
     ".github/workflows/sync-platform-parity.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "c72c89a9e8b5e1d3e7fd23265c3d9740e790ffa0c09bea464b4b92efa30e70f8",
-      "central_workflow": ".github/workflows/catalog-c72c89a9e8b5e1d3.yml",
+      "central_workflow": ".github/workflows/catalog-sync-platform-parity-c72c89a9e8b5e1d3.yml",
       "name": "Sync platform parity",
       "registry_source": "registry/1038280487/sync-platform-parity-c34e1b2a.source.yml",
       "source_sha256": "5768aaeace26ea392a88f0c5f89f6b10cd034f04db665d39d32d636781874a10",

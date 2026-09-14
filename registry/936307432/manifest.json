@@ -23,7 +23,7 @@
     ".github/workflows/android-release-aab.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "965d89aa1ca3dbcd5dbf2edd058a59e1cfc328c1bf593882cab5241cb3dc83d1",
-      "central_workflow": ".github/workflows/catalog-965d89aa1ca3dbcd.yml",
+      "central_workflow": ".github/workflows/catalog-build-publish-aab-play-965d89aa1ca3dbcd.yml",
       "name": "Build & Publish AAB (Play)",
       "registry_source": "registry/936307432/android-release-aab-c7afaeed.source.yml",
       "source_sha256": "bc33a453efa94395260c9b521a0fc01da92a27a8da0181d2c598770148ee6007",
@@ -33,7 +33,7 @@
     ".github/workflows/android-release-apk.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "cc5d9775a1b164bbb5e21555aa1e113eee0a2113a790d825059e130ab81df57b",
-      "central_workflow": ".github/workflows/catalog-cc5d9775a1b164bb.yml",
+      "central_workflow": ".github/workflows/catalog-compile-and-release-apk-cc5d9775a1b164bb.yml",
       "name": "Compile and Release APK",
       "registry_source": "registry/936307432/android-release-apk-f927747f.source.yml",
       "source_sha256": "ccc871738c362676351da341dfbf003900ea0578380395818594fb2ed6852579",
@@ -43,7 +43,7 @@
     ".github/workflows/android-update-libs.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "4d2bdd00b0bbf38838bbfb1be8feec3c45d005f46f8acfcbc8c090e0094bbc21",
-      "central_workflow": ".github/workflows/catalog-4d2bdd00b0bbf388.yml",
+      "central_workflow": ".github/workflows/catalog-update-dependencies-4d2bdd00b0bbf388.yml",
       "name": "Update Dependencies",
       "registry_source": "registry/936307432/android-update-libs-46df0ebe.source.yml",
       "source_sha256": "218d0b95a059b7c0e559590cf074b99f3fa1cbc6896cdab316133bc39d110704",
@@ -71,7 +71,7 @@
     ".github/workflows/deploy-sftp.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "d26b3c18f98bdf8c97dcbcdba2189e8939f6e2cb3ead50357293c79eb3fe5c42",
-      "central_workflow": ".github/workflows/catalog-d26b3c18f98bdf8c.yml",
+      "central_workflow": ".github/workflows/catalog-deploy-over-ftp-d26b3c18f98bdf8c.yml",
       "name": "Deploy over FTP",
       "registry_source": "registry/936307432/deploy-sftp-1401405c.source.yml",
       "source_sha256": "8b42bbc29b2f1b8ab416a72cd6b2ed04c37811d4ec358ea24c5a4640773474fc",
@@ -162,7 +162,7 @@
     ".github/workflows/release-aab.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "2d863ce196fe39e583b267d94c14e5cf4fee8574e969daaf28e13c06a4efe4cb",
-      "central_workflow": ".github/workflows/catalog-2d863ce196fe39e5.yml",
+      "central_workflow": ".github/workflows/catalog-build-publish-aab-play-2d863ce196fe39e5.yml",
       "name": "Build & Publish AAB (Play)",
       "registry_source": "registry/936307432/release-aab-b108bf8f.source.yml",
       "source_sha256": "f637fcde293eeaaa50671b2f6313751cd044a6419c37ebba3678dd702940d94a",
@@ -172,7 +172,7 @@
     ".github/workflows/release-apk.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "a23fd235311d814cca311a5b281d39fcfe6b89f29160309cfb7553542819e93a",
-      "central_workflow": ".github/workflows/catalog-a23fd235311d814c.yml",
+      "central_workflow": ".github/workflows/catalog-compile-and-release-apk-a23fd235311d814c.yml",
       "name": "Compile and Release APK",
       "registry_source": "registry/936307432/release-apk-da6a1dd6.source.yml",
       "source_sha256": "66b945d96e416473a7bf667158784b6b6175b8afbcc922bc073d17a22387fa24",
@@ -193,7 +193,7 @@
     ".github/workflows/summary.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "d825bd202905b6c6ea9d4c61fe3c25f7bef34caafb651ea101316e61f0628df7",
-      "central_workflow": ".github/workflows/catalog-d825bd202905b6c6.yml",
+      "central_workflow": ".github/workflows/catalog-summarize-new-issues-d825bd202905b6c6.yml",
       "name": "Summarize new issues",
       "registry_source": "registry/936307432/summary-bc1f0d2a.source.yml",
       "source_sha256": "9158d4587eeca12602514ad7da12f02c600029539ba1567bf63b405d972b65ff",
@@ -203,7 +203,7 @@
     ".github/workflows/update-libs.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "167795da8ef895dbba026223dd6438bbd4087c5dd99398a269221ffda0994abb",
-      "central_workflow": ".github/workflows/catalog-167795da8ef895db.yml",
+      "central_workflow": ".github/workflows/catalog-update-dependencies-167795da8ef895db.yml",
       "name": "Update Dependencies",
       "registry_source": "registry/936307432/update-libs-70ffc54c.source.yml",
       "source_sha256": "389bc8192c50e3f60e771d6f8f254f25ddc639bb41cd33e86109cda171b3ef25",

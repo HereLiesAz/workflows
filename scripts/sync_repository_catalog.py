@@ -861,8 +861,34 @@ def catalog_hash(doc: dict[str, Any]) -> str:
     return sha256_text(dump_yaml(implementation))
 
 
-def catalog_workflow_path(doc: dict[str, Any]) -> str:
-    return f".github/workflows/catalog-{catalog_hash(doc)[:16]}.yml"
+def catalog_name_slug(name: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", name.casefold()).strip("-")
+    return slug[:72].rstrip("-") or "workflow"
+
+
+def catalog_workflow_path(doc: dict[str, Any], workflow_name: str) -> str:
+    return f".github/workflows/catalog-{catalog_name_slug(workflow_name)}-{catalog_hash(doc)[:16]}.yml"
+
+
+def discover_catalog_workflow_paths(gh: GitHub) -> dict[str, str]:
+    listing = gh.contents(CENTRAL_REPOSITORY, ".github/workflows", ref="main")
+    if not isinstance(listing, list):
+        raise RuntimeError("Central .github/workflows is not a directory")
+
+    by_hash: dict[str, str] = {}
+    for item in listing:
+        if item.get("type") != "file":
+            continue
+        name = str(item.get("name", ""))
+        match = re.fullmatch(r"catalog-(?:.+-)?([0-9a-f]{16})\.ya?ml", name)
+        if not match:
+            continue
+        hash16 = match.group(1)
+        path = str(item.get("path", ""))
+        current = by_hash.get(hash16)
+        if current is None or re.fullmatch(r"\.github/workflows/catalog-[0-9a-f]{16}\.ya?ml", current):
+            by_hash[hash16] = path
+    return by_hash
 
 
 def _proxy_original_source(gh: GitHub, manifest_entry: dict[str, Any] | None) -> str | None:
@@ -904,6 +930,7 @@ def sync_repository(gh: GitHub, full_name: str, worker_url: str, dry_run: bool =
         raise RuntimeError(".github/workflows is not a directory")
 
     results: list[dict[str, Any]] = []
+    catalog_paths = discover_catalog_workflow_paths(gh)
     if worker_url and not dry_run:
         gh.upsert_variable(repo["full_name"], WORKER_VARIABLE, worker_url.rstrip("/"))
 
@@ -974,7 +1001,8 @@ def sync_repository(gh: GitHub, full_name: str, worker_url: str, dry_run: bool =
             continue
 
         c_hash = catalog_hash(expanded)
-        central_workflow = catalog_workflow_path(expanded)
+        central_workflow = catalog_paths.get(c_hash[:16]) or catalog_workflow_path(expanded, workflow_name)
+        catalog_paths[c_hash[:16]] = central_workflow
         try:
             compiled = compile_central(dump_yaml(expanded), {"full_name": "HereLiesAz/workflows-catalog", "private": True}, f"catalog/{c_hash}", workflow_name)
             proxy = build_proxy(source_text, path, source_hash, workflow_name)

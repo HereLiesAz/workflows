@@ -23,7 +23,7 @@
     ".github/workflows/android-release-aab.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "42a3f5af9ecea757b74eef1d2922685dc26374814e3f8132a1cc4ffc3d5703ff",
-      "central_workflow": ".github/workflows/catalog-42a3f5af9ecea757.yml",
+      "central_workflow": ".github/workflows/catalog-build-publish-aab-play-42a3f5af9ecea757.yml",
       "name": "Build & Publish AAB (Play)",
       "registry_source": "registry/1296954472/android-release-aab-c7afaeed.source.yml",
       "source_sha256": "c7e435bc33db1508560b4f5e700570d3f9544ce3d2efa16b4b7df2a60ee3c1f4",
@@ -33,7 +33,7 @@
     ".github/workflows/android-release-apk.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "31e2f79fe72366a00cf075af76d7c9fa6e31b41a5d81fcf59a2f0ea218b7e04e",
-      "central_workflow": ".github/workflows/catalog-31e2f79fe72366a0.yml",
+      "central_workflow": ".github/workflows/catalog-compile-and-release-apk-31e2f79fe72366a0.yml",
       "name": "Compile and Release APK",
       "registry_source": "registry/1296954472/android-release-apk-f927747f.source.yml",
       "source_sha256": "41ccb8c30d393fdc42a44d3b208b179f948ebc44e1c316c4e78b76f627f3bb3c",
@@ -43,7 +43,7 @@
     ".github/workflows/android-update-libs.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "ae32a79237de31ef7d09c983969642705753f0c5bbcb366b0642609f7e38ef49",
-      "central_workflow": ".github/workflows/catalog-ae32a79237de31ef.yml",
+      "central_workflow": ".github/workflows/catalog-update-dependencies-ae32a79237de31ef.yml",
       "name": "Update Dependencies",
       "registry_source": "registry/1296954472/android-update-libs-46df0ebe.source.yml",
       "source_sha256": "05e2b3435ae6c44dfac330372257beb8ccd0b4046cd7fb66bff57fabefb799e3",
@@ -53,7 +53,7 @@
     ".github/workflows/app-release.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "e914d73cf2a0d549818a47278bc6b98a895ffce65647a987b669e6d51af86d30",
-      "central_workflow": ".github/workflows/catalog-e914d73cf2a0d549.yml",
+      "central_workflow": ".github/workflows/catalog-app-release-e914d73cf2a0d549.yml",
       "name": "App Release",
       "registry_source": "registry/1296954472/app-release-53dd7dea.source.yml",
       "source_sha256": "2150463fc5eba564d0d1a6069b40aef1f36333d8a30d0f2cd0ec8938000a802b",
@@ -72,7 +72,7 @@
     ".github/workflows/ci.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "7e8cbb8a2e9021cb29944953b487e2d64802ff5f04c60e90eba63c7796016e7c",
-      "central_workflow": ".github/workflows/catalog-7e8cbb8a2e9021cb.yml",
+      "central_workflow": ".github/workflows/catalog-ci-7e8cbb8a2e9021cb.yml",
       "name": "CI",
       "registry_source": "registry/1296954472/ci-899ce9c2.source.yml",
       "source_sha256": "57f245d8d8504ca1ef5146ccc3533aecc5d08c45ab5aa9416b3b619ba3c385a9",
@@ -102,7 +102,7 @@
     ".github/workflows/deploy-sftp.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "8d49901b5104a9f7cf6201cc3602a514fe726df6d4c060dbde54434186734506",
-      "central_workflow": ".github/workflows/catalog-8d49901b5104a9f7.yml",
+      "central_workflow": ".github/workflows/catalog-deploy-over-ftp-8d49901b5104a9f7.yml",
       "name": "Deploy over FTP",
       "registry_source": "registry/1296954472/deploy-sftp-1401405c.source.yml",
       "source_sha256": "b0ef23a564e122b032f710d57a50a0d08fa49b142386df869c99f960f4e5be8b",
@@ -112,7 +112,7 @@
     ".github/workflows/deploy-storefront.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "5b52ad49cc81d8079a3713e4dd070ee6d44c81ecb57ca3fa9ca7e8815cb265fc",
-      "central_workflow": ".github/workflows/catalog-5b52ad49cc81d807.yml",
+      "central_workflow": ".github/workflows/catalog-build-deploy-storefront-to-vercel-5b52ad49cc81d807.yml",
       "name": "Build & Deploy Storefront to Vercel",
       "registry_source": "registry/1296954472/deploy-storefront-27c92570.source.yml",
       "source_sha256": "48d4be344221c7c6f1661eb97d46fc242bffc3f7834e1a59ba60ab687ba5bf95",
@@ -193,7 +193,7 @@
     ".github/workflows/provision-storage.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "ebf04cd63dc3a32dc786ad2e3ab8e568a6ffc63d0da3baa9554ee1cedece592b",
-      "central_workflow": ".github/workflows/catalog-ebf04cd63dc3a32d.yml",
+      "central_workflow": ".github/workflows/catalog-provision-durable-storage-manual-ebf04cd63dc3a32d.yml",
       "name": "Provision durable storage (manual)",
       "registry_source": "registry/1296954472/provision-storage-14e0c0d4.source.yml",
       "source_sha256": "15015547384559e7f22e9f961c475813c734cf9a7475df675bcecf0c09c11659",
@@ -203,7 +203,7 @@
     ".github/workflows/publish-package.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "9fe434dd4ff550d8bb51b99cd0c118a67534d911ef2a3bc9911670bf25e13d4c",
-      "central_workflow": ".github/workflows/catalog-9fe434dd4ff550d8.yml",
+      "central_workflow": ".github/workflows/catalog-publish-single-package-retry-9fe434dd4ff550d8.yml",
       "name": "Publish single package (retry)",
       "registry_source": "registry/1296954472/publish-package-ec2d7dd3.source.yml",
       "source_sha256": "edf31723ec2cdb361831175f5005831d3812924e21ed639288c057d87172528d",
@@ -213,7 +213,7 @@
     ".github/workflows/publish-staged.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "1ccfd5299ad4a38694a772fd45b8641a2245c3aeae917400aa735e87c0973e71",
-      "central_workflow": ".github/workflows/catalog-1ccfd5299ad4a386.yml",
+      "central_workflow": ".github/workflows/catalog-publish-staged-1ccfd5299ad4a386.yml",
       "name": "Publish (staged)",
       "registry_source": "registry/1296954472/publish-staged-e7bd3073.source.yml",
       "source_sha256": "40b44c43d74996ee59074631cdb2746a7910024a716db4f4619ba1e748977c80",
@@ -223,7 +223,7 @@
     ".github/workflows/registry-sync.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "4103608f487f345dcd608bd53f1367205438d04502fea49d27800a1f3f07f522",
-      "central_workflow": ".github/workflows/catalog-4103608f487f345d.yml",
+      "central_workflow": ".github/workflows/catalog-sync-registry-from-extension-repos-4103608f487f345d.yml",
       "name": "Sync registry from extension repos",
       "registry_source": "registry/1296954472/registry-sync-9340fed1.source.yml",
       "source_sha256": "3f477c4aff741c28c661be487e78c7fbab32eb0c3eb22c83f63ccf7af532ff9f",
@@ -233,7 +233,7 @@
     ".github/workflows/release.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "ee0000e6b7ae7860991444010dae8a032fa000b50be42f045c0d491ccdc3e277",
-      "central_workflow": ".github/workflows/catalog-ee0000e6b7ae7860.yml",
+      "central_workflow": ".github/workflows/catalog-release-ee0000e6b7ae7860.yml",
       "name": "Release",
       "registry_source": "registry/1296954472/release-16911b98.source.yml",
       "source_sha256": "202a3be9eb627b6679ca3723e6f47d154b9c5b0703c517cf79ec7f6f5ff6c89a",
@@ -254,7 +254,7 @@
     ".github/workflows/submissions.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "d2e86db8aec190aca058239f5a0d5df959b558bc0e37ce14aafeaf81610096d0",
-      "central_workflow": ".github/workflows/catalog-d2e86db8aec190ac.yml",
+      "central_workflow": ".github/workflows/catalog-submissions-d2e86db8aec190ac.yml",
       "name": "Submissions",
       "registry_source": "registry/1296954472/submissions-3bd7043c.source.yml",
       "source_sha256": "97f493fb1f80aa23dd51daeada43b11271ecd5d2aa184a4ab509c6e3874d4f70",
@@ -264,7 +264,7 @@
     ".github/workflows/summary.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "d825bd202905b6c6ea9d4c61fe3c25f7bef34caafb651ea101316e61f0628df7",
-      "central_workflow": ".github/workflows/catalog-d825bd202905b6c6.yml",
+      "central_workflow": ".github/workflows/catalog-summarize-new-issues-d825bd202905b6c6.yml",
       "name": "Summarize new issues",
       "registry_source": "registry/1296954472/summary-bc1f0d2a.source.yml",
       "source_sha256": "9158d4587eeca12602514ad7da12f02c600029539ba1567bf63b405d972b65ff",
@@ -274,7 +274,7 @@
     ".github/workflows/vercel-logs.yml": {
       "catalog": "content-addressed",
       "catalog_hash": "12d9b8574b66d6f9714f71bc704e8b3afe53debfce2465b72d04b7be3b0987cd",
-      "central_workflow": ".github/workflows/catalog-12d9b8574b66d6f9.yml",
+      "central_workflow": ".github/workflows/catalog-vercel-build-logs-diagnostic-12d9b8574b66d6f9.yml",
       "name": "Vercel Build Logs (diagnostic)",
       "registry_source": "registry/1296954472/vercel-logs-e7070fe4.source.yml",
       "source_sha256": "ffd0e2cd346d0a82d9e70eff9a728b1bc0e8e384ee3a21782670ecc58ffa8212",

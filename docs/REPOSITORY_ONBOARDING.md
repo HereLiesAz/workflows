@@ -39,7 +39,7 @@ The synchronizer classifies each target workflow into one of four outcomes.
 | Result | Meaning | Target repository after sync | Central repository |
 | --- | --- | --- | --- |
 | `catalog` / curated | The workflow matches a known canonical shared implementation | Secretless OIDC proxy | Uses a named `catalog-*.yml` implementation |
-| `catalog` / content-addressed | The workflow is safe to execute centrally and has no curated implementation yet | Secretless OIDC proxy | One shared workflow keyed by implementation hash; identical logic can be reused by multiple repos |
+| `catalog` / content-addressed | The workflow is safe to execute centrally and has no curated implementation yet | Secretless OIDC proxy | One descriptively named shared workflow with an implementation-hash suffix; identical logic can be reused by multiple repos |
 | `library` | The workflow is a `workflow_call` helper/reusable component | Remains in the target repository | Original source is registered for inlining/reference |
 | `local` | The workflow is repository-bound or unsafe to execute centrally | Remains/restored locally | Source and blocker reasons are registered, but execution stays in the target repo |
 

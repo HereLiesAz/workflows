@@ -1,0 +1,152 @@
+# Generated shared catalog workflow. Do not edit by hand.
+# catalog-source: catalog/9cd3798527af2d4e7e2ce6939912ca7a12f4efd5657a172308089529c5d0ca6b
+name: R8 mapping triage export [shared catalog]
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_ref:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+permissions:
+  contents: read
+env:
+  TARGET_REPOSITORY: ${{ inputs.target_repository }}
+  TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+  TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+  TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+  TARGET_SHA: ${{ inputs.target_sha }}
+  TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+  TARGET_REF: ${{ inputs.target_ref }}
+  TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+  TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+  TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+  TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+  TARGET_ACTOR: ${{ inputs.target_actor }}
+  TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+  TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+  TARGET_RUN_ID: ${{ inputs.target_run_id }}
+  TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+  TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+  TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+  TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+jobs:
+  central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from the shared HereLiesAz/workflows catalog.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+  export:
+    name: Locate exact mapping and deobfuscate crash symbols
+    runs-on: ubuntu-latest
+    env:
+      TARGET_MAP_ID: e1d9e9c5088656e57dfae6fdbc10391819fc8a1d7e0ee04ab009f9a8953cc9de
+    steps:
+      - name: Find exact R8 mapping
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: "set -euo pipefail\nmkdir -p \"$RUNNER_TEMP/candidates\"\nfound=\"\"\nsource_run_id=\"\"\n\nmapfile -t run_ids < <(gh run list \\\n  --repo \"$TARGET_REPOSITORY\" \\\n  --workflow release-play.yml \\\n  --status success \\\n  --limit 100 \\\n  --json databaseId \\\n  --jq '.[].databaseId')\n\nfor run_id in \"${run_ids[@]}\"; do\n  rm -rf \"$RUNNER_TEMP/candidates\"/*\n  if ! gh run download \"$run_id\" \\\n    --repo \"$TARGET_REPOSITORY\" \\\n    --pattern 'quicloc-mapping-*' \\\n    --dir \"$RUNNER_TEMP/candidates\" >/dev/null 2>&1; then\n    continue\n  fi\n\n  while IFS= read -r map; do\n    map_id=$(grep -m1 '^# pg_map_id:' \"$map\" | sed -E 's/^# pg_map_id:[[:space:]]*//' || true)\n    echo \"run=$run_id map_id=${map_id:-none}\"\n    if [ \"$map_id\" = \"$TARGET_MAP_ID\" ]; then\n      cp \"$map\" \"$RUNNER_TEMP/target-mapping.txt\"\n      source_run_id=\"$run_id\"\n      found=1\n      break 2\n    fi\n  done < <(find \"$RUNNER_TEMP/candidates\" -type f -name mapping.txt -print)\ndone\n\nif [ -z \"$found\" ]; then\n  echo \"::error::Exact map id $TARGET_MAP_ID not found in the last 100 successful Release to Play runs.\"\n  exit 1\nfi\n\necho \"MAP_PATH=$RUNNER_TEMP/target-mapping.txt\" >> \"$GITHUB_ENV\"\necho \"SOURCE_RUN_ID=$source_run_id\" >> \"$GITHUB_ENV\"\necho \"Found exact map in run $source_run_id\"\n"
+      - name: Emit deobfuscation targets
+        run: "set -euo pipefail\npython3 - <<'PY'\nimport os, re\n\npath = os.environ['MAP_PATH']\nout_path = os.path.join(os.environ['RUNNER_TEMP'], 'deobfuscation.txt')\ntargets = {'cg2', 'qb2', 'id0', 'pl'}\nwith open(path, encoding='utf-8') as f:\n    lines = f.read().splitlines()\n\noutput = []\nfor line in lines:\n    if line.startswith('# pg_map_id:'):\n        output.append(line)\n        break\noutput.append(f\"source_run_id={os.environ['SOURCE_RUN_ID']}\")\n\nheaders = []\nrx = re.compile(r'^(\\S.*) -> ([^:]+):$')\nfor i, line in enumerate(lines):\n    m = rx.match(line)\n    if m:\n        headers.append((i, m.group(1), m.group(2)))\n\nfound = set()\nfor n, (start, original, obfuscated) in enumerate(headers):\n    if obfuscated not in targets:\n        continue\n    end = headers[n + 1][0] if n + 1 < len(headers) else len(lines)\n    found.add(obfuscated)\n    output.append(f'R8_TARGET_{obfuscated}_BEGIN')\n    output.extend(lines[start:end])\n    output.append(f'R8_TARGET_{obfuscated}_END')\n\nmissing = sorted(targets - found)\noutput.append('R8_TARGETS_MISSING=' + ','.join(missing))\ntext = '\\n'.join(output) + '\\n'\nprint(text, end='')\nwith open(out_path, 'w', encoding='utf-8') as f:\n    f.write(text)\nPY\n"
+      - name: Upload exact mapping and symbol report
+        uses: actions/upload-artifact@v4
+        with:
+          name: r8-triage-${{ env.TARGET_MAP_ID }}
+          path: "${{ env.MAP_PATH }}\n${{ runner.temp }}/deobfuscation.txt\n"
+          if-no-files-found: error
+          retention-days: 7
+    needs: central_check_start
+    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
+  central_check_finish:
+    if: ${{ always() }}
+    needs:
+      - central_check_start
+      - export
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""

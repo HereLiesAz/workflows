@@ -7,6 +7,9 @@
 # Central semantic shared-workflow family.
 # Public identity is the filename; implementation hashes are internal registry metadata only.
 # Do not edit generated variant jobs by hand; update the source workflow or synchronizer.
+# Central semantic shared-workflow family.
+# Public identity is the filename; implementation hashes are internal registry metadata only.
+# Do not edit generated variant jobs by hand; update the source workflow or synchronizer.
 name: Shared · Google Play
 run-name: ${{ inputs.target_repository }} · ${{ inputs.source_workflow_path }}
 on:
@@ -2050,10 +2053,12 @@ jobs:
           fail_on_unmatched_files: true
           files: ${{ steps.artifacts.outputs.apk }}
           body_path: illumera/release-notes.md
+          repository: ${{ inputs.target_repository }}
+          token: ${{ secrets.GH_TOKEN }}
     needs: v_9ac5706db1ce1f8d__central_check_start
     if: ${{ (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) && (inputs.shared_variant == '9ac5706db1ce1f8d') }}
     permissions:
-      contents: read
+      contents: write
     concurrency:
       group: release-main-${{ inputs.shared_variant }}
       cancel-in-progress: false

@@ -363,12 +363,63 @@ def add_shared_variant(existing_text: str | None, family_slug: str, variant: str
         raise ValueError(f"existing shared family {family_slug} is invalid YAML")
     current = family_variants(existing_text)
     if variant in current:
-        return existing_text
+        return replace_shared_variant(existing_text, family_slug, variant, compiled_text)
 
-    # Reconstruct existing variants from the generated family is intentionally
-    # avoided: callers adding a new variant must use append_shared_variant so
-    # existing job bodies and comments remain untouched.
     return append_shared_variant(existing_text, family_slug, variant, compiled_text)
+
+
+def replace_shared_variant(existing_text: str, family_slug: str, variant: str, compiled_text: str) -> str:
+    """Replace one registered variant with freshly compiled jobs.
+
+    The variant id identifies the target workflow implementation, not the
+    compiler version. Recompilation must therefore refresh an existing variant
+    when controller semantics change (permissions, target-repo rewrites, etc.).
+    """
+    doc = load_yaml(existing_text)
+    if not isinstance(doc, dict):
+        raise ValueError(f"existing shared family {family_slug} is invalid")
+    jobs = doc.get("jobs") or CommentedMap()
+
+    on_value = doc.get("on") or {}
+    dispatch = on_value.get("workflow_dispatch") or {}
+    existing_inputs = dispatch.get("inputs") or {}
+    candidate_inputs = _dispatch_inputs(load_yaml(compiled_text))
+    for key in existing_inputs:
+        if key == "shared_variant":
+            continue
+        if key not in candidate_inputs:
+            raise ValueError(f"refreshed variant is missing dispatch input {key!r} in family {family_slug}")
+
+    prefix = f"v_{variant}__"
+    removed = False
+    for job_id in list(jobs):
+        if str(job_id).startswith(prefix):
+            del jobs[job_id]
+            removed = True
+    if not removed:
+        raise ValueError(f"variant {variant} is not present in family {family_slug}")
+
+    for job_id, job in compiled_variant_jobs(compiled_text, variant).items():
+        if job_id in jobs:
+            raise ValueError(f"duplicate refreshed job id: {job_id}")
+        jobs[job_id] = job
+    doc["jobs"] = jobs
+
+    variants = sorted(family_variants(dump_yaml(doc)))
+    guard = jobs.get("shared_variant_guard")
+    if not isinstance(guard, dict):
+        raise ValueError(f"family {family_slug} has no shared_variant_guard")
+    steps = guard.get("steps") or []
+    if not steps or not isinstance(steps[0], dict):
+        raise ValueError(f"family {family_slug} guard shape changed")
+    steps[0]["run"] = _variant_guard_script(variants)
+
+    header = (
+        "# Central semantic shared-workflow family.\n"
+        "# Public identity is the filename; implementation hashes are internal registry metadata only.\n"
+        "# Do not edit generated variant jobs by hand; update the source workflow or synchronizer.\n"
+    )
+    return header + dump_yaml(doc)
 
 
 def append_shared_variant(existing_text: str, family_slug: str, variant: str, compiled_text: str) -> str:

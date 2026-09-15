@@ -42,7 +42,8 @@ jobs:
             scripts/sync_repository_catalog.py \
             scripts/retry_repository_sync.py \
             scripts/dispatch_request.py \
-            scripts/prune_shared_workflow_library.py
+            scripts/prune_shared_workflow_library.py \
+            scripts/test_shared_variant_refresh.py
 
       - name: Validate semantic workflow filenames and YAML
         run: |
@@ -293,6 +294,9 @@ jobs:
 
       - name: Regression-test release centralization
         run: python scripts/test_release_centralization.py
+
+      - name: Regression-test shared variant refresh
+        run: python scripts/test_shared_variant_refresh.py
 
       - name: Check Worker JavaScript
         run: node --check worker/src/index.js

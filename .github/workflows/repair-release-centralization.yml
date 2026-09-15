@@ -1,0 +1,349 @@
+name: Repair centralized GitHub release execution
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/repair-release-centralization.yml'
+
+permissions:
+  contents: write
+  actions: write
+
+env:
+  WORKER_URL: https://workflows.hereliesaz.workers.dev
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out controller
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+          fetch-depth: 0
+
+      - name: Install YAML parser
+        run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
+
+      - name: Patch controller release semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          sync = Path('scripts/sync_repository.py')
+          text = sync.read_text(encoding='utf-8')
+          if 'import copy\n' not in text:
+              text = text.replace('import argparse\n', 'import argparse\nimport copy\n', 1)
+
+          anchor = '''    doc = load_yaml(compiled)\n    jobs = doc.get("jobs") or {}\n    start = jobs.get("central_check_start")\n'''
+          replacement = '''    doc = load_yaml(compiled)\n    jobs = doc.get("jobs") or {}\n\n    # Preserve workflow-level permissions on the original jobs. The base\n    # centralizer deliberately gives the central workflow a read-only default,\n    # but source jobs that inherited e.g. `contents: write` must not be silently\n    # downgraded when moved into the shared library.\n    source_doc = load_yaml(source_text)\n    source_jobs = source_doc.get("jobs") if isinstance(source_doc, dict) else {}\n    source_permissions = source_doc.get("permissions") if isinstance(source_doc, dict) else None\n    if source_permissions is not None and isinstance(source_jobs, dict):\n        for source_job_id, source_job in source_jobs.items():\n            compiled_job = jobs.get(source_job_id)\n            if (\n                isinstance(source_job, dict)\n                and isinstance(compiled_job, dict)\n                and "permissions" not in source_job\n            ):\n                compiled_job["permissions"] = core.rewrite_recursive(copy.deepcopy(source_permissions))\n\n    # Repo-aware actions cannot be allowed to default to the controller repo.\n    # softprops/action-gh-release supports explicit repository/token inputs; use\n    # the target repository plus the central GH_TOKEN. If the source relied on\n    # the action's implicit tag context, reconstruct that context from the proxy\n    # inputs and fail clearly for a non-tag dispatch instead of publishing the\n    # wrong release.\n    for compiled_job in jobs.values():\n        if not isinstance(compiled_job, dict):\n            continue\n        steps = compiled_job.get("steps") or []\n        rewritten_steps = []\n        for step in steps:\n            if (\n                isinstance(step, dict)\n                and str(step.get("uses") or "").startswith("softprops/action-gh-release@")\n            ):\n                with_values = step.get("with")\n                if with_values is None:\n                    with_values = {}\n                if not isinstance(with_values, dict):\n                    raise ValueError("softprops/action-gh-release has non-mapping with: configuration")\n                with_values["repository"] = "${{ inputs.target_repository }}"\n                with_values["token"] = "${{ secrets.GH_TOKEN }}"\n                if "tag_name" not in with_values:\n                    rewritten_steps.append({\n                        "name": "Validate target release ref",\n                        "if": "${{ inputs.target_ref_type != 'tag' }}",\n                        "shell": "bash",\n                        "run": 'echo "softprops/action-gh-release requires a target tag ref; got ${TARGET_REF}" >&2; exit 1',\n                    })\n                    with_values["tag_name"] = "${{ inputs.target_ref_name }}"\n                step["with"] = with_values\n            rewritten_steps.append(step)\n        compiled_job["steps"] = rewritten_steps\n\n    start = jobs.get("central_check_start")\n'''
+          if 'Preserve workflow-level permissions on the original jobs.' not in text:
+              if anchor not in text:
+                  raise SystemExit('sync_repository.py compile anchor changed')
+              text = text.replace(anchor, replacement, 1)
+          sync.write_text(text, encoding='utf-8')
+
+          library = Path('scripts/shared_workflow_library.py')
+          text = library.read_text(encoding='utf-8')
+          old = '''    if "sftp" in lowered:\n        return "sftp-deploy"\n    if "ftp" in lowered:\n        return "ftp-deploy"\n'''
+          new = '''    if "sftp" in lowered:\n        return "sftp-deploy"\n    # Do not use a raw `"ftp" in text` test here: `softprops` contains the\n    # letters "ftp" and previously misclassified GitHub release workflows as FTP.\n    if any(token in lowered for token in (\n        "ftp-deploy-action",\n        "ftp deploy",\n        "ftp_server",\n        "ftp-server",\n        "lftp ",\n        "ftp-action",\n    )):\n        return "ftp-deploy"\n'''
+          if 'previously misclassified GitHub release workflows as FTP' not in text:
+              if old not in text:
+                  raise SystemExit('shared_workflow_library.py FTP classifier anchor changed')
+              text = text.replace(old, new, 1)
+          library.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Add permanent release regression test
+        shell: bash
+        run: |
+          cat > scripts/test_release_centralization.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+
+          from sync_repository import compile_central, load_yaml
+          from shared_workflow_library import semantic_family_slug
+
+          source = '''
+          name: release
+          on:
+            push:
+              tags: ['v*']
+            workflow_dispatch:
+          permissions:
+            contents: write
+          jobs:
+            release:
+              runs-on: ubuntu-latest
+              steps:
+                - uses: actions/checkout@v4
+                - uses: actions/setup-node@v4
+                  with:
+                    node-version: '20'
+                - name: Publish release
+                  uses: softprops/action-gh-release@v2
+                  with:
+                    files: '*.azp'
+          '''
+
+          compiled = compile_central(
+              source,
+              {'full_name': 'HereLiesAz/fixture', 'private': False},
+              '.github/workflows/release.yml',
+              'release',
+          )
+          doc = load_yaml(compiled)
+          release = doc['jobs']['release']
+          assert release['permissions']['contents'] == 'write', release.get('permissions')
+
+          release_step = next(
+              step for step in release['steps']
+              if isinstance(step, dict)
+              and str(step.get('uses') or '').startswith('softprops/action-gh-release@')
+          )
+          assert release_step['with']['repository'] == '${{ inputs.target_repository }}'
+          assert release_step['with']['token'] == '${{ secrets.GH_TOKEN }}'
+          assert release_step['with']['tag_name'] == '${{ inputs.target_ref_name }}'
+          assert any(
+              isinstance(step, dict)
+              and step.get('name') == 'Validate target release ref'
+              for step in release['steps']
+          )
+
+          family = semantic_family_slug(
+              'release',
+              '.github/workflows/release.yml',
+              compiled,
+          )
+          assert family == 'node-release', family
+          print('release centralization regression test passed')
+          PY
+
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.github/workflows/validate-controller.yml')
+          text = path.read_text(encoding='utf-8')
+          anchor = "      - name: Check Worker JavaScript\n"
+          step = "      - name: Regression-test release centralization\n        run: python scripts/test_release_centralization.py\n\n"
+          if 'Regression-test release centralization' not in text:
+              if anchor not in text:
+                  raise SystemExit('validate-controller.yml insertion anchor changed')
+              text = text.replace(anchor, step + anchor, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Validate controller fix locally
+        run: |
+          python -m py_compile \
+            scripts/sync_repository.py \
+            scripts/sync_repository_catalog.py \
+            scripts/shared_workflow_library.py \
+            scripts/test_release_centralization.py
+          python scripts/test_release_centralization.py
+          git diff --check
+
+      - name: Commit controller fix
+        id: controller
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Az'
+          git config user.email '103241502+HereLiesAz@users.noreply.github.com'
+          git add scripts/sync_repository.py scripts/shared_workflow_library.py scripts/test_release_centralization.py .github/workflows/validate-controller.yml
+          git commit -m 'Preserve release permissions and target repository context'
+          git push origin HEAD:main
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for controller validation
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          COMMIT_SHA: ${{ steps.controller.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_id=''
+          for _ in $(seq 1 30); do
+            run_id="$(gh run list --repo HereLiesAz/workflows --workflow validate-controller.yml --commit "$COMMIT_SHA" --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+            [[ -n "$run_id" ]] && break
+            sleep 2
+          done
+          [[ -n "$run_id" ]] || { echo 'Controller validation run did not appear' >&2; exit 1; }
+          gh run watch "$run_id" --repo HereLiesAz/workflows --exit-status
+
+      - name: Discover release workflows affected by the bug
+        id: affected
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' > /tmp/affected.tsv
+          import json
+          from pathlib import Path
+
+          root = Path('registry')
+          rows = set()
+          for manifest_path in root.glob('*/manifest.json'):
+              manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+              repo = (manifest.get('repository') or {}).get('full_name', '')
+              if repo in {'HereLiesAz/NoLAWallet', 'HereLiesAz/NoLAWallet-id'}:
+                  continue
+              for source_path, entry in (manifest.get('workflows') or {}).items():
+                  if not isinstance(entry, dict) or entry.get('status') != 'active':
+                      continue
+                  registry_source = entry.get('registry_source')
+                  if not registry_source:
+                      continue
+                  source_file = Path(registry_source)
+                  if not source_file.exists():
+                      continue
+                  if 'softprops/action-gh-release@' in source_file.read_text(encoding='utf-8'):
+                      rows.add((repo, source_path))
+          for repo, source_path in sorted(rows):
+              print(f'{repo}\t{source_path}')
+          PY
+          cat /tmp/affected.tsv
+          echo "count=$(wc -l < /tmp/affected.tsv | tr -d ' ')" >> "$GITHUB_OUTPUT"
+
+      - name: Resync affected repositories
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS=$'\t' read -r repo source_path; do
+            [[ -n "$repo" ]] || continue
+            echo "::group::Resync $repo ($source_path)"
+            python scripts/sync_repository.py \
+              --repository "$repo" \
+              --worker-url "$WORKER_URL" \
+              --json-output /tmp/sync-result.json
+            cat /tmp/sync-result.json
+            echo '::endgroup::'
+          done < /tmp/affected.tsv
+
+      - name: Prune stale shared variants
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+          from ruamel.yaml import YAML
+
+          from scripts.shared_workflow_library import dump_yaml, _variant_guard_script
+
+          yaml = YAML()
+          yaml.preserve_quotes = True
+          yaml.width = 4096
+          yaml.indent(mapping=2, sequence=4, offset=2)
+
+          refs = {}
+          for manifest_path in Path('registry').glob('*/manifest.json'):
+              manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+              for entry in (manifest.get('workflows') or {}).values():
+                  if not isinstance(entry, dict):
+                      continue
+                  if entry.get('status') != 'active' or entry.get('binding') != 'shared-variant':
+                      continue
+                  central = entry.get('central_workflow')
+                  variant = entry.get('shared_variant')
+                  if central and variant:
+                      refs.setdefault(central, set()).add(variant)
+
+          changed = []
+          for central, keep in sorted(refs.items()):
+              path = Path(central)
+              if not path.exists():
+                  continue
+              text = path.read_text(encoding='utf-8')
+              if not text.startswith('# Central semantic shared-workflow family.'):
+                  continue
+              doc = yaml.load(text)
+              jobs = doc.get('jobs') or {}
+              removed = False
+              for job_id in list(jobs):
+                  match = re.match(r'^v_([0-9a-f]{16})__', str(job_id))
+                  if match and match.group(1) not in keep:
+                      del jobs[job_id]
+                      removed = True
+              if not removed:
+                  continue
+              guard = jobs.get('shared_variant_guard')
+              if not isinstance(guard, dict):
+                  raise SystemExit(f'missing shared_variant_guard in {central}')
+              steps = guard.get('steps') or []
+              if not steps or not isinstance(steps[0], dict):
+                  raise SystemExit(f'invalid shared_variant_guard in {central}')
+              steps[0]['run'] = _variant_guard_script(sorted(keep))
+              header = (
+                  '# Central semantic shared-workflow family.\n'
+                  '# Public identity is the filename; implementation hashes are internal registry metadata only.\n'
+                  '# Do not edit generated variant jobs by hand; update the source workflow or synchronizer.\n'
+              )
+              path.write_text(header + dump_yaml(doc), encoding='utf-8')
+              changed.append(central)
+
+          print('\n'.join(changed))
+          PY
+
+          if ! git diff --quiet; then
+            git config user.name 'Az'
+            git config user.email '103241502+HereLiesAz@users.noreply.github.com'
+            git add .github/workflows registry
+            git commit -m 'Prune stale shared workflow variants'
+            git push origin HEAD:main
+          fi
+
+      - name: Verify repaired release workflows
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+          python scripts/test_release_centralization.py
+          if grep -q 'softprops/action-gh-release@' .github/workflows/ftp-deploy.yml; then
+            echo '::error::GitHub release variants are still misclassified as FTP'
+            exit 1
+          fi
+          grep -R -l 'softprops/action-gh-release@' .github/workflows/*.yml | sort
+          grep -n -A8 -B4 'softprops/action-gh-release@' .github/workflows/node-release.yml | head -80
+
+      - name: Re-run failed v0.6.131 target releases
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rerun_count=0
+          while IFS=$'\t' read -r repo source_path; do
+            [[ -n "$repo" ]] || continue
+            workflow_name="${source_path##*/}"
+            runs="$(gh run list --repo "$repo" --workflow "$workflow_name" --limit 30 --json databaseId,headBranch,status,conclusion,event,createdAt 2>/dev/null || echo '[]')"
+            run_id="$(jq -r '[.[] | select(.headBranch == "v0.6.131" and .status == "completed")] | sort_by(.createdAt) | last | .databaseId // empty' <<<"$runs")"
+            if [[ -n "$run_id" ]]; then
+              echo "Re-running $repo $workflow_name run $run_id for v0.6.131"
+              gh run rerun "$run_id" --repo "$repo"
+              rerun_count=$((rerun_count + 1))
+            fi
+          done < /tmp/affected.tsv
+          echo "Re-triggered $rerun_count target release workflow run(s)."
+
+      - name: Remove one-time repair workflow
+        if: ${{ success() }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(gh api repos/HereLiesAz/workflows/contents/.github/workflows/repair-release-centralization.yml --jq .sha)"
+          gh api --method DELETE repos/HereLiesAz/workflows/contents/.github/workflows/repair-release-centralization.yml \
+            -f message='Remove one-time release centralization repair' \
+            -f sha="$sha" >/dev/null

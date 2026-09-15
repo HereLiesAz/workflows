@@ -290,5 +290,8 @@ jobs:
           print('compiler and semantic library smoke test passed')
           PY
 
+      - name: Regression-test release centralization
+        run: python scripts/test_release_centralization.py
+
       - name: Check Worker JavaScript
         run: node --check worker/src/index.js

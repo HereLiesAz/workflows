@@ -97,7 +97,16 @@ def semantic_family_slug(workflow_name: str, source_path: str, compiled_text: st
         return "vercel-deploy"
     if "sftp" in lowered:
         return "sftp-deploy"
-    if "ftp" in lowered:
+    # Do not use a raw `"ftp" in text` test here: `softprops` contains the
+    # letters "ftp" and previously misclassified GitHub release workflows as FTP.
+    if any(token in lowered for token in (
+        "ftp-deploy-action",
+        "ftp deploy",
+        "ftp_server",
+        "ftp-server",
+        "lftp ",
+        "ftp-action",
+    )):
         return "ftp-deploy"
     if "deploy-pages" in lowered or "github pages" in lowered:
         return "github-pages"

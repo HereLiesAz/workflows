@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import os
 import re
@@ -56,6 +57,62 @@ def compile_central(source_text: str, target: dict, source_path: str, check_name
 
     doc = load_yaml(compiled)
     jobs = doc.get("jobs") or {}
+
+    # Preserve workflow-level permissions on the original jobs. The base
+    # centralizer deliberately gives the central workflow a read-only default,
+    # but source jobs that inherited e.g. `contents: write` must not be silently
+    # downgraded when moved into the shared library.
+    source_doc = load_yaml(source_text)
+    source_jobs = source_doc.get("jobs") if isinstance(source_doc, dict) else {}
+    source_permissions = source_doc.get("permissions") if isinstance(source_doc, dict) else None
+    if source_permissions is not None and isinstance(source_jobs, dict):
+        for source_job_id, source_job in source_jobs.items():
+            compiled_job = jobs.get(source_job_id)
+            if (
+                isinstance(source_job, dict)
+                and isinstance(compiled_job, dict)
+                and "permissions" not in source_job
+            ):
+                compiled_job["permissions"] = core.rewrite_recursive(copy.deepcopy(source_permissions))
+
+    def central_expression(body: str) -> str:
+        return "${" + "{ " + body + " }}"
+
+    # Repo-aware actions cannot be allowed to default to the controller repo.
+    # softprops/action-gh-release supports explicit repository/token inputs; use
+    # the target repository plus the central GH_TOKEN. If the source relied on
+    # the action's implicit tag context, reconstruct that context from the proxy
+    # inputs and fail clearly for a non-tag dispatch instead of publishing the
+    # wrong release.
+    for compiled_job in jobs.values():
+        if not isinstance(compiled_job, dict):
+            continue
+        steps = compiled_job.get("steps") or []
+        rewritten_steps = []
+        for step in steps:
+            if (
+                isinstance(step, dict)
+                and str(step.get("uses") or "").startswith("softprops/action-gh-release@")
+            ):
+                with_values = step.get("with")
+                if with_values is None:
+                    with_values = {}
+                if not isinstance(with_values, dict):
+                    raise ValueError("softprops/action-gh-release has non-mapping with: configuration")
+                with_values["repository"] = central_expression("inputs.target_repository")
+                with_values["token"] = central_expression("secrets.GH_TOKEN")
+                if "tag_name" not in with_values:
+                    rewritten_steps.append({
+                        "name": "Validate target release ref",
+                        "if": central_expression("inputs.target_ref_type != 'tag'"),
+                        "shell": "bash",
+                        "run": 'echo "softprops/action-gh-release requires a target tag ref; got ${TARGET_REF}" >&2; exit 1',
+                    })
+                    with_values["tag_name"] = central_expression("inputs.target_ref_name")
+                step["with"] = with_values
+            rewritten_steps.append(step)
+        compiled_job["steps"] = rewritten_steps
+
     start = jobs.get("central_check_start")
     finish = jobs.get("central_check_finish")
     if not isinstance(start, dict) or not isinstance(finish, dict):

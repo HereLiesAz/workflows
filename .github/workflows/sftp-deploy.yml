@@ -1,6 +1,9 @@
 # Central semantic shared-workflow family.
 # Public identity is the filename; implementation hashes are internal registry metadata only.
 # Do not edit generated variant jobs by hand; update the source workflow or synchronizer.
+# Central semantic shared-workflow family.
+# Public identity is the filename; implementation hashes are internal registry metadata only.
+# Do not edit generated variant jobs by hand; update the source workflow or synchronizer.
 name: Shared · Sftp Deploy
 run-name: ${{ inputs.target_repository }} · ${{ inputs.source_workflow_path }}
 on:
@@ -91,7 +94,7 @@ jobs:
     steps:
       - name: Validate registered shared workflow variant
         shell: bash
-        run: "set -euo pipefail\ncase \"$SHARED_VARIANT\" in\n  0f7472a7b532c503|4fc21447bd146f8e|8d49901b5104a9f7|c016f66e39761526|d26b3c18f98bdf8c|d8a47fccf7332e30|e798ee9c4e51b16f) ;;\n  *) echo \"Unknown shared workflow variant: $SHARED_VARIANT\" >&2; exit 1 ;;\nesac\n"
+        run: "set -euo pipefail\ncase \"$SHARED_VARIANT\" in\n  0f7472a7b532c503|4fc21447bd146f8e|8d49901b5104a9f7|c016f66e39761526|d26b3c18f98bdf8c|e798ee9c4e51b16f) ;;\n  *) echo \"Unknown shared workflow variant: $SHARED_VARIANT\" >&2; exit 1 ;;\nesac\n"
   v_0f7472a7b532c503__central_check_start:
     runs-on: ubuntu-latest
     steps:
@@ -716,133 +719,6 @@ jobs:
     needs:
       - v_d26b3c18f98bdf8c__central_check_start
       - v_d26b3c18f98bdf8c__build_and_deploy
-    runs-on: ubuntu-latest
-    steps:
-      - name: Complete target status
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
-          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
-          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        shell: bash
-        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
-    permissions:
-      contents: read
-    env:
-      TARGET_REPOSITORY: ${{ inputs.target_repository }}
-      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
-      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
-      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
-      TARGET_SHA: ${{ inputs.target_sha }}
-      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
-      TARGET_REF: ${{ inputs.target_ref }}
-      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
-      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
-      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
-      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
-      TARGET_ACTOR: ${{ inputs.target_actor }}
-      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
-      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
-      TARGET_RUN_ID: ${{ inputs.target_run_id }}
-      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
-      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
-      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
-      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
-    concurrency:
-      group: sftp-deploy-${{ inputs.shared_variant }}
-      cancel-in-progress: true
-  v_d8a47fccf7332e30__central_check_start:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Validate immutable target identity
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        shell: bash
-        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
-      - name: Set target status pending
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
-          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        shell: bash
-        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from the shared HereLiesAz/workflows catalog.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
-    permissions:
-      contents: read
-    env:
-      TARGET_REPOSITORY: ${{ inputs.target_repository }}
-      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
-      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
-      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
-      TARGET_SHA: ${{ inputs.target_sha }}
-      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
-      TARGET_REF: ${{ inputs.target_ref }}
-      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
-      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
-      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
-      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
-      TARGET_ACTOR: ${{ inputs.target_actor }}
-      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
-      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
-      TARGET_RUN_ID: ${{ inputs.target_run_id }}
-      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
-      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
-      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
-      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
-    concurrency:
-      group: sftp-deploy-${{ inputs.shared_variant }}
-      cancel-in-progress: true
-    if: ${{ inputs.shared_variant == 'd8a47fccf7332e30' }}
-  v_d8a47fccf7332e30__deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ inputs.target_repository }}
-          ref: ${{ inputs.target_sha }}
-          token: ${{ secrets.GH_TOKEN }}
-          persist-credentials: false
-      - name: Deploy via lftp (SFTP)
-        env:
-          HOST: ${{ secrets.FTP_SERVER }}
-          USERNAME: ${{ secrets.FTP_USERNAME }}
-          PASSWORD: ${{ secrets.FTP_PASSWORD }}
-          PORT: ${{ fromJSON(inputs.target_vars_json).SFTP_PORT || '22' }}
-          REMOTE_DIR: /quicloc
-          SFTP_HOST_KEY: ${{ secrets.SFTP_HOST_KEY }}
-        run: "set -e\nsudo apt-get install -y lftp\n\nUSER_TRIMMED=$(printf '%s' \"$USERNAME\" | tr -d ' \\t\\r\\n')\nPW_TRIMMED=$(printf '%s' \"$PASSWORD\" | tr -d '\\r\\n')\n\n# sftp:auto-confirm yes accepts ANY host key on first connection\n# with no verification -- a DNS hijack or network-position MITM\n# gets silently trusted and handed the FTP credentials. Pin the\n# real host key via the SFTP_HOST_KEY secret when it's set\n# (`ssh-keyscan -p \"$PORT\" \"$HOST\"` run once, out of band, to\n# obtain it); until then, fall back to the old trust-on-first-use\n# behavior but say so loudly instead of silently.\nif [ -n \"$SFTP_HOST_KEY\" ]; then\n  known_hosts=\"$RUNNER_TEMP/sftp_known_hosts\"\n  printf '%s\\n' \"$SFTP_HOST_KEY\" > \"$known_hosts\"\n  AUTO_CONFIRM=no\n  SET_KNOWN_HOSTS=\"set sftp:known-hosts-files \\\"$known_hosts\\\";\"\nelse\n  echo \"::warning::SFTP_HOST_KEY secret is not set -- the deploy host's SSH key is trusted on first use with no verification (sftp:auto-confirm). Run 'ssh-keyscan -p $PORT $HOST' once and store the output as the SFTP_HOST_KEY secret to close this.\"\n  AUTO_CONFIRM=yes\n  SET_KNOWN_HOSTS=\"\"\nfi\n\n# Mirror the docs directory to /quicloc. No `ssl:verify-certificate`\n# setting here -- SFTP runs over SSH, not TLS, so that option\n# (a leftover from FTPS-flavored lftp configs) doesn't apply to\n# this sftp:// connection and disabling it bought nothing.\nlftp -u \"$USER_TRIMMED\",\"$PW_TRIMMED\" \\\n  -p \"$PORT\" \\\n  -e \"$SET_KNOWN_HOSTS set sftp:auto-confirm $AUTO_CONFIRM; mirror -R --verbose ./docs/ $REMOTE_DIR; quit\" \\\n  sftp://\"$HOST\"\n"
-    needs: v_d8a47fccf7332e30__central_check_start
-    if: ${{ (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) && (inputs.shared_variant == 'd8a47fccf7332e30') }}
-    permissions:
-      contents: read
-    env:
-      TARGET_REPOSITORY: ${{ inputs.target_repository }}
-      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
-      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
-      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
-      TARGET_SHA: ${{ inputs.target_sha }}
-      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
-      TARGET_REF: ${{ inputs.target_ref }}
-      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
-      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
-      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
-      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
-      TARGET_ACTOR: ${{ inputs.target_actor }}
-      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
-      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
-      TARGET_RUN_ID: ${{ inputs.target_run_id }}
-      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
-      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
-      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
-      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
-    concurrency:
-      group: sftp-deploy-${{ inputs.shared_variant }}
-      cancel-in-progress: true
-  v_d8a47fccf7332e30__central_check_finish:
-    if: ${{ (always()) && (inputs.shared_variant == 'd8a47fccf7332e30') }}
-    needs:
-      - v_d8a47fccf7332e30__central_check_start
-      - v_d8a47fccf7332e30__deploy
     runs-on: ubuntu-latest
     steps:
       - name: Complete target status

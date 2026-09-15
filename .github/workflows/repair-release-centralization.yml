@@ -1,4 +1,4 @@
-name: Finish centralized GitHub release repair
+name: Complete centralized GitHub release repair
 
 on:
   push:
@@ -27,91 +27,63 @@ jobs:
       - name: Install YAML parser
         run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
 
-      - name: Make semantic garbage collection part of every real sync
+      - name: Make existing shared variants refreshable
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
 
-          path = Path('scripts/sync_repository.py')
+          path = Path('scripts/shared_workflow_library.py')
           text = path.read_text(encoding='utf-8')
 
-          import_anchor = '''except ImportError:\n    import sync_repository_catalog as core\n    from sync_repository_catalog import *  # noqa: F401,F403\n\n\n'''
-          import_block = '''except ImportError:\n    import sync_repository_catalog as core\n    from sync_repository_catalog import *  # noqa: F401,F403\n\ntry:\n    from .prune_shared_workflow_library import prune_shared_workflow_library\nexcept ImportError:\n    from prune_shared_workflow_library import prune_shared_workflow_library\n\n\n'''
-          if 'from .prune_shared_workflow_library import prune_shared_workflow_library' not in text:
-              if import_anchor not in text:
-                  raise SystemExit('sync_repository import anchor changed')
-              text = text.replace(import_anchor, import_block, 1)
+          old = '''    current = family_variants(existing_text)\n    if variant in current:\n        return existing_text\n\n    # Reconstruct existing variants from the generated family is intentionally\n    # avoided: callers adding a new variant must use append_shared_variant so\n    # existing job bodies and comments remain untouched.\n    return append_shared_variant(existing_text, family_slug, variant, compiled_text)\n\n\ndef append_shared_variant'''
+          new = '''    current = family_variants(existing_text)\n    if variant in current:\n        return replace_shared_variant(existing_text, family_slug, variant, compiled_text)\n\n    return append_shared_variant(existing_text, family_slug, variant, compiled_text)\n\n\ndef replace_shared_variant(existing_text: str, family_slug: str, variant: str, compiled_text: str) -> str:\n    \"\"\"Replace one registered variant with freshly compiled jobs.\n\n    The variant id identifies the target workflow implementation, not the\n    compiler version. Recompilation must therefore refresh an existing variant\n    when controller semantics change (permissions, target-repo rewrites, etc.).\n    \"\"\"\n    doc = load_yaml(existing_text)\n    if not isinstance(doc, dict):\n        raise ValueError(f\"existing shared family {family_slug} is invalid\")\n    jobs = doc.get(\"jobs\") or CommentedMap()\n\n    on_value = doc.get(\"on\") or {}\n    dispatch = on_value.get(\"workflow_dispatch\") or {}\n    existing_inputs = dispatch.get(\"inputs\") or {}\n    candidate_inputs = _dispatch_inputs(load_yaml(compiled_text))\n    for key in existing_inputs:\n        if key == \"shared_variant\":\n            continue\n        if key not in candidate_inputs:\n            raise ValueError(f\"refreshed variant is missing dispatch input {key!r} in family {family_slug}\")\n\n    prefix = f\"v_{variant}__\"\n    removed = False\n    for job_id in list(jobs):\n        if str(job_id).startswith(prefix):\n            del jobs[job_id]\n            removed = True\n    if not removed:\n        raise ValueError(f\"variant {variant} is not present in family {family_slug}\")\n\n    for job_id, job in compiled_variant_jobs(compiled_text, variant).items():\n        if job_id in jobs:\n            raise ValueError(f\"duplicate refreshed job id: {job_id}\")\n        jobs[job_id] = job\n    doc[\"jobs\"] = jobs\n\n    variants = sorted(family_variants(dump_yaml(doc)))\n    guard = jobs.get(\"shared_variant_guard\")\n    if not isinstance(guard, dict):\n        raise ValueError(f\"family {family_slug} has no shared_variant_guard\")\n    steps = guard.get(\"steps\") or []\n    if not steps or not isinstance(steps[0], dict):\n        raise ValueError(f\"family {family_slug} guard shape changed\")\n    steps[0][\"run\"] = _variant_guard_script(variants)\n\n    header = (\n        \"# Central semantic shared-workflow family.\\n\"\n        \"# Public identity is the filename; implementation hashes are internal registry metadata only.\\n\"\n        \"# Do not edit generated variant jobs by hand; update the source workflow or synchronizer.\\n\"\n    )\n    return header + dump_yaml(doc)\n\n\ndef append_shared_variant'''
 
-          base_anchor = '_base_build_proxy = core.build_proxy\n'
-          if '_base_sync_repository = core.sync_repository' not in text:
-              if base_anchor not in text:
-                  raise SystemExit('sync_repository base function anchor changed')
-              text = text.replace(
-                  base_anchor,
-                  base_anchor + '_base_sync_repository = core.sync_repository\n',
-                  1,
-              )
-
-          assignment_anchor = '''core.compile_central = compile_central\ncore.build_proxy = build_proxy\n'''
-          wrapper = '''def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):\n    result = _base_sync_repository(gh, repository, worker_url, dry_run)\n    if not dry_run:\n        result["shared_library_gc"] = prune_shared_workflow_library(gh, dry_run=False)\n    return result\n\n\ncore.compile_central = compile_central\ncore.build_proxy = build_proxy\ncore.sync_repository = sync_repository\n'''
-          if 'core.sync_repository = sync_repository' not in text:
-              if assignment_anchor not in text:
-                  raise SystemExit('sync_repository assignment anchor changed')
-              text = text.replace(assignment_anchor, wrapper, 1)
-
+          if 'def replace_shared_variant(' not in text:
+              if old not in text:
+                  raise SystemExit('shared variant refresh anchor changed')
+              text = text.replace(old, new, 1)
           path.write_text(text, encoding='utf-8')
-
-          # Semantic shared files are global state. Different repositories must
-          # not mutate that state concurrently.
-          path = Path('.github/workflows/sync-repository.yml')
-          lines = path.read_text(encoding='utf-8').splitlines()
-          out = []
-          for line in lines:
-              if line.strip().startswith('group: workflow-sync-'):
-                  out.append('  group: workflow-sync-controller')
-              else:
-                  out.append(line)
-          path.write_text('\n'.join(out) + '\n', encoding='utf-8')
 
           path = Path('.github/workflows/validate-controller.yml')
           text = path.read_text(encoding='utf-8')
-          if 'scripts/prune_shared_workflow_library.py' not in text:
-              needle = '            scripts/dispatch_request.py\n'
-              replacement = '            scripts/dispatch_request.py \\\n            scripts/prune_shared_workflow_library.py\n'
+          if 'scripts/test_shared_variant_refresh.py' not in text:
+              needle = '            scripts/prune_shared_workflow_library.py\n'
+              replacement = '            scripts/prune_shared_workflow_library.py \\\n            scripts/test_shared_variant_refresh.py\n'
               if needle not in text:
-                  raise SystemExit('validator compile list anchor changed')
+                  raise SystemExit('validator compile-list anchor changed')
               text = text.replace(needle, replacement, 1)
+
+              anchor = '      - name: Check Worker JavaScript\n'
+              step = '      - name: Regression-test shared variant refresh\n        run: python scripts/test_shared_variant_refresh.py\n\n'
+              if anchor not in text:
+                  raise SystemExit('validator test insertion anchor changed')
+              text = text.replace(anchor, step + anchor, 1)
           path.write_text(text, encoding='utf-8')
           PY
 
-      - name: Validate garbage collection integration
+      - name: Validate refresh semantics
         run: |
           python -m py_compile \
-            scripts/sync_repository.py \
-            scripts/sync_repository_catalog.py \
             scripts/shared_workflow_library.py \
-            scripts/prune_shared_workflow_library.py \
+            scripts/test_shared_variant_refresh.py \
             scripts/test_release_centralization.py
+          python scripts/test_shared_variant_refresh.py
           python scripts/test_release_centralization.py
           git diff --check
 
-      - name: Commit controller garbage collection
+      - name: Commit shared variant refresh fix
         id: controller
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'Az'
           git config user.email '103241502+HereLiesAz@users.noreply.github.com'
-          git add scripts/sync_repository.py scripts/prune_shared_workflow_library.py .github/workflows/sync-repository.yml .github/workflows/validate-controller.yml
-          if git diff --cached --quiet; then
-            echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          else
-            git commit -m 'Garbage collect semantic shared workflow variants'
-            git push origin HEAD:main
-            echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          fi
+          git add scripts/shared_workflow_library.py scripts/test_shared_variant_refresh.py .github/workflows/validate-controller.yml
+          git commit -m 'Refresh shared variants when compiler semantics change'
+          git push origin HEAD:main
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Wait for controller validation
         env:
@@ -129,97 +101,17 @@ jobs:
           [[ -n "$run_id" ]] || { echo 'Controller validation run did not appear' >&2; exit 1; }
           gh run watch "$run_id" --repo HereLiesAz/workflows --exit-status
 
-      - name: Garbage collect stale semantic families
+      - name: Recompile Illumera release through corrected compiler
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: python scripts/prune_shared_workflow_library.py --json-output /tmp/gc.json
-
-      - name: Verify every active GitHub release binding
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        shell: bash
         run: |
-          set -euo pipefail
-          python - <<'PY'
-          import json
-          from pathlib import Path
+          python scripts/sync_repository.py \
+            --repository HereLiesAz/illumera \
+            --worker-url "$WORKER_URL" \
+            --json-output /tmp/illumera-sync.json
+          cat /tmp/illumera-sync.json
 
-          from scripts.sync_repository_catalog import CENTRAL_REPOSITORY, GitHub, load_yaml
-
-          def expression(body: str) -> str:
-              return '${' + '{ ' + body + ' }}'
-
-          gh = GitHub(__import__('os').environ['GH_TOKEN'])
-          registry = gh.contents(CENTRAL_REPOSITORY, 'registry', ref='main')
-          checked = 0
-          failures = []
-
-          for item in registry:
-              if not isinstance(item, dict) or item.get('type') != 'dir':
-                  continue
-              manifest_path = f"{item['path']}/manifest.json"
-              try:
-                  manifest_text, _ = gh.get_file(CENTRAL_REPOSITORY, manifest_path, ref='main')
-              except Exception:
-                  continue
-              manifest = json.loads(manifest_text)
-              repo = (manifest.get('repository') or {}).get('full_name', '')
-              if repo in {'HereLiesAz/NoLAWallet', 'HereLiesAz/NoLAWallet-id'}:
-                  continue
-              for source_path, entry in (manifest.get('workflows') or {}).items():
-                  if not isinstance(entry, dict) or entry.get('status') != 'active':
-                      continue
-                  source_file = entry.get('registry_source')
-                  if not source_file:
-                      continue
-                  source_text, _ = gh.get_file(CENTRAL_REPOSITORY, source_file, ref='main')
-                  if 'softprops/action-gh-release@' not in source_text:
-                      continue
-
-                  checked += 1
-                  central = str(entry.get('central_workflow') or '')
-                  variant = str(entry.get('shared_variant') or '')
-                  if central.endswith('/ftp-deploy.yml'):
-                      failures.append(f'{repo}:{source_path} still points to ftp-deploy.yml')
-                      continue
-                  central_text, _ = gh.get_file(CENTRAL_REPOSITORY, central, ref='main')
-                  doc = load_yaml(central_text)
-                  prefix = f'v_{variant}__'
-                  matching_jobs = [
-                      job for job_id, job in (doc.get('jobs') or {}).items()
-                      if str(job_id).startswith(prefix) and isinstance(job, dict)
-                  ]
-                  release_steps = []
-                  for job in matching_jobs:
-                      for step in job.get('steps') or []:
-                          if isinstance(step, dict) and str(step.get('uses') or '').startswith('softprops/action-gh-release@'):
-                              release_steps.append((job, step))
-                  if not release_steps:
-                      failures.append(f'{repo}:{source_path} has no softprops step in registered variant {variant}')
-                      continue
-                  for job, step in release_steps:
-                      with_values = step.get('with') or {}
-                      if with_values.get('repository') != expression('inputs.target_repository'):
-                          failures.append(f'{repo}:{source_path} release repository is not target_repository')
-                      if with_values.get('token') != expression('secrets.GH_TOKEN'):
-                          failures.append(f'{repo}:{source_path} release token is not central GH_TOKEN')
-                      if 'tag_name' not in with_values:
-                          failures.append(f'{repo}:{source_path} release has no explicit target tag_name')
-
-          print(f'validated {checked} active GitHub-release workflow binding(s)')
-          if failures:
-              raise SystemExit('\n'.join(failures))
-          PY
-
-          if gh api repos/HereLiesAz/workflows/contents/.github/workflows/ftp-deploy.yml >/tmp/ftp.json 2>/dev/null; then
-            content="$(jq -r .content /tmp/ftp.json | tr -d '\n' | base64 -d)"
-            if grep -q 'softprops/action-gh-release@' <<<"$content"; then
-              echo 'GitHub release code remains in ftp-deploy.yml' >&2
-              exit 1
-            fi
-          fi
-
-      - name: Re-run failed v0.6.131 release proxies and await central result
+      - name: Verify Illumera release binding
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         shell: bash
@@ -228,100 +120,91 @@ jobs:
           python - <<'PY'
           import json
           import os
-          import subprocess
+          from scripts.sync_repository_catalog import CENTRAL_REPOSITORY, GitHub, load_yaml
+
+          def expression(body: str) -> str:
+              return '${' + '{ ' + body + ' }}'
+
+          gh = GitHub(os.environ['GH_TOKEN'])
+          manifest_text, _ = gh.get_file(CENTRAL_REPOSITORY, 'registry/1345505866/manifest.json', ref='main')
+          manifest = json.loads(manifest_text)
+          entry = manifest['workflows']['.github/workflows/release.yml']
+          central = entry['central_workflow']
+          variant = entry['shared_variant']
+          central_text, _ = gh.get_file(CENTRAL_REPOSITORY, central, ref='main')
+          doc = load_yaml(central_text)
+          release_steps = []
+          release_jobs = []
+          for job_id, job in (doc.get('jobs') or {}).items():
+              if not str(job_id).startswith(f'v_{variant}__') or not isinstance(job, dict):
+                  continue
+              for step in job.get('steps') or []:
+                  if isinstance(step, dict) and str(step.get('uses') or '').startswith('softprops/action-gh-release@'):
+                      release_steps.append(step)
+                      release_jobs.append(job)
+          assert release_steps, f'no release step in {central}:{variant}'
+          for job, step in zip(release_jobs, release_steps):
+              values = step.get('with') or {}
+              assert values.get('repository') == expression('inputs.target_repository'), values
+              assert values.get('token') == expression('secrets.GH_TOKEN'), values
+              assert job.get('permissions', {}).get('contents') == 'write', job.get('permissions')
+          print(f'Illumera release variant {variant} verified in {central}')
+          PY
+
+      - name: Re-run Illumera v0.6.131 proxy and await central release
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
           import time
+          from scripts.sync_repository_catalog import GitHub
 
-          from scripts.sync_repository_catalog import CENTRAL_REPOSITORY, GitHub
-
-          TAG = 'v0.6.131'
+          repo = 'HereLiesAz/illumera'
+          source_path = '.github/workflows/release.yml'
+          tag = 'v0.6.131'
           gh = GitHub(os.environ['GH_TOKEN'])
 
-          def cli(*args):
-              return subprocess.check_output(['gh', *args], text=True)
+          runs = gh.json('GET', f'/repos/{repo}/actions/runs?per_page=100')
+          candidates = [
+              run for run in (runs.get('workflow_runs') or [])
+              if run.get('path') == source_path and run.get('head_branch') == tag
+          ]
+          if not candidates:
+              raise SystemExit(f'No {repo} {source_path} run found for {tag}')
+          candidates.sort(key=lambda run: run.get('created_at') or '')
+          run = candidates[-1]
+          run_id = int(run['id'])
+          sha = str(run['head_sha'])
 
-          registry = gh.contents(CENTRAL_REPOSITORY, 'registry', ref='main')
-          affected = set()
-          for item in registry:
-              if not isinstance(item, dict) or item.get('type') != 'dir':
-                  continue
-              try:
-                  manifest_text, _ = gh.get_file(CENTRAL_REPOSITORY, f"{item['path']}/manifest.json", ref='main')
-              except Exception:
-                  continue
-              manifest = json.loads(manifest_text)
-              repo = (manifest.get('repository') or {}).get('full_name', '')
-              if repo in {'HereLiesAz/NoLAWallet', 'HereLiesAz/NoLAWallet-id'}:
-                  continue
-              for source_path, entry in (manifest.get('workflows') or {}).items():
-                  if not isinstance(entry, dict) or entry.get('status') != 'active':
-                      continue
-                  registry_source = entry.get('registry_source')
-                  if not registry_source:
-                      continue
-                  source_text, _ = gh.get_file(CENTRAL_REPOSITORY, registry_source, ref='main')
-                  if 'softprops/action-gh-release@' in source_text:
-                      affected.add((repo, source_path))
+          combined = gh.json('GET', f'/repos/{repo}/commits/{sha}/status')
+          old = [s for s in (combined.get('statuses') or []) if s.get('context') == source_path]
+          old_id = max((int(s.get('id') or 0) for s in old), default=0)
+          old_state = max(old, key=lambda s: int(s.get('id') or 0), default={}).get('state')
+          print(f'previous central status: {old_state}; rerunning target proxy run {run_id}')
+          gh.json('POST', f'/repos/{repo}/actions/runs/{run_id}/rerun')
 
-          reruns = []
-          for repo, source_path in sorted(affected):
-              runs = gh.json('GET', f'/repos/{repo}/actions/runs?per_page=100')
-              candidates = [
-                  run for run in (runs.get('workflow_runs') or [])
-                  if run.get('path') == source_path and run.get('head_branch') == TAG
-              ]
-              if not candidates:
-                  continue
-              candidates.sort(key=lambda run: run.get('created_at') or '')
-              run = candidates[-1]
-              sha = str(run.get('head_sha') or '')
-              if not sha:
-                  continue
-
+          deadline = time.time() + 2700
+          latest = None
+          while time.time() < deadline:
               combined = gh.json('GET', f'/repos/{repo}/commits/{sha}/status')
-              old_statuses = [
-                  status for status in (combined.get('statuses') or [])
-                  if status.get('context') == source_path
+              fresh = [
+                  s for s in (combined.get('statuses') or [])
+                  if s.get('context') == source_path and int(s.get('id') or 0) > old_id
               ]
-              old_latest = max(old_statuses, key=lambda status: int(status.get('id') or 0), default=None)
-              if not old_latest or old_latest.get('state') != 'failure':
-                  continue
-              old_id = int(old_latest.get('id') or 0)
-              run_id = int(run['id'])
-              print(f'Re-running {repo} {source_path} run {run_id} for {TAG}; prior central status id={old_id}')
-              gh.json('POST', f'/repos/{repo}/actions/runs/{run_id}/rerun')
-              reruns.append((repo, source_path, run_id, sha, old_id))
+              if fresh:
+                  latest = max(fresh, key=lambda s: int(s.get('id') or 0))
+                  if latest.get('state') in {'success', 'failure', 'error'}:
+                      break
+              time.sleep(10)
 
-          if not reruns:
-              print(f'No failed {TAG} central release status found among active release workflows.')
-              raise SystemExit(0)
-
-          failures = []
-          for repo, source_path, run_id, sha, old_id in reruns:
-              deadline = time.time() + 2700
-              latest = None
-              while time.time() < deadline:
-                  combined = gh.json('GET', f'/repos/{repo}/commits/{sha}/status')
-                  fresh = [
-                      status for status in (combined.get('statuses') or [])
-                      if status.get('context') == source_path and int(status.get('id') or 0) > old_id
-                  ]
-                  if fresh:
-                      latest = max(fresh, key=lambda status: int(status.get('id') or 0))
-                      if latest.get('state') in {'success', 'failure', 'error'}:
-                          break
-                  time.sleep(10)
-
-              if not latest or int(latest.get('id') or 0) <= old_id:
-                  failures.append(f'{repo}:{source_path} produced no new central status after target run {run_id}')
-                  continue
-              state = latest.get('state')
-              url = latest.get('target_url') or ''
-              print(f'{repo}:{source_path} => {state} {url}')
-              if state != 'success':
-                  failures.append(f'{repo}:{source_path} central release ended {state}: {url}')
-
-          if failures:
-              raise SystemExit('\n'.join(failures))
+          if not latest or int(latest.get('id') or 0) <= old_id:
+              raise SystemExit('Illumera rerun produced no new central release status')
+          print(f"new central status: {latest.get('state')} {latest.get('target_url') or ''}")
+          if latest.get('state') != 'success':
+              raise SystemExit(f"Illumera central release failed: {latest.get('target_url') or ''}")
           PY
 
       - name: Remove one-time repair workflow

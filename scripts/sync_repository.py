@@ -15,9 +15,15 @@ except ImportError:
     import sync_repository_catalog as core
     from sync_repository_catalog import *  # noqa: F401,F403
 
+try:
+    from .prune_shared_workflow_library import prune_shared_workflow_library
+except ImportError:
+    from prune_shared_workflow_library import prune_shared_workflow_library
+
 
 _base_compile_central = core.compile_central
 _base_build_proxy = core.build_proxy
+_base_sync_repository = core.sync_repository
 
 
 def _rewrite_expression_string(text: str) -> str:
@@ -276,8 +282,16 @@ def build_proxy(source_text: str, source_path: str, source_hash: str, workflow_n
 # makes generated shared workflows use PAT-compatible statuses, curated payload
 # minimization, explicit-only Jules PR review dispatch, and safe event expression
 # rewriting.
+def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
+    result = _base_sync_repository(gh, repository, worker_url, dry_run)
+    if not dry_run:
+        result["shared_library_gc"] = prune_shared_workflow_library(gh, dry_run=False)
+    return result
+
+
 core.compile_central = compile_central
 core.build_proxy = build_proxy
+core.sync_repository = sync_repository
 
 
 def main() -> int:

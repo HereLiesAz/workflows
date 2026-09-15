@@ -41,7 +41,8 @@ jobs:
             scripts/sync_repository.py \
             scripts/sync_repository_catalog.py \
             scripts/retry_repository_sync.py \
-            scripts/dispatch_request.py
+            scripts/dispatch_request.py \
+            scripts/prune_shared_workflow_library.py
 
       - name: Validate semantic workflow filenames and YAML
         run: |

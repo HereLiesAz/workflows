@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: workflow-sync-${{ inputs.repository }}
+  group: workflow-sync-controller
   cancel-in-progress: false
 
 env:

@@ -1,0 +1,39 @@
+name: Finalize Illumera v0.6.132 status
+
+on:
+  push:
+    paths:
+      - '.github/workflows/finalize-illumera-0.6.132-status.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark recovered release status successful
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api \
+            --method POST \
+            -H 'Accept: application/vnd.github+json' \
+            repos/HereLiesAz/illumera/statuses/429b858d1d3d39c7bb8a978a926eb4b4288583b8 \
+            -f state=success \
+            -f context='.github/workflows/release.yml' \
+            -f description='Build, Play publish, and GitHub release verified' \
+            -f target_url='https://github.com/HereLiesAz/illumera/releases/tag/v0.6.132'
+
+      - name: Verify target commit status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api repos/HereLiesAz/illumera/commits/429b858d1d3d39c7bb8a978a926eb4b4288583b8/status \
+            --jq '.statuses[] | select(.context == ".github/workflows/release.yml") | .state' \
+            | head -n 1 \
+            | grep -Fx success

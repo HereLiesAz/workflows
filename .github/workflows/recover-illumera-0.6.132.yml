@@ -28,14 +28,10 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Ensure required Android SDK packages
-        shell: bash
-        run: |
-          set -euo pipefail
-          sdkmanager='/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager'
-          test -x "$sdkmanager"
-          yes | "$sdkmanager" --licenses >/dev/null || true
-          "$sdkmanager" 'platform-tools' 'platforms;android-37' 'build-tools;37.0.0'
+      - name: Set up required Android SDK packages
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699
+        with:
+          packages: 'platform-tools platforms;android-37 build-tools;37.0.0'
 
       - name: Restore trusted Stremio playback AAR cache
         id: stremio-cache

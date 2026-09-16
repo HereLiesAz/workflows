@@ -32,8 +32,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager 'platform-tools' 'platforms;android-37' 'build-tools;37.0.0'
+          sdkmanager='/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager'
+          test -x "$sdkmanager"
+          yes | "$sdkmanager" --licenses >/dev/null || true
+          "$sdkmanager" 'platform-tools' 'platforms;android-37' 'build-tools;37.0.0'
 
       - name: Restore trusted Stremio playback AAR cache
         id: stremio-cache

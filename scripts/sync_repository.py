@@ -182,7 +182,47 @@ def _proxy_doc(proxy: str) -> tuple[str, dict]:
     return header, doc
 
 
-def _compact_event_script(source_path: str) -> str | None:
+def _source_uses_event_payload(source_text: str) -> bool:
+    # github.event_name is a scalar context and does not require the full event.
+    # Any real github.event access, or GITHUB_EVENT_PATH, means source behavior
+    # depends on fields we cannot safely discard.
+    return (
+        re.search(r"(?<![A-Za-z0-9_])github\.event(?:\.|\b)", source_text) is not None
+        or "GITHUB_EVENT_PATH" in source_text
+    )
+
+
+def _minimal_pr_event_script() -> str:
+    # Generic centralized jobs only need enough PR identity to preserve target
+    # status selection and the fork-origin safety guard. GitHub's full PR event
+    # embeds large repository/user objects and can exceed the gateway limit.
+    return r'''if [[ "$GITHUB_EVENT_NAME" == "pull_request" || "$GITHUB_EVENT_NAME" == "pull_request_target" ]]; then
+  DISPATCH_EVENT_JSON="$(jq -c '{
+    action,
+    number,
+    pull_request: {
+      number: .pull_request.number,
+      base: {
+        ref: .pull_request.base.ref,
+        sha: .pull_request.base.sha
+      },
+      head: {
+        ref: .pull_request.head.ref,
+        sha: .pull_request.head.sha,
+        repo: {
+          full_name: .pull_request.head.repo.full_name,
+          fork: (.pull_request.head.repo.fork // false)
+        }
+      }
+    }
+  }' <<<"$EVENT_JSON")"
+else
+  DISPATCH_EVENT_JSON="$EVENT_JSON"
+fi
+'''
+
+
+def _compact_event_script(source_path: str, source_text: str) -> str | None:
     if source_path == ".github/workflows/jules-glee.yml":
         jq_filter = r'''{
   action,
@@ -238,7 +278,9 @@ def _compact_event_script(source_path: str) -> str | None:
   } else null end)
 }'''
     else:
-        return None
+        if _source_uses_event_payload(source_text):
+            return None
+        return _minimal_pr_event_script()
 
     return f'''DISPATCH_EVENT_JSON="$(jq -c '{jq_filter}' <<<"$EVENT_JSON")"
 '''
@@ -246,7 +288,7 @@ def _compact_event_script(source_path: str) -> str | None:
 
 def build_proxy(source_text: str, source_path: str, source_hash: str, workflow_name: str) -> str:
     proxy = _base_build_proxy(source_text, source_path, source_hash, workflow_name)
-    compact_script = _compact_event_script(source_path)
+    compact_script = _compact_event_script(source_path, source_text)
     needs_jules_gate = source_path == ".github/workflows/jules-dispatch.yml"
     if compact_script is None and not needs_jules_gate:
         return proxy

@@ -1,5 +1,5 @@
-# Purpose-level central workflow: Android GitHub Release.
-# Multiple repositories bind here only after their source behavior has been reviewed as equivalent.
+# Generalized purpose workflow: Android GitHub Release.
+# Signing, project configuration, and test differences are profiles instead of duplicate workflows.
 # Generated for HereLiesAz/AzNavRail:.github/workflows/android-release-apk.yml.
 # Edit the registered source or synchronizer, not this compiled workflow.
 name: Android GitHub Release
@@ -82,6 +82,10 @@ on:
       target_repository_name:
         required: true
         type: string
+      purpose_profile_json:
+        required: false
+        type: string
+        default: '{}'
 jobs:
   central_check_start:
     runs-on: ubuntu-latest
@@ -121,9 +125,16 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
   build_and_release:
+    needs: central_check_start
+    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    environment: ${{ inputs.target_repository_name }}
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -133,22 +144,83 @@ jobs:
           ref: ${{ inputs.target_sha }}
           token: ${{ secrets.GH_TOKEN }}
           persist-credentials: false
-      - name: Inject Google Services
+
+      - name: Resolve release profile
+        env:
+          PROFILE_JSON: ${{ inputs.purpose_profile_json }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "SIGNING_MODE=$(jq -r '.signing // \"raw-jks\"' <<<\"$PROFILE_JSON\")"
+            echo "CHAIN_SECRET=$(jq -r '.chain_secret // \"KEYSTORE_CHAIN\"' <<<\"$PROFILE_JSON\")"
+            echo "JAVA_VERSION=$(jq -r '.java_version // \"21\"' <<<\"$PROFILE_JSON\")"
+            echo "INJECT_SIGNING_ARGS=$(jq -r '.inject_signing_args // false' <<<\"$PROFILE_JSON\")"
+            echo "ARCORE_LOCAL_PROPERTIES=$(jq -r '.arcore_local_properties // false' <<<\"$PROFILE_JSON\")"
+            echo "TEST_COMMAND=$(jq -r '.test_command // empty' <<<\"$PROFILE_JSON\")"
+            echo "BUILD_COMMAND=$(jq -r '.build_command // \"./gradlew assembleRelease\"' <<<\"$PROFILE_JSON\")"
+            echo "APP_NAME_OVERRIDE=$(jq -r '.app_name // empty' <<<\"$PROFILE_JSON\")"
+          } >> "$GITHUB_ENV"
+
+      - name: Inject optional project configuration
         env:
           GOOGLE_SERVICES_API_KEY: ${{ secrets.GOOGLE_SERVICES_API_KEY }}
           PROJECT_ID: ${{ secrets.PROJECT_ID }}
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
           CUSTOM_API_KEY: ${{ secrets.CUSTOM_API_KEY }}
-        run: "if [ -f \"app/google-services.json.template\" ]; then\n  echo \"Template found. Injecting secrets...\"\n  sed -e 's/{{\\([^}]*\\)}}/${\\1}/g' app/google-services.json.template | envsubst > app/google-services.json\nelse\n  echo \"Warning: google-services.json.template not found. Skipping injection.\"\nfi\n# Add any extra local.properties keys below:\n# echo \"CUSTOM_API_KEY=$CUSTOM_API_KEY\" >> local.properties\n"
-      - name: Decode signing keystore
+          ARCORE_API_KEY: ${{ secrets.ARCORE_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f app/google-services.json.template ]; then
+            sed -e 's/{{\([^}]*\)}}/${\1}/g' app/google-services.json.template | envsubst > app/google-services.json
+          fi
+          if [ "$ARCORE_LOCAL_PROPERTIES" = "true" ]; then
+            test -n "$ARCORE_API_KEY" || { echo "::error::ARCORE_API_KEY is required by this release profile" >&2; exit 1; }
+            printf 'ARCORE_API_KEY=%s\n' "$ARCORE_API_KEY" >> local.properties
+          fi
+
+      - name: Prepare signing keystore
         env:
           KEYSTORE_RAW: ${{ secrets.KEYSTORE_RAW }}
-        run: "if [ -z \"$KEYSTORE_RAW\" ]; then\n  echo \"::error::KEYSTORE_RAW secret is empty — cannot produce a signed build.\"\n  exit 1\nfi\necho \"$KEYSTORE_RAW\" | base64 -d > app/keystore.jks\nif [ ! -s app/keystore.jks ]; then\n  echo \"::error::Decoded keystore is empty — KEYSTORE_RAW is not valid base64.\"\n  exit 1\nfi\necho \"Keystore decoded to app/keystore.jks ($(stat -c%s app/keystore.jks) bytes)\"\n"
-      - name: Set up JDK 21
+          KEYSTORE_PRIVATE: ${{ secrets.KEYSTORE_PRIVATE }}
+          KEYSTORE_CHAIN: ${{ secrets.KEYSTORE_CHAIN }}
+          CHAIN: ${{ secrets.CHAIN }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p app
+          case "$SIGNING_MODE" in
+            raw-jks)
+              test -n "$KEYSTORE_RAW" || { echo "::error::KEYSTORE_RAW is required" >&2; exit 1; }
+              printf '%s' "$KEYSTORE_RAW" | base64 --decode > app/keystore.jks
+              ;;
+            pem-chain)
+              chain="$KEYSTORE_CHAIN"
+              [ "$CHAIN_SECRET" != "CHAIN" ] || chain="$CHAIN"
+              test -n "$KEYSTORE_PRIVATE" || { echo "::error::KEYSTORE_PRIVATE is required" >&2; exit 1; }
+              test -n "$chain" || { echo "::error::$CHAIN_SECRET is required" >&2; exit 1; }
+              printf '%s\n' "$KEYSTORE_PRIVATE" > private-key.pem
+              printf '%s\n' "$chain" > certificate-chain.crt
+              openssl pkcs12 -export -in certificate-chain.crt -inkey private-key.pem -out keystore.p12 -name "$KEY_ALIAS" -passout pass:"$KEYSTORE_PASSWORD"
+              keytool -importkeystore -srckeystore keystore.p12 -srcstoretype PKCS12 -srcstorepass "$KEYSTORE_PASSWORD" -destkeystore app/keystore.jks -deststoretype JKS -deststorepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" -noprompt
+              rm -f private-key.pem certificate-chain.crt keystore.p12
+              ;;
+            *)
+              echo "::error::Unknown signing mode: $SIGNING_MODE" >&2
+              exit 1
+              ;;
+          esac
+          test -s app/keystore.jks || { echo "::error::Signing keystore is empty" >&2; exit 1; }
+
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
+          java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         env:
@@ -156,44 +228,97 @@ jobs:
         with:
           cache-read-only: false
           dependency-graph: disabled
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
-      - name: Build Release APK
+
+      - name: Run release tests
+        if: ${{ env.TEST_COMMAND != '' }}
+        shell: bash
+        run: bash -eo pipefail -c "$TEST_COMMAND"
+
+      - name: Build signed release APK
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
           KEYSTORE_FILE: ${{ github.workspace }}/app/keystore.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleRelease
-      - name: Prepare Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$INJECT_SIGNING_ARGS" = "true" ]; then
+            bash -eo pipefail -c "$BUILD_COMMAND -Pandroid.injected.signing.store.file=\"$KEYSTORE_FILE\" -Pandroid.injected.signing.store.password=\"$KEYSTORE_PASSWORD\" -Pandroid.injected.signing.key.alias=\"$KEY_ALIAS\" -Pandroid.injected.signing.key.password=\"$KEY_PASSWORD\""
+          else
+            bash -eo pipefail -c "$BUILD_COMMAND"
+          fi
+
+      - name: Resolve version and artifact
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f version.properties || { echo "::error::version.properties is required" >&2; exit 1; }
+          MAJOR="$(grep -E '^versionMajor=' version.properties | cut -d= -f2 | tr -d '\r ')"
+          MINOR="$(grep -E '^versionMinor=' version.properties | cut -d= -f2 | tr -d '\r ')"
+          PATCH="$(grep -E '^versionPatch=' version.properties | cut -d= -f2 | tr -d '\r ')"
+          BUILD="$(grep -E '^versionBuild=' version.properties | cut -d= -f2 | tr -d '\r ')"
+          for value in MAJOR MINOR PATCH BUILD; do test -n "${!value}" || { echo "::error::Missing $value in version.properties" >&2; exit 1; }; done
+          VERSION="${MAJOR}.${MINOR}.${PATCH}.${BUILD}"
+          TAG="latest-release-v${MAJOR}.${MINOR}"
+          APP_NAME="${APP_NAME_OVERRIDE:-${{ inputs.target_repository_name }}}"
+          APK="$(find app/build/outputs/apk -type f -name '*.apk' -path '*/release/*' | sort | head -1)"
+          test -n "$APK" && test -s "$APK" || { echo "::error::No release APK found" >&2; exit 1; }
+          ASSET="${APP_NAME}-${VERSION}-release.apk"
+          cp "$APK" "$ASSET"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "asset=$ASSET" >> "$GITHUB_OUTPUT"
+
+      - name: Persist changed version safely
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: "MAJOR=$(grep '^versionMajor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nMINOR=$(grep '^versionMinor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nPATCH=$(grep '^versionPatch=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nBUILD_NUMBER=$(grep '^versionBuild=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nVERSION_NAME=\"${MAJOR}.${MINOR}.${PATCH}.${BUILD_NUMBER}\"\nTAG_NAME=\"latest-release-v${MAJOR}.${MINOR}\"\n\nif [ -f \"settings.gradle.kts\" ]; then\n  APP_NAME=$(grep 'rootProject.name' settings.gradle.kts | sed -E \"s/.*=.*[\\\"'](.*)[\\\"']/\\1/\")\nelif [ -f \"settings.gradle\" ]; then\n  APP_NAME=$(grep 'rootProject.name' settings.gradle | sed -E \"s/.*=.*[\\\"'](.*)[\\\"']/\\1/\")\nelse\n  APP_NAME=\"App\"\nfi\n\nAPK_ORIGINAL=$(find app/build/outputs/apk/release -name \"*.apk\" | head -n 1)\nif [ -z \"$APK_ORIGINAL\" ]; then\n  echo \"Error: No APK found in app/build/outputs/apk/release/\"\n  find app/build/outputs/ -name \"*.apk\"\n  exit 1\nfi\n\nTARGET_NAME=\"${APP_NAME}-${VERSION_NAME}-release.apk\"\nmv \"$APK_ORIGINAL\" \"$TARGET_NAME\"\n\ngit config user.name \"github-actions[bot]\"\ngit config user.email \"41898282+github-actions[bot]@users.noreply.github.com\"\n\ngit tag -fa \"$TAG_NAME\" -m \"Latest Release Build\"\ngit push origin \"$TAG_NAME\" --force\n\nif gh release view \"$TAG_NAME\" > /dev/null 2>&1; then\n  echo \"Updating existing release...\"\n  gh release edit \"$TAG_NAME\" \\\n    --title \"Latest Release v${MAJOR}.${MINOR} (${VERSION_NAME})\" \\\n    --notes \"Release build from commit $TARGET_SHA\"\n  gh release upload \"$TAG_NAME\" \"$TARGET_NAME\" --clobber\nelse\n  echo \"Creating new release...\"\n  gh release create \"$TAG_NAME\" \"$TARGET_NAME\" \\\n    --title \"Latest Release v${MAJOR}.${MINOR} (${VERSION_NAME})\" \\\n    --notes \"Release build from commit $TARGET_SHA\"\nfi\n"
-    needs: central_check_start
-    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
-    env:
-      TARGET_REPOSITORY: ${{ inputs.target_repository }}
-      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
-      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
-      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
-      TARGET_SHA: ${{ inputs.target_sha }}
-      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
-      TARGET_REF: ${{ inputs.target_ref }}
-      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
-      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
-      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
-      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
-      TARGET_ACTOR: ${{ inputs.target_actor }}
-      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
-      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
-      TARGET_RUN_ID: ${{ inputs.target_run_id }}
-      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
-      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
-      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
-      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
-    environment: ${{ inputs.target_repository_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- version.properties; then
+            echo "version.properties unchanged."
+            exit 0
+          fi
+          test -n "$TARGET_REF_NAME" || { echo "::error::Build changed version.properties but this run has no branch to persist it to" >&2; exit 1; }
+          gh auth setup-git
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin "$TARGET_REF_NAME"
+          REMOTE_SHA="$(git rev-parse "origin/$TARGET_REF_NAME")"
+          test "$REMOTE_SHA" = "$TARGET_SHA" || { echo "::error::Target branch advanced during the build; refusing to tag an artifact against a different commit. Re-run the release." >&2; exit 1; }
+          git add version.properties
+          git commit -m "chore: release ${{ steps.release.outputs.version }} [skip ci]"
+          git push origin "HEAD:$TARGET_REF_NAME"
+
+      - name: Publish rolling GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+          ASSET: ${{ steps.release.outputs.asset }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -fa "$TAG" -m "Latest Release Build"
+          git push origin "$TAG" --force
+          if gh release view "$TAG" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG" --repo "$TARGET_REPOSITORY" --title "Latest Release ${VERSION}" --notes "Release build from commit $(git rev-parse HEAD)" --latest
+            gh release upload "$TAG" "$ASSET" --repo "$TARGET_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" "$ASSET" --repo "$TARGET_REPOSITORY" --title "Latest Release ${VERSION}" --notes "Release build from commit $(git rev-parse HEAD)" --latest
+          fi
+
+      - name: Cleanup signing material
+        if: ${{ always() }}
+        run: rm -f app/keystore.jks private-key.pem certificate-chain.crt keystore.p12
   central_check_finish:
     if: ${{ always() }}
     needs:

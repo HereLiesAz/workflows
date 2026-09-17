@@ -1,12 +1,9 @@
-name: Deploy over FTP
+name: Deploy over SFTP
 
-# Mirror the built site to your own host over SFTP (SSH file transfer).
-# Runs on every push to main, and can be fired by hand from the Actions tab.
-# Uses lftp's built-in SFTP implementation — not OpenSSH — because
-# ProFTPD mod_sftp/0.9.9's password auth is incompatible with sshpass.
-#
-# Required secrets: FTP_SERVER, FTP_USERNAME, FTP_PASSWORD
-# Optional vars:    SFTP_PORT (default 22), FTP_SERVER_DIR (default /app)
+# Deploy the same Vite gallery used by GitHub Pages to hereliesaz.com.
+# This repository is intentionally local instead of using the generic
+# central Jekyll SFTP workflow because the gallery requires the art-data
+# branch and a Vite build.
 
 on:
   push:
@@ -14,7 +11,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: sftp-deploy
+  group: sftp-deploy-hereliesaz-site
   cancel-in-progress: true
 
 permissions:
@@ -27,16 +24,55 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v6
+      - name: Check for Art Data Branch
+        id: check-branch
+        run: |
+          if git ls-remote --exit-code --heads origin art-data; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Build with Jekyll
-        uses: actions/jekyll-build-pages@v1
+      - name: Checkout Art Data
+        if: steps.check-branch.outputs.exists == 'true'
+        uses: actions/checkout@v4
         with:
-          source: ./docs/
-          destination: ./_site
+          ref: refs/heads/art-data
+          path: public/data
+          fetch-tags: false
 
-      - name: Deploy via lftp (SFTP)
+      - name: Verify art data is usable
+        run: |
+          if [ ! -s public/data/theater/_manifest.json ]; then
+            echo "::error::public/data/theater/_manifest.json is missing or empty after the art-data checkout — refusing to deploy hereliesaz.com without theater data."
+            exit 1
+          fi
+          echo "art-data verified: $(find public/data -type f | wc -l) files staged"
+
+      - name: Rebuild integrated painting records from scratch
+        run: |
+          rm -rf public/data/integrated
+          python3 scripts/integrate_painting_bakes.py --public-root public --strict
+
+      - name: Install verification dependencies
+        run: python3 -m pip install --disable-pip-version-check -r scripts/verification-requirements.txt
+
+      - name: Validate canonical painting records
+        run: python3 scripts/validate_integrated_records.py --public-root public
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify repository and build Vite site
+        run: npm run verify
+
+      - name: Deploy dist via lftp (SFTP)
         env:
           HOST: ${{ secrets.FTP_SERVER }}
           USERNAME: ${{ secrets.FTP_USERNAME }}
@@ -44,7 +80,8 @@ jobs:
           PORT: ${{ vars.SFTP_PORT || '22' }}
           REMOTE_DIR: ${{ vars.FTP_SERVER_DIR || '/app' }}
         run: |
-          set -e
+          set -euo pipefail
+          sudo apt-get update
           sudo apt-get install -y lftp
 
           USER_TRIMMED=$(printf '%s' "$USERNAME" | tr -d ' \t\r\n')
@@ -52,5 +89,5 @@ jobs:
 
           lftp -u "$USER_TRIMMED","$PW_TRIMMED" \
             -p "$PORT" \
-            -e "set sftp:auto-confirm yes; set ssl:verify-certificate no; mirror -R --verbose ./_site/ $REMOTE_DIR; quit" \
+            -e "set sftp:auto-confirm yes; set ssl:verify-certificate no; mirror -R --verbose ./dist/ $REMOTE_DIR; quit" \
             sftp://"$HOST"

@@ -29,6 +29,8 @@ jobs:
           changed = []
 
           for path in Path('.github/workflows').glob('*.y*ml'):
+              if path.name == 'emergency-concurrency-fix.yml':
+                  continue
               text = path.read_text(encoding='utf-8')
               if 'shared_variant:' not in text:
                   continue
@@ -70,11 +72,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -R --line-number --fixed-strings 'inputs.shared_variant }}' .github/workflows | grep 'group:'; then
+          if grep -R --exclude=emergency-concurrency-fix.yml --line-number --fixed-strings 'inputs.shared_variant }}' .github/workflows | grep 'group:'; then
             echo '::error::A concurrency group still uses shared_variant.' >&2
             exit 1
           fi
-          if grep -R --line-number -E '^\s*group:.*-$' .github/workflows; then
+          if grep -R --exclude=emergency-concurrency-fix.yml --line-number -E '^\s*group:.*-$' .github/workflows; then
             echo '::error::A concurrency group is missing its repository scope.' >&2
             exit 1
           fi

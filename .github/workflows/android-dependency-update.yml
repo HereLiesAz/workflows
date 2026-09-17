@@ -1,5 +1,5 @@
-# Purpose-level central workflow: Android Dependency Update.
-# Multiple repositories bind here only after their source behavior has been reviewed as equivalent.
+# Generalized purpose workflow: Android Dependency Update.
+# Source-specific filesystem differences are data, not separate workflow implementations.
 # Generated for HereLiesAz/AzNavRail:.github/workflows/android-update-libs.yml.
 # Edit the registered source or synchronizer, not this compiled workflow.
 name: Android Dependency Update
@@ -82,6 +82,10 @@ on:
       target_repository_name:
         required: true
         type: string
+      purpose_profile_json:
+        required: false
+        type: string
+        default: '{}'
 jobs:
   central_check_start:
     runs-on: ubuntu-latest
@@ -121,9 +125,12 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
   update_libs:
+    needs: central_check_start
+    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    environment: ${{ inputs.target_repository_name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -133,43 +140,86 @@ jobs:
           ref: ${{ inputs.target_sha }}
           token: ${{ secrets.GH_TOKEN }}
           persist-credentials: false
+      - name: Resolve dependency profile
+        env:
+          PROFILE_JSON: ${{ inputs.purpose_profile_json }}
+          TARGET_VARS_JSON: ${{ inputs.target_vars_json }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "LIB_DIR=$(jq -r '.lib_dir // \"libs\"' <<<\"$PROFILE_JSON\")" >> "$GITHUB_ENV"
+          echo "OPENCV_LAYOUT=$(jq -r '.opencv_layout // \"sdk-contents\"' <<<\"$PROFILE_JSON\")" >> "$GITHUB_ENV"
+          echo "GLM_LAYOUT=$(jq -r '.glm_layout // \"headers\"' <<<\"$PROFILE_JSON\")" >> "$GITHUB_ENV"
+          echo "OPENCV_VERSION=$(jq -r '.OPENCV_VERSION // \"4.10.0\"' <<<\"$TARGET_VARS_JSON\")" >> "$GITHUB_ENV"
+          echo "GLM_VERSION=$(jq -r '.GLM_VERSION // \"1.0.1\"' <<<\"$TARGET_VARS_JSON\")" >> "$GITHUB_ENV"
+          echo "LITERT_VERSION=$(jq -r '.LITERT_VERSION // \"2.1.0\"' <<<\"$TARGET_VARS_JSON\")" >> "$GITHUB_ENV"
       - name: Switch to dependencies branch
-        run: "if git ls-remote --exit-code --heads origin dependencies; then\n  git checkout dependencies\n  git pull origin dependencies\nelse\n  git checkout --orphan dependencies\n  git rm -rf .\nfi\n"
-      - name: Create libs directory
-        run: mkdir -p libs
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          if git ls-remote --exit-code --heads origin dependencies >/dev/null 2>&1; then
+            git fetch origin dependencies
+            git checkout -B dependencies origin/dependencies
+          else
+            git checkout --orphan dependencies
+            git rm -rf . || true
+          fi
+          mkdir -p "$LIB_DIR"
+      - name: Download OpenCV
+        if: ${{ fromJSON(inputs.purpose_profile_json).opencv == true }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$LIB_DIR/opencv" OpenCV-android-sdk opencv.zip
+          wget -q "https://github.com/opencv/opencv/releases/download/${OPENCV_VERSION}/opencv-${OPENCV_VERSION}-android-sdk.zip" -O opencv.zip
+          unzip -q opencv.zip
+          case "$OPENCV_LAYOUT" in
+            sdk-root) mv OpenCV-android-sdk "$LIB_DIR/opencv" ;;
+            sdk-contents) mkdir -p "$LIB_DIR/opencv"; mv OpenCV-android-sdk/sdk/* "$LIB_DIR/opencv/"; rm -rf OpenCV-android-sdk ;;
+            *) echo "::error::Unknown OpenCV layout: $OPENCV_LAYOUT" >&2; exit 1 ;;
+          esac
+          rm -f opencv.zip
       - name: Download GLM
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$LIB_DIR/glm" "glm-${GLM_VERSION}" glm.zip
+          wget -q "https://github.com/g-truc/glm/archive/refs/tags/${GLM_VERSION}.zip" -O glm.zip
+          unzip -q glm.zip
+          case "$GLM_LAYOUT" in
+            archive-root) mv "glm-${GLM_VERSION}" "$LIB_DIR/glm" ;;
+            headers) mkdir -p "$LIB_DIR/glm"; mv "glm-${GLM_VERSION}/glm" "$LIB_DIR/glm/glm"; rm -rf "glm-${GLM_VERSION}" ;;
+            *) echo "::error::Unknown GLM layout: $GLM_LAYOUT" >&2; exit 1 ;;
+          esac
+          rm -f glm.zip
+      - name: Preserve LiteRT until a real binary source is configured
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d "$LIB_DIR/litert" ]; then
+            echo "LiteRT $LITERT_VERSION requested; preserving the existing vendored tree."
+          else
+            echo "::notice::LiteRT $LITERT_VERSION has no authoritative standalone download configured; not creating a fake dependency directory."
+          fi
+      - name: Commit and push
         env:
-          GLM_VERSION: ${{ fromJSON(inputs.target_vars_json).GLM_VERSION || '1.0.1' }}
-        run: "echo \"Downloading GLM ${GLM_VERSION}...\"\nrm -rf libs/glm\nwget -q https://github.com/g-truc/glm/archive/refs/tags/${GLM_VERSION}.zip -O glm.zip\nunzip -q glm.zip\nmkdir -p libs/glm\nmv glm-${GLM_VERSION}/glm libs/glm/glm\nrm -rf glm-${GLM_VERSION} glm.zip\n"
-      - name: Download LiteRT
-        env:
-          LITERT_VERSION: ${{ fromJSON(inputs.target_vars_json).LITERT_VERSION || '2.1.0' }}
-        run: "echo \"Downloading LiteRT ${LITERT_VERSION}...\"\nrm -rf libs/litert\nmkdir -p libs/litert\n# TODO: replace the placeholder below with a real download URL when one is available.\n# wget -q \"https://example.com/litert/${LITERT_VERSION}/litert.zip\" -O litert.zip && unzip -q litert.zip -d libs/litert && rm litert.zip\necho \"LiteRT version ${LITERT_VERSION}\" > libs/litert/README.md\necho \"Populate this directory or update the workflow with a valid download URL.\" >> libs/litert/README.md\n"
-      - name: Commit and Push
-        run: "git config user.name \"github-actions[bot]\"\ngit config user.email \"github-actions[bot]@users.noreply.github.com\"\ngit add libs\nif ! git diff --cached --quiet; then\n  git commit -m \"Update dependencies\"\n  git push origin dependencies\nelse\n  echo \"No changes to commit.\"\nfi\n"
-    needs: central_check_start
-    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
-    env:
-      TARGET_REPOSITORY: ${{ inputs.target_repository }}
-      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
-      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
-      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
-      TARGET_SHA: ${{ inputs.target_sha }}
-      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
-      TARGET_REF: ${{ inputs.target_ref }}
-      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
-      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
-      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
-      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
-      TARGET_ACTOR: ${{ inputs.target_actor }}
-      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
-      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
-      TARGET_RUN_ID: ${{ inputs.target_run_id }}
-      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
-      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
-      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
-      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
-    environment: ${{ inputs.target_repository_name }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$LIB_DIR"
+          if git diff --cached --quiet; then
+            echo "No dependency changes to commit."
+            exit 0
+          fi
+          git commit -m "Update vendored dependencies"
+          git push -u origin HEAD:dependencies
   central_check_finish:
     if: ${{ always() }}
     needs:

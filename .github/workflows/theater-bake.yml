@@ -131,7 +131,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: theater-bake-${{ inputs.shared_variant }}
+      group: theater-bake-
       cancel-in-progress: false
     if: ${{ inputs.shared_variant == 'c60c9a0a0eb9673a' }}
   v_c60c9a0a0eb9673a__bake:
@@ -247,5 +247,5 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: theater-bake-${{ inputs.shared_variant }}
+      group: theater-bake-
       cancel-in-progress: false

@@ -130,7 +130,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.shared_variant }}
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
       cancel-in-progress: true
     if: ${{ inputs.shared_variant == 'f254e0d7be3c8e3f' }}
   v_f254e0d7be3c8e3f__desktop_build:
@@ -221,7 +221,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.shared_variant }}
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
       cancel-in-progress: true
   v_f254e0d7be3c8e3f__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == 'f254e0d7be3c8e3f') }}
@@ -261,5 +261,5 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.shared_variant }}
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
       cancel-in-progress: true

@@ -130,7 +130,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.shared_variant }}
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
       cancel-in-progress: true
     if: ${{ inputs.shared_variant == '59c54493d013efa6' }}
   v_59c54493d013efa6__unit_tests:
@@ -199,7 +199,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.shared_variant }}
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
       cancel-in-progress: true
   v_59c54493d013efa6__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == '59c54493d013efa6') }}
@@ -239,5 +239,5 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.shared_variant }}
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
       cancel-in-progress: true

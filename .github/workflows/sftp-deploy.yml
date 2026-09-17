@@ -133,7 +133,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: sftp-deploy-webpage-${{ inputs.shared_variant }}
+      group: sftp-deploy-webpage-
       cancel-in-progress: true
     if: ${{ inputs.shared_variant == '0f7472a7b532c503' }}
   v_0f7472a7b532c503__build_and_deploy:
@@ -190,7 +190,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: sftp-deploy-webpage-${{ inputs.shared_variant }}
+      group: sftp-deploy-webpage-
       cancel-in-progress: true
   v_0f7472a7b532c503__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == '0f7472a7b532c503') }}
@@ -230,7 +230,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: sftp-deploy-webpage-${{ inputs.shared_variant }}
+      group: sftp-deploy-webpage-
       cancel-in-progress: true
   v_4fc21447bd146f8e__central_check_start:
     runs-on: ubuntu-latest
@@ -270,7 +270,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: sftp-deploy-${{ inputs.shared_variant }}
+      group: sftp-deploy-
       cancel-in-progress: true
     if: ${{ inputs.shared_variant == '4fc21447bd146f8e' }}
   v_4fc21447bd146f8e__deploy:
@@ -318,7 +318,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: sftp-deploy-${{ inputs.shared_variant }}
+      group: sftp-deploy-
       cancel-in-progress: true
   v_4fc21447bd146f8e__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == '4fc21447bd146f8e') }}
@@ -358,7 +358,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: sftp-deploy-${{ inputs.shared_variant }}
+      group: sftp-deploy-
       cancel-in-progress: true
   v_8d49901b5104a9f7__central_check_start:
     runs-on: ubuntu-latest
@@ -398,7 +398,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: sftp-deploy-${{ inputs.shared_variant }}
+      group: sftp-deploy-
       cancel-in-progress: true
     if: ${{ inputs.shared_variant == '8d49901b5104a9f7' }}
   v_8d49901b5104a9f7__build_and_deploy:
@@ -451,7 +451,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: sftp-deploy-${{ inputs.shared_variant }}
+      group: sftp-deploy-
       cancel-in-progress: true
   v_8d49901b5104a9f7__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == '8d49901b5104a9f7') }}
@@ -491,7 +491,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: sftp-deploy-${{ inputs.shared_variant }}
+      group: sftp-deploy-
       cancel-in-progress: true
   v_c016f66e39761526__central_check_start:
     runs-on: ubuntu-latest
@@ -531,7 +531,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: sftp-deploy-${{ inputs.shared_variant }}
+      group: sftp-deploy-
       cancel-in-progress: true
     if: ${{ inputs.shared_variant == 'c016f66e39761526' }}
   v_c016f66e39761526__deploy:
@@ -577,7 +577,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: sftp-deploy-${{ inputs.shared_variant }}
+      group: sftp-deploy-
       cancel-in-progress: true
   v_c016f66e39761526__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == 'c016f66e39761526') }}
@@ -617,7 +617,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: sftp-deploy-${{ inputs.shared_variant }}
+      group: sftp-deploy-
       cancel-in-progress: true
   v_d26b3c18f98bdf8c__central_check_start:
     runs-on: ubuntu-latest
@@ -657,7 +657,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: sftp-deploy-${{ inputs.shared_variant }}
+      group: sftp-deploy-
       cancel-in-progress: true
     if: ${{ inputs.shared_variant == 'd26b3c18f98bdf8c' }}
   v_d26b3c18f98bdf8c__build_and_deploy:
@@ -712,7 +712,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: sftp-deploy-${{ inputs.shared_variant }}
+      group: sftp-deploy-
       cancel-in-progress: true
   v_d26b3c18f98bdf8c__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == 'd26b3c18f98bdf8c') }}
@@ -752,7 +752,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: sftp-deploy-${{ inputs.shared_variant }}
+      group: sftp-deploy-
       cancel-in-progress: true
   v_e798ee9c4e51b16f__central_check_start:
     runs-on: ubuntu-latest
@@ -792,7 +792,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: sftp-deploy-${{ inputs.shared_variant }}
+      group: sftp-deploy-
       cancel-in-progress: true
     if: ${{ inputs.shared_variant == 'e798ee9c4e51b16f' }}
   v_e798ee9c4e51b16f__deploy:
@@ -838,7 +838,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: sftp-deploy-${{ inputs.shared_variant }}
+      group: sftp-deploy-
       cancel-in-progress: true
   v_e798ee9c4e51b16f__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == 'e798ee9c4e51b16f') }}
@@ -878,5 +878,5 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: sftp-deploy-${{ inputs.shared_variant }}
+      group: sftp-deploy-
       cancel-in-progress: true

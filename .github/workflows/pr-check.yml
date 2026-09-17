@@ -130,7 +130,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: pr-check-${{ fromJSON(inputs.target_event_json).pull_request.number }}-${{ inputs.shared_variant }}
+      group: pr-check-${{ fromJSON(inputs.target_event_json).pull_request.number }}-
       cancel-in-progress: true
     if: ${{ inputs.shared_variant == '44c4c828307b05a1' }}
   v_44c4c828307b05a1__check:
@@ -199,7 +199,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: pr-check-${{ fromJSON(inputs.target_event_json).pull_request.number }}-${{ inputs.shared_variant }}
+      group: pr-check-${{ fromJSON(inputs.target_event_json).pull_request.number }}-
       cancel-in-progress: true
   v_44c4c828307b05a1__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == '44c4c828307b05a1') }}
@@ -239,5 +239,5 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: pr-check-${{ fromJSON(inputs.target_event_json).pull_request.number }}-${{ inputs.shared_variant }}
+      group: pr-check-${{ fromJSON(inputs.target_event_json).pull_request.number }}-
       cancel-in-progress: true

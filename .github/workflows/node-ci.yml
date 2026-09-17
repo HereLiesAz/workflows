@@ -130,7 +130,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ci-${{ inputs.target_ref }}-${{ inputs.shared_variant }}
+      group: ci-${{ inputs.target_ref }}-
       cancel-in-progress: true
     if: ${{ inputs.shared_variant == '84362f5d8b168705' }}
   v_84362f5d8b168705__build:
@@ -200,7 +200,7 @@ jobs:
     permissions:
       contents: read
     concurrency:
-      group: ci-${{ inputs.target_ref }}-${{ inputs.shared_variant }}
+      group: ci-${{ inputs.target_ref }}-
       cancel-in-progress: true
   v_84362f5d8b168705__e2e:
     name: e2e (Playwright smoke)
@@ -272,7 +272,7 @@ jobs:
     permissions:
       contents: read
     concurrency:
-      group: ci-${{ inputs.target_ref }}-${{ inputs.shared_variant }}
+      group: ci-${{ inputs.target_ref }}-
       cancel-in-progress: true
   v_84362f5d8b168705__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == '84362f5d8b168705') }}
@@ -313,5 +313,5 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ci-${{ inputs.target_ref }}-${{ inputs.shared_variant }}
+      group: ci-${{ inputs.target_ref }}-
       cancel-in-progress: true

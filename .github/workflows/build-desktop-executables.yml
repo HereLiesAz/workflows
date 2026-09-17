@@ -130,7 +130,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.shared_variant }}
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
       cancel-in-progress: true
     if: ${{ inputs.shared_variant == '7501ae3d34e1198f' }}
   v_7501ae3d34e1198f__build:
@@ -208,7 +208,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.shared_variant }}
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
       cancel-in-progress: true
   v_7501ae3d34e1198f__release:
     name: Attach installers to release
@@ -263,7 +263,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.shared_variant }}
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
       cancel-in-progress: true
   v_7501ae3d34e1198f__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == '7501ae3d34e1198f') }}
@@ -304,5 +304,5 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.shared_variant }}
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
       cancel-in-progress: true

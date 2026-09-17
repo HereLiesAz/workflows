@@ -237,7 +237,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: deploy-storefront-${{ inputs.shared_variant }}
+      group: deploy-storefront-
       cancel-in-progress: true
     if: ${{ inputs.shared_variant == '5b52ad49cc81d807' }}
   v_5b52ad49cc81d807__deploy:
@@ -308,7 +308,7 @@ jobs:
     permissions:
       contents: read
     concurrency:
-      group: deploy-storefront-${{ inputs.shared_variant }}
+      group: deploy-storefront-
       cancel-in-progress: true
   v_5b52ad49cc81d807__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == '5b52ad49cc81d807') }}
@@ -348,7 +348,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: deploy-storefront-${{ inputs.shared_variant }}
+      group: deploy-storefront-
       cancel-in-progress: true
   v_ebf04cd63dc3a32d__central_check_start:
     runs-on: ubuntu-latest
@@ -388,7 +388,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: provision-storage-${{ inputs.shared_variant }}
+      group: provision-storage-
       cancel-in-progress: false
     if: ${{ inputs.shared_variant == 'ebf04cd63dc3a32d' }}
   v_ebf04cd63dc3a32d__provision:
@@ -434,7 +434,7 @@ jobs:
     permissions:
       contents: read
     concurrency:
-      group: provision-storage-${{ inputs.shared_variant }}
+      group: provision-storage-
       cancel-in-progress: false
   v_ebf04cd63dc3a32d__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == 'ebf04cd63dc3a32d') }}
@@ -474,5 +474,5 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: provision-storage-${{ inputs.shared_variant }}
+      group: provision-storage-
       cancel-in-progress: false

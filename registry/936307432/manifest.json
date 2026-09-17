@@ -21,14 +21,12 @@
       "updated_at": "2026-09-14T02:51:45+00:00"
     },
     ".github/workflows/android-release-aab.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/graffitixr-android-release-aab.yml",
-      "implementation_sha256": "965d89aa1ca3dbcd5dbf2edd058a59e1cfc328c1bf593882cab5241cb3dc83d1",
       "name": "Build & Publish AAB (Play)",
       "registry_source": "registry/936307432/android-release-aab-c7afaeed.source.yml",
       "source_sha256": "bc33a453efa94395260c9b521a0fc01da92a27a8da0181d2c598770148ee6007",
-      "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "status": "obsolete",
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "reason": "superseded by the converged Android Play Release action"
     },
     ".github/workflows/android-release-apk.yml": {
       "name": "Compile and Release APK",
@@ -156,14 +154,14 @@
       "updated_at": "2026-09-14T02:51:50+00:00"
     },
     ".github/workflows/release-aab.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/graffitixr-release-aab.yml",
-      "implementation_sha256": "2d863ce196fe39e583b267d94c14e5cf4fee8574e969daaf28e13c06a4efe4cb",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/android-play-release.yml",
       "name": "Build & Publish AAB (Play)",
       "registry_source": "registry/936307432/release-aab-b108bf8f.source.yml",
       "source_sha256": "f637fcde293eeaaa50671b2f6313751cd044a6419c37ebba3678dd702940d94a",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "Android Play Release"
     },
     ".github/workflows/release-apk.yml": {
       "binding": "curated",

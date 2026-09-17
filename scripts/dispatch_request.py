@@ -18,9 +18,9 @@ from sync_repository import (
 )
 
 try:
-    from .semantic_catalog import uses_target_repository_name
+    from .semantic_catalog import purpose_profile_for_source, uses_purpose_profile, uses_target_repository_name
 except ImportError:
-    from semantic_catalog import uses_target_repository_name
+    from semantic_catalog import purpose_profile_for_source, uses_purpose_profile, uses_target_repository_name
 
 
 def require(value: str, name: str) -> str:
@@ -129,6 +129,9 @@ def main() -> int:
 
     if uses_target_repository_name(central_workflow):
         dispatch_inputs["target_repository_name"] = repository.rsplit("/", 1)[-1]
+
+    if uses_purpose_profile(central_workflow):
+        dispatch_inputs["purpose_profile_json"] = json.dumps(purpose_profile_for_source(source_sha256) or {}, separators=(",", ":"))
 
     body = {"ref": "main", "inputs": dispatch_inputs}
     endpoint = f"/repos/{CENTRAL_REPOSITORY}/actions/workflows/{workflow_id}/dispatches"

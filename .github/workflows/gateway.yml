@@ -12,7 +12,7 @@ on:
         required: true
         type: string
       request_b64:
-        description: Base64-encoded verified Worker request
+        description: Base64-encoded verified Worker request, gzip-compressed when sent by current Workers
         required: true
         type: string
 
@@ -44,11 +44,16 @@ jobs:
         run: |
           python - <<'PY'
           import base64
+          import gzip
           import json
           import os
           from pathlib import Path
 
-          raw = base64.b64decode(os.environ["REQUEST_B64"], validate=True)
+          encoded = base64.b64decode(os.environ["REQUEST_B64"], validate=True)
+          # Backward compatible during rollout: old Workers sent raw JSON bytes;
+          # current Workers send gzip-compressed JSON to stay well below GitHub's
+          # workflow_dispatch input-size ceiling.
+          raw = gzip.decompress(encoded) if encoded.startswith(b"\x1f\x8b") else encoded
           request = json.loads(raw)
           if request.get("repository") != os.environ["ASSERTED_REPOSITORY"]:
               raise SystemExit("Worker repository input does not match request payload")

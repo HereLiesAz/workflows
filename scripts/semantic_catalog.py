@@ -34,8 +34,13 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
     ".github/workflows/android-github-release.yml": {
         "name": "Android GitHub Release",
         "canonical_hash": "41ccb8c30d393fdc42a44d3b208b179f948ebc44e1c316c4e78b76f627f3bb3c",
+        "generalized": True,
         "source_hashes": {
             "41ccb8c30d393fdc42a44d3b208b179f948ebc44e1c316c4e78b76f627f3bb3c",
+            "09588a228454cd17abb67313111597bf62edf69ac9286a225bed91913b7ffb35",
+            "aeb8bc10311d29a49ceb316a824021c2ef6f17847d459bea89ace81f5f96c1df",
+            "ccc871738c362676351da341dfbf003900ea0578380395818594fb2ed6852579",
+            "66b945d96e416473a7bf667158784b6b6175b8afbcc922bc073d17a22387fa24",
         },
     },
     ".github/workflows/android-dependency-update.yml": {
@@ -89,6 +94,9 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
 }
 
 PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
+    "09588a228454cd17abb67313111597bf62edf69ac9286a225bed91913b7ffb35": {"signing": "pem-chain", "chain_secret": "CHAIN", "java_version": "17", "inject_signing_args": True, "test_command": "./gradlew testDebugUnitTest", "app_name": "MadeMeDance"},
+    "aeb8bc10311d29a49ceb316a824021c2ef6f17847d459bea89ace81f5f96c1df": {"signing": "pem-chain", "chain_secret": "KEYSTORE_CHAIN", "java_version": "17", "inject_signing_args": True, "arcore_local_properties": True},
+    "66b945d96e416473a7bf667158784b6b6175b8afbcc922bc073d17a22387fa24": {"signing": "raw-jks", "java_version": "21", "arcore_local_properties": True, "app_name": "GraffitiXR"},
     "ba191c6a57ff4008bd50e08df3f5b931095de753fddb7a669f3d66445c2032a0": {"lib_dir": "app/libs", "opencv": True, "opencv_layout": "sdk-root", "glm_layout": "archive-root"},
     "8e5f1bac9cf34a4b89d0d49d1a137c46a18212420d820f3103e5020b6628a0ff": {"lib_dir": "libs", "opencv": True, "opencv_layout": "sdk-contents", "glm_layout": "headers"},
     "320489791ba36be59acabf9ac3b0267bfaab93e7e68e4b40700a5016a90bc1ef": {"lib_dir": "libs", "opencv": True, "opencv_layout": "sdk-contents", "glm_layout": "headers"},

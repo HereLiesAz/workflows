@@ -106,8 +106,10 @@ def effects_for(text: str, uses: list[str], name: str, path: str) -> set[str]:
         effects.add("artifact-upload")
 
     # Verification / analysis.
-    if has("github/codeql-action"):
+    if has("github/codeql-action/init", "github/codeql-action/analyze"):
         effects.add("codeql")
+    if has("github/codeql-action/upload-sarif"):
+        effects.add("sarif-upload")
     if has("./gradlew test", "gradle test", "pytest", "npm test", "pnpm test", "yarn test", "cargo test", "go test"):
         effects.add("tests")
     if has("./gradlew lint", "detekt", "ktlint", "eslint", "ruff ", "pylint", "cargo clippy", "shellcheck"):
@@ -182,6 +184,8 @@ def purpose_for(effects: set[str], name: str, path: str) -> str:
         return "container-publish"
     if "codeql" in effects:
         return "code-security-scan"
+    if "sarif-upload" in effects:
+        return "static-analysis-sarif"
     if "dependency-review" in effects:
         return "dependency-security-review"
     if "dependency-update" in effects:

@@ -1,7 +1,8 @@
 # Generated for HereLiesAz/Guillotine:.github/workflows/desktop-build.yml.
 # Edit the registered source or synchronizer, not this compiled workflow.
+# Generated shared catalog workflow. Do not edit by hand.
+# catalog-source: shared/f254e0d7be3c8e3f2a095843c8924709bd01b62e4e01d344f9e6846b61583d6a
 name: Guillotine · Desktop Build
-run-name: Guillotine · Desktop Build
 on:
   workflow_dispatch:
     inputs:
@@ -77,6 +78,31 @@ on:
       source_sha256:
         required: true
         type: string
+permissions:
+  contents: read
+env:
+  TARGET_REPOSITORY: ${{ inputs.target_repository }}
+  TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+  TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+  TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+  TARGET_SHA: ${{ inputs.target_sha }}
+  TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+  TARGET_REF: ${{ inputs.target_ref }}
+  TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+  TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+  TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+  TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+  TARGET_ACTOR: ${{ inputs.target_actor }}
+  TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+  TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+  TARGET_RUN_ID: ${{ inputs.target_run_id }}
+  TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+  TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+  TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+  TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+concurrency:
+  group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-Guillotine
+  cancel-in-progress: true
 jobs:
   central_check_start:
     runs-on: ubuntu-latest
@@ -92,33 +118,8 @@ jobs:
           STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
           DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         shell: bash
-        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from the shared HereLiesAz/workflows catalog.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
-    permissions:
-      contents: read
-    env:
-      TARGET_REPOSITORY: ${{ inputs.target_repository }}
-      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
-      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
-      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
-      TARGET_SHA: ${{ inputs.target_sha }}
-      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
-      TARGET_REF: ${{ inputs.target_ref }}
-      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
-      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
-      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
-      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
-      TARGET_ACTOR: ${{ inputs.target_actor }}
-      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
-      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
-      TARGET_RUN_ID: ${{ inputs.target_run_id }}
-      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
-      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
-      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
-      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
-    concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-Guillotine
-      cancel-in-progress: true
-  desktop_build:
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from HereLiesAz/workflows.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+  desktop-build:
     strategy:
       fail-fast: false
       matrix:
@@ -155,7 +156,7 @@ jobs:
           cache-read-only: false
           dependency-graph: disabled
       - name: Grant execute permission for gradlew
-        if: ${{ runner.os != 'Windows' }}
+        if: runner.os != 'Windows'
         run: chmod +x gradlew
       - name: ${{ matrix.task }}
         shell: bash
@@ -170,11 +171,11 @@ jobs:
           if-no-files-found: error
           overwrite: true
       - name: Pause before retry
-        if: ${{ steps.upload1.outcome == 'failure' }}
+        if: steps.upload1.outcome == 'failure'
         shell: bash
         run: sleep 20
       - name: Upload ${{ matrix.artifact }} (retry)
-        if: ${{ steps.upload1.outcome == 'failure' }}
+        if: steps.upload1.outcome == 'failure'
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
@@ -185,35 +186,12 @@ jobs:
     if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
     permissions:
       contents: read
-    env:
-      TARGET_REPOSITORY: ${{ inputs.target_repository }}
-      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
-      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
-      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
-      TARGET_SHA: ${{ inputs.target_sha }}
-      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
-      TARGET_REF: ${{ inputs.target_ref }}
-      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
-      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
-      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
-      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
-      TARGET_ACTOR: ${{ inputs.target_actor }}
-      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
-      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
-      TARGET_RUN_ID: ${{ inputs.target_run_id }}
-      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
-      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
-      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
-      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
-    concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-Guillotine
-      cancel-in-progress: true
     environment: Guillotine
   central_check_finish:
     if: ${{ always() }}
     needs:
       - central_check_start
-      - desktop_build
+      - desktop-build
     runs-on: ubuntu-latest
     steps:
       - name: Complete target status
@@ -223,29 +201,5 @@ jobs:
           FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
           DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         shell: bash
-        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
-    permissions:
-      contents: read
-    env:
-      TARGET_REPOSITORY: ${{ inputs.target_repository }}
-      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
-      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
-      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
-      TARGET_SHA: ${{ inputs.target_sha }}
-      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
-      TARGET_REF: ${{ inputs.target_ref }}
-      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
-      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
-      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
-      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
-      TARGET_ACTOR: ${{ inputs.target_actor }}
-      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
-      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
-      TARGET_RUN_ID: ${{ inputs.target_run_id }}
-      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
-      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
-      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
-      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
-    concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-Guillotine
-      cancel-in-progress: true
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Central workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Central workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+run-name: Guillotine · Desktop Build

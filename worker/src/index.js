@@ -6,7 +6,8 @@ const OWNER_ID = "103241502";
 const CENTRAL_REPOSITORY = "HereLiesAz/workflows";
 const GATEWAY_WORKFLOW = "gateway.yml";
 const API_VERSION = "2026-03-10";
-const MAX_REQUEST_JSON_BYTES = 24000;
+const MAX_REQUEST_JSON_BYTES = 512 * 1024;
+const MAX_WORKFLOW_DISPATCH_INPUT_CHARS = 60000;
 
 let jwksCache;
 let jwksCacheExpiresAt = 0;
@@ -37,7 +38,7 @@ export default {
       const claims = await verifyGitHubOidc(match[1]);
       const rawBody = await request.text();
       if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_JSON_BYTES) {
-        throw new HttpError(413, "Dispatch payload is too large for workflow_dispatch");
+        throw new HttpError(413, "Dispatch payload is too large");
       }
 
       let body;
@@ -49,7 +50,15 @@ export default {
 
       validateDispatch(body, claims);
 
-      const requestB64 = base64EncodeUtf8(rawBody);
+      // workflow_dispatch has a finite input envelope. GitHub event payloads, especially
+      // pull_request events, routinely exceed it when base64-encoded raw. Gzip the verified
+      // request first; gateway.yml accepts both gzip and the old plain-base64 format so the
+      // Worker and workflow can be deployed in either order.
+      const requestB64 = await gzipBase64Utf8(rawBody);
+      if (requestB64.length > MAX_WORKFLOW_DISPATCH_INPUT_CHARS) {
+        throw new HttpError(413, "Compressed dispatch payload is still too large for workflow_dispatch");
+      }
+
       const apiResponse = await fetch(
         `https://api.github.com/repos/${CENTRAL_REPOSITORY}/actions/workflows/${GATEWAY_WORKFLOW}/dispatches`,
         {
@@ -209,8 +218,14 @@ function base64UrlDecode(value) {
   return bytes;
 }
 
-function base64EncodeUtf8(value) {
+async function gzipBase64Utf8(value) {
   const bytes = new TextEncoder().encode(value);
+  const compressedStream = new Blob([bytes]).stream().pipeThrough(new CompressionStream("gzip"));
+  const compressed = new Uint8Array(await new Response(compressedStream).arrayBuffer());
+  return base64EncodeBytes(compressed);
+}
+
+function base64EncodeBytes(bytes) {
   let binary = "";
   const chunkSize = 0x8000;
   for (let i = 0; i < bytes.length; i += chunkSize) {

@@ -11,14 +11,14 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/codeql-analysis.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/theharvester-codeql-analysis.yml",
-      "implementation_sha256": "5402a90bd83f1ce904517f97cad006e750c5102fb1b9c7e5c047987779643a31",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/codeql-scan.yml",
       "name": "CodeQL",
       "registry_source": "registry/570090258/codeql-analysis-c3aa8b7f.source.yml",
       "source_sha256": "9e3b56da6fe8e52662f6e9fff25d1bfb9d4285673008a6b13cc4af7ccbed2e59",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "CodeQL Scan"
     },
     ".github/workflows/dockerci.yml": {
       "binding": "repository",
@@ -33,7 +33,7 @@
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "\ud83d\ude08 Glee Audit",
+      "name": "😈 Glee Audit",
       "registry_source": "registry/570090258/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",

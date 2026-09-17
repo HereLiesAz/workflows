@@ -25,13 +25,24 @@ jobs:
           from pathlib import Path
           import re
 
+          target_expr = '$' + '{{ inputs.target_repository }}'
           changed = []
+
           for path in Path('.github/workflows').glob('*.y*ml'):
               text = path.read_text(encoding='utf-8')
+              if 'shared_variant:' not in text:
+                  continue
+
               new = re.sub(
                   r'(^\s*group:\s*[^\n]*?)\$\{\{\s*inputs\.shared_variant\s*\}\}',
-                  r'\1${{ inputs.target_repository }}',
+                  lambda m: m.group(1) + target_expr,
                   text,
+                  flags=re.MULTILINE,
+              )
+              new = re.sub(
+                  r'(^\s*group:\s*[^\n]*-)\s*$',
+                  lambda m: m.group(1) + target_expr,
+                  new,
                   flags=re.MULTILINE,
               )
               if new != text:
@@ -40,9 +51,11 @@ jobs:
 
           library = Path('scripts/shared_workflow_library.py')
           text = library.read_text(encoding='utf-8')
-          new = text.replace(
-              'suffix = "-${{ inputs.shared_variant }}"',
-              'suffix = "-${{ inputs.target_repository }}"',
+          new = re.sub(
+              r'^\s*suffix = "-(?:\$\{\{ inputs\.shared_variant \}\})?"\s*$',
+              '    suffix = "-' + target_expr + '"',
+              text,
+              flags=re.MULTILINE,
           )
           if new != text:
               library.write_text(new, encoding='utf-8')
@@ -52,6 +65,19 @@ jobs:
               raise SystemExit('No concurrency changes were needed')
           print('\n'.join(changed))
           PY
+
+      - name: Verify no shared-variant concurrency remains
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R --line-number --fixed-strings 'inputs.shared_variant }}' .github/workflows | grep 'group:'; then
+            echo '::error::A concurrency group still uses shared_variant.' >&2
+            exit 1
+          fi
+          if grep -R --line-number -E '^\s*group:.*-$' .github/workflows; then
+            echo '::error::A concurrency group is missing its repository scope.' >&2
+            exit 1
+          fi
 
       - name: Commit fix
         shell: bash

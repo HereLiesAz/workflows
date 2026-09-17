@@ -1,0 +1,56 @@
+name: Repair Guillotine release workflow
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/repair-guillotine-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out controller
+        uses: actions/checkout@v4
+
+      - name: Install controller dependency
+        run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
+
+      - name: Regenerate Guillotine workflows
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          WORKER_URL: https://workflows.hereliesaz.workers.dev
+        run: python scripts/retry_repository_sync.py --repository HereLiesAz/Guillotine --worker-url "$WORKER_URL" --json-output /tmp/guillotine-sync.json
+
+      - name: Verify release checkout can push
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          from ruamel.yaml import YAML
+
+          yaml = YAML(typ='safe')
+          path = Path('.github/workflows/guillotine-release-apk.yml')
+          # The synchronizer writes through the API, so refresh the file before validation.
+          PY
+          gh api repos/HereLiesAz/workflows/contents/.github/workflows/guillotine-release-apk.yml \
+            -H 'Accept: application/vnd.github.raw+json' > /tmp/guillotine-release-apk.yml
+          python - <<'PY'
+          from ruamel.yaml import YAML
+          yaml = YAML(typ='safe')
+          with open('/tmp/guillotine-release-apk.yml', encoding='utf-8') as handle:
+              doc = yaml.load(handle)
+          job = doc['jobs']['build_and_release']
+          assert any('git push' in str(step.get('run') or '') for step in job['steps'])
+          checkout = next(step for step in job['steps'] if str(step.get('uses') or '').startswith('actions/checkout@'))
+          assert checkout['with']['persist-credentials'] is True, checkout
+          assert checkout['with']['token'] == '${{ secrets.GH_TOKEN }}', checkout
+          print('Guillotine publishing checkout is authenticated')
+          PY
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}

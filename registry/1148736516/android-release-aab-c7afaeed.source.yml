@@ -5,6 +5,10 @@ name: Build & Publish AAB (Play)
 # Reads version from version.properties (Major.Minor.Patch.Build).
 # Requires .github/scripts/play_multitrack_publish.py in the repo.
 #
+# This repository does not currently contain a native Gradle project. Keep
+# publishing explicitly manual until that project is checked in or generated
+# reproducibly; ordinary website pushes must never attempt an Android release.
+#
 # Required secrets:
 #   KEYSTORE_RAW              — base64-encoded release keystore (.jks)
 #   KEYSTORE_PASSWORD         — keystore password
@@ -21,10 +25,6 @@ name: Build & Publish AAB (Play)
 #   CUSTOM_API_KEY            — placeholder; rename and replicate as needed
 
 on:
-  push:
-    branches: [ main ]
-    paths-ignore:
-      - version.properties
   workflow_dispatch:
     inputs:
       publish:
@@ -46,6 +46,26 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Verify native Android project exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for path in gradlew app; do
+            if [[ ! -e "$path" ]]; then
+              echo "::error file=$path::Required Android project path '$path' is not present."
+              missing=1
+            fi
+          done
+          if [[ ! -f settings.gradle && ! -f settings.gradle.kts ]]; then
+            echo "::error::Neither settings.gradle nor settings.gradle.kts is present."
+            missing=1
+          fi
+          if [[ "$missing" -ne 0 ]]; then
+            echo "AAB publishing is unavailable until the native project is checked in or generated reproducibly."
+            exit 1
+          fi
 
       - name: Inject Google Services
         env:
@@ -129,7 +149,7 @@ jobs:
 
       - name: Publish to Google Play (internal completed + alpha/beta/prod draft)
         id: play-upload
-        if: ${{ github.event_name == 'push' || inputs.publish }}
+        if: ${{ inputs.publish }}
         env:
           PACKAGE_NAME: ${{ steps.meta.outputs.package_name }}
           AAB_GLOB: app/build/outputs/bundle/release/*.aab
@@ -139,7 +159,7 @@ jobs:
           python .github/scripts/play_multitrack_publish.py
 
       - name: Persist auto-incremented versionCode without clobbering newer versions
-        if: ${{ always() && (github.event_name == 'push' || inputs.publish) }}
+        if: ${{ always() && inputs.publish }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"

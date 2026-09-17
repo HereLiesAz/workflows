@@ -1,0 +1,64 @@
+name: Fix cross-repository concurrency
+
+on:
+  push:
+    paths:
+      - .github/workflows/emergency-concurrency-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out controller
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Scope every generated concurrency group to the target repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          changed = []
+          for path in Path('.github/workflows').glob('*.y*ml'):
+              text = path.read_text(encoding='utf-8')
+              new = re.sub(
+                  r'(^\s*group:\s*[^\n]*?)\$\{\{\s*inputs\.shared_variant\s*\}\}',
+                  r'\1${{ inputs.target_repository }}',
+                  text,
+                  flags=re.MULTILINE,
+              )
+              if new != text:
+                  path.write_text(new, encoding='utf-8')
+                  changed.append(str(path))
+
+          library = Path('scripts/shared_workflow_library.py')
+          text = library.read_text(encoding='utf-8')
+          new = text.replace(
+              'suffix = "-${{ inputs.shared_variant }}"',
+              'suffix = "-${{ inputs.target_repository }}"',
+          )
+          if new != text:
+              library.write_text(new, encoding='utf-8')
+              changed.append(str(library))
+
+          if not changed:
+              raise SystemExit('No concurrency changes were needed')
+          print('\n'.join(changed))
+          PY
+
+      - name: Commit fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows scripts/shared_workflow_library.py
+          git commit -m "fix: scope central workflow concurrency by repository"
+          git push origin HEAD:main

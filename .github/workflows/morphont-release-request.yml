@@ -1,0 +1,84 @@
+name: Morphont release request
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - release-requests/morphont.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: morphont-release-request
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out central controller
+        uses: actions/checkout@v4
+
+      - name: Validate request and dispatch hardened Morphont publisher
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          request="release-requests/morphont.json"
+          version="$(jq -r '.version // empty' "$request")"
+          target_sha="$(jq -r '.target_sha // empty' "$request")"
+
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "Invalid Morphont release version: $version" >&2
+            exit 1
+          }
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "Invalid Morphont target SHA: $target_sha" >&2
+            exit 1
+          }
+
+          current_main="$(gh api repos/HereLiesAz/morphont/git/ref/heads/main --jq '.object.sha')"
+          [[ "$target_sha" == "$current_main" ]] || {
+            echo "Release request must target current Morphont main ($current_main), got $target_sha" >&2
+            exit 1
+          }
+
+          tag="v$version"
+          source_path=".github/workflows/morphont-publish.yml"
+          source_hash="$(jq -r --arg path "$source_path" '.workflows[$path].source_sha256 // empty' registry/1356357185/manifest.json)"
+          [[ -n "$source_hash" ]] || {
+            echo "Morphont publisher is not registered in the central manifest." >&2
+            exit 1
+          }
+
+          event_json="$(jq -nc --arg ref "refs/tags/$tag" --arg ref_name "$tag" '{ref:$ref,ref_name:$ref_name,ref_type:"tag"}')"
+
+          gh workflow run morphont-publish.yml \
+            --repo HereLiesAz/workflows \
+            --ref main \
+            -f target_repository=HereLiesAz/morphont \
+            -f target_repository_id=1356357185 \
+            -f target_repository_owner=HereLiesAz \
+            -f target_repository_owner_id=103241502 \
+            -f target_sha="$target_sha" \
+            -f target_check_sha="$target_sha" \
+            -f target_ref="refs/tags/$tag" \
+            -f target_ref_name="$tag" \
+            -f target_ref_type=tag \
+            -f target_actor="$GITHUB_ACTOR" \
+            -f target_event_name=push \
+            -f target_event_json="$event_json" \
+            -f target_inputs_json='{}' \
+            -f target_vars_json='{}' \
+            -f target_run_id="$GITHUB_RUN_ID" \
+            -f target_run_number="$GITHUB_RUN_NUMBER" \
+            -f target_run_attempt="$GITHUB_RUN_ATTEMPT" \
+            -f target_workflow_name='Publish Android [central proxy]' \
+            -f source_workflow_path="$source_path" \
+            -f source_sha256="$source_hash"
+
+          echo "Dispatched Morphont $tag from $target_sha through the centralized publisher."

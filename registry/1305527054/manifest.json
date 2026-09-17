@@ -92,14 +92,14 @@
       "updated_at": "2026-09-14T01:09:59+00:00"
     },
     ".github/workflows/release-aab.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/mcpserved-release-aab.yml",
-      "implementation_sha256": "1085effe2ad07ef18ce1006701d16b09f818ed46720771fc3bc873ab705ee1d5",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/android-play-release.yml",
       "name": "Build & Publish AAB (Play)",
       "registry_source": "registry/1305527054/release-aab-b108bf8f.source.yml",
       "source_sha256": "e27bd12865d67d2b1c70163a463a38a043c90869fd8d319a4097d7b2412852ed",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "Android Play Release"
     },
     ".github/workflows/static.yml": {
       "blockers": [

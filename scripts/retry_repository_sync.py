@@ -15,6 +15,16 @@ except ImportError:
     import sync_repository_catalog as core
 
 
+# Repository-specific curated bindings that must survive future controller syncs.
+# Keep these here instead of the global path-only catalog map so another repository
+# cannot accidentally claim a target-specific executor merely by using the same path.
+REPOSITORY_CATALOG_OVERRIDES = {
+    "hereliesaz/morphont": {
+        ".github/workflows/morphont-publish.yml": ".github/workflows/morphont-publish.yml",
+    },
+}
+
+
 class IdempotentGitHub(core.GitHub):
     """GitHub client that avoids write calls when the desired state already exists."""
 
@@ -84,6 +94,9 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--json-output")
     args = parser.parse_args()
+
+    for path, central_workflow in REPOSITORY_CATALOG_OVERRIDES.get(args.repository.casefold(), {}).items():
+        core.CATALOG_PATH_OVERRIDES[path] = central_workflow
 
     gh = IdempotentGitHub(os.environ.get("GH_TOKEN", ""))
     result = sync.sync_repository(gh, args.repository, args.worker_url, args.dry_run)

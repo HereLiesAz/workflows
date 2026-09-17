@@ -135,7 +135,7 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           persist-credentials: false
       - name: Inject Google Services
-        if: ${{ True }}
+        if: ${{ true }}
         env:
           GOOGLE_SERVICES_API_KEY: ${{ secrets.GOOGLE_SERVICES_API_KEY }}
           PROJECT_ID: ${{ secrets.PROJECT_ID }}
@@ -143,7 +143,7 @@ jobs:
           ARCORE_API_KEY: ${{ secrets.ARCORE_API_KEY }}
         run: "if [ -f \"composeApp/google-services.json.template\" ]; then\n  sed -e 's/{{\\([^}]*\\)}}/${\\1}/g' composeApp/google-services.json.template | envsubst > composeApp/google-services.json\nfi\necho \"ARCORE_API_KEY=$ARCORE_API_KEY\" >> local.properties\n"
       - name: Prepare Android Keystore
-        if: ${{ True }}
+        if: ${{ true }}
         id: keystore
         uses: ./.github/actions/android-keystore
         with:
@@ -226,7 +226,7 @@ jobs:
           FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
           DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         shell: bash
-        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA\" --input - <<<\"$payload\""
     permissions:
       contents: read
     env:

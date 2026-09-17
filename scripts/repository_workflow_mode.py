@@ -46,6 +46,57 @@ def _scope_concurrency(value: Any, repo_name: str) -> Any:
     return copy.deepcopy(value)
 
 
+def _job_pushes_git(job: dict[str, Any]) -> bool:
+    """Return true when a job shells out to git push.
+
+    Central execution checks out target repositories with credentials disabled by
+    default. That is the safest setting for read-only builds, but it breaks source
+    workflows whose intended behavior includes pushing tags, version bumps, or
+    generated commits back to their own repository.
+    """
+
+    for step in job.get("steps") or []:
+        if not isinstance(step, dict):
+            continue
+        run = step.get("run")
+        if isinstance(run, str) and re.search(r"(?m)(?:^|[\s;&|()])git\s+push(?:\s|$)", run):
+            return True
+    return False
+
+
+def _enable_target_git_push_credentials(job: dict[str, Any]) -> None:
+    """Persist the central GH_TOKEN only for target checkouts in git-push jobs."""
+
+    if not _job_pushes_git(job):
+        return
+
+    for step in job.get("steps") or []:
+        if not isinstance(step, dict):
+            continue
+        uses = str(step.get("uses") or "")
+        if not uses.startswith("actions/checkout@"):
+            continue
+
+        with_map = step.get("with")
+        if with_map is None:
+            with_map = CommentedMap()
+            step["with"] = with_map
+        if not isinstance(with_map, dict):
+            continue
+
+        repository_value = str(with_map.get("repository", "")).strip()
+        checkout_path = str(with_map.get("path", "")).strip()
+        if repository_value not in ("", "${{ inputs.target_repository }}"):
+            continue
+        if checkout_path not in ("", "."):
+            continue
+
+        with_map["repository"] = "${{ inputs.target_repository }}"
+        with_map["ref"] = "${{ inputs.target_sha }}"
+        with_map["token"] = "${{ secrets.GH_TOKEN }}"
+        with_map["persist-credentials"] = True
+
+
 def activate(core: Any, repository: str) -> None:
     """Switch the legacy synchronizer to clean, one-repository-per-workflow output.
 
@@ -105,6 +156,12 @@ def activate(core: Any, repository: str) -> None:
                 continue
             if job.get("concurrency") is not None:
                 job["concurrency"] = _scope_concurrency(job["concurrency"], repo_name)
+
+            # Read-only jobs keep checkout credentials disabled. Jobs whose source
+            # behavior explicitly includes `git push` get an authenticated target
+            # checkout so tag/version/release pushes work from the central runner.
+            _enable_target_git_push_credentials(job)
+
             if (
                 str(job_id) not in {"central_check_start", "central_check_finish"}
                 and "environment" not in job

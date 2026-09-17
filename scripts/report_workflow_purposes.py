@@ -81,7 +81,7 @@ def effects_for(text: str, uses: list[str], name: str, path: str) -> set[str]:
         effects.add("azp-model-release")
     if has("gh release ", "softprops/action-gh-release", "ncipollo/release-action", "release create", "release upload"):
         effects.add("github-release")
-    if has("upload-google-play", "gradle-play-publisher", "publishbundle", "publishapk", "google play", "play console"):
+    if has("upload-google-play", "gradle-play-publisher", "publishbundle", "publishapk", "play_multitrack_publish.py", "publish_play.py", "androidpublisher", "edits().bundles"):
         effects.add("google-play")
     if has("npm publish", "pnpm publish", "yarn npm publish"):
         effects.add("npm-publish")

@@ -31,14 +31,12 @@
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/android-release-apk.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/graffitixr-android-release-apk.yml",
-      "implementation_sha256": "cc5d9775a1b164bbb5e21555aa1e113eee0a2113a790d825059e130ab81df57b",
       "name": "Compile and Release APK",
       "registry_source": "registry/936307432/android-release-apk-f927747f.source.yml",
       "source_sha256": "ccc871738c362676351da341dfbf003900ea0578380395818594fb2ed6852579",
-      "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "status": "obsolete",
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "reason": "superseded by the converged Android GitHub Release action"
     },
     ".github/workflows/android-update-libs.yml": {
       "name": "Update Dependencies",
@@ -168,14 +166,14 @@
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/release-apk.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/graffitixr-release-apk.yml",
-      "implementation_sha256": "a23fd235311d814cca311a5b281d39fcfe6b89f29160309cfb7553542819e93a",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/android-github-release.yml",
       "name": "Compile and Release APK",
       "registry_source": "registry/936307432/release-apk-da6a1dd6.source.yml",
       "source_sha256": "66b945d96e416473a7bf667158784b6b6175b8afbcc922bc073d17a22387fa24",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "Android GitHub Release"
     },
     ".github/workflows/static.yml": {
       "blockers": [

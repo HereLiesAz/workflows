@@ -158,14 +158,14 @@
       "updated_at": "2026-09-14T01:08:02+00:00"
     },
     ".github/workflows/publish-play.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/ideaz-publish-play.yml",
-      "implementation_sha256": "a459099d862c1251ef802a8fbe54f5bd64b65c1d5a663b6c58bda5da6742f826",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/android-play-release.yml",
       "name": "Publish AAB to Play",
       "registry_source": "registry/1085343418/publish-play-a3a94793.source.yml",
       "source_sha256": "9f62916fd29cb8ceed1a342fe12a5e7d3edeea9b81603064406163ed81453127",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "Android Play Release"
     },
     ".github/workflows/summary.yml": {
       "binding": "curated",

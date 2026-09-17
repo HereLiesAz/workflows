@@ -95,7 +95,11 @@ jobs:
                       continue
                   shell = str(step.get('shell') or '').strip().lower()
                   if shell.startswith('bash'):
-                      subprocess.run(['bash', '-n'], input=run, text=True, check=True)
+                      result = subprocess.run(['bash', '-n'], input=run, text=True, capture_output=True)
+                      if result.returncode:
+                          raise RuntimeError(
+                              f"invalid Bash in {path}: step {index} ({step.get('name', 'unnamed')}):\n{result.stderr}\n--- script ---\n{run}"
+                          )
                   for match in heredoc.finditer(run):
                       compile(match.group(1), f'{path}:step-{index}', 'exec')
           PY

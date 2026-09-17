@@ -124,14 +124,14 @@
       "updated_at": "2026-09-17T17:46:05+00:00"
     },
     ".github/workflows/release-aab.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/guillotine-release-aab.yml",
-      "implementation_sha256": "f3c6872aa1dbd5726f8892ab503ed9ed8a60bb1077314526f431e79f4bbdc90c",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/android-play-release.yml",
       "name": "Release AAB to Play",
       "registry_source": "registry/1269434928/release-aab-b108bf8f.source.yml",
       "source_sha256": "09adb91f6846d345ebb261ae428ad9412bfbfac6fe1d1192a726b84546b46928",
       "status": "active",
-      "updated_at": "2026-09-17T17:46:07+00:00"
+      "updated_at": "2026-09-17T17:46:07+00:00",
+      "semantic_purpose": "Android Play Release"
     },
     ".github/workflows/release-apk.yml": {
       "binding": "repository",

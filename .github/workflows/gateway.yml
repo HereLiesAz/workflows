@@ -21,9 +21,8 @@ run-name: gateway · ${{ inputs.repository }}
 permissions:
   contents: read
 
-concurrency:
-  group: central-gateway-${{ inputs.repository_id }}
-  cancel-in-progress: false
+# Gateway routing is intentionally unconstrained: it only validates and dispatches.
+# Resource-specific serialization belongs in the destination action, not in a repo-wide choke point.
 
 jobs:
   route:

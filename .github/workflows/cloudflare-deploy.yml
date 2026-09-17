@@ -130,7 +130,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: cloudflare-deploy-
+      group: cloudflare-deploy-${{ inputs.target_repository }}
       cancel-in-progress: false
     if: ${{ inputs.shared_variant == '2e40d251360ca981' }}
   v_2e40d251360ca981__deploy:
@@ -174,7 +174,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: cloudflare-deploy-
+      group: cloudflare-deploy-${{ inputs.target_repository }}
       cancel-in-progress: false
   v_2e40d251360ca981__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == '2e40d251360ca981') }}
@@ -214,5 +214,5 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: cloudflare-deploy-
+      group: cloudflare-deploy-${{ inputs.target_repository }}
       cancel-in-progress: false

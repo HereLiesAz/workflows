@@ -139,7 +139,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: google-play-publish-
+      group: google-play-publish-${{ inputs.target_repository }}
       cancel-in-progress: false
     if: ${{ inputs.shared_variant == '1003b8ff1ea31195' }}
   v_1003b8ff1ea31195__build_and_publish:
@@ -244,7 +244,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: google-play-publish-
+      group: google-play-publish-${{ inputs.target_repository }}
       cancel-in-progress: false
   v_1003b8ff1ea31195__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == '1003b8ff1ea31195') }}
@@ -284,7 +284,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: google-play-publish-
+      group: google-play-publish-${{ inputs.target_repository }}
       cancel-in-progress: false
   v_1085effe2ad07ef1__central_check_start:
     runs-on: ubuntu-latest
@@ -998,7 +998,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: play-publish-
+      group: play-publish-${{ inputs.target_repository }}
       cancel-in-progress: false
     if: ${{ inputs.shared_variant == '965d89aa1ca3dbcd' }}
   v_965d89aa1ca3dbcd__build_and_publish:
@@ -1099,7 +1099,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: play-publish-
+      group: play-publish-${{ inputs.target_repository }}
       cancel-in-progress: false
   v_965d89aa1ca3dbcd__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == '965d89aa1ca3dbcd') }}
@@ -1139,7 +1139,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: play-publish-
+      group: play-publish-${{ inputs.target_repository }}
       cancel-in-progress: false
   v_a459099d862c1251__central_check_start:
     runs-on: ubuntu-latest
@@ -1179,7 +1179,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: false
     if: ${{ inputs.shared_variant == 'a459099d862c1251' }}
   v_a459099d862c1251__bundle_and_publish:
@@ -1277,7 +1277,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: false
   v_a459099d862c1251__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == 'a459099d862c1251') }}
@@ -1317,7 +1317,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: false
   v_c295e7ac9ef12813__central_check_start:
     runs-on: ubuntu-latest
@@ -1357,7 +1357,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: play-publish-
+      group: play-publish-${{ inputs.target_repository }}
       cancel-in-progress: false
     if: ${{ inputs.shared_variant == 'c295e7ac9ef12813' }}
   v_c295e7ac9ef12813__publish:
@@ -1455,7 +1455,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: play-publish-
+      group: play-publish-${{ inputs.target_repository }}
       cancel-in-progress: false
   v_c295e7ac9ef12813__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == 'c295e7ac9ef12813') }}
@@ -1495,7 +1495,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: play-publish-
+      group: play-publish-${{ inputs.target_repository }}
       cancel-in-progress: false
   v_c2a14297adad54e9__central_check_start:
     runs-on: ubuntu-latest
@@ -1535,7 +1535,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: false
     if: ${{ inputs.shared_variant == 'c2a14297adad54e9' }}
   v_c2a14297adad54e9__bundle:
@@ -1640,7 +1640,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: false
   v_c2a14297adad54e9__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == 'c2a14297adad54e9') }}
@@ -1680,7 +1680,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: false
   v_f3c6872aa1dbd572__central_check_start:
     runs-on: ubuntu-latest
@@ -1720,7 +1720,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: google-play-publish-
+      group: google-play-publish-${{ inputs.target_repository }}
       cancel-in-progress: false
     if: ${{ inputs.shared_variant == 'f3c6872aa1dbd572' }}
   v_f3c6872aa1dbd572__build_and_publish:
@@ -1814,7 +1814,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: google-play-publish-
+      group: google-play-publish-${{ inputs.target_repository }}
       cancel-in-progress: false
   v_f3c6872aa1dbd572__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == 'f3c6872aa1dbd572') }}
@@ -1854,7 +1854,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: google-play-publish-
+      group: google-play-publish-${{ inputs.target_repository }}
       cancel-in-progress: false
   v_9ac5706db1ce1f8d__central_check_start:
     runs-on: ubuntu-latest
@@ -1894,7 +1894,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: release-main-
+      group: release-main-${{ inputs.target_repository }}
       cancel-in-progress: false
     if: ${{ inputs.shared_variant == '9ac5706db1ce1f8d' }}
   v_9ac5706db1ce1f8d__build_and_release:
@@ -2060,7 +2060,7 @@ jobs:
     permissions:
       contents: write
     concurrency:
-      group: release-main-
+      group: release-main-${{ inputs.target_repository }}
       cancel-in-progress: false
   v_9ac5706db1ce1f8d__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == '9ac5706db1ce1f8d') }}
@@ -2100,5 +2100,5 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: release-main-
+      group: release-main-${{ inputs.target_repository }}
       cancel-in-progress: false

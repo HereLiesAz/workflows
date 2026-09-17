@@ -211,7 +211,7 @@ def _merge_mapping(parent: Any, child: Any) -> Any:
 def _job_concurrency(value: Any, variant: str) -> Any:
     if value is None:
         return None
-    suffix = "-${{ inputs.shared_variant }}"
+    suffix = "-${{ inputs.target_repository }}"
     if isinstance(value, str):
         return value + suffix
     if isinstance(value, dict):

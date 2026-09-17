@@ -130,7 +130,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_head_ref || inputs.target_ref }}-
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_head_ref || inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: true
     if: ${{ inputs.shared_variant == '208f478a87757063' }}
   v_208f478a87757063__analyze:
@@ -193,7 +193,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_head_ref || inputs.target_ref }}-
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_head_ref || inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: true
   v_208f478a87757063__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == '208f478a87757063') }}
@@ -233,7 +233,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_head_ref || inputs.target_ref }}-
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_head_ref || inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: true
   v_3e934ff83b6357da__central_check_start:
     runs-on: ubuntu-latest
@@ -273,7 +273,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: true
     if: ${{ inputs.shared_variant == '3e934ff83b6357da' }}
   v_3e934ff83b6357da__analyze:
@@ -338,7 +338,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: true
   v_3e934ff83b6357da__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == '3e934ff83b6357da') }}
@@ -378,7 +378,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: true
   v_5402a90bd83f1ce9__central_check_start:
     runs-on: ubuntu-latest
@@ -541,7 +541,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: true
     if: ${{ inputs.shared_variant == '91722bf0d3bcdfdd' }}
   v_91722bf0d3bcdfdd__analyze:
@@ -606,7 +606,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: true
   v_91722bf0d3bcdfdd__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == '91722bf0d3bcdfdd') }}
@@ -646,7 +646,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: true
   v_bb019062355e0196__central_check_start:
     runs-on: ubuntu-latest
@@ -1054,7 +1054,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: true
     if: ${{ inputs.shared_variant == 'd629047fe108de52' }}
   v_d629047fe108de52__analyze:
@@ -1119,7 +1119,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: true
   v_d629047fe108de52__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == 'd629047fe108de52') }}
@@ -1159,7 +1159,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: true
   v_ecd55f85915733e1__central_check_start:
     runs-on: ubuntu-latest
@@ -1199,7 +1199,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: true
     if: ${{ inputs.shared_variant == 'ecd55f85915733e1' }}
   v_ecd55f85915733e1__detect_languages:
@@ -1243,7 +1243,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: true
   v_ecd55f85915733e1__analyze:
     needs:
@@ -1302,7 +1302,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: true
   v_ecd55f85915733e1__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == 'ecd55f85915733e1') }}
@@ -1343,7 +1343,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: true
   v_eed09527604319f2__central_check_start:
     runs-on: ubuntu-latest

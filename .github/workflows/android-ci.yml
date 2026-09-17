@@ -136,7 +136,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ci-${{ inputs.target_ref }}-
+      group: ci-${{ inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: true
     if: ${{ inputs.shared_variant == '68abd6bac3e63f20' }}
   v_68abd6bac3e63f20__build_and_test:
@@ -204,7 +204,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ci-${{ inputs.target_ref }}-
+      group: ci-${{ inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: true
   v_68abd6bac3e63f20__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == '68abd6bac3e63f20') }}
@@ -244,7 +244,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ci-${{ inputs.target_ref }}-
+      group: ci-${{ inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: true
   v_7e8cbb8a2e9021cb__central_check_start:
     runs-on: ubuntu-latest
@@ -862,7 +862,7 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ci-${{ inputs.target_workflow_name }}-${{ fromJSON(inputs.target_event_json).pull_request.number || inputs.target_ref }}-
+      group: ci-${{ inputs.target_workflow_name }}-${{ fromJSON(inputs.target_event_json).pull_request.number || inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: true
     if: ${{ inputs.shared_variant == 'f8d9d081d2b0379d' }}
   v_f8d9d081d2b0379d__build_debug:
@@ -938,7 +938,7 @@ jobs:
     permissions:
       contents: read
     concurrency:
-      group: ci-${{ inputs.target_workflow_name }}-${{ fromJSON(inputs.target_event_json).pull_request.number || inputs.target_ref }}-
+      group: ci-${{ inputs.target_workflow_name }}-${{ fromJSON(inputs.target_event_json).pull_request.number || inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: true
   v_f8d9d081d2b0379d__central_check_finish:
     if: ${{ (always()) && (inputs.shared_variant == 'f8d9d081d2b0379d') }}
@@ -978,5 +978,5 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
-      group: ci-${{ inputs.target_workflow_name }}-${{ fromJSON(inputs.target_event_json).pull_request.number || inputs.target_ref }}-
+      group: ci-${{ inputs.target_workflow_name }}-${{ fromJSON(inputs.target_event_json).pull_request.number || inputs.target_ref }}-${{ inputs.target_repository }}
       cancel-in-progress: true

@@ -426,6 +426,10 @@ def main() -> int:
     before_repo_bindings = sum(1 for row in rows if row["entry"].get("binding") == "repository")
 
     for path, rule in SEMANTIC_WORKFLOWS.items():
+        if rule.get("generalized"):
+            if not (ROOT / path).exists():
+                raise RuntimeError(f"Generalized workflow is missing: {path}")
+            continue
         make_semantic_workflow(path, str(rule["name"]), canonical_hash(path), rows)
     clean_general_curated_workflows()
 

@@ -10,29 +10,16 @@ import urllib.parse
 try:
     from . import sync_repository as sync
     from . import sync_repository_catalog as core
-    from .repository_workflow_mode import activate as activate_repository_mode
-    from .repository_workflow_mode import finalize_manifest
 except ImportError:
     import sync_repository as sync
     import sync_repository_catalog as core
-    from repository_workflow_mode import activate as activate_repository_mode
-    from repository_workflow_mode import finalize_manifest
 
-
-# Repository-specific curated bindings that must survive future controller syncs.
-# Keep these here instead of the global path-only catalog map so another repository
-# cannot accidentally claim a target-specific executor merely by using the same path.
 REPOSITORY_CATALOG_OVERRIDES = {
     "hereliesaz/morphont": {
         ".github/workflows/morphont-publish.yml": ".github/workflows/morphont-publish.yml",
     },
 }
 
-
-# Some source workflows genuinely read github.event.* fields, so sync_repository.py
-# previously left the entire webhook untouched. A pull_request payload repeats huge
-# repository/user/link objects and can exceed the gateway's workflow_dispatch limit.
-# Preserve semantic event data while removing transport-only URL/link noise.
 _base_compact_event_script = sync._compact_event_script
 
 
@@ -61,16 +48,7 @@ sync._compact_event_script = _compact_event_script
 
 
 class IdempotentGitHub(core.GitHub):
-    """GitHub client that avoids write calls when the desired state already exists."""
-
-    def put_file(
-        self,
-        full_name: str,
-        path: str,
-        content: str,
-        message: str,
-        branch: str | None = None,
-    ) -> None:
+    def put_file(self, full_name: str, path: str, content: str, message: str, branch: str | None = None) -> None:
         quoted = urllib.parse.quote(path, safe="/")
         existing_sha = None
         try:
@@ -105,25 +83,15 @@ class IdempotentGitHub(core.GitHub):
             current = self.json("GET", f"/repos/{full_name}/actions/variables/{quoted}")
             if isinstance(current, dict) and str(current.get("value", "")) == value:
                 return
-            self.json(
-                "PATCH",
-                f"/repos/{full_name}/actions/variables/{quoted}",
-                {"name": name, "value": value},
-            )
+            self.json("PATCH", f"/repos/{full_name}/actions/variables/{quoted}", {"name": name, "value": value})
         except core.ApiError as exc:
             if "-> 404:" not in str(exc):
                 raise
-            self.json(
-                "POST",
-                f"/repos/{full_name}/actions/variables",
-                {"name": name, "value": value},
-            )
+            self.json("POST", f"/repos/{full_name}/actions/variables", {"name": name, "value": value})
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Retry one repository sync while skipping writes that are already in the desired state."
-    )
+    parser = argparse.ArgumentParser(description="Synchronize one repository while skipping no-op writes.")
     parser.add_argument("--repository", required=True, help="owner/repository")
     parser.add_argument("--worker-url", default=os.environ.get("WORKER_URL", ""))
     parser.add_argument("--dry-run", action="store_true")
@@ -133,31 +101,8 @@ def main() -> int:
     for path, central_workflow in REPOSITORY_CATALOG_OVERRIDES.get(args.repository.casefold(), {}).items():
         core.CATALOG_PATH_OVERRIDES[path] = central_workflow
 
-    # Public workflow identity is repository + human workflow name. Implementation
-    # hashes remain registry metadata only; they never become filenames, job IDs,
-    # or concurrency keys.
-    activate_repository_mode(core, args.repository)
-
-    # The old wrapper's shared-family GC is intentionally disabled in repository
-    # mode. Dedicated workflows are not variant bundles and must not be interpreted
-    # by the legacy shared-family collector.
-    sync.prune_shared_workflow_library = lambda gh, dry_run=False: {
-        "mode": "repository",
-        "actions": [],
-    }
-
     gh = IdempotentGitHub(os.environ.get("GH_TOKEN", ""))
     result = sync.sync_repository(gh, args.repository, args.worker_url, args.dry_run)
-    finalize_manifest(gh, core, int(result["repository_id"]), dry_run=args.dry_run)
-
-    for row in result.get("results") or []:
-        if not isinstance(row, dict):
-            continue
-        row.pop("shared_variant", None)
-        central = str(row.get("central_workflow") or "")
-        if central.startswith(".github/workflows/") and row.get("status") == "shared":
-            row["status"] = "repository"
-
     output = json.dumps(result, indent=2, sort_keys=True)
     print(output)
     if args.json_output:

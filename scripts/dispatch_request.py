@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import time
 import urllib.parse
 
@@ -23,8 +24,12 @@ def require(value: str, name: str) -> str:
     return value
 
 
+def slug(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", value.casefold()).strip("-") or "workflow"
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Validate and dispatch a central shared workflow.")
+    parser = argparse.ArgumentParser(description="Validate and dispatch a central repository workflow.")
     parser.add_argument("--request", required=True, help="JSON request file")
     args = parser.parse_args()
 
@@ -32,7 +37,6 @@ def main() -> int:
         request = json.load(handle)
 
     gh = GitHub(os.environ.get("GH_TOKEN", ""))
-
     repository = require(str(request.get("repository", "")), "repository")
     repository_id = require(str(request.get("repository_id", "")), "repository_id")
     source_path = require(str(request.get("source_workflow_path", "")), "source_workflow_path")
@@ -40,41 +44,21 @@ def main() -> int:
     event_name = require(str(request.get("event_name", "")), "event_name")
     event = request.get("event") or {}
 
-    # Glee is strictly an audit of an already-existing pull request. It is not a
-    # general Jules task and is never dispatched for any other event shape.
     if source_path == ".github/workflows/jules-glee.yml":
         pull_request = event.get("pull_request") or {}
         pr_number = pull_request.get("number") or event.get("number")
         if event_name != "pull_request_target" or event.get("action") != "opened" or not pr_number:
-            print(json.dumps({
-                "status": "ignored",
-                "reason": "Glee only audits an existing pull request when it is opened",
-                "repository": repository,
-                "source_workflow": source_path,
-            }, indent=2, sort_keys=True))
+            print(json.dumps({"status": "ignored", "reason": "Glee only audits an existing pull request when it is opened", "repository": repository, "source_workflow": source_path}, indent=2, sort_keys=True))
             return 0
 
-    # Glee owns automatic PR-open auditing. Jules Dispatch is reserved for
-    # explicit @jules interactions and issue triage, so an ordinary PR event
-    # must never start a repository-connected Jules session or create a follow-up PR.
     if source_path == ".github/workflows/jules-dispatch.yml" and event_name == "pull_request":
-        print(json.dumps({
-            "status": "ignored",
-            "reason": "automatic pull-request auditing belongs to the comment-only Glee workflow",
-            "repository": repository,
-            "source_workflow": source_path,
-        }, indent=2, sort_keys=True))
+        print(json.dumps({"status": "ignored", "reason": "automatic pull-request auditing belongs to the comment-only Glee workflow", "repository": repository, "source_workflow": source_path}, indent=2, sort_keys=True))
         return 0
 
     if event_name in {"pull_request", "pull_request_target"}:
         head_repo = (((event.get("pull_request") or {}).get("head") or {}).get("repo") or {})
         if head_repo.get("fork") is True:
-            print(json.dumps({
-                "status": "ignored",
-                "reason": "fork pull requests cannot enter the central secret-bearing executor",
-                "repository": repository,
-                "source_workflow": source_path,
-            }, indent=2, sort_keys=True))
+            print(json.dumps({"status": "ignored", "reason": "fork pull requests cannot enter the central secret-bearing executor", "repository": repository, "source_workflow": source_path}, indent=2, sort_keys=True))
             return 0
 
     repo = gh.repo(repository)
@@ -97,10 +81,20 @@ def main() -> int:
         raise RuntimeError(f"Workflow is not active: {source_path} ({entry.get('status')})")
     if entry.get("source_sha256") != source_sha256:
         raise RuntimeError("Proxy source hash does not match the central registry")
+    if entry.get("binding") == "shared-variant" or entry.get("shared_variant"):
+        raise RuntimeError("Obsolete shared-variant registry binding is not dispatchable")
 
     central_workflow = require(str(entry.get("central_workflow", "")), "central_workflow")
-    workflow_id = urllib.parse.quote(central_workflow.rsplit("/", 1)[-1], safe="")
+    binding = str(entry.get("binding") or "")
+    if binding == "repository":
+        repo_slug = slug(repository.rsplit("/", 1)[-1])
+        expected_prefix = f".github/workflows/{repo_slug}-"
+        if not central_workflow.startswith(expected_prefix):
+            raise RuntimeError(f"Repository binding points outside its namespace: {central_workflow}")
+    elif binding != "curated":
+        raise RuntimeError(f"Unsupported workflow binding: {binding!r}")
 
+    workflow_id = urllib.parse.quote(central_workflow.rsplit("/", 1)[-1], safe="")
     dispatch_inputs = {
         "target_repository": repository,
         "target_repository_id": repository_id,
@@ -128,27 +122,15 @@ def main() -> int:
         "source_sha256": source_sha256,
     }
 
-    shared_variant = str(entry.get("shared_variant") or "")
-    if shared_variant:
-        dispatch_inputs["shared_variant"] = shared_variant
-
     body = {"ref": "main", "inputs": dispatch_inputs}
     endpoint = f"/repos/{CENTRAL_REPOSITORY}/actions/workflows/{workflow_id}/dispatches"
-
     last_error: Exception | None = None
     for delay in (0, 1, 2, 4):
         if delay:
             time.sleep(delay)
         try:
             response = gh.json("POST", endpoint, body)
-            print(json.dumps({
-                "status": "dispatched",
-                "repository": repository,
-                "source_workflow": source_path,
-                "central_workflow": central_workflow,
-                "shared_variant": shared_variant or None,
-                "dispatch_response": response,
-            }, indent=2, sort_keys=True))
+            print(json.dumps({"status": "dispatched", "repository": repository, "source_workflow": source_path, "central_workflow": central_workflow, "dispatch_response": response}, indent=2, sort_keys=True))
             return 0
         except ApiError as exc:
             last_error = exc

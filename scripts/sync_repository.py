@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import argparse
 import copy
-import json
-import os
 import re
-import urllib.parse
 
 try:
     from . import sync_repository_catalog as core
@@ -16,9 +12,11 @@ except ImportError:
     from sync_repository_catalog import *  # noqa: F401,F403
 
 try:
-    from .prune_shared_workflow_library import prune_shared_workflow_library
+    from .repository_workflow_mode import activate as activate_repository_mode
+    from .repository_workflow_mode import finalize_manifest
 except ImportError:
-    from prune_shared_workflow_library import prune_shared_workflow_library
+    from repository_workflow_mode import activate as activate_repository_mode
+    from repository_workflow_mode import finalize_manifest
 
 
 _base_compile_central = core.compile_central
@@ -67,7 +65,7 @@ def compile_central(source_text: str, target: dict, source_path: str, check_name
     # Preserve workflow-level permissions on the original jobs. The base
     # centralizer deliberately gives the central workflow a read-only default,
     # but source jobs that inherited e.g. `contents: write` must not be silently
-    # downgraded when moved into the shared library.
+    # downgraded when moved into the central executor.
     source_doc = load_yaml(source_text)
     source_jobs = source_doc.get("jobs") if isinstance(source_doc, dict) else {}
     source_permissions = source_doc.get("permissions") if isinstance(source_doc, dict) else None
@@ -84,12 +82,8 @@ def compile_central(source_text: str, target: dict, source_path: str, check_name
     def central_expression(body: str) -> str:
         return "${" + "{ " + body + " }}"
 
-    # Repo-aware actions cannot be allowed to default to the controller repo.
-    # softprops/action-gh-release supports explicit repository/token inputs; use
-    # the target repository plus the central GH_TOKEN. If the source relied on
-    # the action's implicit tag context, reconstruct that context from the proxy
-    # inputs and fail clearly for a non-tag dispatch instead of publishing the
-    # wrong release.
+    # Repo-aware release actions must target the source repository, never the
+    # controller repository.
     for compiled_job in jobs.values():
         if not isinstance(compiled_job, dict):
             continue
@@ -139,7 +133,7 @@ def compile_central(source_text: str, target: dict, source_path: str, check_name
             },
             "shell": "bash",
             "run": '''set -euo pipefail
-payload="$(jq -n --arg state "pending" --arg context "$STATUS_CONTEXT" --arg description "Running from the shared HereLiesAz/workflows catalog." --arg target_url "$DETAILS_URL" '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+payload="$(jq -n --arg state "pending" --arg context "$STATUS_CONTEXT" --arg description "Running from HereLiesAz/workflows." --arg target_url "$DETAILS_URL" '{state:$state,context:$context,description:$description,target_url:$target_url}')"
 gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload"''',
         },
     ]
@@ -157,10 +151,10 @@ gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" -
             "run": '''set -euo pipefail
 if [[ "$FAILED" == "true" ]]; then
   state="failure"
-  description="Shared catalog workflow failed."
+  description="Central workflow failed."
 else
   state="success"
-  description="Shared catalog workflow completed successfully."
+  description="Central workflow completed successfully."
 fi
 payload="$(jq -n --arg state "$state" --arg context "$STATUS_CONTEXT" --arg description "$description" --arg target_url "$DETAILS_URL" '{state:$state,context:$context,description:$description,target_url:$target_url}')"
 gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload"''',
@@ -183,9 +177,6 @@ def _proxy_doc(proxy: str) -> tuple[str, dict]:
 
 
 def _source_uses_event_payload(source_text: str) -> bool:
-    # github.event_name is a scalar context and does not require the full event.
-    # Any real github.event access, or GITHUB_EVENT_PATH, means source behavior
-    # depends on fields we cannot safely discard.
     return (
         re.search(r"(?<![A-Za-z0-9_])github\.event(?:\.|\b)", source_text) is not None
         or "GITHUB_EVENT_PATH" in source_text
@@ -193,9 +184,6 @@ def _source_uses_event_payload(source_text: str) -> bool:
 
 
 def _minimal_pr_event_script() -> str:
-    # Generic centralized jobs only need enough PR identity to preserve target
-    # status selection and the fork-origin safety guard. GitHub's full PR event
-    # embeds large repository/user objects and can exceed the gateway limit.
     return r'''if [[ "$GITHUB_EVENT_NAME" == "pull_request" || "$GITHUB_EVENT_NAME" == "pull_request_target" ]]; then
   DISPATCH_EVENT_JSON="$(jq -c '{
     action,
@@ -290,14 +278,14 @@ def build_proxy(source_text: str, source_path: str, source_hash: str, workflow_n
     proxy = _base_build_proxy(source_text, source_path, source_hash, workflow_name)
     compact_script = _compact_event_script(source_path, source_text)
     needs_jules_gate = source_path == ".github/workflows/jules-dispatch.yml"
-    if compact_script is None and not needs_jules_gate:
-        return proxy
 
     header, doc = _proxy_doc(proxy)
+    doc["name"] = workflow_name
     jobs = doc.get("jobs") or {}
     job = jobs.get("central-dispatch")
     if not isinstance(job, dict):
         raise ValueError("generated proxy is missing central-dispatch")
+    job["name"] = "Dispatch"
 
     if needs_jules_gate:
         on_value = doc.get("on")
@@ -320,14 +308,20 @@ def build_proxy(source_text: str, source_path: str, source_hash: str, workflow_n
     return header + dump_yaml(doc)
 
 
-# The core synchronizer resolves these globals at runtime, so patching them here
-# makes generated shared workflows use PAT-compatible statuses, curated payload
-# minimization, explicit-only Jules PR review dispatch, and safe event expression
-# rewriting.
 def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
+    # Repository mode is mandatory. The legacy core is retained only as a compiler
+    # engine; it is never allowed to publish shared_variant families.
+    activate_repository_mode(core, repository)
     result = _base_sync_repository(gh, repository, worker_url, dry_run)
-    if not dry_run:
-        result["shared_library_gc"] = prune_shared_workflow_library(gh, dry_run=False)
+    finalize_manifest(gh, core, int(result["repository_id"]), dry_run=dry_run)
+
+    for row in result.get("results") or []:
+        if not isinstance(row, dict):
+            continue
+        row.pop("shared_variant", None)
+        if row.get("status") == "shared":
+            row["status"] = "repository"
+    result.pop("shared_library_gc", None)
     return result
 
 

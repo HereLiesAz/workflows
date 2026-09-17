@@ -1,0 +1,380 @@
+name: Shared · Morphont Publish
+run-name: ${{ inputs.target_repository }} · ${{ inputs.source_workflow_path }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_ref:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: morphont-publish-${{ inputs.target_ref }}
+  cancel-in-progress: false
+
+env:
+  TARGET_REPOSITORY: ${{ inputs.target_repository }}
+  TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+  TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+  TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+  TARGET_SHA: ${{ inputs.target_sha }}
+  TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+  TARGET_REF: ${{ inputs.target_ref }}
+  TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+  TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+  TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+  TARGET_INPUTS_JSON: ${{ inputs.target_inputs_json }}
+
+jobs:
+  central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate Morphont binding and immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_REPOSITORY" == "HereLiesAz/morphont" ]] || { echo "Unexpected target repository: $TARGET_REPOSITORY" >&2; exit 1; }
+          [[ "$TARGET_REPOSITORY_ID" == "1356357185" ]] || { echo "Unexpected target repository ID: $TARGET_REPOSITORY_ID" >&2; exit 1; }
+          [[ "$TARGET_REPOSITORY_OWNER_ID" == "103241502" ]] || { echo "Unexpected owner ID" >&2; exit 1; }
+          [[ "${{ inputs.source_workflow_path }}" == ".github/workflows/morphont-publish.yml" ]] || { echo "Unexpected source workflow path" >&2; exit 1; }
+          [[ "${{ inputs.source_sha256 }}" == "825e6e5a5cbc7d80f2854e239557599c354131b24dee94d3c14b806f640ce98b" ]] || { echo "Unexpected source workflow hash" >&2; exit 1; }
+
+          repo_json="$(gh api "repos/$TARGET_REPOSITORY")"
+          [[ "$(jq -r '.id' <<<"$repo_json")" == "$TARGET_REPOSITORY_ID" ]] || { echo "Repository ID mismatch" >&2; exit 1; }
+          [[ "$(jq -r '.owner.id' <<<"$repo_json")" == "103241502" ]] || { echo "Repository owner mismatch" >&2; exit 1; }
+
+          case "$TARGET_EVENT_NAME" in
+            push)
+              [[ "$TARGET_REF_TYPE" == "tag" && "$TARGET_REF_NAME" == v* ]] || {
+                echo "Tag publishing only accepts v* tags." >&2
+                exit 1
+              }
+              ;;
+            workflow_dispatch)
+              ;;
+            *)
+              echo "Unsupported publish event: $TARGET_EVENT_NAME" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload="$(jq -n \
+            --arg state pending \
+            --arg context "$STATUS_CONTEXT" \
+            --arg description "Building Morphont release from the central workflow catalog." \
+            --arg target_url "$DETAILS_URL" \
+            '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+          gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload"
+
+  publish:
+    needs: central_check_start
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the exact Morphont source
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve publish controls
+        id: controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          publish_play="$(jq -r '(.publish_play // false) | tostring' <<<"$TARGET_INPUTS_JSON")"
+          track="$(jq -r '.track // "internal"' <<<"$TARGET_INPUTS_JSON")"
+          status="$(jq -r '.status // "draft"' <<<"$TARGET_INPUTS_JSON")"
+
+          case "$publish_play" in true|false) ;; *) echo "Invalid publish_play value: $publish_play" >&2; exit 1 ;; esac
+          case "$track" in internal|alpha|beta|production) ;; *) echo "Invalid Play track: $track" >&2; exit 1 ;; esac
+          case "$status" in draft|completed) ;; *) echo "Invalid Play status: $status" >&2; exit 1 ;; esac
+
+          if [[ "$publish_play" == "true" ]]; then
+            [[ "$TARGET_EVENT_NAME" == "workflow_dispatch" ]] || {
+              echo "Google Play publishing is deliberately opt-in via manual dispatch." >&2
+              exit 1
+            }
+            [[ "$TARGET_REF_TYPE" == "branch" && "$TARGET_REF_NAME" == "main" ]] || {
+              echo "Google Play publishing is only allowed from main." >&2
+              exit 1
+            }
+          fi
+
+          echo "publish_play=$publish_play" >> "$GITHUB_OUTPUT"
+          echo "track=$track" >> "$GITHUB_OUTPUT"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Verify tag matches the app version
+        if: ${{ inputs.target_event_name == 'push' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version_name="$(sed -nE 's/^[[:space:]]*versionName = "([^"]+)".*/\1/p' androidApp/build.gradle.kts | head -n1)"
+          [[ -n "$version_name" ]] || { echo "Could not read Morphont versionName" >&2; exit 1; }
+          [[ "$TARGET_REF_NAME" == "v$version_name" ]] || {
+            echo "Tag $TARGET_REF_NAME does not match Android versionName $version_name." >&2
+            exit 1
+          }
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: false
+
+      - name: Prepare release signing from central secrets
+        shell: bash
+        env:
+          KEYSTORE_PRIVATE: ${{ secrets.KEYSTORE_PRIVATE }}
+          KEYSTORE_CHAIN: ${{ secrets.KEYSTORE_CHAIN }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in KEYSTORE_PRIVATE KEYSTORE_CHAIN KEYSTORE_PASSWORD KEY_ALIAS; do
+            [[ -n "${!name:-}" ]] || {
+              echo "::error::Central secret $name is required for Morphont release signing."
+              exit 1
+            }
+          done
+
+          key_password="${KEY_PASSWORD:-$KEYSTORE_PASSWORD}"
+          private_key="$RUNNER_TEMP/morphont-private-key.pem"
+          certificate_chain="$RUNNER_TEMP/morphont-certificate-chain.crt"
+          pkcs12="$RUNNER_TEMP/morphont-release.p12"
+          keystore="$RUNNER_TEMP/morphont-release.jks"
+
+          printf '%s\n' "$KEYSTORE_PRIVATE" > "$private_key"
+          printf '%s\n' "$KEYSTORE_CHAIN" > "$certificate_chain"
+
+          openssl pkcs12 -export \
+            -in "$certificate_chain" \
+            -inkey "$private_key" \
+            -name "$KEY_ALIAS" \
+            -out "$pkcs12" \
+            -password pass:"$KEYSTORE_PASSWORD"
+
+          keytool -importkeystore \
+            -srckeystore "$pkcs12" \
+            -srcstoretype PKCS12 \
+            -srcstorepass "$KEYSTORE_PASSWORD" \
+            -destkeystore "$keystore" \
+            -deststoretype JKS \
+            -deststorepass "$KEYSTORE_PASSWORD" \
+            -destkeypass "$key_password" \
+            -alias "$KEY_ALIAS" \
+            -noprompt
+
+          {
+            echo "MORPHONT_KEYSTORE_FILE=$keystore"
+            echo "MORPHONT_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+            echo "MORPHONT_KEY_ALIAS=$KEY_ALIAS"
+            echo "MORPHONT_KEY_PASSWORD=$key_password"
+          } >> "$GITHUB_ENV"
+
+          rm -f "$private_key" "$certificate_chain" "$pkcs12"
+
+      - name: Build signed APK and AAB
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew :androidApp:assembleRelease :androidApp:bundleRelease --no-daemon
+
+      - name: Collect and hash release outputs
+        id: outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="$(find androidApp/build/outputs/apk/release -name '*.apk' -print | sort | head -n 1)"
+          aab="$(find androidApp/build/outputs/bundle/release -name '*.aab' -print | sort | head -n 1)"
+          [[ -n "$apk" && -f "$apk" ]] || { echo "Signed release APK not found" >&2; exit 1; }
+          [[ -n "$aab" && -f "$aab" ]] || { echo "Signed release AAB not found" >&2; exit 1; }
+
+          mkdir -p dist
+          cp "$apk" dist/morphont-release.apk
+          cp "$aab" dist/morphont-release.aab
+          sha256sum dist/morphont-release.apk dist/morphont-release.aab > dist/SHA256SUMS
+
+          echo "apk=dist/morphont-release.apk" >> "$GITHUB_OUTPUT"
+          echo "aab=dist/morphont-release.aab" >> "$GITHUB_OUTPUT"
+
+      - name: Upload central release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: morphont-release-${{ inputs.target_sha }}
+          path: |
+            dist/morphont-release.apk
+            dist/morphont-release.aab
+            dist/SHA256SUMS
+          if-no-files-found: error
+
+      - name: Publish GitHub Release to Morphont
+        if: ${{ inputs.target_event_name == 'push' }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TARGET_REF_NAME" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TARGET_REF_NAME" \
+              dist/morphont-release.apk \
+              dist/morphont-release.aab \
+              dist/SHA256SUMS \
+              --clobber \
+              --repo "$TARGET_REPOSITORY"
+          else
+            gh release create "$TARGET_REF_NAME" \
+              dist/morphont-release.apk \
+              dist/morphont-release.aab \
+              dist/SHA256SUMS \
+              --repo "$TARGET_REPOSITORY" \
+              --target "$TARGET_SHA" \
+              --generate-notes \
+              --title "Morphont $TARGET_REF_NAME"
+          fi
+
+      - name: Validate Play credential
+        if: ${{ steps.controls.outputs.publish_play == 'true' }}
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${PLAY_SERVICE_ACCOUNT_JSON//[[:space:]]/}" ]] || {
+            echo "::error::Central secret PLAY_SERVICE_ACCOUNT_JSON is required for Play publishing."
+            exit 1
+          }
+
+      - name: Publish signed AAB to Google Play
+        if: ${{ steps.controls.outputs.publish_play == 'true' }}
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.hereliesaz.morphont
+          releaseFiles: ${{ steps.outputs.outputs.aab }}
+          track: ${{ steps.controls.outputs.track }}
+          status: ${{ steps.controls.outputs.status }}
+
+  central_check_finish:
+    if: ${{ always() }}
+    needs:
+      - central_check_start
+      - publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          START_RESULT: ${{ needs.central_check_start.result }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$START_RESULT" == "success" && "$PUBLISH_RESULT" == "success" ]]; then
+            state=success
+            description="Morphont release pipeline completed successfully."
+          else
+            state=failure
+            description="Morphont release pipeline failed."
+          fi
+          payload="$(jq -n \
+            --arg state "$state" \
+            --arg context "$STATUS_CONTEXT" \
+            --arg description "$description" \
+            --arg target_url "$DETAILS_URL" \
+            '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+          gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload"

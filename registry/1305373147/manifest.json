@@ -20,23 +20,21 @@
       "updated_at": "2026-09-15T03:04:49+00:00"
     },
     ".github/workflows/release.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/node-release.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/azphalt-mobilenet-release.yml",
       "implementation_sha256": "30c44d6ebde49bfd8d01d8564f6afb069597d1e0825e2bbbc5af06ce2ffaf94f",
       "name": "release",
       "registry_source": "registry/1305373147/release-16911b98.source.yml",
-      "shared_variant": "30c44d6ebde49bfd",
       "source_sha256": "a9972b81ec5bacc17dd1c0e940d33db72f01ffed2731912009de3c1162ef8225",
       "status": "active",
       "updated_at": "2026-09-15T03:04:51+00:00"
     },
     ".github/workflows/sign-azp.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/sign-azp.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/azphalt-mobilenet-sign-azp.yml",
       "implementation_sha256": "2ccbbd5c3657a3622842020ff95b045411ef43ba6e42edca04b352c9089b6e27",
       "name": "sign-azp",
       "registry_source": "registry/1305373147/sign-azp-fcd21605.source.yml",
-      "shared_variant": "2ccbbd5c3657a362",
       "source_sha256": "39ea6636c4df27ad72afc857325be6c5850c014589e7542ab529bda5e644b565",
       "status": "active",
       "updated_at": "2026-09-15T03:04:52+00:00"

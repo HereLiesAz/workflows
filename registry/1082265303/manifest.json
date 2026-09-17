@@ -20,12 +20,11 @@
       "updated_at": "2026-09-15T03:06:04+00:00"
     },
     ".github/workflows/build_release.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/android-build-and-release.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/pwnagotchionandroid-build-release.yml",
       "implementation_sha256": "6d878bef8f6f2aedd54821e32c0ea3c90cabb7618cbe5105083fb3de414bef31",
       "name": "Build and Release",
       "registry_source": "registry/1082265303/build_release-65a3e906.source.yml",
-      "shared_variant": "6d878bef8f6f2aed",
       "source_sha256": "d8c9826d6991f1fd657934457f0a73d3e018ccbc802e0186c4b40a501d621337",
       "status": "active",
       "updated_at": "2026-09-15T03:06:05+00:00"
@@ -99,45 +98,41 @@
       "updated_at": "2026-09-15T03:06:08+00:00"
     },
     ".github/workflows/python-package.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/python-package.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/pwnagotchionandroid-python-package.yml",
       "implementation_sha256": "7ed29ad4277f6c7e34c871d6d3c67b071d1c30f1ad47481d35affb6f74ca92ec",
       "name": "Python package",
       "registry_source": "registry/1082265303/python-package-b77754b2.source.yml",
-      "shared_variant": "7ed29ad4277f6c7e",
       "source_sha256": "1e1a288d8b11d79b01237145826c5d0dd03a1398dc40685fefbe5ab1e9ec66e7",
       "status": "active",
       "updated_at": "2026-09-15T03:06:09+00:00"
     },
     ".github/workflows/python-publish.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/upload-python-package.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/pwnagotchionandroid-python-publish.yml",
       "implementation_sha256": "54cf527a08b3e0e4908b728bfb05ccb0edfb48c89f9fc239fb43450034302c52",
       "name": "Upload Python Package",
       "registry_source": "registry/1082265303/python-publish-1fcf5f9f.source.yml",
-      "shared_variant": "54cf527a08b3e0e4",
       "source_sha256": "88d3deb6ad29f0d7955ad6e13f163fd2bfeeb9f91f7646cabe201571d80eac0a",
       "status": "active",
       "updated_at": "2026-09-15T03:06:10+00:00"
     },
     ".github/workflows/summary.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/issue-summary.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/pwnagotchionandroid-summary.yml",
       "implementation_sha256": "137fd34630f76a160a7f03189e47182780b4910054b1a4892684f2ef5925746f",
       "name": "Summarize new issues",
       "registry_source": "registry/1082265303/summary-bc1f0d2a.source.yml",
-      "shared_variant": "137fd34630f76a16",
       "source_sha256": "796ddbe048f79d73cbc353f7f6c7a2f9730c92e285c4c69c66e7177834d617f3",
       "status": "active",
       "updated_at": "2026-09-15T03:06:11+00:00"
     },
     ".github/workflows/update-libs.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/update-dependencies.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/pwnagotchionandroid-update-libs.yml",
       "implementation_sha256": "884022df399e26313e255d135435eb7c4f2ba83f791aa17bd21114ae53309417",
       "name": "Update Dependencies",
       "registry_source": "registry/1082265303/update-libs-70ffc54c.source.yml",
-      "shared_variant": "884022df399e2631",
       "source_sha256": "ba191c6a57ff4008bd50e08df3f5b931095de753fddb7a669f3d66445c2032a0",
       "status": "active",
       "updated_at": "2026-09-15T03:06:12+00:00"

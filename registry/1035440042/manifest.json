@@ -11,23 +11,21 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/deploy-maven-central.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/maven-central-publish.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/kbox2d-deploy-maven-central.yml",
       "implementation_sha256": "57a2a8a9493f9ef7ed89209eabb305b586118242bffbefb99df46b7f77700f83",
       "name": "Publish package to the Maven Central Repository",
       "registry_source": "registry/1035440042/deploy-maven-central-5eca88cd.source.yml",
-      "shared_variant": "57a2a8a9493f9ef7",
       "source_sha256": "968458e29535134b77927dbc8ec6c653ad070e0b6e9cd30f7ac9063544eb14e9",
       "status": "active",
       "updated_at": "2026-09-15T03:05:59+00:00"
     },
     ".github/workflows/gh-release.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/create-a-github-release.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/kbox2d-gh-release.yml",
       "implementation_sha256": "fa69fd31183e6fb6fc03afbff424dc476fc5ca28312ac67757fa05655df041d7",
       "name": "Create a Github release",
       "registry_source": "registry/1035440042/gh-release-723327ad.source.yml",
-      "shared_variant": "fa69fd31183e6fb6",
       "source_sha256": "57c23f2489e4e00b40c10a98d12610d6f95b36b66ee7a242236be21f3058a114",
       "status": "active",
       "updated_at": "2026-09-15T03:06:00+00:00"

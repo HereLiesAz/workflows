@@ -11,12 +11,11 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/blank.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/blank.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/spybomb-blank.yml",
       "implementation_sha256": "2d98e3e18d79b91084d47a5166eb6f834ca363a4c0c401a40a43c7b1e1c148d2",
       "name": "CI",
       "registry_source": "registry/570087564/blank-6d3e85ef.source.yml",
-      "shared_variant": "2d98e3e18d79b910",
       "source_sha256": "fb790f82ed9e729d35d60212c987d93ea0b25f2ef9211ddcf6983158d41947f6",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"

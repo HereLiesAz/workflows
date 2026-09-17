@@ -20,23 +20,21 @@
       "updated_at": "2026-09-15T03:05:11+00:00"
     },
     ".github/workflows/release.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/node-release.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/azphalt-real-esrgan-release.yml",
       "implementation_sha256": "33ddda4618f95db0ce2db6c770469a3aacccb06fdf65fd053f2f62eceb926bcd",
       "name": "release",
       "registry_source": "registry/1305373296/release-16911b98.source.yml",
-      "shared_variant": "33ddda4618f95db0",
       "source_sha256": "ef7cbad07655eecfac60a227b0b2aaafc5176d188cd3f196e298aaa644d4022f",
       "status": "active",
       "updated_at": "2026-09-15T03:05:12+00:00"
     },
     ".github/workflows/sign-azp.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/sign-azp.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/azphalt-real-esrgan-sign-azp.yml",
       "implementation_sha256": "b1d0cc8dc4435d734cf4625eea9c64bbe26fe4d11eb89c7a29ddb78657774282",
       "name": "sign-azp",
       "registry_source": "registry/1305373296/sign-azp-fcd21605.source.yml",
-      "shared_variant": "b1d0cc8dc4435d73",
       "source_sha256": "025b006118f31a5a39a1c6bae19866537e9f34e2c4c143c9b840d2bff2728bb2",
       "status": "active",
       "updated_at": "2026-09-15T03:05:14+00:00"

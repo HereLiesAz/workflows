@@ -21,34 +21,31 @@
       "updated_at": "2026-09-14T01:01:05+00:00"
     },
     ".github/workflows/clear-cache.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/ref-cache-cleanup.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/barbacker-clear-cache.yml",
       "implementation_sha256": "cb394e92b0d2665da88b133ca8b909324592d0b2aaf709304296c94dcebab497",
       "name": "Clear Cache",
       "registry_source": "registry/1131545750/clear-cache-b9a264e3.source.yml",
-      "shared_variant": "cb394e92b0d2665d",
       "source_sha256": "511f95a3edaf45d4d2f50b83a2e345eda49ef43d4ad4e9194f60af7cf7591d9a",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/cmp-build.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/cmp-client-build.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/barbacker-cmp-build.yml",
       "implementation_sha256": "f3485c0d418b3157b6fbffbbe74a456f883be807c13e88f76a64f1bd8dd521c7",
       "name": "CMP Client Build",
       "registry_source": "registry/1131545750/cmp-build-9df9ad2c.source.yml",
-      "shared_variant": "f3485c0d418b3157",
       "source_sha256": "ecd3d0b9d749eee197622cfcd6eec22c54bf46270553ec35253297ed9d4d8674",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/codeql.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/codeql.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/barbacker-codeql.yml",
       "implementation_sha256": "208f478a877570630ea6bc3b46fd04fa7265f85d3ab4b8543b329c5d2de04e02",
       "name": "CodeQL Advanced",
       "registry_source": "registry/1131545750/codeql-37c182e8.source.yml",
-      "shared_variant": "208f478a87757063",
       "source_sha256": "e16a42da22d3d1d1fcc2027f8904587003b09a058f1ace5135d131a4eac2b288",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
@@ -64,12 +61,11 @@
       "updated_at": "2026-09-14T01:01:12+00:00"
     },
     ".github/workflows/deploy.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/github-pages.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/barbacker-deploy.yml",
       "implementation_sha256": "66c539530f04807db719968dfa091fe7d58391c869470c6558a25fc34e250a06",
       "name": "Deploy PWA",
       "registry_source": "registry/1131545750/deploy-f130ad0d.source.yml",
-      "shared_variant": "66c539530f04807d",
       "source_sha256": "5bc8594bd7e77834c32a64efbf4cf8b6a1059df74654fe4a7809267d3fd4678f",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
@@ -124,12 +120,11 @@
       "updated_at": "2026-09-14T01:01:20+00:00"
     },
     ".github/workflows/rules-tests.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/rules-and-functions-tests.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/barbacker-rules-tests.yml",
       "implementation_sha256": "8d4ce5cdac2c245ba073141e1eaa56908c7d9621e7c4890b5dcb2e7ceae3973c",
       "name": "Rules and Functions Tests",
       "registry_source": "registry/1131545750/rules-tests-eecdd6c1.source.yml",
-      "shared_variant": "8d4ce5cdac2c245b",
       "source_sha256": "0b7b065e8862e6c031ece662ec8e4a6b3f38ce4e1eb665d2abb38dc0bd3453ff",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"

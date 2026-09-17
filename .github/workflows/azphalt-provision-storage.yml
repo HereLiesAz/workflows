@@ -1,0 +1,206 @@
+# Generated for HereLiesAz/azphalt:.github/workflows/provision-storage.yml.
+# Edit the registered source or synchronizer, not this compiled workflow.
+name: azphalt · Provision durable storage (manual)
+run-name: azphalt · Provision durable storage (manual)
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_ref:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+jobs:
+  central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from the shared HereLiesAz/workflows catalog.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    concurrency:
+      group: provision-storage-azphalt
+      cancel-in-progress: false
+  provision:
+    runs-on: ubuntu-latest
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_API_KEY }}
+      APPLY: ${{ fromJSON(inputs.target_inputs_json).apply }}
+    steps:
+      - name: Resolve team & project
+        run: "set -uo pipefail\nAPI=https://api.vercel.com\nauth=(-H \"Authorization: Bearer $VERCEL_TOKEN\")\nif [ -z \"${VERCEL_TOKEN:-}\" ]; then echo \"::error::VERCEL_API_KEY is not set\"; exit 1; fi\n\nteamId=$(curl -s \"${auth[@]}\" \"$API/v2/teams\" | jq -r '.teams[0].id // empty')\ntq=\"\"; [ -n \"$teamId\" ] && tq=\"?teamId=$teamId\"\npid=$(curl -s \"${auth[@]}\" \"$API/v9/projects?limit=100${teamId:+&teamId=$teamId}\" \\\n      | jq -r '.projects[] | select(.name|test(\"storefront|azphalt\";\"i\")) | .id' | head -1)\nif [ -z \"$pid\" ]; then echo \"::error::could not resolve the Vercel project id\"; exit 1; fi\n\necho \"TEAM_ID=$teamId\" >> \"$GITHUB_ENV\"\necho \"TQ=$tq\"          >> \"$GITHUB_ENV\"\necho \"PROJECT_ID=$pid\" >> \"$GITHUB_ENV\"\necho \"Resolved team=${teamId:-<personal>} project=$pid\"\n"
+      - name: Report current storage state
+        run: "set -uo pipefail\nAPI=https://api.vercel.com\nauth=(-H \"Authorization: Bearer $VERCEL_TOKEN\")\n\nenvs=$(curl -s \"${auth[@]}\" \"$API/v10/projects/$PROJECT_ID/env${TQ}\")\nhave_db=$(echo \"$envs\"   | jq -r '[.envs[]? | select(.key==\"DATABASE_URL\")]          | length')\nhave_blob=$(echo \"$envs\" | jq -r '[.envs[]? | select(.key==\"BLOB_READ_WRITE_TOKEN\")] | length')\necho \"DATABASE_URL set:          $([ \"$have_db\" -gt 0 ] && echo yes || echo NO)\"\necho \"BLOB_READ_WRITE_TOKEN set: $([ \"$have_blob\" -gt 0 ] && echo yes || echo NO)\"\necho \"HAVE_DB=$have_db\"     >> \"$GITHUB_ENV\"\necho \"HAVE_BLOB=$have_blob\" >> \"$GITHUB_ENV\"\n\necho \"--- existing stores on this account ---\"\ncurl -s \"${auth[@]}\" \"$API/v1/storage/stores${TQ}\" \\\n  | jq -r '.stores[]? | \"  \\(.type)\\t\\(.name)\\t\\(.id)\"' || echo \"  (none / unreadable)\"\n"
+      - name: Provision + connect Vercel Blob
+        if: ${{ fromJSON(inputs.target_inputs_json).apply == 'true' }}
+        run: "set -uo pipefail\nAPI=https://api.vercel.com\nauth=(-H \"Authorization: Bearer $VERCEL_TOKEN\" -H \"Content-Type: application/json\")\n\nif [ \"$HAVE_BLOB\" -gt 0 ]; then echo \"BLOB_READ_WRITE_TOKEN already set — leaving alone.\"; exit 0; fi\n\n# Reuse a blob store named azphalt-registry if it exists, so re-dispatching doesn't pile up stores.\nstoreId=$(curl -s \"${auth[@]}\" \"$API/v1/storage/stores${TQ}\" \\\n          | jq -r '.stores[]? | select(.type==\"blob\" and .name==\"azphalt-registry\") | .id' | head -1)\n\nif [ -z \"$storeId\" ]; then\n  echo \"Creating blob store azphalt-registry …\"\n  body=$(curl -s -w '\\n%{http_code}' \"${auth[@]}\" -X POST \\\n         \"$API/v1/storage/stores/blob${TQ}\" -d '{\"name\":\"azphalt-registry\"}')\n  code=$(echo \"$body\" | tail -1); json=$(echo \"$body\" | sed '$d')\n  echo \"create -> HTTP $code\"; echo \"$json\" | head -c 800; echo\n  [ \"$code\" = \"200\" ] || [ \"$code\" = \"201\" ] || { echo \"::error::blob store creation failed\"; exit 1; }\n  storeId=$(echo \"$json\" | jq -r '.store.id // .id // empty')\nelse\n  echo \"Reusing existing blob store $storeId\"\nfi\n[ -n \"$storeId\" ] || { echo \"::error::no blob store id\"; exit 1; }\n\necho \"Connecting store $storeId to project $PROJECT_ID …\"\nbody=$(curl -s -w '\\n%{http_code}' \"${auth[@]}\" -X POST \\\n       \"$API/v1/storage/stores/$storeId/connections${TQ}\" \\\n       -d \"{\\\"projectId\\\":\\\"$PROJECT_ID\\\",\\\"envVarEnvironments\\\":[\\\"production\\\",\\\"preview\\\",\\\"development\\\"]}\")\ncode=$(echo \"$body\" | tail -1)\necho \"connect -> HTTP $code\"; echo \"$body\" | sed '$d' | head -c 800; echo\n# Connecting is what mints BLOB_READ_WRITE_TOKEN on the project; a 409 means it already is.\ncase \"$code\" in 200|201|409) ;; *) echo \"::error::connect failed\"; exit 1;; esac\n"
+      - name: Connect Postgres for DATABASE_URL
+        if: ${{ fromJSON(inputs.target_inputs_json).apply == 'true' }}
+        run: "set -uo pipefail\nAPI=https://api.vercel.com\nauth=(-H \"Authorization: Bearer $VERCEL_TOKEN\" -H \"Content-Type: application/json\")\n\nif [ \"$HAVE_DB\" -gt 0 ]; then echo \"DATABASE_URL already set — leaving alone.\"; exit 0; fi\n\npg=$(curl -s \"${auth[@]}\" \"$API/v1/storage/stores${TQ}\" \\\n     | jq -r '.stores[]? | select(.type|test(\"postgres|neon\";\"i\")) | .id' | head -1)\n\nif [ -z \"$pg\" ]; then\n  echo \"::error::No Postgres/Neon store exists on this account, and one cannot be purchased through this API token.\"\n  echo \"Add it once from the Vercel dashboard, then re-dispatch this workflow:\"\n  echo \"  Vercel -> the azphalt project -> Storage -> Create Database -> Neon (Postgres)\"\n  echo \"  Connect it to this project, selecting Production / Preview / Development.\"\n  echo \"Connecting sets DATABASE_URL automatically. Blob (above) is already handled.\"\n  echo \"Until DATABASE_URL is set the storefront stays on the ephemeral store and\"\n  echo \"POST /api/publish keeps answering 503.\"\n  exit 1\nfi\n\necho \"Connecting existing Postgres store $pg to project $PROJECT_ID …\"\nbody=$(curl -s -w '\\n%{http_code}' \"${auth[@]}\" -X POST \\\n       \"$API/v1/storage/stores/$pg/connections${TQ}\" \\\n       -d \"{\\\"projectId\\\":\\\"$PROJECT_ID\\\",\\\"envVarEnvironments\\\":[\\\"production\\\",\\\"preview\\\",\\\"development\\\"]}\")\ncode=$(echo \"$body\" | tail -1)\necho \"connect -> HTTP $code\"; echo \"$body\" | sed '$d' | head -c 800; echo\ncase \"$code\" in 200|201|409) ;; *) echo \"::error::connect failed\"; exit 1;; esac\n"
+      - name: Final state
+        if: ${{ always() }}
+        run: "set -uo pipefail\nAPI=https://api.vercel.com\nauth=(-H \"Authorization: Bearer $VERCEL_TOKEN\")\nenvs=$(curl -s \"${auth[@]}\" \"$API/v10/projects/$PROJECT_ID/env${TQ}\")\ndb=$(echo \"$envs\"   | jq -r '[.envs[]? | select(.key==\"DATABASE_URL\")]          | length')\nbl=$(echo \"$envs\" | jq -r '[.envs[]? | select(.key==\"BLOB_READ_WRITE_TOKEN\")] | length')\n{\n  echo \"### Storage state\"\n  echo \"- DATABASE_URL: $([ \"$db\" -gt 0 ] && echo set || echo **unset**)\"\n  echo \"- BLOB_READ_WRITE_TOKEN: $([ \"$bl\" -gt 0 ] && echo set || echo **unset**)\"\n  if [ \"$db\" -gt 0 ] && [ \"$bl\" -gt 0 ]; then\n    echo \"\"\n    echo \"Both set. Redeploy so the build picks them up, then seed once:\"\n    echo '```sh'\n    echo 'DATABASE_URL=… BLOB_READ_WRITE_TOKEN=… pnpm --filter @azphalt/storefront seed'\n    echo '```'\n  else\n    echo \"\"\n    echo \"Still ephemeral — publishes cannot persist and /api/publish will answer 503.\"\n  fi\n} >> \"$GITHUB_STEP_SUMMARY\"\n"
+    needs: central_check_start
+    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
+    permissions:
+      contents: read
+    concurrency:
+      group: provision-storage-azphalt
+      cancel-in-progress: false
+    environment: azphalt
+  central_check_finish:
+    if: ${{ always() }}
+    needs:
+      - central_check_start
+      - provision
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    concurrency:
+      group: provision-storage-azphalt
+      cancel-in-progress: false

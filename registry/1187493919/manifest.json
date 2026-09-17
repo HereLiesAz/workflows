@@ -11,12 +11,11 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/build.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/the-assembly-line-of-despair.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/reup-build.yml",
       "implementation_sha256": "ef07dc39403cac0ae05fe423a42a8f84289c8541e4baa1f7ef402afca69ab8d7",
       "name": "The Assembly Line of Despair",
       "registry_source": "registry/1187493919/build-fe77d5d1.source.yml",
-      "shared_variant": "ef07dc39403cac0a",
       "source_sha256": "e6dc8ef902c25e4c1b5dfcc338526e617afb9e104fb1cadbaac740ab7b259d3e",
       "status": "active",
       "updated_at": "2026-09-15T03:03:53+00:00"

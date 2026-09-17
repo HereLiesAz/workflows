@@ -11,12 +11,11 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/antigravity-branch-manager.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/antigravity-branch-manager.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/ideaz-antigravity-branch-manager.yml",
       "implementation_sha256": "ff96108b43922c2b728b1bea787de943dc122a9f7f8f89ee4399267f5f4dfb88",
       "name": "Antigravity Branch Manager",
       "registry_source": "registry/1085343418/antigravity-branch-manager-27e78ee4.source.yml",
-      "shared_variant": "ff96108b43922c2b",
       "source_sha256": "46809ad74981ac249317826863a775894f8e23be394683d5f4231349716a096c",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
@@ -39,12 +38,11 @@
       "updated_at": "2026-09-14T01:07:45+00:00"
     },
     ".github/workflows/antigravity-issue-handler.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/antigravity-issue-handler.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/ideaz-antigravity-issue-handler.yml",
       "implementation_sha256": "c7f39e08c5f396a81122bb501c75b6d9cfacdd8b328819a7c70dfb273e4fa319",
       "name": "Antigravity Issue Handler",
       "registry_source": "registry/1085343418/antigravity-issue-handler-23241b3b.source.yml",
-      "shared_variant": "c7f39e08c5f396a8",
       "source_sha256": "c33c11ed3f31fdf45ff1f9970b9f0f7b9ccf9a3b4062148bdeb71c74d518b878",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
@@ -104,12 +102,11 @@
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/codeql.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/codeql.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/ideaz-codeql.yml",
       "implementation_sha256": "ecd55f85915733e12dc6bdf4c7719c8ab1546e383ddf4236d6bfad6587adc071",
       "name": "CodeQL",
       "registry_source": "registry/1085343418/codeql-37c182e8.source.yml",
-      "shared_variant": "ecd55f85915733e1",
       "source_sha256": "b1daefb6a9ccf116f965927078d197b7fd77c4e35093258e05c5a0c5c0660417",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
@@ -145,12 +142,11 @@
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/pr-check.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/pr-check.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/ideaz-pr-check.yml",
       "implementation_sha256": "44c4c828307b05a1b9fbff35a596a06a8ba0afa922b230850eda910f86c8e114",
       "name": "PR Check",
       "registry_source": "registry/1085343418/pr-check-7500c833.source.yml",
-      "shared_variant": "44c4c828307b05a1",
       "source_sha256": "8d0bee7aa3ab78d04396737b8f3fdde27eb3f4164f501979a811cac647b569b7",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
@@ -166,23 +162,21 @@
       "updated_at": "2026-09-14T01:08:02+00:00"
     },
     ".github/workflows/publish-play.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/google-play.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/ideaz-publish-play.yml",
       "implementation_sha256": "a459099d862c1251ef802a8fbe54f5bd64b65c1d5a663b6c58bda5da6742f826",
       "name": "Publish AAB to Play",
       "registry_source": "registry/1085343418/publish-play-a3a94793.source.yml",
-      "shared_variant": "a459099d862c1251",
       "source_sha256": "9f62916fd29cb8ceed1a342fe12a5e7d3edeea9b81603064406163ed81453127",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/summary.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/issue-summary.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/ideaz-summary.yml",
       "implementation_sha256": "6d72dc760e4e88c72bf97e4c3942d5f23e0fa82bd528e95aadc785d9a074926d",
       "name": "Summarize new issues",
       "registry_source": "registry/1085343418/summary-bc1f0d2a.source.yml",
-      "shared_variant": "6d72dc760e4e88c7",
       "source_sha256": "d457c0809e0b9d1cd9a70044eaab8f8e0aa11197ba25a0a9c97aab620f155afa",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"

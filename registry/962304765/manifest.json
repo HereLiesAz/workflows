@@ -69,12 +69,11 @@
       "updated_at": "2026-09-14T01:01:45+00:00"
     },
     ".github/workflows/stale.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/mark-stale-issues-and-pull-requests.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/blusnu-stale.yml",
       "implementation_sha256": "062f09ed325faa79fdad80c794e17fa3ea0990798dd00bbdddca385e6027224e",
       "name": "Mark stale issues and pull requests",
       "registry_source": "registry/962304765/stale-1d19aad7.source.yml",
-      "shared_variant": "062f09ed325faa79",
       "source_sha256": "43aa629c2e3b6ec4283e5c5ffe0524b608d1de63b76dd5ede504cbb4a82685a5",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"

@@ -11,12 +11,11 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/android-ci.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/android-ci.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/qard-android-ci.yml",
       "implementation_sha256": "85ea520991b3dc5b5aef9eafac0c6cd062d2d9f082f5ce0ac6aa77aabf5e3227",
       "name": "Android CI",
       "registry_source": "registry/1034746740/android-ci-3798bddf.source.yml",
-      "shared_variant": "85ea520991b3dc5b",
       "source_sha256": "41fe12a37af090d9bbb2d801dc044c858f4620f9215678277c71d9a83a5fd22d",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
@@ -32,23 +31,21 @@
       "updated_at": "2026-09-14T01:10:58+00:00"
     },
     ".github/workflows/deploy-webpage.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/sftp-deploy.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/qard-deploy-webpage.yml",
       "implementation_sha256": "0f7472a7b532c5031147cd5bdb7664b3542e160aa6c4d929a5d036451fe65735",
       "name": "Deploy Webpage over FTP",
       "registry_source": "registry/1034746740/deploy-webpage-c36a4430.source.yml",
-      "shared_variant": "0f7472a7b532c503",
       "source_sha256": "961e61bc138f682e09cad9b4318e0b44ca82719e751bda9b3594acc1b7937c27",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/generate-wrapper.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/generate-gradle-wrapper.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/qard-generate-wrapper.yml",
       "implementation_sha256": "99fff7a3147bced98cc524a9494cb5b691095077acd298a137eb78a8264ee5aa",
       "name": "Generate Gradle Wrapper",
       "registry_source": "registry/1034746740/generate-wrapper-a800fedd.source.yml",
-      "shared_variant": "99fff7a3147bced9",
       "source_sha256": "0fbe6665a0cab8d43c6331228abb01eabb7914190285b2df92060e841fb5aaa2",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"

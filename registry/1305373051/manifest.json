@@ -20,23 +20,21 @@
       "updated_at": "2026-09-15T03:04:35+00:00"
     },
     ".github/workflows/release.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/node-release.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/azphalt-midas-release.yml",
       "implementation_sha256": "939addfd7c9b46826e0ba4221eec7a895b3a536ecbc367f575b868dda697d187",
       "name": "release",
       "registry_source": "registry/1305373051/release-16911b98.source.yml",
-      "shared_variant": "939addfd7c9b4682",
       "source_sha256": "568a9897992715e3f68494df838280782f3802894d1443e8116515f59e7d9335",
       "status": "active",
       "updated_at": "2026-09-15T03:04:36+00:00"
     },
     ".github/workflows/sign-azp.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/sign-azp.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/azphalt-midas-sign-azp.yml",
       "implementation_sha256": "2ccbbd5c3657a3622842020ff95b045411ef43ba6e42edca04b352c9089b6e27",
       "name": "sign-azp",
       "registry_source": "registry/1305373051/sign-azp-fcd21605.source.yml",
-      "shared_variant": "2ccbbd5c3657a362",
       "source_sha256": "39ea6636c4df27ad72afc857325be6c5850c014589e7542ab529bda5e644b565",
       "status": "active",
       "updated_at": "2026-09-15T03:04:37+00:00"

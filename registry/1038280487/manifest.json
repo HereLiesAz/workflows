@@ -21,56 +21,51 @@
       "updated_at": "2026-09-14T01:00:06+00:00"
     },
     ".github/workflows/android-release-aab.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/google-play.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aznavrail-android-release-aab.yml",
       "implementation_sha256": "42a3f5af9ecea757b74eef1d2922685dc26374814e3f8132a1cc4ffc3d5703ff",
       "name": "Build & Publish AAB (Play)",
       "registry_source": "registry/1038280487/android-release-aab-c7afaeed.source.yml",
-      "shared_variant": "42a3f5af9ecea757",
       "source_sha256": "c7e435bc33db1508560b4f5e700570d3f9544ce3d2efa16b4b7df2a60ee3c1f4",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/android-release-apk.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/android-release.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aznavrail-android-release-apk.yml",
       "implementation_sha256": "31e2f79fe72366a00cf075af76d7c9fa6e31b41a5d81fcf59a2f0ea218b7e04e",
       "name": "Compile and Release APK",
       "registry_source": "registry/1038280487/android-release-apk-f927747f.source.yml",
-      "shared_variant": "31e2f79fe72366a0",
       "source_sha256": "41ccb8c30d393fdc42a44d3b208b179f948ebc44e1c316c4e78b76f627f3bb3c",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/android-sample-build.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/codeql.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aznavrail-android-sample-build.yml",
       "implementation_sha256": "bb019062355e0196d704170d8b8e73ebf73b37314a82891d19398abb15ed8f29",
       "name": "Android Sample Build",
       "registry_source": "registry/1038280487/android-sample-build-19cd3ec2.source.yml",
-      "shared_variant": "bb019062355e0196",
       "source_sha256": "04bc19c34394c47f3e26abcf16d76e0996a2df376a4a92720b5745926423fee8",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/android-update-libs.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/update-dependencies.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aznavrail-android-update-libs.yml",
       "implementation_sha256": "ae32a79237de31ef7d09c983969642705753f0c5bbcb366b0642609f7e38ef49",
       "name": "Update Dependencies",
       "registry_source": "registry/1038280487/android-update-libs-46df0ebe.source.yml",
-      "shared_variant": "ae32a79237de31ef",
       "source_sha256": "05e2b3435ae6c44dfac330372257beb8ccd0b4046cd7fb66bff57fabefb799e3",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/apply-unattached-visibility.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/apply-unattached-overflow-and-visibility.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aznavrail-apply-unattached-visibility.yml",
       "implementation_sha256": "457264a4a81b7cacf1b9d2150b115ffe358faeab1f5603d0cbb6888d29dd1011",
       "name": "Apply unattached overflow and visibility",
       "registry_source": "registry/1038280487/apply-unattached-visibility-0c3b96a9.source.yml",
-      "shared_variant": "457264a4a81b7cac",
       "source_sha256": "b661f9612e43a5d1cc49fc9e266d283bb25fb5c037ba8543df6ff8ac1ba2ed6d",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
@@ -85,23 +80,21 @@
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/bump-more-from-az.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/bake-more-from-az.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aznavrail-bump-more-from-az.yml",
       "implementation_sha256": "417677918d64457bb4fda3a70aa11d43adb1ce2d4bfc73fa0ac96dafa7e22e0e",
       "name": "Bake more-from-az",
       "registry_source": "registry/1038280487/bump-more-from-az-c2e387eb.source.yml",
-      "shared_variant": "417677918d64457b",
       "source_sha256": "e144627a504a0d9c127cf6efe9d59d7f273098811d3e5e76bf35a14599be026c",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/chatgpt-vendor-artifact.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/build-aznavrail-vendor-artifact.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aznavrail-chatgpt-vendor-artifact.yml",
       "implementation_sha256": "9d6d9e835de2066f1e3ef05f8764a1bb70d5299ac11c260b01f845c48ce3da24",
       "name": "Build AzNavRail vendor artifact",
       "registry_source": "registry/1038280487/chatgpt-vendor-artifact-8c779cbb.source.yml",
-      "shared_variant": "9d6d9e835de2066f",
       "source_sha256": "c9deeea2082e80732953f95c1cf9a3bc7e7630dab48aa7d39e16e0b0ba8601b8",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
@@ -116,34 +109,31 @@
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/codeql.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/codeql.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aznavrail-codeql.yml",
       "implementation_sha256": "91722bf0d3bcdfdd2f52657c1c2ac6a91af1cbb9d54a5caf75f0982a05ebf746",
       "name": "CodeQL",
       "registry_source": "registry/1038280487/codeql-37c182e8.source.yml",
-      "shared_variant": "91722bf0d3bcdfdd",
       "source_sha256": "a524ceeb0890b7c6ec820412ee6568fde448310a8fdea8cf80179553e7d281f9",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/deploy-sftp.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/sftp-deploy.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aznavrail-deploy-sftp.yml",
       "implementation_sha256": "8d49901b5104a9f7cf6201cc3602a514fe726df6d4c060dbde54434186734506",
       "name": "Deploy over FTP",
       "registry_source": "registry/1038280487/deploy-sftp-1401405c.source.yml",
-      "shared_variant": "8d49901b5104a9f7",
       "source_sha256": "b0ef23a564e122b032f710d57a50a0d08fa49b142386df869c99f960f4e5be8b",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/gradle-publish.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/gradle-package.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aznavrail-gradle-publish.yml",
       "implementation_sha256": "41afc1fa7ad4b01808470fdd9c7073f066b3806f90642086f062364e7b675851",
       "name": "Gradle Package",
       "registry_source": "registry/1038280487/gradle-publish-2f015cef.source.yml",
-      "shared_variant": "41afc1fa7ad4b018",
       "source_sha256": "03e2f1e420d12d9cc0a7cdbd64594ac76c6f5025b064f43083b57b0714cf087a",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
@@ -220,12 +210,11 @@
       "updated_at": "2026-09-14T01:00:42+00:00"
     },
     ".github/workflows/publish-npm.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/github-packages-publish.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aznavrail-publish-npm.yml",
       "implementation_sha256": "5d2db838a544c815a9f764981bc02a247f108346bf900b2048a1dd6fd171cc17",
       "name": "Publish to GitHub Packages",
       "registry_source": "registry/1038280487/publish-npm-106ed605.source.yml",
-      "shared_variant": "5d2db838a544c815",
       "source_sha256": "70516095978d4884e183505d261e2485f1b35c7b8835e69d13a726da077ca285",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
@@ -242,34 +231,31 @@
       "updated_at": "2026-09-14T01:00:45+00:00"
     },
     ".github/workflows/summary.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/issue-summary.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aznavrail-summary.yml",
       "implementation_sha256": "d825bd202905b6c6ea9d4c61fe3c25f7bef34caafb651ea101316e61f0628df7",
       "name": "Summarize new issues",
       "registry_source": "registry/1038280487/summary-bc1f0d2a.source.yml",
-      "shared_variant": "d825bd202905b6c6",
       "source_sha256": "9158d4587eeca12602514ad7da12f02c600029539ba1567bf63b405d972b65ff",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/sync-embedded-guide.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/sync-embedded-guide.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aznavrail-sync-embedded-guide.yml",
       "implementation_sha256": "cf6b6eabe291b701b1b3a26c5fec11c67d85eda5436de60a80a11b50156c7ed6",
       "name": "Sync embedded guide",
       "registry_source": "registry/1038280487/sync-embedded-guide-75198352.source.yml",
-      "shared_variant": "cf6b6eabe291b701",
       "source_sha256": "b4ab8a77c76716142d05268b84c737aaa5cc5a8b5c490564a3a93ef8e785de3f",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/sync-platform-parity.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/sync-platform-parity.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aznavrail-sync-platform-parity.yml",
       "implementation_sha256": "c72c89a9e8b5e1d3e7fd23265c3d9740e790ffa0c09bea464b4b92efa30e70f8",
       "name": "Sync platform parity",
       "registry_source": "registry/1038280487/sync-platform-parity-c34e1b2a.source.yml",
-      "shared_variant": "c72c89a9e8b5e1d3",
       "source_sha256": "5768aaeace26ea392a88f0c5f89f6b10cd034f04db665d39d32d636781874a10",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"

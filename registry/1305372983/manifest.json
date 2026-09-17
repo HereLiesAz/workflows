@@ -20,23 +20,21 @@
       "updated_at": "2026-09-15T03:04:26+00:00"
     },
     ".github/workflows/release.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/node-release.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/azphalt-gtcrn-release.yml",
       "implementation_sha256": "80d8fad11e5c7edc9a7ae11032156609b41de8a708b4eb995a05969d65a3cad7",
       "name": "release",
       "registry_source": "registry/1305372983/release-16911b98.source.yml",
-      "shared_variant": "80d8fad11e5c7edc",
       "source_sha256": "c43f374050664d850b17bfd5ceb78a1911b3cdf1e306448609944c02949e32aa",
       "status": "active",
       "updated_at": "2026-09-15T03:04:27+00:00"
     },
     ".github/workflows/sign-azp.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/sign-azp.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/azphalt-gtcrn-sign-azp.yml",
       "implementation_sha256": "2ccbbd5c3657a3622842020ff95b045411ef43ba6e42edca04b352c9089b6e27",
       "name": "sign-azp",
       "registry_source": "registry/1305372983/sign-azp-fcd21605.source.yml",
-      "shared_variant": "2ccbbd5c3657a362",
       "source_sha256": "39ea6636c4df27ad72afc857325be6c5850c014589e7542ab529bda5e644b565",
       "status": "active",
       "updated_at": "2026-09-15T03:04:28+00:00"

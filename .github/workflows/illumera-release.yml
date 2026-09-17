@@ -1,0 +1,326 @@
+# Generated for HereLiesAz/illumera:.github/workflows/release.yml.
+# Edit the registered source or synchronizer, not this compiled workflow.
+name: illumera · Build and Release APK + Play AAB
+run-name: illumera · Build and Release APK + Play AAB
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_ref:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+jobs:
+  central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from the shared HereLiesAz/workflows catalog.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    concurrency:
+      group: release-main-illumera
+      cancel-in-progress: false
+  build_and_release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+      STREMIO_MEDIA_REF: 95781597c8e3c30d6232e77bdadecc38ad35aa17
+      STREMIO_AAR_CACHE_VERSION: v2
+    steps:
+      - name: Checkout illumera
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: illumera
+          fetch-depth: 0
+          persist-credentials: false
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+      - name: Require publishing credentials
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          KEYSTORE_RAW: ${{ secrets.KEYSTORE_RAW }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: "set -euo pipefail\nfor name in PLAY_SERVICE_ACCOUNT_JSON KEYSTORE_RAW KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do\n  test -n \"${!name:-}\" || { echo \"Missing $name\" >&2; exit 1; }\ndone\n"
+      - name: Restore Stremio playback AAR cache
+        id: stremio-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: stremio-aars
+          key: stremio-media-${{ runner.os }}-${{ env.STREMIO_MEDIA_REF }}-${{ env.STREMIO_AAR_CACHE_VERSION }}
+      - name: Checkout Stremio Media3 fork
+        if: ${{ steps.stremio-cache.outputs.cache-hit != 'true' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: Stremio/media
+          ref: ${{ env.STREMIO_MEDIA_REF }}
+          path: stremio-media
+          fetch-depth: 1
+          persist-credentials: false
+          token: ${{ secrets.GH_TOKEN }}
+      - name: Set up JDK 21
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699
+        with:
+          packages: platform-tools
+      - name: Build Stremio playback modules
+        if: ${{ steps.stremio-cache.outputs.cache-hit != 'true' }}
+        working-directory: illumera
+        run: "chmod +x ci/build-stremio-media.sh\n./ci/build-stremio-media.sh ../stremio-media ../stremio-aars\n"
+      - name: Save trusted Stremio playback AAR cache
+        if: ${{ steps.stremio-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: stremio-aars
+          key: stremio-media-${{ runner.os }}-${{ env.STREMIO_MEDIA_REF }}-${{ env.STREMIO_AAR_CACHE_VERSION }}
+      - name: Install Stremio playback modules
+        working-directory: illumera
+        run: "set -euo pipefail\nfor aar in \\\n  lib-exoplayer-release.aar \\\n  lib-decoder-av1-release.aar \\\n  lib-decoder-ffmpeg-release.aar \\\n  lib-decoder-iamf-release.aar \\\n  lib-decoder-mpegh-release.aar; do\n  test -s \"../stremio-aars/$aar\" || { echo \"Missing Stremio playback artifact: $aar\" >&2; exit 1; }\n  cp \"../stremio-aars/$aar\" \"playbackcore/libs/$aar\"\ndone\n"
+      - name: Grant execute permission for gradlew
+        working-directory: illumera
+        run: chmod +x gradlew
+      - name: Resolve version
+        id: version
+        working-directory: illumera
+        run: "set -euo pipefail\nBASE=$(grep -oP 'versionName\\s*=.*?:\\s*\"\\K[^\"]+' app/build.gradle.kts | head -1)\ntest -n \"$BASE\" || { echo \"Could not resolve base versionName\" >&2; exit 1; }\nMAJOR_MINOR=$(printf '%s\\n' \"$BASE\" | grep -oP '^\\d+\\.\\d+')\ntest -n \"$MAJOR_MINOR\" || { echo \"Invalid base versionName: $BASE\" >&2; exit 1; }\nNAME=\"${MAJOR_MINOR}.${{ inputs.target_run_number }}\"\nprintf 'name=%s\\n' \"$NAME\" >> \"$GITHUB_OUTPUT\"\nprintf 'tag=v%s\\n' \"$NAME\" >> \"$GITHUB_OUTPUT\"\nprintf 'code=%s\\n' '${{ inputs.target_run_number }}' >> \"$GITHUB_OUTPUT\"\n"
+      - name: Decode release keystore
+        working-directory: illumera
+        env:
+          KEYSTORE_RAW: ${{ secrets.KEYSTORE_RAW }}
+        run: "set -euo pipefail\numask 077\nprintf '%s' \"$KEYSTORE_RAW\" | base64 --decode > release.keystore\ntest -s release.keystore || { echo \"Decoded release keystore is empty\" >&2; exit 1; }\n"
+      - name: Test, lint, and build signed artifacts
+        working-directory: illumera
+        env:
+          RELEASE_STORE_FILE: release.keystore
+          RELEASE_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          TRAKT_CLIENT_ID: ${{ secrets.TRAKT_CLIENT_ID }}
+          TRAKT_CLIENT_SECRET: ${{ secrets.TRAKT_CLIENT_SECRET }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          ACRA_URL: ${{ secrets.ACRA_URL }}
+          ACRA_TOKEN: ${{ secrets.ACRA_TOKEN }}
+        run: "./gradlew :app:testDebugUnitTest :app:lintRelease :app:assembleRelease :app:bundlePlay --no-daemon --stacktrace \\\n  -PversionNameOverride=\"${{ steps.version.outputs.name }}\" \\\n  -PversionCodeOverride=\"${{ steps.version.outputs.code }}\"\n"
+      - name: Remove release keystore
+        if: ${{ always() }}
+        working-directory: illumera
+        run: rm -f release.keystore
+      - name: Prepare release artifacts
+        id: artifacts
+        working-directory: illumera
+        run: "set -euo pipefail\nAPK=$(find app/build/outputs/apk/release -maxdepth 1 -name \"*.apk\" | head -1)\nAAB=$(find app/build/outputs/bundle/play -maxdepth 1 -name \"*.aab\" | head -1)\ntest -n \"$APK\" || { echo \"No release APK produced\" >&2; exit 1; }\ntest -n \"$AAB\" || { echo \"No Play AAB produced\" >&2; exit 1; }\ntest -s \"$APK\" || { echo \"Release APK is empty\" >&2; exit 1; }\ntest -s \"$AAB\" || { echo \"Play AAB is empty\" >&2; exit 1; }\nAPK_NAME=\"illumera-${{ steps.version.outputs.name }}.apk\"\ncp \"$APK\" \"$APK_NAME\"\nprintf 'apk=illumera/%s\\n' \"$APK_NAME\" >> \"$GITHUB_OUTPUT\"\nprintf 'aab=%s\\n' \"$AAB\" >> \"$GITHUB_OUTPUT\"\n"
+      - name: Compute APK SHA-256
+        id: checksum
+        env:
+          APK_PATH: ${{ steps.artifacts.outputs.apk }}
+        run: "set -euo pipefail\nHASH=$(sha256sum \"$APK_PATH\" | awk '{print $1}')\ntest -n \"$HASH\" || { echo \"Could not compute APK checksum\" >&2; exit 1; }\nprintf 'hash=%s\\n' \"$HASH\" >> \"$GITHUB_OUTPUT\"\n"
+      - name: Publish AAB to Google Play Internal testing
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.hereliesaz.illumera
+          releaseFiles: illumera/${{ steps.artifacts.outputs.aab }}
+          tracks: internal
+          status: completed
+      - name: Stage same version as Alpha draft
+        working-directory: illumera
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          PACKAGE_NAME: com.hereliesaz.illumera
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+        run: "set -euo pipefail\npython -m pip install --quiet google-auth requests\npython - <<'PY'\nimport json\nimport os\nimport requests\nfrom google.oauth2 import service_account\nfrom google.auth.transport.requests import Request\n\npackage = os.environ[\"PACKAGE_NAME\"]\nversion_code = os.environ[\"VERSION_CODE\"]\nversion_name = os.environ[\"VERSION_NAME\"]\ncredentials = service_account.Credentials.from_service_account_info(\n    json.loads(os.environ[\"PLAY_SERVICE_ACCOUNT_JSON\"]),\n    scopes=[\"https://www.googleapis.com/auth/androidpublisher\"],\n)\ncredentials.refresh(Request())\nheaders = {\n    \"Authorization\": f\"Bearer {credentials.token}\",\n    \"Content-Type\": \"application/json\",\n}\nbase = f\"https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{package}\"\n\nresponse = requests.post(f\"{base}/edits\", headers=headers, json={})\nresponse.raise_for_status()\nedit_id = response.json()[\"id\"]\ntrack_url = f\"{base}/edits/{edit_id}/tracks/alpha\"\n\nresponse = requests.get(track_url, headers=headers)\ntrack = {\"track\": \"alpha\", \"releases\": []} if response.status_code == 404 else response.json()\nif response.status_code != 404:\n    response.raise_for_status()\n\nreleases = [\n    release for release in track.get(\"releases\", [])\n    if release.get(\"status\") != \"draft\"\n    and version_code not in [str(code) for code in release.get(\"versionCodes\", [])]\n]\nreleases.append({\n    \"name\": f\"illumera {version_name}\",\n    \"versionCodes\": [version_code],\n    \"status\": \"draft\",\n})\n\nresponse = requests.put(track_url, headers=headers, json={\"track\": \"alpha\", \"releases\": releases})\nresponse.raise_for_status()\nresponse = requests.post(f\"{base}/edits/{edit_id}:commit\", headers=headers, json={})\nresponse.raise_for_status()\nPY\n"
+      - name: Generate release notes
+        working-directory: illumera
+        env:
+          APK_SHA256: ${{ steps.checksum.outputs.hash }}
+        run: "set -euo pipefail\nPREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)\n{\n  echo '## Changes'\n  if [ -n \"$PREV_TAG\" ]; then\n    git log \"$PREV_TAG..HEAD\" --pretty='format:- %s' --no-merges\n  else\n    echo '- Initial release'\n  fi\n  echo\n  echo\n  echo '---'\n  printf 'SHA-256: %s\\n' \"$APK_SHA256\"\n} > release-notes.md\n"
+      - name: Create release tag
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_SHA: ${{ inputs.target_sha }}
+        run: "set -euo pipefail\nif TAG_JSON=$(gh api \"repos/${TARGET_REPOSITORY}/git/ref/tags/${RELEASE_TAG}\" 2>/dev/null); then\n  TAG_SHA=$(jq -r '.object.sha' <<<\"$TAG_JSON\")\n  test \"$TAG_SHA\" = \"$RELEASE_SHA\" || {\n    echo \"Tag $RELEASE_TAG already points to $TAG_SHA, expected $RELEASE_SHA\" >&2\n    exit 1\n  }\nelse\n  gh api --method POST \"repos/${TARGET_REPOSITORY}/git/refs\" \\\n    -f ref=\"refs/tags/${RELEASE_TAG}\" \\\n    -f sha=\"$RELEASE_SHA\" >/dev/null\nfi\n"
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: illumera ${{ steps.version.outputs.name }}
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: ${{ steps.artifacts.outputs.apk }}
+          body_path: illumera/release-notes.md
+          repository: ${{ inputs.target_repository }}
+          token: ${{ secrets.GH_TOKEN }}
+    needs: central_check_start
+    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
+    permissions:
+      contents: write
+    concurrency:
+      group: release-main-illumera
+      cancel-in-progress: false
+    environment: illumera
+  central_check_finish:
+    if: ${{ always() }}
+    needs:
+      - central_check_start
+      - build_and_release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    concurrency:
+      group: release-main-illumera
+      cancel-in-progress: false

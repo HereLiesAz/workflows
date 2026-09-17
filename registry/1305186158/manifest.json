@@ -29,23 +29,21 @@
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/cloudflare-deploy.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/cloudflare-deploy.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/graffux-cloudflare-deploy.yml",
       "implementation_sha256": "2e40d251360ca9814b953fd486fe5e58a30b47fda29df9c6ceed88c3f4aba8bd",
       "name": "Deploy Cloudflare Worker",
       "registry_source": "registry/1305186158/cloudflare-deploy-30b8c36a.source.yml",
-      "shared_variant": "2e40d251360ca981",
       "source_sha256": "cf0148379d447e9ff488047c467c0728dd9a8ce9d3b61a952c6900c2447cd63b",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/deploy-sftp.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/sftp-deploy.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/graffux-deploy-sftp.yml",
       "implementation_sha256": "4fc21447bd146f8eb836da3487c06b26e2011d38cbf6e91b97c147783acbf62f",
       "name": "Mirror docs over SFTP",
       "registry_source": "registry/1305186158/deploy-sftp-1401405c.source.yml",
-      "shared_variant": "4fc21447bd146f8e",
       "source_sha256": "aab5ef3d85c2ac59d48c828207dbb273c22eacfc9d84e3f28faa96e44eb78a05",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
@@ -121,23 +119,21 @@
       "updated_at": "2026-09-14T01:05:41+00:00"
     },
     ".github/workflows/release-aab.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/google-play.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/graffux-release-aab.yml",
       "implementation_sha256": "1003b8ff1ea31195c0791d67f319ed18fc0c293138e6914003a5653ec72b5cdf",
       "name": "Release AAB to Play",
       "registry_source": "registry/1305186158/release-aab-b108bf8f.source.yml",
-      "shared_variant": "1003b8ff1ea31195",
       "source_sha256": "f0b5d5091bb2d2372b65116ee9d154f0fe03ed641d3693436525ff618f47f22a",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/release-apk.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/android-release.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/graffux-release-apk.yml",
       "implementation_sha256": "c67c127b0d4617625d8bc26af380b6546e2603d2d27aae027d57a7eb92f73bbc",
       "name": "Compile and Release APK + Desktop",
       "registry_source": "registry/1305186158/release-apk-da6a1dd6.source.yml",
-      "shared_variant": "c67c127b0d461762",
       "source_sha256": "91d73e21d7385b0155e9193b8d718f1e9d3ecb5fce92401f0fc06d9bd41aadb8",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"

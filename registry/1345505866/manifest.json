@@ -11,12 +11,11 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/ci.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/android-ci.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/illumera-ci.yml",
       "implementation_sha256": "f8d9d081d2b0379d7101da37dcd29d19eb7697cfe1a3c0f428bd6bf1be806fe9",
       "name": "CI",
       "registry_source": "registry/1345505866/ci-899ce9c2.source.yml",
-      "shared_variant": "f8d9d081d2b0379d",
       "source_sha256": "6ab641050248a526163bd43e627e6bf32c80a618fa1b0bfb4dbf3d24e1e8c697",
       "status": "active",
       "updated_at": "2026-09-15T03:17:44+00:00"
@@ -61,34 +60,31 @@
       "updated_at": "2026-09-15T03:17:47+00:00"
     },
     ".github/workflows/release.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/google-play.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/illumera-release.yml",
       "implementation_sha256": "9ac5706db1ce1f8defe3dd845431ec54c9a862ce3272162766e4408990aa639c",
       "name": "Build and Release APK + Play AAB",
       "registry_source": "registry/1345505866/release-16911b98.source.yml",
-      "shared_variant": "9ac5706db1ce1f8d",
       "source_sha256": "a95687c1a4f8af0ad53e5d420d557fc7237dd2f97d70d63201ac4cdff6edb6c6",
       "status": "active",
       "updated_at": "2026-09-15T03:17:50+00:00"
     },
     ".github/workflows/temp-dispatch-release.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/temporary-corrected-release-dispatch.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/illumera-temp-dispatch-release.yml",
       "implementation_sha256": "dd854599a7e23d7dfb8719b646b4072880114b6ec8a6a4956c5273ba436957ed",
       "name": "Temporary corrected release dispatch",
       "registry_source": "registry/1345505866/temp-dispatch-release-88dfb185.source.yml",
-      "shared_variant": "dd854599a7e23d7d",
       "source_sha256": "d93f34d2433fa3b66276527bd0b0a4dc349e2a488c97b6bc82fadbc9c8ba2261",
       "status": "active",
       "updated_at": "2026-09-15T03:17:52+00:00"
     },
     ".github/workflows/temp-recent-review-fixes.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/temporary-recent-review-cleanup.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/illumera-temp-recent-review-fixes.yml",
       "implementation_sha256": "13e2355b18a72b9afaea4aeef08ee80b3c9cc502752717d51713b653f28c3332",
       "name": "Temporary recent review cleanup",
       "registry_source": "registry/1345505866/temp-recent-review-fixes-34fc3f1d.source.yml",
-      "shared_variant": "13e2355b18a72b9a",
       "source_sha256": "36f843e1c6cbdbd93219136101a1e52e66b5fe387713491fe40d58a70df8e9c5",
       "status": "active",
       "updated_at": "2026-09-15T03:17:54+00:00"

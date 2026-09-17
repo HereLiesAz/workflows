@@ -11,12 +11,11 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/android.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/build-publish-release-apk.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/thelexorcist-android.yml",
       "implementation_sha256": "a7cb5b6a9274f7222de60e58a10fe422eefacf1dfcd4628f8cf578c11943a147",
       "name": "Build & Publish Release APK",
       "registry_source": "registry/1044343870/android-3f3614b6.source.yml",
-      "shared_variant": "a7cb5b6a9274f722",
       "source_sha256": "67ce04785215b3aacb24ff9d7703d6e87bfed3aacdf4ab3bd780540c47bb18cb",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
@@ -41,12 +40,11 @@
       "updated_at": "2026-09-14T01:12:52+00:00"
     },
     ".github/workflows/ci.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/android-ci.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/thelexorcist-ci.yml",
       "implementation_sha256": "68abd6bac3e63f205ca10125864d3a29078a18c5894544542cefc708d3208eae",
       "name": "CI",
       "registry_source": "registry/1044343870/ci-899ce9c2.source.yml",
-      "shared_variant": "68abd6bac3e63f20",
       "source_sha256": "9f8da3bca25bfd3dc0b79ccbf911454b10d940e597e3bfeed73995cdc8bd8551",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"

@@ -1,0 +1,225 @@
+# Generated for HereLiesAz/azphalt:.github/workflows/registry-sync.yml.
+# Edit the registered source or synchronizer, not this compiled workflow.
+name: azphalt · Sync registry from extension repos
+run-name: azphalt · Sync registry from extension repos
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_ref:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+jobs:
+  central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from the shared HereLiesAz/workflows catalog.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    concurrency:
+      group: registry-sync-azphalt
+      cancel-in-progress: false
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build the workspace packages these scripts import at runtime
+        run: pnpm --filter "@azphalt/azp..." --filter "@azphalt/runtime-reference..." build
+      - name: Decide what this run syncs
+        id: mode
+        env:
+          MODE: ${{ inputs.target_event_name == 'push' && 'pinned' || inputs.target_event_name == 'workflow_dispatch' && fromJSON(inputs.target_inputs_json).mode || 'latest' }}
+        run: "set -euo pipefail\ncase \"$MODE\" in\n  pinned) flags=\"--update\" ;;\n  latest) flags=\"--update --latest\" ;;\n  *) echo \"::error::unknown sync mode '$MODE'\"; exit 1 ;;\nesac\necho \"mode=$MODE\"    >> \"$GITHUB_OUTPUT\"\necho \"flags=$flags\"  >> \"$GITHUB_OUTPUT\"\necho \"Sync mode: **$MODE** (\\`build-catalog $flags\\`)\" >> \"$GITHUB_STEP_SUMMARY\"\n"
+      - name: Build the catalog
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          AZPHALT_PACKAGE_SIGNING_KEY: ${{ secrets.AZPHALT_PACKAGE_SIGNING_KEY }}
+          AZPHALT_PACKAGE_SIGNING_KEY_ID: ${{ secrets.AZPHALT_PACKAGE_SIGNING_KEY_ID }}
+        run: pnpm --filter @azphalt/storefront build-catalog ${{ steps.mode.outputs.flags }}
+      - name: Regenerate the store previews
+        run: pnpm --filter @azphalt/storefront build-previews
+      - name: Open a PR if the catalog moved
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          MODE: ${{ steps.mode.outputs.mode }}
+        run: "set -euo pipefail\nif [ \"$MODE\" = latest ]; then\n  what=\"Re-pinned each source in apps/storefront/registry/sources.json to its default-branch head and rebuilt registry/packages/.\"\nelse\n  what=\"Rebuilt registry/packages/ from the shas apps/storefront/registry/sources.json already pins. No source's ref was moved, so anything new here is a package that was pinned but never built.\"\nfi\nif git diff --quiet -- apps/storefront/registry; then\n  echo \"Catalog unchanged — nothing to publish.\"\n  echo \"Catalog unchanged.\" >> \"$GITHUB_STEP_SUMMARY\"\n  exit 0\nfi\n\nbranch=registry-sync/$MODE-$(date -u +%Y%m%d-%H%M%S)\ngit config user.name  \"github-actions[bot]\"\ngit config user.email \"41898282+github-actions[bot]@users.noreply.github.com\"\ngit checkout -b \"$branch\"\ngit add apps/storefront/registry\n# Repeated -m rather than one multi-line string: git joins them with blank lines, and every\n# line here stays indented inside the `run: |` block. A message body written at column 0\n# would terminate the block scalar, and YAML would then read it as further workflow keys.\ngit commit \\\n  -m \"chore(registry): sync catalog from extension repos ($MODE)\" \\\n  -m \"$what\" \\\n  -m \"Merging this publishes the new bytes; deploy-storefront then rebuilds and redeploys.\"\ngit push -u origin \"$branch\"\n\n# A summary of what actually moved, so the reviewer sees the change in package terms rather\n# than as a wall of binary diffs.\n{\n  echo \"Sync mode: **$MODE**.\"\n  echo \"\"\n  echo \"$what\"\n  echo \"\"\n  echo \"## Packages first built here\"\n  echo \"\"\n  echo \"Bytes that did not exist in the catalog before this run — i.e. sources that were\"\n  echo \"pinned in the lockfile but never published.\"\n  echo '```'\n  git diff --diff-filter=A --name-only \"origin/${TARGET_REF_NAME}...$branch\" \\\n    -- apps/storefront/registry/packages \\\n    | sed 's#.*/##' || true\n  echo '```'\n  echo \"\"\n  echo \"## Lockfile changes\"\n  echo '```'\n  git diff \"origin/${TARGET_REF_NAME}...$branch\" -- apps/storefront/registry/sources.json \\\n    | grep -E '^[+-] +\"(id|ref|version)\"' || echo \"(no lockfile field changes)\"\n  echo '```'\n} > /tmp/pr-body.md\n\n# Opening the PR is best-effort. A repo with \"Allow GitHub Actions to create and approve\n# pull requests\" switched off rejects this with a GraphQL permissions error — and failing\n# the run there would throw away work that already succeeded: the rebuilt, signed catalog\n# is pushed and safe on \"$branch\". Report how to open it by hand instead.\nif gh pr create --draft \\\n     --title \"chore(registry): sync catalog from extension repos ($MODE)\" \\\n     --body-file /tmp/pr-body.md; then\n  cat /tmp/pr-body.md >> \"$GITHUB_STEP_SUMMARY\"\nelse\n  echo \"::warning::Could not open the PR automatically — the catalog is pushed to $branch.\"\n  {\n    echo \"### Catalog rebuilt, PR not opened\"\n    echo \"\"\n    echo \"The rebuilt catalog is on \\`$branch\\`. Opening its PR failed, most likely because\"\n    echo \"**Settings → Actions → General → Workflow permissions → \\\"Allow GitHub Actions to\"\n    echo \"create and approve pull requests\\\"** is off.\"\n    echo \"\"\n    echo \"Open it here: ${GITHUB_SERVER_URL}/${TARGET_REPOSITORY}/compare/${TARGET_REF_NAME}...${branch}?expand=1\"\n    echo \"\"\n    cat /tmp/pr-body.md\n  } >> \"$GITHUB_STEP_SUMMARY\"\nfi\n"
+    needs: central_check_start
+    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    concurrency:
+      group: registry-sync-azphalt
+      cancel-in-progress: false
+    environment: azphalt
+  central_check_finish:
+    if: ${{ always() }}
+    needs:
+      - central_check_start
+      - sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+    concurrency:
+      group: registry-sync-azphalt
+      cancel-in-progress: false

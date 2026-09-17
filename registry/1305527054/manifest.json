@@ -11,23 +11,21 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/codeql.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/codeql.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/mcpserved-codeql.yml",
       "implementation_sha256": "3e934ff83b6357da3f082a29d196d3ecae9e74912cc630440a7035501342a714",
       "name": "CodeQL",
       "registry_source": "registry/1305527054/codeql-37c182e8.source.yml",
-      "shared_variant": "3e934ff83b6357da",
       "source_sha256": "1c85cedbe13e2334c6ec9d887ee06ee6fc81827311b8ed50278de225b90f17ba",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/desktop.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/build-desktop-executables.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/mcpserved-desktop.yml",
       "implementation_sha256": "7501ae3d34e1198f9ae2febda6de93161a4db82d54d840f65b9fb38b66f25729",
       "name": "Build Desktop Executables",
       "registry_source": "registry/1305527054/desktop-6b2aeac3.source.yml",
-      "shared_variant": "7501ae3d34e1198f",
       "source_sha256": "f085283d13372c3d20dfeb8e47b3fe2541f7c912f15c30547257aa22c11be7c2",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"
@@ -94,12 +92,11 @@
       "updated_at": "2026-09-14T01:09:59+00:00"
     },
     ".github/workflows/release-aab.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/google-play.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/mcpserved-release-aab.yml",
       "implementation_sha256": "1085effe2ad07ef18ce1006701d16b09f818ed46720771fc3bc873ab705ee1d5",
       "name": "Build & Publish AAB (Play)",
       "registry_source": "registry/1305527054/release-aab-b108bf8f.source.yml",
-      "shared_variant": "1085effe2ad07ef1",
       "source_sha256": "e27bd12865d67d2b1c70163a463a38a043c90869fd8d319a4097d7b2412852ed",
       "status": "active",
       "updated_at": "2026-09-14T16:03:50+00:00"

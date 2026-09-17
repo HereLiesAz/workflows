@@ -75,6 +75,10 @@ def effects_for(text: str, uses: list[str], name: str, path: str) -> set[str]:
         return any(term.casefold() in all_text for term in terms)
 
     # Distribution / deployment destinations.
+    if has("signazp", "sign released .azp assets", "azp_private_key"):
+        effects.add("azp-sign")
+    if has("model_url", "fetch upstream model") and has("manifest.json", "*.azp", "pack .azp"):
+        effects.add("azp-model-release")
     if has("gh release ", "softprops/action-gh-release", "ncipollo/release-action", "release create", "release upload"):
         effects.add("github-release")
     if has("upload-google-play", "gradle-play-publisher", "publishbundle", "publishapk", "google play", "play console"):
@@ -150,6 +154,10 @@ def effects_for(text: str, uses: list[str], name: str, path: str) -> set[str]:
 
 def purpose_for(effects: set[str], name: str, path: str) -> str:
     # Purpose is based on the externally visible result, not implementation details.
+    if "azp-sign" in effects:
+        return "azp-sign-release"
+    if "azp-model-release" in effects:
+        return "azp-model-release"
     if "glee-audit" in effects:
         return "pull-request-audit"
     if "jules-auto-merge" in effects:

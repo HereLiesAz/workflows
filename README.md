@@ -58,7 +58,7 @@ The synchronizer uses four outcomes:
 | Outcome | Purpose |
 | --- | --- |
 | Curated catalog | Known canonical implementations such as Jules Dispatch, Glee, Context Backup, and Clear Cache |
-| Content-addressed catalog | Other centrally safe workflow logic, deduplicated by implementation hash across repositories |
+| Reviewed semantic catalog | Workflows that accomplish the same job share one named implementation after semantic review; hashes are only change-detection guards |
 | Library | `workflow_call` helpers that stay available as reusable source components |
 | Local | Repository-bound workflows whose behavior would change or become unsafe if executed from this repository |
 
@@ -69,7 +69,7 @@ Current curated implementations are:
 - `.github/workflows/catalog-context-backup.yml`
 - `.github/workflows/catalog-clear-cache.yml`
 
-Per-repository source state and bindings are stored under `registry/<repository-id>/`. Legacy per-repository `absorbed-<repo-id>-*.yml` executors are garbage-collected after successful catalog binding.
+Per-repository source state and bindings are stored under `registry/<repository-id>/`. Equivalent behavior is bound to one purpose-level workflow; repository-specific executors are kept only when the behavior is genuinely unique or still awaiting semantic review.
 
 ## Repository-local scripts and actions
 

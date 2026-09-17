@@ -1,4 +1,4 @@
-name: Shared · Context Backup
+name: Context Backup
 
 on:
   workflow_dispatch:
@@ -76,6 +76,9 @@ on:
         required: true
         type: string
 
+      target_repository_name:
+        required: true
+        type: string
 permissions:
   contents: read
 
@@ -233,3 +236,4 @@ jobs:
           fi
           payload="$(jq -n --arg state "$state" --arg context "$STATUS_CONTEXT" --arg description "$description" --arg target_url "$DETAILS_URL" '{state:$state,context:$context,description:$description,target_url:$target_url}')"
           gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload"
+run-name: ${{ inputs.target_repository_name }} · Context Backup

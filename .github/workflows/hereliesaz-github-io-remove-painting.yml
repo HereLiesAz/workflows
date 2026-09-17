@@ -1,3 +1,4 @@
+# Generated for HereLiesAz/hereliesaz.github.io:registry/1148736516/remove_painting-14ebc6c0.source.yml.
 # Generated for HereLiesAz/hereliesaz.github.io:.github/workflows/remove_painting.yml.
 # Edit the registered source or synchronizer, not this compiled workflow.
 name: hereliesaz.github.io · Remove Painting
@@ -122,7 +123,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     concurrency:
-      group: art-data-publish
+      group: art-data-publish-hereliesaz.github.io
       cancel-in-progress: false
     steps:
       - name: Checkout source (for scripts/)

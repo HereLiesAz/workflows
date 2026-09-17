@@ -1,3 +1,4 @@
+# Generated for HereLiesAz/hereliesaz.github.io:registry/1148736516/process_art-ddca2c0b.source.yml.
 # Generated for HereLiesAz/hereliesaz.github.io:.github/workflows/process_art.yml.
 # Edit the registered source or synchronizer, not this compiled workflow.
 name: hereliesaz.github.io · Process Art (Turbo 56)
@@ -243,7 +244,7 @@ jobs:
     permissions:
       contents: write
     concurrency:
-      group: art-data-publish
+      group: art-data-publish-hereliesaz.github.io
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v3

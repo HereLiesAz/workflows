@@ -21,11 +21,11 @@
       "updated_at": "2026-09-15T03:05:44+00:00"
     },
     ".github/workflows/android_ci_jules.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/fluttertest-android-ci-jules.yml",
-      "implementation_sha256": "f6876c329406ebbd654dff74d8f94dc699ff73fb4ad1f1e86acfb1c19b2fba21",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/android-debug-ci.yml",
       "name": "Android CI (Jules)",
       "registry_source": "registry/1120831810/android_ci_jules-294d5140.source.yml",
+      "semantic_purpose": "Android Debug CI",
       "source_sha256": "6f25a5f112d324c4bb19236302c860917f1e65e984e919e778afdd634a97336d",
       "status": "active",
       "updated_at": "2026-09-15T03:05:45+00:00"
@@ -40,13 +40,11 @@
       "updated_at": "2026-09-15T03:05:46+00:00"
     },
     ".github/workflows/release.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/fluttertest-release.yml",
-      "implementation_sha256": "3c4ec11ce5f01ca4f7313d0879456a2ce18988408080ba2ffeae35c64960bc75",
       "name": "Release",
+      "reason": "starter release template that publishes a debug APK and says it should be a release build",
       "registry_source": "registry/1120831810/release-16911b98.source.yml",
       "source_sha256": "2ba572086d48250fa2f3afb2fb919716ee21b76145e1e13714be032381268601",
-      "status": "active",
+      "status": "obsolete",
       "updated_at": "2026-09-15T03:05:47+00:00"
     }
   }

@@ -23,6 +23,11 @@ try:
 except ImportError:
     from shared_workflow_library import add_shared_variant, semantic_family_slug, shared_workflow_path
 
+try:
+    from .semantic_catalog import reviewed_override_for_source
+except ImportError:
+    from semantic_catalog import reviewed_override_for_source
+
 API_VERSION = "2026-03-10"
 PROXY_MARKER = "# centralized-by: HereLiesAz/workflows"
 OWNER_LOGIN = "HereLiesAz"
@@ -995,7 +1000,7 @@ def sync_repository(gh: GitHub, full_name: str, worker_url: str, dry_run: bool =
             results.append({"path": path, "status": "library"})
             continue
 
-        override = CATALOG_PATH_OVERRIDES.get(path)
+        override = reviewed_override_for_source(source_hash) or CATALOG_PATH_OVERRIDES.get(path)
         if override:
             try:
                 gh.get_file(CENTRAL_REPOSITORY, override)

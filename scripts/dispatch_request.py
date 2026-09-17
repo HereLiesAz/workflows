@@ -17,6 +17,11 @@ from sync_repository import (
     load_manifest,
 )
 
+try:
+    from .semantic_catalog import uses_target_repository_name
+except ImportError:
+    from semantic_catalog import uses_target_repository_name
+
 
 def require(value: str, name: str) -> str:
     if value is None or value == "":
@@ -121,6 +126,9 @@ def main() -> int:
         "source_workflow_path": source_path,
         "source_sha256": source_sha256,
     }
+
+    if uses_target_repository_name(central_workflow):
+        dispatch_inputs["target_repository_name"] = repository.rsplit("/", 1)[-1]
 
     body = {"ref": "main", "inputs": dispatch_inputs}
     endpoint = f"/repos/{CENTRAL_REPOSITORY}/actions/workflows/{workflow_id}/dispatches"

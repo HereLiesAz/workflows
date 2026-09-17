@@ -1,3 +1,4 @@
+# Generated for HereLiesAz/Click:registry/1065113129/web_ci_pages-7a1c9369.source.yml.
 # Generated for HereLiesAz/Click:.github/workflows/web_ci_pages.yml.
 # Edit the registered source or synchronizer, not this compiled workflow.
 name: Click · Deploy to GitHub Pages
@@ -118,7 +119,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     concurrency:
-      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}
+      group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-Click
     steps:
       - uses: actions/checkout@v3
         with:

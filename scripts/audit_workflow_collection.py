@@ -9,6 +9,11 @@ from typing import Any
 
 from ruamel.yaml import YAML
 
+try:
+    from .semantic_catalog import GENERAL_CURATED_NAMES, SEMANTIC_WORKFLOWS
+except ImportError:
+    from semantic_catalog import GENERAL_CURATED_NAMES, SEMANTIC_WORKFLOWS
+
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / ".github" / "workflows"
 REGISTRY = ROOT / "registry"
@@ -18,7 +23,7 @@ CURATED = {
     ".github/workflows/context-backup.yml",
     ".github/workflows/clear-cache.yml",
     ".github/workflows/morphont-publish.yml",
-}
+} | set(SEMANTIC_WORKFLOWS)
 CONTROLLER = {
     ".github/workflows/gateway.yml",
     ".github/workflows/sync-repository.yml",
@@ -167,6 +172,32 @@ def audit() -> tuple[list[str], dict[str, int]]:
                 stats["curated_bindings"] += 1
                 if central not in CURATED:
                     errors.append(f"{rel_manifest}:{source_path}: unrecognized curated workflow {central}")
+
+    for central, rule in SEMANTIC_WORKFLOWS.items():
+        doc = workflow_docs.get(central)
+        if not doc:
+            errors.append(f"{central}: semantic workflow is missing or invalid")
+            continue
+        expected_name = str(rule["name"])
+        if doc.get("name") != expected_name:
+            errors.append(f"{central}: semantic name {doc.get('name')!r} != {expected_name!r}")
+        if "inputs.target_repository_name" not in str(doc.get("run-name") or ""):
+            errors.append(f"{central}: run-name does not identify the target repository")
+        dispatch = ((doc.get("on") or {}).get("workflow_dispatch") or {}) if isinstance(doc.get("on"), dict) else {}
+        inputs = dispatch.get("inputs") if isinstance(dispatch, dict) else None
+        if not isinstance(inputs, dict) or "target_repository_name" not in inputs:
+            errors.append(f"{central}: semantic workflow is missing target_repository_name input")
+        for job_id, job in (doc.get("jobs") or {}).items():
+            if not isinstance(job, dict):
+                continue
+            target_secrets = secret_names(job) - GLOBAL_SECRETS
+            if target_secrets and str(job_id) not in {"central_check_start", "central_check_finish"}:
+                environment = job.get("environment")
+                if "inputs.target_repository_name" not in str(environment or ""):
+                    errors.append(f"{central}:{job_id}: target secrets do not use the target repository environment")
+        for owner, group in concurrency_groups(doc):
+            if "inputs.target_repository_name" not in group and "inputs.target_repository" not in group:
+                errors.append(f"{central}:{owner}: semantic concurrency is not target-repository-scoped: {group}")
 
     literal_concurrency: dict[str, set[str]] = defaultdict(set)
     for central, (repo, source_path) in repository_refs.items():

@@ -69,23 +69,19 @@
       "updated_at": "2026-09-17T17:45:55+00:00"
     },
     ".github/workflows/jules-agent.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/guillotine-jules-agent.yml",
-      "implementation_sha256": "55e49946dc7e7141278ad25b289a6a6ba7ac56177a1ea3d533c429fb1014e982",
       "name": "Jules Agent",
+      "reason": "placeholder that only echoes that Jules is not configured",
       "registry_source": "registry/1269434928/jules-agent-e0063890.source.yml",
       "source_sha256": "49d4893a272511ab60ac596a27698d7557a773ac28ac3d2d8fed3fe8a0d45159",
-      "status": "active",
+      "status": "obsolete",
       "updated_at": "2026-09-17T17:45:58+00:00"
     },
     ".github/workflows/jules-auto-merge.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/guillotine-jules-auto-merge.yml",
-      "implementation_sha256": "ad681c1279f85b4d4edb767162ad9f3c59a3c49d872878f596129c65b4efa598",
       "name": "Jules Auto-Merge Branch",
+      "reason": "placeholder that only echoes that Jules is not configured",
       "registry_source": "registry/1269434928/jules-auto-merge-9008b8c6.source.yml",
       "source_sha256": "9e685cca2c9fcc3ed777ee50b1d33bee7f8df30bd586189b27bce3c58c8dc0e1",
-      "status": "active",
+      "status": "obsolete",
       "updated_at": "2026-09-17T17:46:00+00:00"
     },
     ".github/workflows/jules-glee.yml": {
@@ -171,11 +167,11 @@
       "updated_at": "2026-09-17T17:46:15+00:00"
     },
     ".github/workflows/summary.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/guillotine-summary.yml",
-      "implementation_sha256": "36378ba304e05f899c0c8fe593090c9b24605eacdff51679b5c92ee9c62bae9c",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/issue-summary.yml",
       "name": "Summarize new issues",
       "registry_source": "registry/1269434928/summary-bc1f0d2a.source.yml",
+      "semantic_purpose": "Issue Summary",
       "source_sha256": "c6534bad6ca4dbda9ce365f12a5894a92729d6be5e2e0bb4944b192812aa11e2",
       "status": "active",
       "updated_at": "2026-09-17T17:46:16+00:00"

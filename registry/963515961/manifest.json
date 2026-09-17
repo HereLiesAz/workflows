@@ -21,19 +21,19 @@
       "updated_at": "2026-09-14T01:04:30+00:00"
     },
     ".github/workflows/codeql.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/et2brutus-codeql.yml",
-      "implementation_sha256": "eed09527604319f2e79c28ee95bc61955540d5e0a071707a0d89f7adbb945d2b",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/codeql-scan.yml",
       "name": "CodeQL Advanced",
       "registry_source": "registry/963515961/codeql-37c182e8.source.yml",
       "source_sha256": "888afc38304e373a2efcb201edf4be0eb263cb606ec4498f377e7972ba976fac",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "CodeQL Scan"
     },
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "\ud83d\ude08 Glee Audit",
+      "name": "😈 Glee Audit",
       "registry_source": "registry/963515961/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",

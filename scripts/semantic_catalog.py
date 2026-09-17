@@ -41,8 +41,28 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
     ".github/workflows/android-dependency-update.yml": {
         "name": "Android Dependency Update",
         "canonical_hash": "05e2b3435ae6c44dfac330372257beb8ccd0b4046cd7fb66bff57fabefb799e3",
+        "generalized": True,
         "source_hashes": {
             "05e2b3435ae6c44dfac330372257beb8ccd0b4046cd7fb66bff57fabefb799e3",
+            "ba191c6a57ff4008bd50e08df3f5b931095de753fddb7a669f3d66445c2032a0",
+            "8e5f1bac9cf34a4b89d0d49d1a137c46a18212420d820f3103e5020b6628a0ff",
+            "320489791ba36be59acabf9ac3b0267bfaab93e7e68e4b40700a5016a90bc1ef",
+            "218d0b95a059b7c0e559590cf074b99f3fa1cbc6896cdab316133bc39d110704",
+            "389bc8192c50e3f60e771d6f8f254f25ddc639bb41cd33e86109cda171b3ef25",
+        },
+    },
+    ".github/workflows/codeql-scan.yml": {
+        "name": "CodeQL Scan",
+        "canonical_hash": "b1daefb6a9ccf116f965927078d197b7fd77c4e35093258e05c5a0c5c0660417",
+        "generalized": True,
+        "source_hashes": {
+            "a524ceeb0890b7c6ec820412ee6568fde448310a8fdea8cf80179553e7d281f9",
+            "b1daefb6a9ccf116f965927078d197b7fd77c4e35093258e05c5a0c5c0660417",
+            "e16a42da22d3d1d1fcc2027f8904587003b09a058f1ace5135d131a4eac2b288",
+            "7e105503a4469dc6efca0ac829f5bb9a6ab2ea6a9e18d674b842fc83340510b6",
+            "1c85cedbe13e2334c6ec9d887ee06ee6fc81827311b8ed50278de225b90f17ba",
+            "9e3b56da6fe8e52662f6e9fff25d1bfb9d4285673008a6b13cc4af7ccbed2e59",
+            "888afc38304e373a2efcb201edf4be0eb263cb606ec4498f377e7972ba976fac",
         },
     },
     ".github/workflows/website-sftp-deploy.yml": {
@@ -66,6 +86,16 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "6f25a5f112d324c4bb19236302c860917f1e65e984e919e778afdd634a97336d",
         },
     },
+}
+
+PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
+    "ba191c6a57ff4008bd50e08df3f5b931095de753fddb7a669f3d66445c2032a0": {"lib_dir": "app/libs", "opencv": True, "opencv_layout": "sdk-root", "glm_layout": "archive-root"},
+    "8e5f1bac9cf34a4b89d0d49d1a137c46a18212420d820f3103e5020b6628a0ff": {"lib_dir": "libs", "opencv": True, "opencv_layout": "sdk-contents", "glm_layout": "headers"},
+    "320489791ba36be59acabf9ac3b0267bfaab93e7e68e4b40700a5016a90bc1ef": {"lib_dir": "libs", "opencv": True, "opencv_layout": "sdk-contents", "glm_layout": "headers"},
+    "e16a42da22d3d1d1fcc2027f8904587003b09a058f1ace5135d131a4eac2b288": {"languages": ["actions", "javascript-typescript"]},
+    "7e105503a4469dc6efca0ac829f5bb9a6ab2ea6a9e18d674b842fc83340510b6": {"java_version": "19", "build_command": "./gradlew clean assembleDebug --no-build-cache"},
+    "1c85cedbe13e2334c6ec9d887ee06ee6fc81827311b8ed50278de225b90f17ba": {"java_version": "19", "build_command": "./gradlew clean assembleGithubDebug --no-build-cache"},
+    "888afc38304e373a2efcb201edf4be0eb263cb606ec4498f377e7972ba976fac": {"languages": ["java-kotlin"], "build_mode": "autobuild"},
 }
 
 GENERAL_CURATED_NAMES: Final[dict[str, str]] = {
@@ -138,3 +168,13 @@ def canonical_hash(path: str) -> str:
 
 def uses_target_repository_name(path: str) -> bool:
     return path in SEMANTIC_WORKFLOWS or path in GENERAL_CURATED_NAMES
+
+
+def purpose_profile_for_source(source_sha256: str) -> dict[str, object] | None:
+    profile = PURPOSE_PROFILES.get(source_sha256)
+    return dict(profile) if profile else None
+
+
+def uses_purpose_profile(path: str) -> bool:
+    rule = SEMANTIC_WORKFLOWS.get(path)
+    return bool(rule and rule.get("generalized"))

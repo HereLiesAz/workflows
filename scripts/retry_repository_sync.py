@@ -25,6 +25,37 @@ REPOSITORY_CATALOG_OVERRIDES = {
 }
 
 
+# Some source workflows genuinely read github.event.* fields, so sync_repository.py
+# previously left the entire webhook untouched. A pull_request payload repeats huge
+# repository/user/link objects and can exceed the gateway's workflow_dispatch limit.
+# Preserve semantic event data while removing transport-only URL/link noise.
+_base_compact_event_script = sync._compact_event_script
+
+
+def _compact_event_script(source_path: str, source_text: str) -> str | None:
+    compact = _base_compact_event_script(source_path, source_text)
+    if compact is not None:
+        return compact
+    return r'''DISPATCH_EVENT_JSON="$(jq -c '
+  def strip_noise:
+    if type == "object" then
+      with_entries(
+        select(.key as $k | [
+          "url", "html_url", "avatar_url", "followers_url", "following_url",
+          "gists_url", "starred_url", "subscriptions_url", "organizations_url",
+          "repos_url", "events_url", "received_events_url", "node_id", "_links"
+        ] | index($k) | not)
+      ) | map_values(strip_noise)
+    elif type == "array" then map(strip_noise)
+    else . end;
+  strip_noise
+' <<<"$EVENT_JSON")"
+'''
+
+
+sync._compact_event_script = _compact_event_script
+
+
 class IdempotentGitHub(core.GitHub):
     """GitHub client that avoids write calls when the desired state already exists."""
 

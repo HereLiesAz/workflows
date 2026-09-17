@@ -1,0 +1,277 @@
+# Generalized purpose workflow: CodeQL Scan.
+# Language and build differences are detected or supplied as a small profile.
+# Generated for HereLiesAz/AzNavRail:.github/workflows/android-update-libs.yml.
+# Edit the registered source or synchronizer, not this compiled workflow.
+name: CodeQL Scan
+run-name: ${{ inputs.target_repository_name }} · CodeQL Scan
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_ref:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+      target_repository_name:
+        required: true
+        type: string
+      purpose_profile_json:
+        required: false
+        type: string
+        default: '{}'
+jobs:
+  central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from the shared HereLiesAz/workflows catalog.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+  detect_languages:
+    needs: central_check_start
+    runs-on: ubuntu-latest
+    outputs:
+      languages: ${{ steps.detect.outputs.languages }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+      - name: Detect CodeQL languages
+        id: detect
+        env:
+          PROFILE_JSON: ${{ inputs.purpose_profile_json }}
+          TARGET_VARS_JSON: ${{ inputs.target_vars_json }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          profile="$(jq -c '.languages // empty' <<<"$PROFILE_JSON")"
+          configured="$(jq -r '.CODEQL_LANGUAGES // empty' <<<"$TARGET_VARS_JSON")"
+          if [ -n "$profile" ]; then echo "languages=$profile" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ -n "$configured" ]; then
+            if jq -e . >/dev/null 2>&1 <<<"$configured"; then
+              echo "languages=$configured" >> "$GITHUB_OUTPUT"
+            else
+              json="$(printf '%s' "$configured" | jq -R 'split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length>0))')"
+              echo "languages=$json" >> "$GITHUB_OUTPUT"
+            fi
+            exit 0
+          fi
+          languages=()
+          find . -type f \( -name '*.java' -o -name '*.kt' \) -print -quit | grep -q . && languages+=(java-kotlin)
+          find . -type f \( -name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' \) -print -quit | grep -q . && languages+=(javascript-typescript)
+          find . -type f -name '*.py' -print -quit | grep -q . && languages+=(python)
+          find . -type f -name '*.go' -print -quit | grep -q . && languages+=(go)
+          find . -type f \( -name '*.cs' -o -name '*.csproj' \) -print -quit | grep -q . && languages+=(csharp)
+          find . -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) -print -quit | grep -q . && languages+=(c-cpp)
+          find . -type f -name '*.rb' -print -quit | grep -q . && languages+=(ruby)
+          find . -type f -name '*.rs' -print -quit | grep -q . && languages+=(rust)
+          find . -type f -name '*.swift' -print -quit | grep -q . && languages+=(swift)
+          test ${#languages[@]} -gt 0 || { echo "No CodeQL-supported language detected" >&2; exit 1; }
+          printf -v joined '"%s",' "${languages[@]}"
+          echo "languages=[${joined%,}]" >> "$GITHUB_OUTPUT"
+
+  analyze:
+    needs: [central_check_start, detect_languages]
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ${{ fromJSON(needs.detect_languages.outputs.languages) }}
+    runs-on: ${{ matrix.language == 'swift' && 'macos-latest' || 'ubuntu-latest' }}
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+      security-events: write
+    concurrency:
+      group: codeql-${{ inputs.target_repository_name }}-${{ inputs.target_ref_name || inputs.target_sha }}-${{ matrix.language }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+      - name: Set up Java
+        if: ${{ matrix.language == 'java-kotlin' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ fromJSON(inputs.purpose_profile_json).java_version || '21' }}
+      - name: Set up Android SDK
+        if: ${{ matrix.language == 'java-kotlin' }}
+        uses: android-actions/setup-android@v3
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+      - name: Build analyzed project when required
+        id: build
+        env:
+          PROFILE_JSON: ${{ inputs.purpose_profile_json }}
+          TARGET_VARS_JSON: ${{ inputs.target_vars_json }}
+          LANGUAGE: ${{ matrix.language }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "manual=false" >> "$GITHUB_OUTPUT"
+          [ "$(jq -r '.build_mode // empty' <<<"$PROFILE_JSON")" != "autobuild" ] || exit 0
+          command="$(jq -r '.build_command // empty' <<<"$PROFILE_JSON")"
+          [ -n "$command" ] || command="$(jq -r '.CODEQL_BUILD_COMMAND // empty' <<<"$TARGET_VARS_JSON")"
+          if [ -z "$command" ] && [ "$LANGUAGE" = "java-kotlin" ] && [ -f ./gradlew ]; then
+            chmod +x ./gradlew
+            if ./gradlew tasks --all --quiet 2>/dev/null | grep -q 'assembleGithubDebug'; then
+              command='./gradlew clean assembleGithubDebug --no-build-cache'
+            elif ./gradlew tasks --all --quiet 2>/dev/null | grep -q 'assembleDebug'; then
+              command='./gradlew clean assembleDebug --no-build-cache'
+            fi
+          fi
+          if [ -n "$command" ]; then
+            bash -eo pipefail -c "$command"
+            echo "manual=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Autobuild compiled language
+        if: ${{ steps.build.outputs.manual != 'true' && contains(fromJSON('["c-cpp","csharp","go","java-kotlin","rust","swift"]'), matrix.language) }}
+        uses: github/codeql-action/autobuild@v4
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:${{ matrix.language }}
+  central_check_finish:
+    if: ${{ always() }}
+    needs:
+      - central_check_start
+      - detect_languages
+      - analyze
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}

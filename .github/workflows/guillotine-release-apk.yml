@@ -1,7 +1,8 @@
 # Generated for HereLiesAz/Guillotine:.github/workflows/release-apk.yml.
 # Edit the registered source or synchronizer, not this compiled workflow.
+# Generated shared catalog workflow. Do not edit by hand.
+# catalog-source: shared/e1a80a63ce7ee353235da4f9b2a08878a6f4af0261d585cf0823753800d57f5a
 name: Guillotine · Compile and Release APK
-run-name: Guillotine · Compile and Release APK
 on:
   workflow_dispatch:
     inputs:
@@ -77,6 +78,31 @@ on:
       source_sha256:
         required: true
         type: string
+permissions:
+  contents: read
+env:
+  TARGET_REPOSITORY: ${{ inputs.target_repository }}
+  TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+  TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+  TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+  TARGET_SHA: ${{ inputs.target_sha }}
+  TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+  TARGET_REF: ${{ inputs.target_ref }}
+  TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+  TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+  TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+  TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+  TARGET_ACTOR: ${{ inputs.target_actor }}
+  TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+  TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+  TARGET_RUN_ID: ${{ inputs.target_run_id }}
+  TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+  TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+  TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+  TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+concurrency:
+  group: release-apk-publish-Guillotine
+  cancel-in-progress: false
 jobs:
   central_check_start:
     runs-on: ubuntu-latest
@@ -92,33 +118,8 @@ jobs:
           STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
           DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         shell: bash
-        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from the shared HereLiesAz/workflows catalog.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
-    permissions:
-      contents: read
-    env:
-      TARGET_REPOSITORY: ${{ inputs.target_repository }}
-      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
-      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
-      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
-      TARGET_SHA: ${{ inputs.target_sha }}
-      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
-      TARGET_REF: ${{ inputs.target_ref }}
-      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
-      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
-      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
-      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
-      TARGET_ACTOR: ${{ inputs.target_actor }}
-      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
-      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
-      TARGET_RUN_ID: ${{ inputs.target_run_id }}
-      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
-      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
-      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
-      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
-    concurrency:
-      group: release-apk-publish-Guillotine
-      cancel-in-progress: false
-  build_and_release:
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from HereLiesAz/workflows.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+  build-and-release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -130,7 +131,7 @@ jobs:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}
           token: ${{ secrets.GH_TOKEN }}
-          persist-credentials: false
+          persist-credentials: true
       - name: Create google-services.json
         env:
           GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES }}
@@ -170,35 +171,12 @@ jobs:
         run: "# Read Patch/Build straight from version.properties — the Gradle build that just ran\n# (assembleGithubRelease, above) already computed them at configuration time and wrote\n# the result back to this exact file (see build.gradle.kts's versioning block), and that\n# write is what's actually baked into the APK's versionCode/versionName. This step used\n# to re-derive its own PATCH/BUILD_NUMBER independently via `git rev-list`/`git blame` —\n# a separate, stale approximation that ignored the file Gradle had just written and\n# didn't match it: BUILD_NUMBER was raw `git rev-list --count HEAD` (a small number),\n# while the real versionBuild is offset by a monotonic floor (205920500+) and\n# auto-incremented, so the GitHub Release's title/tag/filename showed a version like\n# \"1.1.5.1502\" for an APK whose actual embedded versionCode was ~205921443. Reading the\n# file directly guarantees the release name matches what's actually inside the APK.\nMAJOR=$(grep 'versionMajor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nMINOR=$(grep 'versionMinor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nPATCH=$(grep 'versionPatch=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nBUILD_NUMBER=$(grep 'versionBuild=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\n\nVERSION_NAME=\"${MAJOR}.${MINOR}.${PATCH}.${BUILD_NUMBER}\"\nTAG_NAME=\"latest-release-v${MAJOR}.${MINOR}\"\n\n# Locate built APK (github flavor → app/build/outputs/apk/github/release)\nAPK_ORIGINAL=$(find app/build/outputs/apk/github/release -name \"*.apk\" | head -n 1)\nif [ -z \"$APK_ORIGINAL\" ]; then\n  echo \"Error: No APK found in app/build/outputs/apk/github/release/\"\n  find app/build/outputs/ -name \"*.apk\"\n  exit 1\nfi\n\nAPP_NAME=$(grep 'rootProject.name' settings.gradle.kts | sed -E \"s/.*=.*[\\\"'](.*)[\\\"']/\\1/\")\n[ -z \"$APP_NAME\" ] && APP_NAME=\"Guillotine\"\nTARGET_NAME=\"${APP_NAME}-${VERSION_NAME}-release.apk\"\nmv \"$APK_ORIGINAL\" \"$TARGET_NAME\"\n\n# R8's mapping.txt is the only way to deobfuscate a crash stack trace from this APK\n# (minifyEnabled/shrinkResources are on for release — see app/build.gradle.kts). Unlike\n# the play flavor's AAB (release-aab.yml), which Play Console deobfuscates automatically\n# from bundle metadata, this github-flavor APK has no such backend — so the mapping file\n# has to be captured here or a real-device crash like \"fi3.a\" is unreadable. Uploaded to\n# the same release tag as the APK (clobbered on every run, same as the APK itself) so the\n# mapping always matches whatever build is currently live for self-updating installs.\nMAPPING_ORIGINAL=\"app/build/outputs/mapping/githubRelease/mapping.txt\"\nMAPPING_TARGET=\"\"\nif [ -f \"$MAPPING_ORIGINAL\" ]; then\n  MAPPING_TARGET=\"${APP_NAME}-${VERSION_NAME}-mapping.txt\"\n  cp \"$MAPPING_ORIGINAL\" \"$MAPPING_TARGET\"\nelse\n  echo \"::warning::No mapping.txt found at $MAPPING_ORIGINAL — release APK crashes won't be deobfuscatable.\"\nfi\n\ngit config user.name \"github-actions[bot]\"\ngit config user.email \"41898282+github-actions[bot]@users.noreply.github.com\"\n\n# Force update tag to current commit\ngit tag -fa \"$TAG_NAME\" -m \"Latest Release Build\"\ngit push origin \"$TAG_NAME\" --force\n\n# Create or update release\nif gh release view \"$TAG_NAME\" > /dev/null 2>&1; then\n  echo \"Updating existing release...\"\n  gh release edit \"$TAG_NAME\" \\\n    --title \"Latest Release v${MAJOR}.${MINOR} (${VERSION_NAME})\" \\\n    --notes \"Release build from commit $TARGET_SHA\"\n  gh release upload \"$TAG_NAME\" \"$TARGET_NAME\" --clobber\nelse\n  echo \"Creating new release...\"\n  gh release create \"$TAG_NAME\" \"$TARGET_NAME\" \\\n    --title \"Latest Release v${MAJOR}.${MINOR} (${VERSION_NAME})\" \\\n    --notes \"Release build from commit $TARGET_SHA\"\nfi\n\nif [ -n \"$MAPPING_TARGET\" ]; then\n  gh release upload \"$TAG_NAME\" \"$MAPPING_TARGET\" --clobber\nfi\n"
     needs: central_check_start
     if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
-    env:
-      TARGET_REPOSITORY: ${{ inputs.target_repository }}
-      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
-      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
-      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
-      TARGET_SHA: ${{ inputs.target_sha }}
-      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
-      TARGET_REF: ${{ inputs.target_ref }}
-      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
-      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
-      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
-      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
-      TARGET_ACTOR: ${{ inputs.target_actor }}
-      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
-      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
-      TARGET_RUN_ID: ${{ inputs.target_run_id }}
-      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
-      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
-      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
-      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
-    concurrency:
-      group: release-apk-publish-Guillotine
-      cancel-in-progress: false
     environment: Guillotine
   central_check_finish:
     if: ${{ always() }}
     needs:
       - central_check_start
-      - build_and_release
+      - build-and-release
     runs-on: ubuntu-latest
     steps:
       - name: Complete target status
@@ -208,29 +186,5 @@ jobs:
           FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
           DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         shell: bash
-        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
-    permissions:
-      contents: read
-    env:
-      TARGET_REPOSITORY: ${{ inputs.target_repository }}
-      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
-      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
-      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
-      TARGET_SHA: ${{ inputs.target_sha }}
-      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
-      TARGET_REF: ${{ inputs.target_ref }}
-      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
-      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
-      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
-      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
-      TARGET_ACTOR: ${{ inputs.target_actor }}
-      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
-      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
-      TARGET_RUN_ID: ${{ inputs.target_run_id }}
-      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
-      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
-      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
-      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
-    concurrency:
-      group: release-apk-publish-Guillotine
-      cancel-in-progress: false
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Central workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Central workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+run-name: Guillotine · Compile and Release APK

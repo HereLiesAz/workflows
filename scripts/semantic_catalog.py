@@ -6,6 +6,28 @@ from typing import Final
 # safety guards: a source must still be one of the reviewed implementations
 # before the synchronizer binds it to the shared purpose-level workflow.
 SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
+    ".github/workflows/azp-model-release.yml": {
+        "name": "AZP Model Release",
+        "canonical_hash": "d97ccb161c6ef03fda005a7053d4de85c1cd9cf97785ccf7a8e777ca5ef31ee5",
+        "generalized": True,
+        "source_hashes": {
+            "d97ccb161c6ef03fda005a7053d4de85c1cd9cf97785ccf7a8e777ca5ef31ee5",
+            "c43f374050664d850b17bfd5ceb78a1911b3cdf1e306448609944c02949e32aa",
+            "d8c762275c29a2b6fd557eca12c44756ec7235d4c7fb03a9a447eecc5838eaa0",
+            "568a9897992715e3f68494df838280782f3802894d1443e8116515f59e7d9335",
+            "2035037f33e3e03869b40dee3f370dc5ddc7624d7739a14387e75279d789464a",
+            "68ae6a768bec59f03798cbe48aabe8f40fa6a766ac1b7f4de4d3fe263e6b239c",
+            "a9972b81ec5bacc17dd1c0e940d33db72f01ffed2731912009de3c1162ef8225",
+            "6a8a4056fd16575bc5467fe85cd817c210246759bb14c77410a6d24843cd056f",
+            "dcb6b7518a06d3dc61e567155044371fd6bd8b31027e0b70fed1aff8c18afd4e",
+            "3410ad7b1417abab4d9a83d2722e498b82804b1ac21e87bb2329ec645b0760b2",
+            "ef7cbad07655eecfac60a227b0b2aaafc5176d188cd3f196e298aaa644d4022f",
+            "6c427bb8947e75e2b24dffba12970f6b06109612995bfc29765745efe5e678b6",
+            "df219e18f056f70c71d3f68c3a73a8ce5d8b3834525f018f7e663f1f7073ab8f",
+            "14fb07a3c131ebc9bc352b5fe31e82b9d451fac8625b7c355261e7f066e481a2",
+            "c53b3701ed073a143ff089ff92b0b3ecf4e6316ea04631734b18898fb0613255",
+        },
+    },
     ".github/workflows/azp-sign-release.yml": {
         "name": "AZP Sign Release",
         "canonical_hash": "025b006118f31a5a39a1c6bae19866537e9f34e2c4c143c9b840d2bff2728bb2",
@@ -94,6 +116,21 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
 }
 
 PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
+    "d97ccb161c6ef03fda005a7053d4de85c1cd9cf97785ccf7a8e777ca5ef31ee5": {"asset": "style.onnx", "model_url": "https://huggingface.co/onnx-community/fast-neural-style-mosaic/resolve/main/mosaic.onnx"},
+    "c43f374050664d850b17bfd5ceb78a1911b3cdf1e306448609944c02949e32aa": {"asset": "gtcrn_simple.onnx", "model_url": "https://huggingface.co/onnx-community/gtcrn/resolve/main/gtcrn_simple.onnx"},
+    "d8c762275c29a2b6fd557eca12c44756ec7235d4c7fb03a9a447eecc5838eaa0": {"asset": "lama.onnx", "model_url": "https://huggingface.co/Carve/LaMa-ONNX/resolve/main/lama_fp32.onnx"},
+    "568a9897992715e3f68494df838280782f3802894d1443e8116515f59e7d9335": {"asset": "midas.onnx", "model_url": "https://huggingface.co/julienkay/sentis-MiDaS/resolve/main/midas_v21_small_256.onnx"},
+    "2035037f33e3e03869b40dee3f370dc5ddc7624d7739a14387e75279d789464a": {"asset": "mirnet.onnx", "model_url": "https://huggingface.co/onnx-community/mirnet/resolve/main/mirnet.onnx"},
+    "68ae6a768bec59f03798cbe48aabe8f40fa6a766ac1b7f4de4d3fe263e6b239c": {"asset": "face-embed.onnx", "model_url": "https://huggingface.co/onnx-community/mobilefacenet/resolve/main/mobilefacenet.onnx"},
+    "a9972b81ec5bacc17dd1c0e940d33db72f01ffed2731912009de3c1162ef8225": {"asset": "mobilenetv3.onnx", "model_url": "https://huggingface.co/onnx-community/mobilenetv3_small_100/resolve/main/onnx/model.onnx"},
+    "6a8a4056fd16575bc5467fe85cd817c210246759bb14c77410a6d24843cd056f": {"asset": "moondream2.onnx", "model_url": "https://huggingface.co/onnx-community/moondream2/resolve/main/onnx/model.onnx"},
+    "dcb6b7518a06d3dc61e567155044371fd6bd8b31027e0b70fed1aff8c18afd4e": {"asset": "tts.onnx", "model_url": "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx"},
+    "3410ad7b1417abab4d9a83d2722e498b82804b1ac21e87bb2329ec645b0760b2": {"asset": "segmentation.onnx", "model_url": "https://huggingface.co/onnx-community/pyannote-segmentation-3.0/resolve/main/segmentation.onnx"},
+    "ef7cbad07655eecfac60a227b0b2aaafc5176d188cd3f196e298aaa644d4022f": {"asset": "realesrgan.onnx", "model_url": "https://huggingface.co/Xenova/real-esrgan-x4/resolve/main/onnx/model.onnx"},
+    "6c427bb8947e75e2b24dffba12970f6b06109612995bfc29765745efe5e678b6": {"asset": "version-RFB-320.onnx", "model_url": "https://huggingface.co/onnx-community/ultraface-version-RFB-320/resolve/main/version-RFB-320.onnx"},
+    "df219e18f056f70c71d3f68c3a73a8ce5d8b3834525f018f7e663f1f7073ab8f": {"asset": "embedding.onnx", "model_url": "https://huggingface.co/onnx-community/wespeaker-voxceleb-resnet34-LM/resolve/main/embedding.onnx"},
+    "14fb07a3c131ebc9bc352b5fe31e82b9d451fac8625b7c355261e7f066e481a2": {"asset": "whisper-base.onnx", "model_url": "https://huggingface.co/onnx-community/whisper-base/resolve/main/onnx/model.onnx"},
+    "c53b3701ed073a143ff089ff92b0b3ecf4e6316ea04631734b18898fb0613255": {"asset": "yamnet.onnx", "model_url": "https://huggingface.co/onnx-community/yamnet/resolve/main/yamnet.onnx"},
     "09588a228454cd17abb67313111597bf62edf69ac9286a225bed91913b7ffb35": {"signing": "pem-chain", "chain_secret": "CHAIN", "java_version": "17", "inject_signing_args": True, "test_command": "./gradlew testDebugUnitTest", "app_name": "MadeMeDance"},
     "aeb8bc10311d29a49ceb316a824021c2ef6f17847d459bea89ace81f5f96c1df": {"signing": "pem-chain", "chain_secret": "KEYSTORE_CHAIN", "java_version": "17", "inject_signing_args": True, "arcore_local_properties": True},
     "66b945d96e416473a7bf667158784b6b6175b8afbcc922bc073d17a22387fa24": {"signing": "raw-jks", "java_version": "21", "arcore_local_properties": True, "app_name": "GraffitiXR"},

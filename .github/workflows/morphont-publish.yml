@@ -79,6 +79,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: morphont-publish-${{ inputs.target_ref }}
@@ -267,6 +268,9 @@ jobs:
 
       - name: Build signed APK and AAB
         shell: bash
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           set -euo pipefail
           chmod +x gradlew

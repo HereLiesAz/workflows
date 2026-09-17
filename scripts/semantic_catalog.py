@@ -49,8 +49,16 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
     ".github/workflows/android-play-release.yml": {
         "name": "Android Play Release",
         "canonical_hash": "c7e435bc33db1508560b4f5e700570d3f9544ce3d2efa16b4b7df2a60ee3c1f4",
+        "generalized": True,
         "source_hashes": {
             "c7e435bc33db1508560b4f5e700570d3f9544ce3d2efa16b4b7df2a60ee3c1f4",
+            "9f62916fd29cb8ceed1a342fe12a5e7d3edeea9b81603064406163ed81453127",
+            "09adb91f6846d345ebb261ae428ad9412bfbfac6fe1d1192a726b84546b46928",
+            "f0b5d5091bb2d2372b65116ee9d154f0fe03ed641d3693436525ff618f47f22a",
+            "e27bd12865d67d2b1c70163a463a38a043c90869fd8d319a4097d7b2412852ed",
+            "bc33a453efa94395260c9b521a0fc01da92a27a8da0181d2c598770148ee6007",
+            "f637fcde293eeaaa50671b2f6313751cd044a6419c37ebba3678dd702940d94a",
+            "48cc88893221e4dbfa9bdede0cec35d7fcd6932f3d4d472cf496284e59d19c18",
         },
     },
     ".github/workflows/android-github-release.yml": {
@@ -116,6 +124,13 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
 }
 
 PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
+    "9f62916fd29cb8ceed1a342fe12a5e7d3edeea9b81603064406163ed81453127": {"signing": "pem-chain", "build_command": "./gradlew bundlePlay", "aab_glob": "app/build/outputs/bundle/play/*.aab", "version_mode": "git-count", "version_arg": "versionBuild", "inject_signing_args": True, "tracks_from_inputs": True, "publish_default": False, "persist_version": False},
+    "09adb91f6846d345ebb261ae428ad9412bfbfac6fe1d1192a726b84546b46928": {"signing": "pem-chain", "google_services": "raw", "build_command": "./gradlew bundlePlayRelease", "aab_glob": "app/build/outputs/bundle/playRelease/*.aab", "inject_signing_args": True, "persist_version": False},
+    "f0b5d5091bb2d2372b65116ee9d154f0fe03ed641d3693436525ff618f47f22a": {"signing": "pem-chain", "google_services": "raw", "build_command": "./gradlew bundleRelease", "aab_glob": "app/build/outputs/bundle/release/*.aab", "version_mode": "play-highest", "version_arg": "versionCodeOverride", "inject_signing_args": True, "persist_version": False, "tracks": [{"track": "internal", "status": "completed"}, {"track": "alpha", "status": "draft"}]},
+    "e27bd12865d67d2b1c70163a463a38a043c90869fd8d319a4097d7b2412852ed": {"signing": "raw-jks", "build_command": "./gradlew bundlePlaystoreRelease", "aab_glob": "app/build/outputs/bundle/playstoreRelease/*.aab", "arcore_local_properties": True, "persist_version": True},
+    "bc33a453efa94395260c9b521a0fc01da92a27a8da0181d2c598770148ee6007": {"signing": "raw-jks", "build_command": "./gradlew bundleRelease", "aab_glob": "app/build/outputs/bundle/release/*.aab", "persist_version": True},
+    "f637fcde293eeaaa50671b2f6313751cd044a6419c37ebba3678dd702940d94a": {"signing": "raw-jks", "build_command": "./gradlew bundleRelease", "aab_glob": "app/build/outputs/bundle/release/*.aab", "arcore_local_properties": True, "persist_version": True},
+    "48cc88893221e4dbfa9bdede0cec35d7fcd6932f3d4d472cf496284e59d19c18": {"signing": "pem-chain", "build_command": "./gradlew bundlePlayRelease", "aab_glob": "app/build/outputs/bundle/playRelease/*.aab", "version_mode": "git-count", "version_arg": "versionBuild", "inject_signing_args": True, "persist_version": False, "tracks": [{"track": "internal", "status": "completed"}, {"track": "alpha", "status": "completed"}, {"track": "beta", "status": "draft"}, {"track": "production", "status": "draft"}]},
     "d97ccb161c6ef03fda005a7053d4de85c1cd9cf97785ccf7a8e777ca5ef31ee5": {"asset": "style.onnx", "model_url": "https://huggingface.co/onnx-community/fast-neural-style-mosaic/resolve/main/mosaic.onnx"},
     "c43f374050664d850b17bfd5ceb78a1911b3cdf1e306448609944c02949e32aa": {"asset": "gtcrn_simple.onnx", "model_url": "https://huggingface.co/onnx-community/gtcrn/resolve/main/gtcrn_simple.onnx"},
     "d8c762275c29a2b6fd557eca12c44756ec7235d4c7fb03a9a447eecc5838eaa0": {"asset": "lama.onnx", "model_url": "https://huggingface.co/Carve/LaMa-ONNX/resolve/main/lama_fp32.onnx"},

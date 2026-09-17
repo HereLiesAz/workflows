@@ -10,9 +10,13 @@ import urllib.parse
 try:
     from . import sync_repository as sync
     from . import sync_repository_catalog as core
+    from .repository_workflow_mode import activate as activate_repository_mode
+    from .repository_workflow_mode import finalize_manifest
 except ImportError:
     import sync_repository as sync
     import sync_repository_catalog as core
+    from repository_workflow_mode import activate as activate_repository_mode
+    from repository_workflow_mode import finalize_manifest
 
 
 # Repository-specific curated bindings that must survive future controller syncs.
@@ -129,8 +133,31 @@ def main() -> int:
     for path, central_workflow in REPOSITORY_CATALOG_OVERRIDES.get(args.repository.casefold(), {}).items():
         core.CATALOG_PATH_OVERRIDES[path] = central_workflow
 
+    # Public workflow identity is repository + human workflow name. Implementation
+    # hashes remain registry metadata only; they never become filenames, job IDs,
+    # or concurrency keys.
+    activate_repository_mode(core, args.repository)
+
+    # The old wrapper's shared-family GC is intentionally disabled in repository
+    # mode. Dedicated workflows are not variant bundles and must not be interpreted
+    # by the legacy shared-family collector.
+    sync.prune_shared_workflow_library = lambda gh, dry_run=False: {
+        "mode": "repository",
+        "actions": [],
+    }
+
     gh = IdempotentGitHub(os.environ.get("GH_TOKEN", ""))
     result = sync.sync_repository(gh, args.repository, args.worker_url, args.dry_run)
+    finalize_manifest(gh, core, int(result["repository_id"]), dry_run=args.dry_run)
+
+    for row in result.get("results") or []:
+        if not isinstance(row, dict):
+            continue
+        row.pop("shared_variant", None)
+        central = str(row.get("central_workflow") or "")
+        if central.startswith(".github/workflows/") and row.get("status") == "shared":
+            row["status"] = "repository"
+
     output = json.dumps(result, indent=2, sort_keys=True)
     print(output)
     if args.json_output:

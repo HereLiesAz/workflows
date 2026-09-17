@@ -1,5 +1,5 @@
-# Purpose-level central workflow: Android Play Release.
-# Multiple repositories bind here only after their source behavior has been reviewed as equivalent.
+# Generalized purpose workflow: Android Play Release.
+# Flavor, signing, versioning, and track rollout differences are profiles; the publisher is centralized.
 # Generated for HereLiesAz/AzNavRail:.github/workflows/android-release-aab.yml.
 # Edit the registered source or synchronizer, not this compiled workflow.
 name: Android Play Release
@@ -82,6 +82,10 @@ on:
       target_repository_name:
         required: true
         type: string
+      purpose_profile_json:
+        required: false
+        type: string
+        default: '{}'
 jobs:
   central_check_start:
     runs-on: ubuntu-latest
@@ -121,10 +125,40 @@ jobs:
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
   build_and_publish:
+    needs: central_check_start
+    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: write
+    environment: ${{ inputs.target_repository_name }}
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
     steps:
+      - name: Wait for earlier Play publish for this repository
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          CURRENT_RUN: ${{ github.run_id }}
+          QUEUE_TITLE: ${{ inputs.target_repository_name }} · Android Play Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 360); do
+            gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/android-play-release.yml/runs?per_page=100" > "$RUNNER_TEMP/play-runs.json"
+            blockers="$(jq --argjson current "$CURRENT_RUN" --arg title "$QUEUE_TITLE" '[.workflow_runs[] | select((.status == "queued" or .status == "in_progress") and .id < $current and .display_title == $title)] | length' "$RUNNER_TEMP/play-runs.json")"
+            if [ "$blockers" -eq 0 ]; then
+              echo "Play publish slot acquired."
+              exit 0
+            fi
+            echo "Waiting behind $blockers earlier Play publish run(s) for this repository..."
+            sleep 10
+          done
+          echo "::error::Timed out waiting for this repository's Play publish queue" >&2
+          exit 1
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -133,86 +167,263 @@ jobs:
           ref: ${{ inputs.target_sha }}
           token: ${{ secrets.GH_TOKEN }}
           persist-credentials: false
-      - name: Inject Google Services
+
+      - name: Resolve Play profile
         env:
+          PROFILE_JSON: ${{ inputs.purpose_profile_json }}
+          TARGET_INPUTS_JSON: ${{ inputs.target_inputs_json }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          default_tracks='[{"track":"internal","status":"completed"},{"track":"alpha","status":"draft"},{"track":"beta","status":"draft"},{"track":"production","status":"draft"}]'
+          signing="$(jq -r '.signing // "raw-jks"' <<<"$PROFILE_JSON")"
+          java="$(jq -r '.java_version // "21"' <<<"$PROFILE_JSON")"
+          build="$(jq -r '.build_command // "./gradlew bundleRelease"' <<<"$PROFILE_JSON")"
+          glob="$(jq -r '.aab_glob // "app/build/outputs/bundle/release/*.aab"' <<<"$PROFILE_JSON")"
+          google_mode="$(jq -r '.google_services // "template"' <<<"$PROFILE_JSON")"
+          arcore="$(jq -r '.arcore_local_properties // false' <<<"$PROFILE_JSON")"
+          version_mode="$(jq -r '.version_mode // "auto"' <<<"$PROFILE_JSON")"
+          version_arg="$(jq -r '.version_arg // "versionBuild"' <<<"$PROFILE_JSON")"
+          persist="$(jq -r '.persist_version // true' <<<"$PROFILE_JSON")"
+          inject_signing="$(jq -r '.inject_signing_args // false' <<<"$PROFILE_JSON")"
+          publish_default="$(jq -r '.publish_default // true' <<<"$PROFILE_JSON")"
+          tracks="$(jq -c --argjson d "$default_tracks" '.tracks // $d' <<<"$PROFILE_JSON")"
+          if [ "$(jq -r '.tracks_from_inputs // false' <<<"$PROFILE_JSON")" = true ]; then
+            track="$(jq -r '.track // "internal"' <<<"$TARGET_INPUTS_JSON")"
+            status="$(jq -r '.status // "draft"' <<<"$TARGET_INPUTS_JSON")"
+            tracks="$(jq -nc --arg track "$track" --arg status "$status" '[{track:$track,status:$status}]')"
+          fi
+          if [ "$TARGET_EVENT_NAME" = push ]; then
+            publish=true
+          elif [ "$(jq -r 'has("dry_run")' <<<"$TARGET_INPUTS_JSON")" = true ]; then
+            dry="$(jq -r '.dry_run' <<<"$TARGET_INPUTS_JSON")"
+            [ "$dry" = true ] && publish=false || publish=true
+          elif [ "$(jq -r 'has("publish")' <<<"$TARGET_INPUTS_JSON")" = true ]; then
+            publish="$(jq -r '.publish' <<<"$TARGET_INPUTS_JSON")"
+          else
+            publish="$publish_default"
+          fi
+          {
+            echo "SIGNING_MODE=$signing"
+            echo "JAVA_VERSION=$java"
+            echo "BUILD_COMMAND=$build"
+            echo "AAB_GLOB=$glob"
+            echo "GOOGLE_SERVICES_MODE=$google_mode"
+            echo "ARCORE_LOCAL_PROPERTIES=$arcore"
+            echo "VERSION_MODE=$version_mode"
+            echo "VERSION_ARG=$version_arg"
+            echo "PERSIST_VERSION=$persist"
+            echo "INJECT_SIGNING_ARGS=$inject_signing"
+            echo "PUBLISH_PLAY=$publish"
+            echo "TRACKS_JSON=$tracks"
+          } >> "$GITHUB_ENV"
+
+      - name: Guard Play publish to default branch
+        if: ${{ env.PUBLISH_PLAY == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          default_branch="$(gh api "repos/$TARGET_REPOSITORY" --jq .default_branch)"
+          test "$TARGET_REF_NAME" = "$default_branch" || { echo "::error::Play publishing is only allowed from the default branch ($default_branch); got $TARGET_REF_NAME" >&2; exit 1; }
+
+      - name: Inject Google services
+        env:
+          GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES }}
           GOOGLE_SERVICES_API_KEY: ${{ secrets.GOOGLE_SERVICES_API_KEY }}
           PROJECT_ID: ${{ secrets.PROJECT_ID }}
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
-          CUSTOM_API_KEY: ${{ secrets.CUSTOM_API_KEY }}
-        run: "if [ -f \"app/google-services.json.template\" ]; then\n  echo \"Template found. Injecting secrets...\"\n  sed -e 's/{{\\([^}]*\\)}}/${\\1}/g' app/google-services.json.template | envsubst > app/google-services.json\nelse\n  echo \"Warning: google-services.json.template not found. Skipping injection.\"\nfi\n# Add any extra local.properties keys below:\n# echo \"CUSTOM_API_KEY=$CUSTOM_API_KEY\" >> local.properties\n"
-      - name: Decode signing keystore
+          ARCORE_API_KEY: ${{ secrets.ARCORE_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$GOOGLE_SERVICES_MODE" in
+            raw)
+              if [ -n "$GOOGLE_SERVICES" ]; then printf '%s' "$GOOGLE_SERVICES" > app/google-services.json; fi
+              ;;
+            template)
+              template="$(find . -name google-services.json.template -print -quit)"
+              if [ -n "$template" ]; then sed -e 's/{{\([^}]*\)}}/${\1}/g' "$template" | envsubst > "${template%.template}"; fi
+              ;;
+            none) ;;
+            *) echo "::error::Unknown Google services mode: $GOOGLE_SERVICES_MODE" >&2; exit 1 ;;
+          esac
+          if [ "$ARCORE_LOCAL_PROPERTIES" = true ]; then
+            test -n "$ARCORE_API_KEY" || { echo "::error::ARCORE_API_KEY is required" >&2; exit 1; }
+            printf 'ARCORE_API_KEY=%s\n' "$ARCORE_API_KEY" >> local.properties
+          fi
+
+      - name: Prepare signing keystore
         env:
           KEYSTORE_RAW: ${{ secrets.KEYSTORE_RAW }}
-        run: "if [ -z \"$KEYSTORE_RAW\" ]; then\n  echo \"::error::KEYSTORE_RAW secret is empty — cannot produce a signed bundle.\"\n  exit 1\nfi\necho \"$KEYSTORE_RAW\" | base64 -d > app/keystore.jks\nif [ ! -s app/keystore.jks ]; then\n  echo \"::error::Decoded keystore is empty — KEYSTORE_RAW is not valid base64.\"\n  exit 1\nfi\necho \"Keystore decoded to app/keystore.jks ($(stat -c%s app/keystore.jks) bytes)\"\n"
-      - name: Set up JDK 21
+          KEYSTORE_PRIVATE: ${{ secrets.KEYSTORE_PRIVATE }}
+          KEYSTORE_CHAIN: ${{ secrets.KEYSTORE_CHAIN }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p app
+          case "$SIGNING_MODE" in
+            raw-jks)
+              test -n "$KEYSTORE_RAW" || { echo "::error::KEYSTORE_RAW is required" >&2; exit 1; }
+              printf '%s' "$KEYSTORE_RAW" | base64 --decode > app/keystore.jks
+              ;;
+            pem-chain)
+              test -n "$KEYSTORE_PRIVATE" && test -n "$KEYSTORE_CHAIN" || { echo "::error::KEYSTORE_PRIVATE and KEYSTORE_CHAIN are required" >&2; exit 1; }
+              printf '%s\n' "$KEYSTORE_PRIVATE" > private-key.pem
+              printf '%s\n' "$KEYSTORE_CHAIN" > certificate-chain.crt
+              openssl pkcs12 -export -in certificate-chain.crt -inkey private-key.pem -out keystore.p12 -name "$KEY_ALIAS" -passout pass:"$KEYSTORE_PASSWORD"
+              keytool -importkeystore -srckeystore keystore.p12 -srcstoretype PKCS12 -srcstorepass "$KEYSTORE_PASSWORD" -destkeystore app/keystore.jks -deststoretype JKS -deststorepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" -noprompt
+              rm -f private-key.pem certificate-chain.crt keystore.p12
+              ;;
+            *) echo "::error::Unknown signing mode: $SIGNING_MODE" >&2; exit 1 ;;
+          esac
+          test -s app/keystore.jks || { echo "::error::Signing keystore is empty" >&2; exit 1; }
+
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
+          java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      - uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: false
-          dependency-graph: disabled
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-      - name: Resolve package name
+      - run: chmod +x gradlew
+
+      - name: Resolve package and version arguments
         id: meta
-        run: "PKG=$(grep -E 'applicationId\\s*=' app/build.gradle.kts | head -n1 | sed -E 's/.*\"([^\"]+)\".*/\\1/')\necho \"package_name=$PKG\" >> \"$GITHUB_OUTPUT\"\n\nif [ -f \"settings.gradle.kts\" ]; then\n  APP_NAME=$(grep 'rootProject.name' settings.gradle.kts | sed -E \"s/.*=.*[\\\"'](.*)[\\\"']/\\1/\")\nelif [ -f \"settings.gradle\" ]; then\n  APP_NAME=$(grep 'rootProject.name' settings.gradle | sed -E \"s/.*=.*[\\\"'](.*)[\\\"']/\\1/\")\nelse\n  APP_NAME=\"app\"\nfi\necho \"app_name=${APP_NAME,,}\" >> \"$GITHUB_OUTPUT\"\n"
-      - name: Build Release AAB (signed)
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          TARGET_VARS_JSON: ${{ inputs.target_vars_json }}
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_file="$(jq -r '.ANDROID_BUILD_FILE // "app/build.gradle.kts"' <<<"$TARGET_VARS_JSON")"
+          if [ ! -f "$build_file" ]; then build_file="$(find . -path '*/build.gradle.kts' -o -path '*/build.gradle' | head -1)"; fi
+          package="$(grep -m1 -E 'applicationId[[:space:]]*=' "$build_file" | sed -E 's/.*"([^"]+)".*/\1/')"
+          test -n "$package" || { echo "::error::Could not determine Android applicationId" >&2; exit 1; }
+          echo "package_name=$package" >> "$GITHUB_OUTPUT"
+          args=''
+          case "$VERSION_MODE" in
+            auto) ;;
+            git-count)
+              code="$(git rev-list --count HEAD)"
+              args="-P${VERSION_ARG}=${code}"
+              ;;
+            play-highest)
+              python -m pip install --quiet google-api-python-client google-auth
+              code="$(PLAY_PACKAGE="$package" python - <<'PY'
+          import json, os
+          from google.oauth2 import service_account
+          from googleapiclient.discovery import build
+          info=json.loads(os.environ['PLAY_SERVICE_ACCOUNT_JSON'])
+          creds=service_account.Credentials.from_service_account_info(info, scopes=['https://www.googleapis.com/auth/androidpublisher'])
+          svc=build('androidpublisher','v3',credentials=creds,cache_discovery=False)
+          package=os.environ['PLAY_PACKAGE']
+          edit=svc.edits().insert(packageName=package,body={}).execute()['id']
+          try:
+              tracks=svc.edits().tracks().list(packageName=package,editId=edit).execute().get('tracks',[])
+              codes=[int(v) for t in tracks for r in t.get('releases',[]) for v in r.get('versionCodes',[])]
+              print((max(codes) if codes else 0)+1)
+          finally:
+              svc.edits().delete(packageName=package,editId=edit).execute()
+          PY
+              )"
+              args="-P${VERSION_ARG}=${code}"
+              ;;
+            *) echo "::error::Unknown version mode: $VERSION_MODE" >&2; exit 1 ;;
+          esac
+          echo "VERSION_ARGS=$args" >> "$GITHUB_ENV"
+
+      - name: Build signed AAB
+        env:
           KEYSTORE_FILE: ${{ github.workspace }}/app/keystore.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew bundleRelease
+        shell: bash
+        run: |
+          set -euo pipefail
+          command="$BUILD_COMMAND $VERSION_ARGS"
+          if [ "$INJECT_SIGNING_ARGS" = true ]; then
+            command="$command -Pandroid.injected.signing.store.file=\"$KEYSTORE_FILE\" -Pandroid.injected.signing.store.password=\"$KEYSTORE_PASSWORD\" -Pandroid.injected.signing.key.alias=\"$KEY_ALIAS\" -Pandroid.injected.signing.key.password=\"$KEY_PASSWORD\""
+          fi
+          bash -eo pipefail -c "$command"
+          aab="$(compgen -G "$AAB_GLOB" | head -1 || true)"
+          test -n "$aab" && test -s "$aab" || { echo "::error::No AAB matched $AAB_GLOB" >&2; exit 1; }
+          echo "AAB_PATH=$aab" >> "$GITHUB_ENV"
+
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.meta.outputs.app_name }}-release-aab
-          path: app/build/outputs/bundle/release/*.aab
+          name: ${{ inputs.target_repository_name }}-release-aab
+          path: ${{ env.AAB_PATH }}
           if-no-files-found: error
-      - name: Publish to Google Play (internal completed + alpha/beta/prod draft)
-        id: play-upload
-        if: ${{ inputs.target_event_name == 'push' || fromJSON(inputs.target_inputs_json).publish }}
+
+      - name: Publish bundle to configured Play tracks
+        id: play
+        if: ${{ env.PUBLISH_PLAY == 'true' }}
         env:
-          PACKAGE_NAME: ${{ steps.meta.outputs.package_name }}
-          AAB_GLOB: app/build/outputs/bundle/release/*.aab
           PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-        run: "pip install --quiet google-api-python-client google-auth google-auth-httplib2 httplib2==0.15.0\npython .github/scripts/play_multitrack_publish.py\n"
-      - name: Persist auto-incremented versionCode without clobbering newer versions
-        if: ${{ always() && (inputs.target_event_name == 'push' || fromJSON(inputs.target_inputs_json).publish) }}
-        run: "set -euo pipefail\ngit config user.name \"github-actions[bot]\"\ngit config user.email \"41898282+github-actions[bot]@users.noreply.github.com\"\n\nif git diff --quiet -- version.properties; then\n  echo \"version.properties unchanged — nothing to persist\"\n  exit 0\nfi\n\nNEW_BUILD=$(grep -E '^versionBuild=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nNEW_MAJOR=$(grep -E '^versionMajor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nNEW_MINOR=$(grep -E '^versionMinor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nNEW_MINOR_LAST=$(grep -E '^versionMinorLast=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nNEW_PATCH=$(grep -E '^versionPatch=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nBRANCH=\"${{ inputs.target_ref_name }}\"\n\nfor attempt in 1 2 3 4 5; do\n  git fetch origin \"${BRANCH}\"\n  REMOTE_BUILD=$(git show \"origin/${BRANCH}:version.properties\" 2>/dev/null | grep -E '^versionBuild=' | cut -d'=' -f2 | tr -d '\\r ' || echo 0)\n\n  if [ \"$REMOTE_BUILD\" -ge \"$NEW_BUILD\" ]; then\n    echo \"Remote versionBuild=${REMOTE_BUILD} is already >= this build's ${NEW_BUILD}; refusing to overwrite it.\"\n    exit 0\n  fi\n\n  git reset --hard \"origin/${BRANCH}\"\n  cat > version.properties <<EOF\n# Version source of truth\nversionBuild=${NEW_BUILD}\nversionMajor=${NEW_MAJOR}\nversionMinor=${NEW_MINOR}\nversionMinorLast=${NEW_MINOR_LAST}\nversionPatch=${NEW_PATCH}\nEOF\n  git add version.properties\n  git commit -m \"ci: versionBuild=${NEW_BUILD} [skip ci]\"\n\n  if git push origin \"HEAD:${BRANCH}\"; then\n    echo \"Pushed versionBuild=${NEW_BUILD} on attempt ${attempt}\"\n    exit 0\n  fi\n  echo \"::warning::Push raced with a newer main commit; checking the remote version again\"\ndone\n\necho \"::error::Could not safely persist versionBuild=${NEW_BUILD} after 5 attempts\"\nexit 1\n"
-      - name: Fail loudly if Play upload didn't succeed
-        if: ${{ always() && steps.play-upload.outcome != 'success' && steps.play-upload.outcome != 'skipped' }}
-        run: "echo \"::error title=Play upload failed::AAB did not land on all target tracks. Workflow is FAILED.\" >&2\nexit 1\n"
-    needs: central_check_start
-    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
-    env:
-      TARGET_REPOSITORY: ${{ inputs.target_repository }}
-      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
-      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
-      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
-      TARGET_SHA: ${{ inputs.target_sha }}
-      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
-      TARGET_REF: ${{ inputs.target_ref }}
-      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
-      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
-      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
-      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
-      TARGET_ACTOR: ${{ inputs.target_actor }}
-      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
-      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
-      TARGET_RUN_ID: ${{ inputs.target_run_id }}
-      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
-      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
-      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
-      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
-    environment: ${{ inputs.target_repository_name }}
+          PACKAGE_NAME: ${{ steps.meta.outputs.package_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet google-api-python-client google-auth
+          python - <<'PY'
+          import json, os, time
+          from google.oauth2 import service_account
+          from googleapiclient.discovery import build
+          from googleapiclient.http import MediaFileUpload
+          from googleapiclient.errors import HttpError
+          info=json.loads(os.environ['PLAY_SERVICE_ACCOUNT_JSON'])
+          creds=service_account.Credentials.from_service_account_info(info, scopes=['https://www.googleapis.com/auth/androidpublisher'])
+          svc=build('androidpublisher','v3',credentials=creds,cache_discovery=False)
+          package=os.environ['PACKAGE_NAME']
+          aab=os.environ['AAB_PATH']
+          tracks=json.loads(os.environ['TRACKS_JSON'])
+          for attempt in range(1,7):
+              try:
+                  edit=svc.edits().insert(packageName=package,body={}).execute()['id']
+                  bundle=svc.edits().bundles().upload(packageName=package,editId=edit,media_body=MediaFileUpload(aab,mimetype='application/octet-stream')).execute()
+                  code=str(bundle['versionCode'])
+                  for spec in tracks:
+                      body={'track':spec['track'],'releases':[{'versionCodes':[code],'status':spec['status']}]}
+                      svc.edits().tracks().update(packageName=package,editId=edit,track=spec['track'],body=body).execute()
+                  svc.edits().commit(packageName=package,editId=edit).execute()
+                  print(f'Published versionCode {code} to {tracks}')
+                  break
+              except HttpError as exc:
+                  if attempt == 6:
+                      raise
+                  print(f'Play edit attempt {attempt} failed: {exc}; retrying', flush=True)
+                  time.sleep(min(60, 5 * 2 ** (attempt-1)))
+          PY
+
+      - name: Persist monotonic version.properties
+        if: ${{ env.PUBLISH_PLAY == 'true' && env.PERSIST_VERSION == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f version.properties ] || git diff --quiet -- version.properties; then exit 0; fi
+          gh auth setup-git
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          new="$(grep -E '^versionBuild=' version.properties | cut -d= -f2 | tr -d '\r ' || echo 0)"
+          git fetch origin "$TARGET_REF_NAME"
+          remote="$(git show "origin/$TARGET_REF_NAME:version.properties" 2>/dev/null | grep -E '^versionBuild=' | cut -d= -f2 | tr -d '\r ' || echo 0)"
+          if [ "$remote" -ge "$new" ]; then echo "Remote versionBuild=$remote already covers this run ($new)."; exit 0; fi
+          git add version.properties
+          git commit -m "ci: versionBuild=${new} [skip ci]"
+          git push origin "HEAD:$TARGET_REF_NAME"
+
+      - name: Cleanup signing material
+        if: ${{ always() }}
+        run: rm -f app/keystore.jks private-key.pem certificate-chain.crt keystore.p12
   central_check_finish:
     if: ${{ always() }}
     needs:

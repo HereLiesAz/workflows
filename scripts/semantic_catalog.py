@@ -105,8 +105,13 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
     ".github/workflows/website-sftp-deploy.yml": {
         "name": "Website SFTP Deploy",
         "canonical_hash": "b0ef23a564e122b032f710d57a50a0d08fa49b142386df869c99f960f4e5be8b",
+        "generalized": True,
         "source_hashes": {
             "b0ef23a564e122b032f710d57a50a0d08fa49b142386df869c99f960f4e5be8b",
+            "961e61bc138f682e09cad9b4318e0b44ca82719e751bda9b3594acc1b7937c27",
+            "31afe4d12a10ef30e8475e959100df371e0384d5af5dab8b41feb42fa1758291",
+            "aab5ef3d85c2ac59d48c828207dbb273c22eacfc9d84e3f28faa96e44eb78a05",
+            "8b42bbc29b2f1b8ab416a72cd6b2ed04c37811d4ec358ea24c5a4640773474fc",
         },
     },
     ".github/workflows/jules-auto-assign.yml": {
@@ -126,6 +131,11 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
 }
 
 PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
+    "b0ef23a564e122b032f710d57a50a0d08fa49b142386df869c99f960f4e5be8b": {"build_mode": "jekyll", "local_dir": "./_site/", "remote_dir": "/app", "ssl_verify_off": True},
+    "961e61bc138f682e09cad9b4318e0b44ca82719e751bda9b3594acc1b7937c27": {"build_mode": "node", "local_dir": "./webpage/dist/", "remote_dir": "/qard", "ssl_verify_off": True},
+    "31afe4d12a10ef30e8475e959100df371e0384d5af5dab8b41feb42fa1758291": {"build_mode": "none", "local_dir": "./docs/", "remote_dir": "/guillotine", "ssl_verify_off": True},
+    "aab5ef3d85c2ac59d48c828207dbb273c22eacfc9d84e3f28faa96e44eb78a05": {"build_mode": "none", "local_dir": "./docs/", "remote_dir": "/app", "ssl_verify_off": False},
+    "8b42bbc29b2f1b8ab416a72cd6b2ed04c37811d4ec358ea24c5a4640773474fc": {"build_mode": "jekyll", "local_dir": "./_site/", "remote_dir": "/graffitixr", "ssl_verify_off": True},
     "441264e5b5c2542d4213fa4b25dc3c4eaf061a4ea8b2cd64ebe4dba0aed61d84": {"signing": "pem-chain", "pem_legacy": True, "google_services": "raw", "build_command": "./gradlew bundleRelease --build-cache", "aab_glob": "app/build/outputs/bundle/release/*.aab", "version_mode": "git-count", "version_arg": "versionBuild", "inject_signing_args": True, "publish_on_push": False, "tracks_from_inputs": True, "publish_default": True, "persist_version": False, "ad_id_check": True, "mapping_file": "app/build/outputs/mapping/release/mapping.txt", "github_release_after_play": "manual", "release_version_scheme": "legacy-blame", "release_app_name": "LogKitty"},
     "d469abed7144cbed30feaf51455bdc0bc039b6bb9978968ff5a534d361e31828": {"signing": "pem-chain", "pem_legacy": True, "google_services": "none", "build_command": "./gradlew bundleRelease --build-cache", "aab_glob": "app/build/outputs/bundle/release/*.aab", "version_mode": "git-count", "version_arg": "versionBuild", "inject_signing_args": True, "publish_on_push": True, "tracks_from_csv_input": True, "publish_default": False, "persist_version": False, "test_command": "./gradlew testDebugUnitTest --build-cache", "mapping_file": "app/build/outputs/mapping/release/mapping.txt", "push_tracks": [{"track": "internal", "status": "completed"}, {"track": "alpha", "status": "completed"}], "github_release_after_play": "manual", "release_version_scheme": "legacy-blame"},
     "9f62916fd29cb8ceed1a342fe12a5e7d3edeea9b81603064406163ed81453127": {"signing": "pem-chain", "build_command": "./gradlew bundlePlay", "aab_glob": "app/build/outputs/bundle/play/*.aab", "version_mode": "git-count", "version_arg": "versionBuild", "inject_signing_args": True, "tracks_from_inputs": True, "publish_default": False, "persist_version": False},

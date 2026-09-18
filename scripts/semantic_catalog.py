@@ -59,6 +59,8 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "bc33a453efa94395260c9b521a0fc01da92a27a8da0181d2c598770148ee6007",
             "f637fcde293eeaaa50671b2f6313751cd044a6419c37ebba3678dd702940d94a",
             "48cc88893221e4dbfa9bdede0cec35d7fcd6932f3d4d472cf496284e59d19c18",
+            "441264e5b5c2542d4213fa4b25dc3c4eaf061a4ea8b2cd64ebe4dba0aed61d84",
+            "d469abed7144cbed30feaf51455bdc0bc039b6bb9978968ff5a534d361e31828",
         },
     },
     ".github/workflows/android-github-release.yml": {
@@ -124,6 +126,8 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
 }
 
 PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
+    "441264e5b5c2542d4213fa4b25dc3c4eaf061a4ea8b2cd64ebe4dba0aed61d84": {"signing": "pem-chain", "pem_legacy": True, "google_services": "raw", "build_command": "./gradlew bundleRelease --build-cache", "aab_glob": "app/build/outputs/bundle/release/*.aab", "version_mode": "git-count", "version_arg": "versionBuild", "inject_signing_args": True, "publish_on_push": False, "tracks_from_inputs": True, "publish_default": True, "persist_version": False, "ad_id_check": True, "mapping_file": "app/build/outputs/mapping/release/mapping.txt", "github_release_after_play": "manual", "release_version_scheme": "legacy-blame", "release_app_name": "LogKitty"},
+    "d469abed7144cbed30feaf51455bdc0bc039b6bb9978968ff5a534d361e31828": {"signing": "pem-chain", "pem_legacy": True, "google_services": "none", "build_command": "./gradlew bundleRelease --build-cache", "aab_glob": "app/build/outputs/bundle/release/*.aab", "version_mode": "git-count", "version_arg": "versionBuild", "inject_signing_args": True, "publish_on_push": True, "tracks_from_csv_input": True, "publish_default": False, "persist_version": False, "test_command": "./gradlew testDebugUnitTest --build-cache", "mapping_file": "app/build/outputs/mapping/release/mapping.txt", "push_tracks": [{"track": "internal", "status": "completed"}, {"track": "alpha", "status": "completed"}], "github_release_after_play": "manual", "release_version_scheme": "legacy-blame"},
     "9f62916fd29cb8ceed1a342fe12a5e7d3edeea9b81603064406163ed81453127": {"signing": "pem-chain", "build_command": "./gradlew bundlePlay", "aab_glob": "app/build/outputs/bundle/play/*.aab", "version_mode": "git-count", "version_arg": "versionBuild", "inject_signing_args": True, "tracks_from_inputs": True, "publish_default": False, "persist_version": False},
     "09adb91f6846d345ebb261ae428ad9412bfbfac6fe1d1192a726b84546b46928": {"signing": "pem-chain", "google_services": "raw", "build_command": "./gradlew bundlePlayRelease", "aab_glob": "app/build/outputs/bundle/playRelease/*.aab", "inject_signing_args": True, "persist_version": False},
     "f0b5d5091bb2d2372b65116ee9d154f0fe03ed641d3693436525ff618f47f22a": {"signing": "pem-chain", "google_services": "raw", "build_command": "./gradlew bundleRelease", "aab_glob": "app/build/outputs/bundle/release/*.aab", "version_mode": "play-highest", "version_arg": "versionCodeOverride", "inject_signing_args": True, "persist_version": False, "tracks": [{"track": "internal", "status": "completed"}, {"track": "alpha", "status": "draft"}]},

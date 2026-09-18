@@ -168,6 +168,10 @@ def purpose_for(effects: set[str], name: str, path: str) -> str:
     # while accomplishing different things. Keep those semantic distinctions explicit so the
     # audit never calls them duplicates merely because the transport is the same.
     hint = f"{name} {path}".casefold()
+    if "registry-sync" in hint or "sync registry from extension repos" in hint:
+        return "registry-catalog-sync"
+    if "vercel-logs" in hint or "vercel build logs" in hint:
+        return "vercel-build-log-diagnostic"
     if "apply-unattached-visibility" in hint or "apply unattached overflow and visibility" in hint:
         return "unattached-visibility-migration"
     if "sync-platform-parity" in hint or "sync platform parity" in hint:

@@ -21,14 +21,12 @@
       "updated_at": "2026-09-14T01:09:06+00:00"
     },
     ".github/workflows/android-release-aab.yml": {
-      "binding": "curated",
-      "central_workflow": ".github/workflows/android-play-release.yml",
       "name": "Build & Publish AAB (Play)",
       "registry_source": "registry/1135328959/android-release-aab-c7afaeed.source.yml",
-      "semantic_purpose": "Android Play Release",
       "source_sha256": "c7e435bc33db1508560b4f5e700570d3f9544ce3d2efa16b4b7df2a60ee3c1f4",
-      "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "status": "obsolete",
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "reason": "superseded by the richer converged Android Play Release action"
     },
     ".github/workflows/android-release-apk.yml": {
       "binding": "curated",
@@ -226,14 +224,14 @@
       "updated_at": "2026-09-14T01:09:37+00:00"
     },
     ".github/workflows/play-publish.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/logkitty-play-publish.yml",
-      "implementation_sha256": "3eb95a15ee831bf79f96ce87a415c1ceae9172acd87167de421fa48cafc6f978",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/android-play-release.yml",
       "name": "Publish to Google Play",
       "registry_source": "registry/1135328959/play-publish-9d7474e6.source.yml",
       "source_sha256": "441264e5b5c2542d4213fa4b25dc3c4eaf061a4ea8b2cd64ebe4dba0aed61d84",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "Android Play Release"
     },
     ".github/workflows/pr-contribution-guidelines-review.yml": {
       "blockers": [

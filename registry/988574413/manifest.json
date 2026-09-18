@@ -29,14 +29,12 @@
       "reason": "superseded by the converged Android Play Release action"
     },
     ".github/workflows/android-release-apk.yml": {
-      "binding": "curated",
-      "central_workflow": ".github/workflows/android-github-release.yml",
       "name": "Compile and Release APK",
       "registry_source": "registry/988574413/android-release-apk-f927747f.source.yml",
-      "semantic_purpose": "Android GitHub Release",
       "source_sha256": "41ccb8c30d393fdc42a44d3b208b179f948ebc44e1c316c4e78b76f627f3bb3c",
-      "status": "active",
-      "updated_at": "2026-09-15T03:03:17+00:00"
+      "status": "obsolete",
+      "updated_at": "2026-09-15T03:03:17+00:00",
+      "reason": "superseded by release.yml, which handles both push and manual signed Foss releases for this repository"
     },
     ".github/workflows/android-update-libs.yml": {
       "binding": "curated",

@@ -31,14 +31,14 @@
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/android-release-apk.yml": {
-      "binding": "curated",
-      "central_workflow": ".github/workflows/android-github-release.yml",
-      "name": "Compile and Release APK",
+      "blockers": [
+        "repository-specific manual GitHub Release publisher",
+        "must use persisted GH_TOKEN secret and must not publish with automatic github.token/GITHUB_TOKEN"
+      ],
+      "name": "Publish Android APK Release",
       "registry_source": "registry/1148736516/android-release-apk-f927747f.source.yml",
-      "semantic_purpose": "Android GitHub Release",
-      "source_sha256": "41ccb8c30d393fdc42a44d3b208b179f948ebc44e1c316c4e78b76f627f3bb3c",
-      "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "status": "local",
+      "updated_at": "2026-09-18T01:12:00+00:00"
     },
     ".github/workflows/android-update-libs.yml": {
       "binding": "curated",

@@ -1,143 +1,146 @@
-name: Compile and Release APK
+name: Publish Android APK Release
 
-# Manually triggered signed release APK build.
-# Auto-detects app name from settings.gradle.kts / settings.gradle.
-# Reads version from version.properties (Major.Minor.Patch.Build).
-#
-# Required secrets:
-#   KEYSTORE_RAW        — base64-encoded release keystore (.jks)
-#   KEYSTORE_PASSWORD   — keystore password
-#   KEY_ALIAS           — key alias inside the keystore
-#   KEY_PASSWORD        — key password
-#
-# Optional secrets (Google Services injection — skipped if template absent):
-#   GOOGLE_SERVICES_API_KEY
-#   PROJECT_ID
-#   CLIENT_ID
-#
-# Optional secrets (add any extra project-specific API keys here):
-#   CUSTOM_API_KEY      — placeholder; rename and replicate as needed
-
+# Publishing is deliberately manual. This workflow never publishes with
+# github.token / GITHUB_TOKEN. A separately saved repository secret named
+# GH_TOKEN is required and is the only credential exposed to gh.
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, e.g. 1.0.1"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark this GitHub Release as a prerelease"
+        required: true
+        default: false
+        type: boolean
+      notes:
+        description: "Optional release notes"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
 
 jobs:
-  build-and-release:
+  build-and-publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    timeout-minutes: 30
 
     steps:
-      - name: Checkout repository
+      - name: Require persisted GH_TOKEN
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::error::Repository secret GH_TOKEN is not saved. Publishing is intentionally blocked until you add a persistent GH_TOKEN secret."
+            exit 1
+          fi
+          echo "::add-mask::$GH_TOKEN"
+
+      - name: Checkout without persisting Actions credentials
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Inject Google Services
-        env:
-          GOOGLE_SERVICES_API_KEY: ${{ secrets.GOOGLE_SERVICES_API_KEY }}
-          PROJECT_ID: ${{ secrets.PROJECT_ID }}
-          CLIENT_ID: ${{ secrets.CLIENT_ID }}
-          CUSTOM_API_KEY: ${{ secrets.CUSTOM_API_KEY }}
-        run: |
-          if [ -f "app/google-services.json.template" ]; then
-            echo "Template found. Injecting secrets..."
-            sed -e 's/{{\([^}]*\)}}/${\1}/g' app/google-services.json.template | envsubst > app/google-services.json
-          else
-            echo "Warning: google-services.json.template not found. Skipping injection."
-          fi
-          # Add any extra local.properties keys below:
-          # echo "CUSTOM_API_KEY=$CUSTOM_API_KEY" >> local.properties
-
-      - name: Decode signing keystore
-        env:
-          KEYSTORE_RAW: ${{ secrets.KEYSTORE_RAW }}
-        run: |
-          if [ -z "$KEYSTORE_RAW" ]; then
-            echo "::error::KEYSTORE_RAW secret is empty — cannot produce a signed build."
-            exit 1
-          fi
-          echo "$KEYSTORE_RAW" | base64 -d > app/keystore.jks
-          if [ ! -s app/keystore.jks ]; then
-            echo "::error::Decoded keystore is empty — KEYSTORE_RAW is not valid base64."
-            exit 1
-          fi
-          echo "Keystore decoded to app/keystore.jks ($(stat -c%s app/keystore.jks) bytes)"
-
-      - name: Set up JDK 21
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
-          distribution: 'temurin'
+          java-version: "17"
+          distribution: "temurin"
 
-      - name: Setup Gradle
+      - name: Setup Gradle cache
         uses: gradle/actions/setup-gradle@v4
-        env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-        with:
-          cache-read-only: false
-          dependency-graph: disabled
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Build Release APK
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          KEYSTORE_FILE: ${{ github.workspace }}/app/keystore.jks
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleRelease
-
-      - name: Prepare Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Test
         run: |
-          MAJOR=$(grep '^versionMajor=' version.properties | cut -d'=' -f2 | tr -d '\r ')
-          MINOR=$(grep '^versionMinor=' version.properties | cut -d'=' -f2 | tr -d '\r ')
-          PATCH=$(grep '^versionPatch=' version.properties | cut -d'=' -f2 | tr -d '\r ')
-          BUILD_NUMBER=$(grep '^versionBuild=' version.properties | cut -d'=' -f2 | tr -d '\r ')
-          VERSION_NAME="${MAJOR}.${MINOR}.${PATCH}.${BUILD_NUMBER}"
-          TAG_NAME="latest-release-v${MAJOR}.${MINOR}"
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest --build-cache --no-daemon --stacktrace
 
-          if [ -f "settings.gradle.kts" ]; then
-            APP_NAME=$(grep 'rootProject.name' settings.gradle.kts | sed -E "s/.*=.*[\"'](.*)[\"']/\1/")
-          elif [ -f "settings.gradle" ]; then
-            APP_NAME=$(grep 'rootProject.name' settings.gradle | sed -E "s/.*=.*[\"'](.*)[\"']/\1/")
-          else
-            APP_NAME="App"
-          fi
+      - name: Build installable APK
+        run: ./gradlew assembleDebug --build-cache --no-daemon --stacktrace
 
-          APK_ORIGINAL=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
-          if [ -z "$APK_ORIGINAL" ]; then
-            echo "Error: No APK found in app/build/outputs/apk/release/"
-            find app/build/outputs/ -name "*.apk"
+      - name: Prepare release asset
+        id: asset
+        env:
+          VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(printf '%s' "$VERSION" | tr -cd '0-9A-Za-z._-')"
+          [[ -n "$VERSION" ]] || { echo "::error::version became empty after sanitizing"; exit 1; }
+          TAG="admin-v$VERSION"
+          ASSET="HereLiesAz-Admin-$VERSION.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$ASSET"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "asset=$ASSET" >> "$GITHUB_OUTPUT"
+
+      - name: Verify GH_TOKEN can publish this repository
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "::add-mask::$GH_TOKEN"
+          push="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.permissions.push // false')"
+          if [[ "$push" != "true" ]]; then
+            echo "::error::Saved GH_TOKEN can authenticate but does not have write access to $GITHUB_REPOSITORY."
             exit 1
           fi
 
-          TARGET_NAME="${APP_NAME}-${VERSION_NAME}-release.apk"
-          mv "$APK_ORIGINAL" "$TARGET_NAME"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git tag -fa "$TAG_NAME" -m "Latest Release Build"
-          git push origin "$TAG_NAME" --force
-
-          if gh release view "$TAG_NAME" > /dev/null 2>&1; then
-            echo "Updating existing release..."
-            gh release edit "$TAG_NAME" \
-              --title "Latest Release v${MAJOR}.${MINOR} (${VERSION_NAME})" \
-              --notes "Release build from commit $GITHUB_SHA"
-            gh release upload "$TAG_NAME" "$TARGET_NAME" --clobber
-          else
-            echo "Creating new release..."
-            gh release create "$TAG_NAME" "$TARGET_NAME" \
-              --title "Latest Release v${MAJOR}.${MINOR} (${VERSION_NAME})" \
-              --notes "Release build from commit $GITHUB_SHA"
+      - name: Refuse to overwrite an existing release
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          TAG: ${{ steps.asset.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "::add-mask::$GH_TOKEN"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Release $TAG already exists. Choose a new version; this workflow will not silently replace a published APK."
+            exit 1
           fi
+
+      - name: Publish GitHub Release with saved GH_TOKEN
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          TAG: ${{ steps.asset.outputs.tag }}
+          ASSET: ${{ steps.asset.outputs.asset }}
+          VERSION: ${{ inputs.version }}
+          NOTES: ${{ inputs.notes }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "::add-mask::$GH_TOKEN"
+
+          args=(
+            release create "$TAG"
+            "$ASSET#HereLiesAz Admin APK $VERSION"
+            --repo "$GITHUB_REPOSITORY"
+            --target "$GITHUB_SHA"
+            --title "HereLiesAz Admin $VERSION"
+          )
+
+          if [[ -n "$NOTES" ]]; then
+            args+=(--notes "$NOTES")
+          else
+            args+=(--notes "Native HereLiesAz Admin Android release $VERSION.")
+          fi
+
+          if [[ "$PRERELEASE" == "true" ]]; then
+            args+=(--prerelease)
+          fi
+
+          gh "${args[@]}"
+
+      - name: Upload CI copy
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.asset.outputs.asset }}
+          path: ${{ steps.asset.outputs.asset }}
+          if-no-files-found: error

@@ -516,8 +516,12 @@ jobs:
               ;;
           esac
           app_name="$RELEASE_APP_NAME"
-          if [ -z "$app_name" ] && [ -f settings.gradle.kts ]; then app_name="$(sed -nE 's/.*rootProject\.name[[:space:]]*=[[:space:]]*["'"']([^"'"']+)["'"'].*/\1/p' settings.gradle.kts | head -1)"; fi
-          if [ -z "$app_name" ] && [ -f settings.gradle ]; then app_name="$(sed -nE 's/.*rootProject\.name[[:space:]]*=[[:space:]]*["'"']([^"'"']+)["'"'].*/\1/p' settings.gradle | head -1)"; fi
+          if [ -z "$app_name" ] && [ -f settings.gradle.kts ]; then
+            app_name="$(sed -nE "s/.*rootProject\\.name[[:space:]]*=[[:space:]]*['\\\"]([^'\\\"]+)['\\\"].*/\\1/p" settings.gradle.kts | head -1)"
+          fi
+          if [ -z "$app_name" ] && [ -f settings.gradle ]; then
+            app_name="$(sed -nE "s/.*rootProject\\.name[[:space:]]*=[[:space:]]*['\\\"]([^'\\\"]+)['\\\"].*/\\1/p" settings.gradle | head -1)"
+          fi
           app_name="${app_name:-${{ inputs.target_repository_name }}}"
           tag="v$version"
           asset="$app_name-$version.apk"

@@ -102,6 +102,8 @@ def effects_for(text: str, uses: list[str], name: str, path: str) -> set[str]:
         effects.add("container-publish")
     if has("docker build ", "docker build."):
         effects.add("container-build")
+    if has("vercel deploy", "vercel --prod", "vercel-action", "deploy-storefront", "vercel_project_id", "vercel_org_id"):
+        effects.add("vercel-deploy")
 
     # Build products.
     if has("assemble", "bundlerelease", "bundle release", "gradlew bundle", "gradlew assemble") and has("gradle", "gradlew"):
@@ -214,6 +216,8 @@ def purpose_for(effects: set[str], name: str, path: str) -> str:
         return "documentation-wiki-publish"
     if "container-build" in effects and "container-publish" not in effects:
         return "container-build"
+    if "vercel-deploy" in effects:
+        return "vercel-deploy"
     if "wasm-build" in effects:
         return "wasm-ci"
     if "google-play" in effects:

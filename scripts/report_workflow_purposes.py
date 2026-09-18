@@ -100,6 +100,8 @@ def effects_for(text: str, uses: list[str], name: str, path: str) -> set[str]:
             effects.add("huggingface-publish")
     if has("docker/build-push-action", "docker push", "ghcr.io", "docker/login-action"):
         effects.add("container-publish")
+    if has("docker build ", "docker build."):
+        effects.add("container-build")
 
     # Build products.
     if has("assemble", "bundlerelease", "bundle release", "gradlew bundle", "gradlew assemble") and has("gradle", "gradlew"):
@@ -138,6 +140,12 @@ def effects_for(text: str, uses: list[str], name: str, path: str) -> set[str]:
         effects.add("backup")
     if has("summarize new issues", "issue summary", "summarize issue", "summary.yml"):
         effects.add("issue-summary")
+    if has("actions/stale", "mark stale issues", "stale-pr-message", "stale-issue-message"):
+        effects.add("stale-maintenance")
+    if has("dokkageneratemarkdown", "dokka") and has("wiki", "api-reference"):
+        effects.add("docs-wiki-publish")
+    if has("wasmjsbrowserdistribution", "wasm distribution"):
+        effects.add("wasm-build")
 
     # Jules/Glee are separate behaviors even though several use the same APIs.
     if has("glee audit", "jules-glee"):
@@ -182,6 +190,12 @@ def purpose_for(effects: set[str], name: str, path: str) -> str:
         return "staged-package-publish"
     if "submissions" in hint:
         return "package-submissions"
+    if "bump-more-from-az" in hint or "bake more-from-az" in hint:
+        return "app-catalog-bake"
+    if "bootstrap art" in hint or path.endswith("/bootstrap.yml"):
+        return "art-data-bootstrap"
+    if "paperplanes wizard pipeline" in hint or path.endswith("/pipeline.yml"):
+        return "ai-media-pipeline"
     if "azp-sign" in effects:
         return "azp-sign-release"
     if "azp-model-release" in effects:
@@ -194,6 +208,14 @@ def purpose_for(effects: set[str], name: str, path: str) -> str:
         return "jules-agent"
     if "jules-dispatch" in effects:
         return "jules-task-dispatch"
+    if "stale-maintenance" in effects:
+        return "stale-issue-maintenance"
+    if "docs-wiki-publish" in effects:
+        return "documentation-wiki-publish"
+    if "container-build" in effects and "container-publish" not in effects:
+        return "container-build"
+    if "wasm-build" in effects:
+        return "wasm-ci"
     if "google-play" in effects:
         return "android-publish-google-play"
     if "github-release" in effects and "android-build" in effects:

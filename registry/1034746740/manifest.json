@@ -31,14 +31,14 @@
       "updated_at": "2026-09-14T01:10:58+00:00"
     },
     ".github/workflows/deploy-webpage.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/qard-deploy-webpage.yml",
-      "implementation_sha256": "0f7472a7b532c5031147cd5bdb7664b3542e160aa6c4d929a5d036451fe65735",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/website-sftp-deploy.yml",
       "name": "Deploy Webpage over FTP",
       "registry_source": "registry/1034746740/deploy-webpage-c36a4430.source.yml",
       "source_sha256": "961e61bc138f682e09cad9b4318e0b44ca82719e751bda9b3594acc1b7937c27",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "Website SFTP Deploy"
     },
     ".github/workflows/generate-wrapper.yml": {
       "binding": "repository",
@@ -63,7 +63,7 @@
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "\ud83d\ude08 Glee Audit",
+      "name": "😈 Glee Audit",
       "registry_source": "registry/1034746740/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",

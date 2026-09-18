@@ -186,15 +186,29 @@ jobs:
           version_arg="$(jq -r '.version_arg // "versionBuild"' <<<"$PROFILE_JSON")"
           persist="$(jq -r '.persist_version // true' <<<"$PROFILE_JSON")"
           inject_signing="$(jq -r '.inject_signing_args // false' <<<"$PROFILE_JSON")"
+          pem_legacy="$(jq -r '.pem_legacy // false' <<<"$PROFILE_JSON")"
           publish_default="$(jq -r '.publish_default // true' <<<"$PROFILE_JSON")"
+          publish_on_push="$(jq -r '.publish_on_push // true' <<<"$PROFILE_JSON")"
+          test_command="$(jq -r '.test_command // empty' <<<"$PROFILE_JSON")"
+          ad_id_check="$(jq -r '.ad_id_check // false' <<<"$PROFILE_JSON")"
+          mapping_file="$(jq -r '.mapping_file // empty' <<<"$PROFILE_JSON")"
+          github_release_after_play="$(jq -r '.github_release_after_play // "never"' <<<"$PROFILE_JSON")"
+          release_version_scheme="$(jq -r '.release_version_scheme // "version-properties"' <<<"$PROFILE_JSON")"
+          release_app_name="$(jq -r '.release_app_name // empty' <<<"$PROFILE_JSON")"
           tracks="$(jq -c --argjson d "$default_tracks" '.tracks // $d' <<<"$PROFILE_JSON")"
-          if [ "$(jq -r '.tracks_from_inputs // false' <<<"$PROFILE_JSON")" = true ]; then
+          if [ "$TARGET_EVENT_NAME" = push ] && jq -e '.push_tracks' >/dev/null 2>&1 <<<"$PROFILE_JSON"; then
+            tracks="$(jq -c '.push_tracks' <<<"$PROFILE_JSON")"
+          elif [ "$(jq -r '.tracks_from_inputs // false' <<<"$PROFILE_JSON")" = true ]; then
             track="$(jq -r '.track // "internal"' <<<"$TARGET_INPUTS_JSON")"
             status="$(jq -r '.status // "draft"' <<<"$TARGET_INPUTS_JSON")"
             tracks="$(jq -nc --arg track "$track" --arg status "$status" '[{track:$track,status:$status}]')"
+          elif [ "$(jq -r '.tracks_from_csv_input // false' <<<"$PROFILE_JSON")" = true ]; then
+            csv="$(jq -r '.tracks // "internal"' <<<"$TARGET_INPUTS_JSON")"
+            status="$(jq -r '.status // "draft"' <<<"$TARGET_INPUTS_JSON")"
+            tracks="$(jq -nc --arg csv "$csv" --arg status "$status" '$csv | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length>0)) | map({track:.,status:$status})')"
           fi
           if [ "$TARGET_EVENT_NAME" = push ]; then
-            publish=true
+            publish="$publish_on_push"
           elif [ "$(jq -r 'has("dry_run")' <<<"$TARGET_INPUTS_JSON")" = true ]; then
             dry="$(jq -r '.dry_run' <<<"$TARGET_INPUTS_JSON")"
             [ "$dry" = true ] && publish=false || publish=true
@@ -214,8 +228,20 @@ jobs:
             echo "VERSION_ARG=$version_arg"
             echo "PERSIST_VERSION=$persist"
             echo "INJECT_SIGNING_ARGS=$inject_signing"
+            echo "PEM_LEGACY=$pem_legacy"
             echo "PUBLISH_PLAY=$publish"
             echo "TRACKS_JSON=$tracks"
+            echo "TEST_COMMAND=$test_command"
+            echo "AD_ID_CHECK=$ad_id_check"
+            echo "MAPPING_FILE=$mapping_file"
+            echo "GITHUB_RELEASE_AFTER_PLAY=$github_release_after_play"
+            echo "RELEASE_VERSION_SCHEME=$release_version_scheme"
+            echo "RELEASE_APP_NAME=$release_app_name"
+            release=false
+            if [ "$publish" = true ] && { [ "$github_release_after_play" = always ] || { [ "$github_release_after_play" = manual ] && [ "$TARGET_EVENT_NAME" = workflow_dispatch ]; }; }; then
+              release=true
+            fi
+            echo "PUBLISH_GITHUB_RELEASE=$release"
           } >> "$GITHUB_ENV"
 
       - name: Guard Play publish to default branch
@@ -258,9 +284,11 @@ jobs:
         env:
           KEYSTORE_RAW: ${{ secrets.KEYSTORE_RAW }}
           KEYSTORE_PRIVATE: ${{ secrets.KEYSTORE_PRIVATE }}
+          KEYSTORE_RSA: ${{ secrets.KEYSTORE_RSA }}
           KEYSTORE_CHAIN: ${{ secrets.KEYSTORE_CHAIN }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail
@@ -271,10 +299,14 @@ jobs:
               printf '%s' "$KEYSTORE_RAW" | base64 --decode > app/keystore.jks
               ;;
             pem-chain)
-              test -n "$KEYSTORE_PRIVATE" && test -n "$KEYSTORE_CHAIN" || { echo "::error::KEYSTORE_PRIVATE and KEYSTORE_CHAIN are required" >&2; exit 1; }
-              printf '%s\n' "$KEYSTORE_PRIVATE" > private-key.pem
+              private_key="${KEYSTORE_PRIVATE:-$KEYSTORE_RSA}"
+              test -n "$private_key" && test -n "$KEYSTORE_CHAIN" || { echo "::error::KEYSTORE_PRIVATE/KEYSTORE_RSA and KEYSTORE_CHAIN are required" >&2; exit 1; }
+              printf '%s\n' "$private_key" > private-key.pem
               printf '%s\n' "$KEYSTORE_CHAIN" > certificate-chain.crt
-              openssl pkcs12 -export -in certificate-chain.crt -inkey private-key.pem -out keystore.p12 -name "$KEY_ALIAS" -passout pass:"$KEYSTORE_PASSWORD"
+              openssl_args=(-export -in certificate-chain.crt -inkey private-key.pem -out keystore.p12 -name "$KEY_ALIAS" -passout pass:"$KEYSTORE_PASSWORD")
+              if [ -n "$KEY_PASSWORD" ]; then openssl_args+=(-passin env:KEY_PASSWORD); fi
+              if [ "$PEM_LEGACY" = true ]; then openssl_args+=(-legacy); fi
+              openssl pkcs12 "${openssl_args[@]}"
               keytool -importkeystore -srckeystore keystore.p12 -srcstoretype PKCS12 -srcstorepass "$KEYSTORE_PASSWORD" -destkeystore app/keystore.jks -deststoretype JKS -deststorepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" -noprompt
               rm -f private-key.pem certificate-chain.crt keystore.p12
               ;;
@@ -291,6 +323,11 @@ jobs:
         with:
           cache-read-only: false
       - run: chmod +x gradlew
+
+      - name: Run release tests
+        if: ${{ env.TEST_COMMAND != '' }}
+        shell: bash
+        run: bash -eo pipefail -c "$TEST_COMMAND"
 
       - name: Resolve package and version arguments
         id: meta
@@ -362,12 +399,32 @@ jobs:
           path: ${{ env.AAB_PATH }}
           if-no-files-found: error
 
+      - name: Verify bundle declares no AD_ID permission
+        if: ${{ env.AD_ID_CHECK == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BT_VERSION=1.17.2
+          curl -fsSL -o bundletool.jar "https://github.com/google/bundletool/releases/download/${BT_VERSION}/bundletool-all-${BT_VERSION}.jar"
+          modules="$(unzip -Z1 "$AAB_PATH" | sed -n 's#^\([^/]*\)/manifest/AndroidManifest\.xml$#\1#p' | sort -u)"
+          test -n "$modules" || { echo "::error::No module manifests found in $AAB_PATH" >&2; exit 1; }
+          dirty=0
+          for module in $modules; do
+            manifest="$(java -jar bundletool.jar dump manifest --bundle="$AAB_PATH" --module="$module")"
+            if grep -q "com.google.android.gms.permission.AD_ID" <<<"$manifest"; then
+              echo "::error::module '$module' declares com.google.android.gms.permission.AD_ID"
+              dirty=1
+            fi
+          done
+          test "$dirty" -eq 0 || exit 1
+
       - name: Publish bundle to configured Play tracks
         id: play
         if: ${{ env.PUBLISH_PLAY == 'true' }}
         env:
           PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           PACKAGE_NAME: ${{ steps.meta.outputs.package_name }}
+          MAPPING_FILE: ${{ env.MAPPING_FILE }}
         shell: bash
         run: |
           set -euo pipefail
@@ -389,6 +446,15 @@ jobs:
                   edit=svc.edits().insert(packageName=package,body={}).execute()['id']
                   bundle=svc.edits().bundles().upload(packageName=package,editId=edit,media_body=MediaFileUpload(aab,mimetype='application/octet-stream')).execute()
                   code=str(bundle['versionCode'])
+                  mapping=os.environ.get('MAPPING_FILE','')
+                  if mapping and os.path.isfile(mapping):
+                      svc.edits().deobfuscationfiles().upload(
+                          packageName=package,
+                          editId=edit,
+                          apkVersionCode=code,
+                          deobfuscationFileType='proguard',
+                          media_body=MediaFileUpload(mapping,mimetype='text/plain'),
+                      ).execute()
                   for spec in tracks:
                       body={'track':spec['track'],'releases':[{'versionCodes':[code],'status':spec['status']}]}
                       svc.edits().tracks().update(packageName=package,editId=edit,track=spec['track'],body=body).execute()
@@ -401,6 +467,77 @@ jobs:
                   print(f'Play edit attempt {attempt} failed: {exc}; retrying', flush=True)
                   time.sleep(min(60, 5 * 2 ** (attempt-1)))
           PY
+
+      - name: Build universal APK from published bundle
+        if: ${{ env.PUBLISH_GITHUB_RELEASE == 'true' }}
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BT_VERSION=1.17.2
+          if [ ! -f bundletool.jar ]; then
+            curl -fsSL -o bundletool.jar "https://github.com/google/bundletool/releases/download/${BT_VERSION}/bundletool-all-${BT_VERSION}.jar"
+          fi
+          key_password="${KEY_PASSWORD:-$KEYSTORE_PASSWORD}"
+          java -jar bundletool.jar build-apks --bundle="$AAB_PATH" --output=universal.apks --mode=universal --overwrite             --ks=app/keystore.jks --ks-pass=pass:"$KEYSTORE_PASSWORD" --ks-key-alias="$KEY_ALIAS" --key-pass=pass:"$key_password"
+          unzip -o -p universal.apks universal.apk > app-universal.apk
+          test -s app-universal.apk || { echo "::error::Universal APK extraction failed" >&2; exit 1; }
+          echo "UNIVERSAL_APK=$PWD/app-universal.apk" >> "$GITHUB_ENV"
+
+      - name: Publish immutable GitHub release for Play build
+        if: ${{ env.PUBLISH_GITHUB_RELEASE == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RELEASE_VERSION_SCHEME" in
+            legacy-blame)
+              major="$(grep '^major=' version.properties | cut -d= -f2 | tr -d '\r ')"
+              minor="$(grep '^minor=' version.properties | cut -d= -f2 | tr -d '\r ')"
+              minor_commit="$(git blame -L '/minor=/',+1 version.properties | awk '{print $1}' | tr -d '^')"
+              if [ -n "$minor_commit" ]; then patch="$(git rev-list --count "$minor_commit"..HEAD)"; else patch="$(grep '^patch=' version.properties | cut -d= -f2 | tr -d '\r ')"; fi
+              build="$(git rev-list --count HEAD)"
+              version="$major.$minor.$patch.$build"
+              ;;
+            version-properties)
+              major="$(grep '^versionMajor=' version.properties | cut -d= -f2 | tr -d '\r ')"
+              minor="$(grep '^versionMinor=' version.properties | cut -d= -f2 | tr -d '\r ')"
+              patch="$(grep '^versionPatch=' version.properties | cut -d= -f2 | tr -d '\r ')"
+              build="$(grep '^versionBuild=' version.properties | cut -d= -f2 | tr -d '\r ')"
+              version="$major.$minor.$patch.$build"
+              ;;
+            *)
+              echo "::error::Unknown GitHub release version scheme: $RELEASE_VERSION_SCHEME" >&2
+              exit 1
+              ;;
+          esac
+          app_name="$RELEASE_APP_NAME"
+          if [ -z "$app_name" ] && [ -f settings.gradle.kts ]; then app_name="$(sed -nE 's/.*rootProject\.name[[:space:]]*=[[:space:]]*["'"']([^"'"']+)["'"'].*/\1/p' settings.gradle.kts | head -1)"; fi
+          if [ -z "$app_name" ] && [ -f settings.gradle ]; then app_name="$(sed -nE 's/.*rootProject\.name[[:space:]]*=[[:space:]]*["'"']([^"'"']+)["'"'].*/\1/p' settings.gradle | head -1)"; fi
+          app_name="${app_name:-${{ inputs.target_repository_name }}}"
+          tag="v$version"
+          asset="$app_name-$version.apk"
+          cp "$UNIVERSAL_APK" "$asset"
+          prerelease=--prerelease
+          if [ "$(jq 'length' <<<"$TRACKS_JSON")" -eq 1 ] && [ "$(jq -r '.[0].track' <<<"$TRACKS_JSON")" = production ] && [ "$(jq -r '.[0].status' <<<"$TRACKS_JSON")" = completed ]; then
+            prerelease=
+          fi
+          gh auth setup-git
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -fa "$tag" "$TARGET_SHA" -m "Play release $version"
+          git push origin "$tag" --force
+          notes="Signed APK for the build published to Google Play. Tracks: $TRACKS_JSON. Built from commit $TARGET_SHA."
+          if gh release view "$tag" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$tag" --repo "$TARGET_REPOSITORY" $prerelease --title "$app_name $version" --notes "$notes" --target "$TARGET_SHA"
+            gh release upload "$tag" "$asset" --repo "$TARGET_REPOSITORY" --clobber
+          else
+            gh release create "$tag" "$asset" --repo "$TARGET_REPOSITORY" $prerelease --title "$app_name $version" --notes "$notes" --target "$TARGET_SHA"
+          fi
 
       - name: Persist monotonic version.properties
         if: ${{ env.PUBLISH_PLAY == 'true' && env.PERSIST_VERSION == 'true' }}

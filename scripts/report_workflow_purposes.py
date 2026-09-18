@@ -79,7 +79,7 @@ def effects_for(text: str, uses: list[str], name: str, path: str) -> set[str]:
         effects.add("azp-sign")
     if has("model_url", "fetch upstream model") and has("manifest.json", "*.azp", "pack .azp"):
         effects.add("azp-model-release")
-    if has("gh release ", "softprops/action-gh-release", "ncipollo/release-action", "release create", "release upload"):
+    if has("gh release ", "softprops/action-gh-release", "ncipollo/release-action", "sangatdesai/release-apk", "release create", "release upload"):
         effects.add("github-release")
     if has("upload-google-play", "gradle-play-publisher", "publishbundle", "publishapk", "play_multitrack_publish.py", "publish_play.py", "androidpublisher", "edits().bundles"):
         effects.add("google-play")
@@ -154,6 +154,34 @@ def effects_for(text: str, uses: list[str], name: str, path: str) -> set[str]:
 
 def purpose_for(effects: set[str], name: str, path: str) -> str:
     # Purpose is based on the externally visible result, not implementation details.
+    # Some workflows intentionally share mechanisms (SFTP, repository writes, Hugging Face)
+    # while accomplishing different things. Keep those semantic distinctions explicit so the
+    # audit never calls them duplicates merely because the transport is the same.
+    hint = f"{name} {path}".casefold()
+    if "apply-unattached-visibility" in hint or "apply unattached overflow and visibility" in hint:
+        return "unattached-visibility-migration"
+    if "sync-platform-parity" in hint or "sync platform parity" in hint:
+        return "platform-parity-sync"
+    if "deploy-docs-sftp" in hint or "deploy docs over ftp" in hint:
+        return "documentation-file-server-deploy"
+    if "mirror-models" in hint or "mirror models to hf" in hint:
+        return "huggingface-model-mirror"
+    if "remove_painting" in hint or "remove painting" in hint:
+        return "painting-removal"
+    if "theater_bake" in hint or "theater bake" in hint:
+        return "theater-bake"
+    if "generate-wrapper" in hint or "generate gradle wrapper" in hint:
+        return "gradle-wrapper-generation"
+    if "android-ci" in hint and not effects:
+        return "android-ci"
+    if "provision-storage" in hint or "provision durable storage" in hint:
+        return "package-storage-provision"
+    if "publish-package" in hint or "publish single package" in hint:
+        return "package-publish-retry"
+    if "publish-staged" in hint or "publish (staged)" in hint:
+        return "staged-package-publish"
+    if "submissions" in hint:
+        return "package-submissions"
     if "azp-sign" in effects:
         return "azp-sign-release"
     if "azp-model-release" in effects:
@@ -224,7 +252,6 @@ def purpose_for(effects: set[str], name: str, path: str) -> str:
         return "artifact-build"
 
     # Last-resort semantic hints for workflows whose shell is mostly delegated.
-    hint = f"{name} {path}".casefold()
     if "summary" in hint and "issue" in hint:
         return "issue-summary"
     if "deploy" in hint:

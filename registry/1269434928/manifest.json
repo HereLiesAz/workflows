@@ -59,14 +59,12 @@
       "updated_at": "2026-09-17T17:45:52+00:00"
     },
     ".github/workflows/extensions.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/guillotine-extensions.yml",
-      "implementation_sha256": "e06cfed45cf16850f53be3f0c922f4bd7c2e1ea04e4758626f9c63a5486b976f",
       "name": "Extensions",
       "registry_source": "registry/1269434928/extensions-416f15f6.source.yml",
       "source_sha256": "f83360878e751d007fbc323c4f7c4affad4f4f2f1a3ef0beb44237bfbfde3d0c",
-      "status": "active",
-      "updated_at": "2026-09-17T17:45:55+00:00"
+      "status": "obsolete",
+      "updated_at": "2026-09-17T17:45:55+00:00",
+      "reason": "stale workflow: the extensions/ tree was removed from Guillotine, so every run fails before npm can start"
     },
     ".github/workflows/jules-agent.yml": {
       "name": "Jules Agent",

@@ -39,14 +39,14 @@
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/deploy-sftp.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/graffux-deploy-sftp.yml",
-      "implementation_sha256": "4fc21447bd146f8eb836da3487c06b26e2011d38cbf6e91b97c147783acbf62f",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/website-sftp-deploy.yml",
       "name": "Mirror docs over SFTP",
       "registry_source": "registry/1305186158/deploy-sftp-1401405c.source.yml",
       "source_sha256": "aab5ef3d85c2ac59d48c828207dbb273c22eacfc9d84e3f28faa96e44eb78a05",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "Website SFTP Deploy"
     },
     ".github/workflows/jules-dispatch.yml": {
       "binding": "curated",

@@ -193,6 +193,8 @@ OBSOLETE_WORKFLOWS: Final[dict[tuple[str, str], str]] = {
     ("hereliesaz/guillotine", ".github/workflows/extensions.yml"): "stale workflow: the extensions/ tree was removed from Guillotine, so every run fails before npm can start",
     ("hereliesaz/click", ".github/workflows/release.yml"): "starter release template that publishes a debug APK and says it should be a release build",
     ("hereliesaz/fluttertest", ".github/workflows/release.yml"): "starter release template that publishes a debug APK and says it should be a release build",
+    ("hereliesaz/cuedetat", ".github/workflows/android-release-apk.yml"): "superseded by release.yml, which handles both push and manual signed Foss releases for this repository",
+    ("hereliesaz/azphalt", ".github/workflows/android-release-apk.yml"): "superseded by app-release.yml, the repository's unified one-version/every-artifact release pipeline",
 }
 
 TEMPORARY_CONTROLLER_WORKFLOWS: Final[set[str]] = {

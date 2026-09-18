@@ -29,14 +29,14 @@
       "updated_at": "2026-09-17T17:45:45+00:00"
     },
     ".github/workflows/deploy-sftp.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/guillotine-deploy-sftp.yml",
-      "implementation_sha256": "e798ee9c4e51b16f0cc05622da332924bc7342ca7ad71258ae8379ca0a9b2ccb",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/website-sftp-deploy.yml",
       "name": "Deploy over FTP",
       "registry_source": "registry/1269434928/deploy-sftp-1401405c.source.yml",
       "source_sha256": "31afe4d12a10ef30e8475e959100df371e0384d5af5dab8b41feb42fa1758291",
       "status": "active",
-      "updated_at": "2026-09-17T17:45:47+00:00"
+      "updated_at": "2026-09-17T17:45:47+00:00",
+      "semantic_purpose": "Website SFTP Deploy"
     },
     ".github/workflows/deploy-space.yml": {
       "binding": "repository",

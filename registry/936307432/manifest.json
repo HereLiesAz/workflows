@@ -63,14 +63,14 @@
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/deploy-sftp.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/graffitixr-deploy-sftp.yml",
-      "implementation_sha256": "d26b3c18f98bdf8c97dcbcdba2189e8939f6e2cb3ead50357293c79eb3fe5c42",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/website-sftp-deploy.yml",
       "name": "Deploy over FTP",
       "registry_source": "registry/936307432/deploy-sftp-1401405c.source.yml",
       "source_sha256": "8b42bbc29b2f1b8ab416a72cd6b2ed04c37811d4ec358ea24c5a4640773474fc",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "Website SFTP Deploy"
     },
     ".github/workflows/jekyll-gh-pages.yml": {
       "blockers": [

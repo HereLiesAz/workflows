@@ -190,6 +190,7 @@ OBSOLETE_WORKFLOWS: Final[dict[tuple[str, str], str]] = {
     ("hereliesaz/cleanunderwear", ".github/workflows/jules-auto-merge.yml"): "placeholder that only echoes that Jules is not configured",
     ("hereliesaz/guillotine", ".github/workflows/jules-agent.yml"): "placeholder that only echoes that Jules is not configured",
     ("hereliesaz/guillotine", ".github/workflows/jules-auto-merge.yml"): "placeholder that only echoes that Jules is not configured",
+    ("hereliesaz/guillotine", ".github/workflows/extensions.yml"): "stale workflow: the extensions/ tree was removed from Guillotine, so every run fails before npm can start",
     ("hereliesaz/click", ".github/workflows/release.yml"): "starter release template that publishes a debug APK and says it should be a release build",
     ("hereliesaz/fluttertest", ".github/workflows/release.yml"): "starter release template that publishes a debug APK and says it should be a release build",
 }

@@ -574,159 +574,16 @@ jobs:
           notes="Built from commit $TARGET_SHA."
           if [ "$BUILT_RELEASE_CHECKSUM" = true ] && [ -n "${APK_PATH:-}" ]; then
             checksum="$(sha256sum "$APK_PATH" | awk '{print $1}')"
-            notes="${notes}"          fi
+            printf -v notes '%s\n\nSHA-256: %s' "$notes" "$checksum"
+          fi
           gh auth setup-git
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if ! git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
-            git tag -a "$tag" "$TARGET_SHA" -m "$title"
-            git push origin "$tag"
-          fi
-          if gh release view "$tag" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then
-            gh release edit "$tag" --repo "$TARGET_REPOSITORY" --title "$title" --notes "$notes" --target "$TARGET_SHA"
-            gh release upload "$tag" "${assets[@]}" --repo "$TARGET_REPOSITORY" --clobber
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            git fetch --force origin "refs/tags/$tag:refs/tags/$tag"
+            existing_sha="$(git rev-list -n 1 "$tag")"
+            test "$existing_sha" = "$TARGET_SHA" || { echo "::error::Tag $tag points to $existing_sha, expected $TARGET_SHA" >&2; exit 1; }
           else
-            gh release create "$tag" "${assets[@]}" --repo "$TARGET_REPOSITORY" --target "$TARGET_SHA" --title "$title" --notes "$notes"
-          fi
-      - name: Build universal APK from published bundle
-        if: ${{ env.PUBLISH_GITHUB_RELEASE == 'true' }}
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          BT_VERSION=1.17.2
-          if [ ! -f bundletool.jar ]; then
-            curl -fsSL -o bundletool.jar "https://github.com/google/bundletool/releases/download/${BT_VERSION}/bundletool-all-${BT_VERSION}.jar"
-          fi
-          key_password="${KEY_PASSWORD:-$KEYSTORE_PASSWORD}"
-          java -jar bundletool.jar build-apks --bundle="$AAB_PATH" --output=universal.apks --mode=universal --overwrite             --ks=app/keystore.jks --ks-pass=pass:"$KEYSTORE_PASSWORD" --ks-key-alias="$KEY_ALIAS" --key-pass=pass:"$key_password"
-          unzip -o -p universal.apks universal.apk > app-universal.apk
-          test -s app-universal.apk || { echo "::error::Universal APK extraction failed" >&2; exit 1; }
-          echo "UNIVERSAL_APK=$PWD/app-universal.apk" >> "$GITHUB_ENV"
-
-      - name: Publish immutable GitHub release for Play build
-        if: ${{ env.PUBLISH_GITHUB_RELEASE == 'true' }}
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          case "$RELEASE_VERSION_SCHEME" in
-            legacy-blame)
-              major="$(grep '^major=' version.properties | cut -d= -f2 | tr -d '\r ')"
-              minor="$(grep '^minor=' version.properties | cut -d= -f2 | tr -d '\r ')"
-              minor_commit="$(git blame -L '/minor=/',+1 version.properties | awk '{print $1}' | tr -d '^')"
-              if [ -n "$minor_commit" ]; then patch="$(git rev-list --count "$minor_commit"..HEAD)"; else patch="$(grep '^patch=' version.properties | cut -d= -f2 | tr -d '\r ')"; fi
-              build="$(git rev-list --count HEAD)"
-              version="$major.$minor.$patch.$build"
-              ;;
-            version-properties)
-              major="$(grep '^versionMajor=' version.properties | cut -d= -f2 | tr -d '\r ')"
-              minor="$(grep '^versionMinor=' version.properties | cut -d= -f2 | tr -d '\r ')"
-              patch="$(grep '^versionPatch=' version.properties | cut -d= -f2 | tr -d '\r ')"
-              build="$(grep '^versionBuild=' version.properties | cut -d= -f2 | tr -d '\r ')"
-              version="$major.$minor.$patch.$build"
-              ;;
-            *)
-              echo "::error::Unknown GitHub release version scheme: $RELEASE_VERSION_SCHEME" >&2
-              exit 1
-              ;;
-          esac
-          app_name="$RELEASE_APP_NAME"
-          if [ -z "$app_name" ] && [ -f settings.gradle.kts ]; then
-            app_name="$(sed -nE "s/.*rootProject\\.name[[:space:]]*=[[:space:]]*['\\\"]([^'\\\"]+)['\\\"].*/\\1/p" settings.gradle.kts | head -1)"
-          fi
-          if [ -z "$app_name" ] && [ -f settings.gradle ]; then
-            app_name="$(sed -nE "s/.*rootProject\\.name[[:space:]]*=[[:space:]]*['\\\"]([^'\\\"]+)['\\\"].*/\\1/p" settings.gradle | head -1)"
-          fi
-          app_name="${app_name:-${{ inputs.target_repository_name }}}"
-          tag="v$version"
-          asset="$app_name-$version.apk"
-          cp "$UNIVERSAL_APK" "$asset"
-          prerelease=--prerelease
-          if [ "$(jq 'length' <<<"$TRACKS_JSON")" -eq 1 ] && [ "$(jq -r '.[0].track' <<<"$TRACKS_JSON")" = production ] && [ "$(jq -r '.[0].status' <<<"$TRACKS_JSON")" = completed ]; then
-            prerelease=
-          fi
-          gh auth setup-git
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -fa "$tag" "$TARGET_SHA" -m "Play release $version"
-          git push origin "$tag" --force
-          notes="Signed APK for the build published to Google Play. Tracks: $TRACKS_JSON. Built from commit $TARGET_SHA."
-          if gh release view "$tag" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then
-            gh release edit "$tag" --repo "$TARGET_REPOSITORY" $prerelease --title "$app_name $version" --notes "$notes" --target "$TARGET_SHA"
-            gh release upload "$tag" "$asset" --repo "$TARGET_REPOSITORY" --clobber
-          else
-            gh release create "$tag" "$asset" --repo "$TARGET_REPOSITORY" $prerelease --title "$app_name $version" --notes "$notes" --target "$TARGET_SHA"
-          fi
-
-      - name: Persist monotonic version.properties
-        if: ${{ env.PUBLISH_PLAY == 'true' && env.PERSIST_VERSION == 'true' }}
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ ! -f version.properties ] || git diff --quiet -- version.properties; then exit 0; fi
-          gh auth setup-git
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          new="$(grep -E '^versionBuild=' version.properties | cut -d= -f2 | tr -d '\r ' || echo 0)"
-          git fetch origin "$TARGET_REF_NAME"
-          remote="$(git show "origin/$TARGET_REF_NAME:version.properties" 2>/dev/null | grep -E '^versionBuild=' | cut -d= -f2 | tr -d '\r ' || echo 0)"
-          if [ "$remote" -ge "$new" ]; then echo "Remote versionBuild=$remote already covers this run ($new)."; exit 0; fi
-          git add version.properties
-          git commit -m "ci: versionBuild=${new} [skip ci]"
-          git push origin "HEAD:$TARGET_REF_NAME"
-
-      - name: Cleanup signing material
-        if: ${{ always() }}
-        run: rm -f app/keystore.jks private-key.pem certificate-chain.crt keystore.p12
-  central_check_finish:
-    if: ${{ always() }}
-    needs:
-      - central_check_start
-      - build_and_publish
-    runs-on: ubuntu-latest
-    steps:
-      - name: Complete target status
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
-          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
-          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        shell: bash
-        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
-    permissions:
-      contents: read
-    env:
-      TARGET_REPOSITORY: ${{ inputs.target_repository }}
-      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
-      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
-      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
-      TARGET_SHA: ${{ inputs.target_sha }}
-      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
-      TARGET_REF: ${{ inputs.target_ref }}
-      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
-      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
-      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
-      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
-      TARGET_ACTOR: ${{ inputs.target_actor }}
-      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
-      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
-      TARGET_RUN_ID: ${{ inputs.target_run_id }}
-      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
-      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
-      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
-\n\n'"SHA-256: $checksum"
-          fi
-          gh auth setup-git
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if ! git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
             git tag -a "$tag" "$TARGET_SHA" -m "$title"
             git push origin "$tag"
           fi

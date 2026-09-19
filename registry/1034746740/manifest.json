@@ -11,14 +11,14 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/android-ci.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/qard-android-ci.yml",
-      "implementation_sha256": "85ea520991b3dc5b5aef9eafac0c6cd062d2d9f082f5ce0ac6aa77aabf5e3227",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/ci-validation.yml",
       "name": "Android CI",
       "registry_source": "registry/1034746740/android-ci-3798bddf.source.yml",
       "source_sha256": "41fe12a37af090d9bbb2d801dc044c858f4620f9215678277c71d9a83a5fd22d",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "CI Validation"
     },
     ".github/workflows/build.yml": {
       "blockers": [

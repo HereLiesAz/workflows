@@ -74,14 +74,14 @@
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/code-quality.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/hg2gui-code-quality.yml",
-      "implementation_sha256": "6d33a4ac4f80e0204d92104b41b148b1c7985b71c982ff541e8879fceb6a7272",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/ci-validation.yml",
       "name": "Code Quality",
       "registry_source": "registry/1148245553/code-quality-dd34ada1.source.yml",
       "source_sha256": "e0453104ae87efbcbaff88ffbf48bb4f13960d6793b9b0961e26930e9738b5c3",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "CI Validation"
     },
     ".github/workflows/deploy-sftp.yml": {
       "binding": "curated",

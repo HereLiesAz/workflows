@@ -85,14 +85,14 @@
       "updated_at": "2026-09-15T03:03:20+00:00"
     },
     ".github/workflows/core-tests.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/cuedetat-core-tests.yml",
-      "implementation_sha256": "d33ab9f4ac39a20d632bfb4fa068c3895bec36909ebbd9d8af49c37c0d892751",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/ci-validation.yml",
       "name": "Core tests",
       "registry_source": "registry/988574413/core-tests-f593ee8a.source.yml",
       "source_sha256": "efd2a9e25587d0b98bfac920bbece460f9391789dddc7b2f49d20a318b2a1826",
       "status": "active",
-      "updated_at": "2026-09-15T03:03:21+00:00"
+      "updated_at": "2026-09-15T03:03:21+00:00",
+      "semantic_purpose": "CI Validation"
     },
     ".github/workflows/deploy-docs-sftp.yml": {
       "binding": "repository",

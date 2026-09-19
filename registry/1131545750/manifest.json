@@ -31,14 +31,14 @@
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/cmp-build.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/barbacker-cmp-build.yml",
-      "implementation_sha256": "f3485c0d418b3157b6fbffbbe74a456f883be807c13e88f76a64f1bd8dd521c7",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/ci-validation.yml",
       "name": "CMP Client Build",
       "registry_source": "registry/1131545750/cmp-build-9df9ad2c.source.yml",
       "source_sha256": "ecd3d0b9d749eee197622cfcd6eec22c54bf46270553ec35253297ed9d4d8674",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "CI Validation"
     },
     ".github/workflows/codeql.yml": {
       "binding": "curated",
@@ -120,14 +120,14 @@
       "updated_at": "2026-09-14T01:01:20+00:00"
     },
     ".github/workflows/rules-tests.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/barbacker-rules-tests.yml",
-      "implementation_sha256": "8d4ce5cdac2c245ba073141e1eaa56908c7d9621e7c4890b5dcb2e7ceae3973c",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/ci-validation.yml",
       "name": "Rules and Functions Tests",
       "registry_source": "registry/1131545750/rules-tests-eecdd6c1.source.yml",
       "source_sha256": "0b7b065e8862e6c031ece662ec8e4a6b3f38ce4e1eb665d2abb38dc0bd3453ff",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "CI Validation"
     }
   }
 }

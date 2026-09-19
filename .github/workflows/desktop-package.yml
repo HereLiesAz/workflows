@@ -1,0 +1,345 @@
+# Generalized purpose workflow: Desktop Package.
+# OS matrix, build commands, artifact paths, versioning, and optional release behavior are profiles.
+name: Desktop Package
+run-name: ${{ inputs.target_repository_name }} · Desktop Package
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+      target_repository_name:
+        required: true
+        type: string
+      purpose_profile_json:
+        required: true
+        type: string
+permissions:
+  contents: read
+env:
+  TARGET_REPOSITORY: ${{ inputs.target_repository }}
+  TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+  TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+  TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+  TARGET_SHA: ${{ inputs.target_sha }}
+  TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+  TARGET_REF: ${{ inputs.target_ref }}
+  TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+  TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+  TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+  TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+  TARGET_ACTOR: ${{ inputs.target_actor }}
+  TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+  TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+  TARGET_RUN_ID: ${{ inputs.target_run_id }}
+  TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+  TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+  TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+concurrency:
+  group: desktop-${{ inputs.target_repository_name }}-${{ inputs.source_workflow_path }}-${{ inputs.target_ref }}
+  cancel-in-progress: ${{ fromJSON(inputs.purpose_profile_json).cancel_in_progress != false }}
+jobs:
+  central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from HereLiesAz/workflows.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+
+  package:
+    needs: central_check_start
+    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.purpose_profile_json).matrix }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    environment: ${{ inputs.target_repository_name }}
+    env:
+      PROFILE_JSON: ${{ inputs.purpose_profile_json }}
+      TARGET_INPUTS_JSON: ${{ inputs.target_inputs_json }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+    steps:
+      - name: Checkout target repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ fromJSON(inputs.purpose_profile_json).java_version || '21' }}
+          distribution: temurin
+
+      - name: Setup Gradle
+        if: ${{ fromJSON(inputs.purpose_profile_json).use_gradle_setup != false }}
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Resolve desktop package version
+        shell: bash
+        run: |
+          set -euo pipefail
+          mode="$(jq -r '.version_mode // "none"' <<<"$PROFILE_JSON")"
+          case "$mode" in
+            none)
+              version=""
+              ;;
+            fixed)
+              version="$(jq -r '.fixed_version // empty' <<<"$PROFILE_JSON")"
+              ;;
+            mcpserved)
+              if [ "$TARGET_REF_TYPE" = "tag" ] && [[ "$TARGET_REF_NAME" == desktop-v* ]]; then
+                version="${TARGET_REF_NAME#desktop-v}"
+              else
+                requested="$(jq -r '.version // empty' <<<"$TARGET_INPUTS_JSON")"
+                if [ -n "$requested" ]; then
+                  version="$requested"
+                else
+                  major="$(grep '^versionMajor=' version.properties | cut -d= -f2 | tr -d '\r ')"
+                  minor="$(grep '^versionMinor=' version.properties | cut -d= -f2 | tr -d '\r ')"
+                  patch="$(grep '^versionPatch=' version.properties | cut -d= -f2 | tr -d '\r ')"
+                  minor_last="$(grep '^versionMinorLast=' version.properties | cut -d= -f2 | tr -d '\r ' || true)"
+                  [ "$major" != "0" ] && [ -n "$major" ] || major=1
+                  [ "$minor" = "$minor_last" ] || patch=0
+                  version="${major}.${minor:-0}.${patch:-0}"
+                fi
+              fi
+              ;;
+            *)
+              echo "::error::Unknown desktop version mode: $mode" >&2
+              exit 1
+              ;;
+          esac
+          echo "DESKTOP_VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Prepare packaging environment
+        if: ${{ matrix.prepare != '' }}
+        shell: bash
+        env:
+          PREPARE_COMMAND: ${{ matrix.prepare }}
+        run: bash -eo pipefail -c "$PREPARE_COMMAND"
+
+      - name: Build desktop package
+        shell: bash
+        env:
+          BUILD_COMMAND: ${{ matrix.build }}
+        run: bash -eo pipefail -c "$BUILD_COMMAND"
+
+      - name: Upload package artifact
+        id: upload1
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.path }}
+          if-no-files-found: error
+          overwrite: true
+
+      - name: Retry artifact upload
+        if: ${{ steps.upload1.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.path }}
+          if-no-files-found: error
+          overwrite: true
+
+  release:
+    needs: [central_check_start, package]
+    if: ${{ always() && needs.central_check_start.result == 'success' && needs.package.result == 'success' && fromJSON(inputs.purpose_profile_json).release_mode != 'none' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    environment: ${{ inputs.target_repository_name }}
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      PROFILE_JSON: ${{ inputs.purpose_profile_json }}
+      TARGET_INPUTS_JSON: ${{ inputs.target_inputs_json }}
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+    steps:
+      - name: Checkout target repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve release target
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          mode="$(jq -r '.release_mode' <<<"$PROFILE_JSON")"
+          should=true
+          standalone=false
+          prerelease=false
+          case "$mode" in
+            guillotine)
+              input_tag="$(jq -r '.tag // empty' <<<"$TARGET_INPUTS_JSON")"
+              if [ -n "$input_tag" ]; then
+                tag="$input_tag"
+              elif [ "$TARGET_REF_TYPE" = "tag" ]; then
+                tag="$TARGET_REF_NAME"
+              else
+                major="$(grep '^versionMajor=' version.properties | cut -d= -f2 | tr -d '\r ')"
+                minor="$(grep '^versionMinor=' version.properties | cut -d= -f2 | tr -d '\r ')"
+                tag="latest-release-v${major}.${minor}"
+              fi
+              ;;
+            mcpserved)
+              if [ "$TARGET_EVENT_NAME" != "push" ]; then
+                should=false
+                tag=""
+              elif [ "$TARGET_REF_TYPE" = "tag" ]; then
+                tag="$TARGET_REF_NAME"
+                standalone=true
+              elif [ "$TARGET_REF_NAME" = "main" ]; then
+                major="$(grep '^versionMajor=' version.properties | cut -d= -f2 | tr -d '\r ')"
+                minor="$(grep '^versionMinor=' version.properties | cut -d= -f2 | tr -d '\r ')"
+                tag="latest-debug-v${major}.${minor}"
+                prerelease=true
+              else
+                should=false
+                tag=""
+              fi
+              ;;
+            *)
+              echo "::error::Unknown desktop release mode: $mode" >&2
+              exit 1
+              ;;
+          esac
+          echo "should=$should" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "standalone=$standalone" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+
+      - name: Download all desktop artifacts
+        if: ${{ steps.target.outputs.should == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Publish desktop installers
+        if: ${{ steps.target.outputs.should == 'true' }}
+        shell: bash
+        env:
+          TAG: ${{ steps.target.outputs.tag }}
+          STANDALONE: ${{ steps.target.outputs.standalone }}
+          PRERELEASE: ${{ steps.target.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find artifacts -type f)
+          [ ${#files[@]} -gt 0 ] || { echo "::error::No desktop packages were downloaded" >&2; exit 1; }
+          title="$(jq -r '.release_title // empty' <<<"$PROFILE_JSON")"
+          body="$(jq -r '.release_body // "Native desktop installers."' <<<"$PROFILE_JSON")"
+          [ -n "$title" ] || title="${{ inputs.target_repository_name }} Desktop $TAG"
+          prerelease_flag=()
+          if [ "$PRERELEASE" = "true" ]; then prerelease_flag=(--prerelease); fi
+          if gh release view "$TAG" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${files[@]}" --repo "$TARGET_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" "${files[@]}" --repo "$TARGET_REPOSITORY" --target "$TARGET_SHA" --title "$title" --notes "$body" "${prerelease_flag[@]}"
+          fi
+
+  central_check_finish:
+    if: ${{ always() }}
+    needs:
+      - central_check_start
+      - package
+      - release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Central workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Central workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""

@@ -1,0 +1,201 @@
+# Generalized purpose workflow: Artifact GitHub Release.
+# Toolchain, versioning, build command, and release assets are profiles rather than separate executors.
+name: Artifact GitHub Release
+run-name: ${{ inputs.target_repository_name }} · Artifact GitHub Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository: {required: true, type: string}
+      target_repository_id: {required: true, type: string}
+      target_repository_owner: {required: true, type: string}
+      target_repository_owner_id: {required: true, type: string}
+      target_sha: {required: true, type: string}
+      target_check_sha: {required: true, type: string}
+      target_ref: {required: true, type: string}
+      target_ref_name: {required: false, type: string}
+      target_ref_type: {required: false, type: string}
+      target_head_ref: {required: false, type: string}
+      target_base_ref: {required: false, type: string}
+      target_actor: {required: true, type: string}
+      target_actor_id: {required: false, type: string}
+      target_event_name: {required: true, type: string}
+      target_event_json: {required: true, type: string}
+      target_inputs_json: {required: true, type: string}
+      target_vars_json: {required: true, type: string}
+      target_run_id: {required: true, type: string}
+      target_run_number: {required: false, type: string}
+      target_run_attempt: {required: false, type: string}
+      target_workflow_name: {required: true, type: string}
+      source_workflow_path: {required: true, type: string}
+      source_sha256: {required: true, type: string}
+      target_repository_name: {required: true, type: string}
+      purpose_profile_json: {required: true, type: string}
+
+permissions:
+  contents: read
+
+env:
+  TARGET_REPOSITORY: ${{ inputs.target_repository }}
+  TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+  TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+  TARGET_SHA: ${{ inputs.target_sha }}
+  TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+  TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+  TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+  PROFILE_JSON: ${{ inputs.purpose_profile_json }}
+
+jobs:
+  central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo_json="$(gh api "repos/$TARGET_REPOSITORY")"
+          [[ "$(jq -r '.id' <<<"$repo_json")" == "$TARGET_REPOSITORY_ID" ]] || { echo "Repository ID mismatch" >&2; exit 1; }
+          [[ "$(jq -r '.owner.id' <<<"$repo_json")" == "103241502" ]] || { echo "Repository is not owned by HereLiesAz" >&2; exit 1; }
+          [[ "$TARGET_REPOSITORY_OWNER_ID" == "103241502" ]] || { echo "OIDC owner ID mismatch" >&2; exit 1; }
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload="$(jq -n --arg state pending --arg context "$STATUS_CONTEXT" --arg description "Building and publishing GitHub release artifacts." --arg target_url "$DETAILS_URL" '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+          gh api --method POST "repos/$TARGET_REPOSITORY/statuses/$TARGET_CHECK_SHA" --input - <<<"$payload"
+
+  release:
+    needs: central_check_start
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out target
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve release metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          mode="$(jq -r '.tag_mode // "target-ref"' <<<"$PROFILE_JSON")"
+          version=""
+          case "$mode" in
+            target-ref)
+              test "$TARGET_REF_TYPE" = tag || { echo "::error::This release profile requires a tag trigger" >&2; exit 1; }
+              tag="$TARGET_REF_NAME"
+              ;;
+            computed)
+              version_cmd="$(jq -r '.version_command // empty' <<<"$PROFILE_JSON")"
+              test -n "$version_cmd" || { echo "::error::Computed release profile has no version command" >&2; exit 1; }
+              version="$(bash -eo pipefail -c "$version_cmd" | tail -n 1 | tr -d '\r ')"
+              test -n "$version" || { echo "::error::Version command produced no version" >&2; exit 1; }
+              prefix="$(jq -r '.tag_prefix // "v"' <<<"$PROFILE_JSON")"
+              tag="$prefix$version"
+              ;;
+            *)
+              echo "::error::Unknown tag mode: $mode" >&2
+              exit 1
+              ;;
+          esac
+          version_env="$(jq -r '.version_env // empty' <<<"$PROFILE_JSON")"
+          if [ -n "$version_env" ] && [ -n "$version" ]; then
+            echo "$version_env=$version" >> "$GITHUB_ENV"
+          fi
+          echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
+          echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Set up Java
+        if: ${{ fromJSON(inputs.purpose_profile_json).tool == 'maven' || fromJSON(inputs.purpose_profile_json).tool == 'gradle' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ fromJSON(inputs.purpose_profile_json).java_version || '21' }}
+          cache: ${{ fromJSON(inputs.purpose_profile_json).tool }}
+
+      - name: Set up Python
+        if: ${{ fromJSON(inputs.purpose_profile_json).tool == 'python' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ fromJSON(inputs.purpose_profile_json).python_version || '3.11' }}
+          cache: pip
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          install_cmd="$(jq -r '.install_command // empty' <<<"$PROFILE_JSON")"
+          if [ -n "$install_cmd" ]; then
+            bash -eo pipefail -c "$install_cmd"
+          fi
+
+      - name: Build release artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_cmd="$(jq -r '.build_command // empty' <<<"$PROFILE_JSON")"
+          test -n "$build_cmd" || { echo "::error::Release profile has no build command" >&2; exit 1; }
+          bash -eo pipefail -c "$build_cmd"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t patterns < <(jq -r '.files[]' <<<"$PROFILE_JSON")
+          assets=()
+          for pattern in "${patterns[@]}"; do
+            while IFS= read -r file; do
+              [ -n "$file" ] && assets+=("$file")
+            done < <(compgen -G "$pattern" || true)
+          done
+          test "${#assets[@]}" -gt 0 || { echo "::error::No release assets matched the configured patterns" >&2; exit 1; }
+
+          prefix="$(jq -r '.release_name_prefix // empty' <<<"$PROFILE_JSON")"
+          include_sha="$(jq -r '.title_include_sha // false' <<<"$PROFILE_JSON")"
+          if [ -n "$prefix" ]; then
+            if [ -n "$RELEASE_VERSION" ]; then title="$prefix v$RELEASE_VERSION"; else title="$prefix $RELEASE_TAG"; fi
+          else
+            title="$RELEASE_TAG"
+          fi
+          if [ "$include_sha" = true ]; then title="$title ($(git rev-parse --short HEAD))"; fi
+          generate="$(jq -r '.generate_notes // false' <<<"$PROFILE_JSON")"
+
+          if gh release view "$RELEASE_TAG" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" --repo "$TARGET_REPOSITORY" --title "$title" --target "$TARGET_SHA"
+            gh release upload "$RELEASE_TAG" "${assets[@]}" --repo "$TARGET_REPOSITORY" --clobber
+          else
+            args=(release create "$RELEASE_TAG" "${assets[@]}" --repo "$TARGET_REPOSITORY" --target "$TARGET_SHA" --title "$title")
+            if [ "$generate" = true ]; then args+=(--generate-notes); fi
+            gh "${args[@]}"
+          fi
+
+  central_check_finish:
+    if: ${{ always() }}
+    needs: [central_check_start, release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$FAILED" = true ]; then state=failure; description="GitHub release publication failed."; else state=success; description="GitHub release publication completed successfully."; fi
+          payload="$(jq -n --arg state "$state" --arg context "$STATUS_CONTEXT" --arg description "$description" --arg target_url "$DETAILS_URL" '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+          gh api --method POST "repos/$TARGET_REPOSITORY/statuses/$TARGET_CHECK_SHA" --input - <<<"$payload"

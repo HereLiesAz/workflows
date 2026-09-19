@@ -63,11 +63,12 @@ family = semantic_family_slug(
 assert family == 'node-release', family
 
 play_workflow = Path('.github/workflows/android-play-release.yml').read_text(encoding='utf-8')
-assert "httplib2.Http(timeout=180)" in play_workflow
+assert "HTTP_TIMEOUT_SECONDS=180" in play_workflow
+assert "httplib2.Http(timeout=HTTP_TIMEOUT_SECONDS)" in play_workflow
 assert "resumable=True" in play_workflow
 assert "next_chunk(num_retries=REQUEST_RETRIES)" in play_workflow
 assert "except transient as exc:" in play_workflow
-assert "execute(num_retries=5)" in play_workflow
+assert "return request.execute(num_retries=retries)" in play_workflow
 assert "MediaFileUpload(aab,mimetype='application/octet-stream')).execute()" not in play_workflow
 
 print('release centralization regression test passed')

@@ -166,7 +166,10 @@ jobs:
         run: pnpm --filter @azphalt/storefront build-catalog --check
       - name: Build static React storefront
         run: pnpm --filter @azphalt/storefront-react build
+      - name: Bundle Worker without deploying
+        run: npx --yes wrangler@4 deploy --dry-run --config apps/storefront-worker/wrangler.jsonc
       - name: Deploy Worker and static assets to Cloudflare
+        if: ${{ inputs.target_event_name != 'pull_request' }}
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

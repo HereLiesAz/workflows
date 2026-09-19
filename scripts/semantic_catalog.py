@@ -61,6 +61,7 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "48cc88893221e4dbfa9bdede0cec35d7fcd6932f3d4d472cf496284e59d19c18",
             "441264e5b5c2542d4213fa4b25dc3c4eaf061a4ea8b2cd64ebe4dba0aed61d84",
             "d469abed7144cbed30feaf51455bdc0bc039b6bb9978968ff5a534d361e31828",
+            "825e6e5a5cbc7d80f2854e239557599c354131b24dee94d3c14b806f640ce98b",
         },
     },
     ".github/workflows/android-github-release.yml": {
@@ -184,6 +185,7 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
 }
 
 PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
+    "825e6e5a5cbc7d80f2854e239557599c354131b24dee94d3c14b806f640ce98b": {"signing": "pem-chain", "java_version": "21", "google_services": "none", "build_command": "./gradlew :androidApp:assembleRelease :androidApp:bundleRelease --no-daemon", "aab_glob": "androidApp/build/outputs/bundle/release/*.aab", "apk_glob": "androidApp/build/outputs/apk/release/*.apk", "package_name": "com.hereliesaz.morphont", "signing_env_prefix": "MORPHONT", "publish_on_push": False, "publish_default": False, "tracks_from_inputs": True, "persist_version": False, "github_built_release_on_tag": True, "release_app_name": "Morphont"},
     "6f25a5f112d324c4bb19236302c860917f1e65e984e919e778afdd634a97336d": {"kind": "gradle", "java_version": "17", "command": "./gradlew assembleDebug", "report_path": "app/build/outputs/apk/debug/app-debug.apk", "report_when": "always", "retention_days": 7},
     "1606a824a8bd29eb3c6dbd9ca74f88692ee0abd248e910d9a1ee69acb279766c": {"kind": "flutter", "java_version": "17", "flutter_version": "3.16.0", "command": "flutter pub get\nflutter build apk --debug\nVERSION=$(grep '^version:' pubspec.yaml | head -n 1 | sed 's/^version:[[:space:]]*//' | tr -d '\\r ')\nif [ -z \"$VERSION\" ]; then VERSION=1.0.0; fi\nmv build/app/outputs/flutter-apk/app-debug.apk \"build/app/outputs/flutter-apk/IDEaz-$VERSION-debug.apk\"", "report_path": "build/app/outputs/flutter-apk/IDEaz-*-debug.apk", "report_when": "always", "retention_days": 7},
     "968458e29535134b77927dbc8ec6c653ad070e0b6e9cd30f7ac9063544eb14e9": {"tool": "maven", "java_version": "17", "publish_command": "mvn --batch-mode deploy"},

@@ -1,6 +1,6 @@
 name: Play Publish (AAB)
 
-# Builds a signed Android App Bundle of the `play` flavor and publishes it to
+# Builds the signed Android App Bundle from the single release variant and publishes it to
 # the Google Play Console.
 #
 # Every push to main publishes. One AAB is uploaded once and assigned to four
@@ -129,7 +129,7 @@ jobs:
           echo "versionCode (commit count) = $BUILD_NUMBER"
           echo "version_code=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
 
-          ./gradlew bundlePlayRelease -PversionBuild="$BUILD_NUMBER" --build-cache \
+          ./gradlew bundleRelease -PversionBuild="$BUILD_NUMBER" --build-cache \
             -Pandroid.injected.signing.store.file="$(pwd)/app/keystore.jks" \
             -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
             -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
@@ -138,9 +138,9 @@ jobs:
       - name: Locate AAB
         id: aab
         run: |
-          AAB=$(find app/build/outputs/bundle/playRelease -name "*.aab" | head -n 1)
+          AAB=$(find app/build/outputs/bundle/release -name "*.aab" | head -n 1)
           if [ -z "$AAB" ]; then
-            echo "Error: no Play release AAB found."
+            echo "Error: no release AAB found."
             exit 1
           fi
           echo "Found AAB: $AAB"
@@ -174,6 +174,6 @@ jobs:
           PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           PLAY_PACKAGE_NAME: ${{ steps.pkg.outputs.package_name }}
           PLAY_AAB_PATH: ${{ steps.aab.outputs.aab_path }}
-          PLAY_MAPPING_PATH: app/build/outputs/mapping/playRelease/mapping.txt
+          PLAY_MAPPING_PATH: app/build/outputs/mapping/release/mapping.txt
           PLAY_RELEASE_NAME: ${{ steps.build.outputs.version_code }}
         run: python .github/scripts/play_publish.py

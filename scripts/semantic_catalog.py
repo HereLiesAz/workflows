@@ -68,6 +68,7 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
     ".github/workflows/android-github-release.yml": {
         "name": "Android GitHub Release",
         "canonical_hash": "41ccb8c30d393fdc42a44d3b208b179f948ebc44e1c316c4e78b76f627f3bb3c",
+            "4574d6f09eca2407de0f4303494e984c4bba5b3edcc035a5903824ce0ef58315",
         "generalized": True,
         "source_hashes": {
             "41ccb8c30d393fdc42a44d3b208b179f948ebc44e1c316c4e78b76f627f3bb3c",
@@ -130,6 +131,7 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
     ".github/workflows/ci-validation.yml": {
         "name": "CI Validation",
         "canonical_hash": "5fe909668facbf1604c5b7b3b84ba42ecff633f5ed2a52a4ba54180d8a0053d0",
+            "52ca995d48319a2c683fa64cd248e8cdab22514d19dd7df731d47adc7db6e3cd",
         "generalized": True,
         "source_hashes": {
             "5fe909668facbf1604c5b7b3b84ba42ecff633f5ed2a52a4ba54180d8a0053d0",
@@ -270,6 +272,7 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
     "df219e18f056f70c71d3f68c3a73a8ce5d8b3834525f018f7e663f1f7073ab8f": {"asset": "embedding.onnx", "model_url": "https://huggingface.co/onnx-community/wespeaker-voxceleb-resnet34-LM/resolve/main/embedding.onnx"},
     "14fb07a3c131ebc9bc352b5fe31e82b9d451fac8625b7c355261e7f066e481a2": {"asset": "whisper-base.onnx", "model_url": "https://huggingface.co/onnx-community/whisper-base/resolve/main/onnx/model.onnx"},
     "c53b3701ed073a143ff089ff92b0b3ecf4e6316ea04631734b18898fb0613255": {"asset": "yamnet.onnx", "model_url": "https://huggingface.co/onnx-community/yamnet/resolve/main/yamnet.onnx"},
+    "4574d6f09eca2407de0f4303494e984c4bba5b3edcc035a5903824ce0ef58315": {"signing": "raw-jks", "java_version": "17", "inject_signing_args": True, "google_services": "none", "test_command": "./gradlew testDebugUnitTest --build-cache --no-daemon --stacktrace", "build_command": "./gradlew assembleRelease -PreleaseVersionName=1.0.0.$RUN_NUMBER -PreleaseVersionCode=$RUN_NUMBER --build-cache --no-daemon --stacktrace", "artifact_glob": "app/build/outputs/apk/release/*.apk", "persist_version": False, "version_mode": "run-number-base", "base_version": "1.0.0", "asset_name_mode": "app-v-version", "move_tag": False, "prerelease": False, "release_title_style": "app-tag", "wrapper_validation": False, "keystore_output": "app/keystore.jks", "app_name": "HereLiesAz-Admin"},
     "09588a228454cd17abb67313111597bf62edf69ac9286a225bed91913b7ffb35": {"signing": "pem-chain", "chain_secret": "CHAIN", "java_version": "17", "inject_signing_args": True, "test_command": "./gradlew testDebugUnitTest", "app_name": "MadeMeDance"},
     "aeb8bc10311d29a49ceb316a824021c2ef6f17847d459bea89ace81f5f96c1df": {"signing": "pem-chain", "chain_secret": "KEYSTORE_CHAIN", "java_version": "17", "inject_signing_args": True, "arcore_local_properties": True},
     "66b945d96e416473a7bf667158784b6b6175b8afbcc922bc073d17a22387fa24": {"signing": "raw-jks", "java_version": "21", "arcore_local_properties": True, "app_name": "GraffitiXR"},
@@ -325,6 +328,7 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
         "java_version": "17",
         "command": "npm install -g firebase-tools@13\nnpm ci\nfirebase setup:emulators:firestore\nfirebase emulators:start --only firestore,storage --project barbacker-rules-test > emulator.log 2>&1 &\nemulator_pid=$!\ncleanup() { kill \"$emulator_pid\" 2>/dev/null || true; echo '--- emulator.log tail ---'; tail -200 emulator.log || true; }\ntrap cleanup EXIT\nready=false\nfor i in $(seq 1 60); do\n  if (echo > /dev/tcp/127.0.0.1/8080) 2>/dev/null && (echo > /dev/tcp/127.0.0.1/9199) 2>/dev/null; then ready=true; break; fi\n  sleep 1\ndone\nif [ \"$ready\" != true ]; then echo 'emulators did not come up'; tail -200 emulator.log; exit 1; fi\nnpx vitest --run --config vitest.rules.config.ts\n( cd functions && npm ci && npm run build && npm test )",
     },
+    "52ca995d48319a2c683fa64cd248e8cdab22514d19dd7df731d47adc7db6e3cd": {"kind": "gradle", "java_version": "17", "validate_wrapper": False, "command": "./gradlew testDebugUnitTest --build-cache --no-daemon --stacktrace\n./gradlew assembleDebug --build-cache --no-daemon --stacktrace", "report_path": "app/build/reports/tests/\napp/build/outputs/apk/debug/*.apk", "report_when": "always", "retention_days": 7},
     "41fe12a37af090d9bbb2d801dc044c858f4620f9215678277c71d9a83a5fd22d": {
         "kind": "gradle",
         "java_version": "21",

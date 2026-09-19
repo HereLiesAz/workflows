@@ -176,6 +176,7 @@ jobs:
           built_release_tag_env="$(jq -r '.github_built_release_tag_env // empty' <<<"$PROFILE_JSON")"
           built_release_include_aab="$(jq -r '.github_built_release_include_aab // true' <<<"$PROFILE_JSON")"
           built_release_checksum="$(jq -r '.github_built_release_checksum // false' <<<"$PROFILE_JSON")"
+          built_release_changes="$(jq -r '.github_built_release_changes // false' <<<"$PROFILE_JSON")"
           google_mode="$(jq -r '.google_services // "template"' <<<"$PROFILE_JSON")"
           arcore="$(jq -r '.arcore_local_properties // false' <<<"$PROFILE_JSON")"
           version_mode="$(jq -r '.version_mode // "auto"' <<<"$PROFILE_JSON")"
@@ -227,6 +228,7 @@ jobs:
             echo "BUILT_RELEASE_TAG_ENV=$built_release_tag_env"
             echo "BUILT_RELEASE_INCLUDE_AAB=$built_release_include_aab"
             echo "BUILT_RELEASE_CHECKSUM=$built_release_checksum"
+            echo "BUILT_RELEASE_CHANGES=$built_release_changes"
             echo "GOOGLE_SERVICES_MODE=$google_mode"
             echo "ARCORE_LOCAL_PROPERTIES=$arcore"
             echo "VERSION_MODE=$version_mode"
@@ -530,6 +532,8 @@ jobs:
                       ).execute()
                   for spec in tracks:
                       release={'versionCodes':[code],'status':spec['status']}
+                      if spec.get('name'):
+                          release['name']=os.path.expandvars(str(spec['name']))
                       releases=[release]
                       if spec.get('preserve_existing'):
                           current=svc.edits().tracks().get(packageName=package,editId=edit,track=spec['track']).execute()
@@ -572,6 +576,15 @@ jobs:
           test "${#assets[@]}" -gt 0 || { echo "::error::No GitHub release assets selected" >&2; exit 1; }
           title="${RELEASE_APP_NAME:-${{ inputs.target_repository_name }}} ${version:-$tag}"
           notes="Built from commit $TARGET_SHA."
+          if [ "$BUILT_RELEASE_CHANGES" = true ]; then
+            previous="$(git describe --tags --abbrev=0 "$TARGET_SHA^" 2>/dev/null || true)"
+            if [ -n "$previous" ]; then
+              changes="$(git log "$previous..$TARGET_SHA" --pretty='format:- %s' --no-merges)"
+            else
+              changes="- Initial release"
+            fi
+            printf -v notes '## Changes\n%s\n\nBuilt from commit %s.' "$changes" "$TARGET_SHA"
+          fi
           if [ "$BUILT_RELEASE_CHECKSUM" = true ] && [ -n "${APK_PATH:-}" ]; then
             checksum="$(sha256sum "$APK_PATH" | awk '{print $1}')"
             printf -v notes '%s\n\nSHA-256: %s' "$notes" "$checksum"

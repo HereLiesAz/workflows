@@ -148,6 +148,8 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "f8094e4c2c08c047dc17b2ccb7766dab14eeb775d66238b2c1f93c06fe995cce",
             "8d0bee7aa3ab78d04396737b8f3fdde27eb3f4164f501979a811cac647b569b7",
             "6ab641050248a526163bd43e627e6bf32c80a618fa1b0bfb4dbf3d24e1e8c697",
+            "57f245d8d8504ca1ef5146ccc3533aecc5d08c45ab5aa9416b3b619ba3c385a9",
+            "60c8cb4ab8364f08369e2fae3b9a8322825d0a596405966da26a7889e98501a8",
         },
     },
     ".github/workflows/node-package-publish.yml": {
@@ -182,6 +184,21 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
 }
 
 PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
+    "57f245d8d8504ca1ef5146ccc3533aecc5d08c45ab5aa9416b3b619ba3c385a9": {
+        "kind": "node",
+        "node_version": "22",
+        "java_version": "17",
+        "version_frozen": "1",
+        "command": "corepack enable\npnpm install --frozen-lockfile\npnpm build\npnpm test\npnpm fixtures\ngit add -N conformance/fixtures\ngit diff --exit-code -- conformance/fixtures\nnode .github/scripts/write-google-services.mjs\n( cd apps/storefront-cmp && chmod +x gradlew && ./gradlew wasmJsBrowserDistribution --no-daemon --stacktrace && ./gradlew assembleDebug --no-daemon --stacktrace && ./gradlew desktopTest --no-daemon --stacktrace && ./gradlew :azp:test --no-daemon --stacktrace )",
+    },
+    "60c8cb4ab8364f08369e2fae3b9a8322825d0a596405966da26a7889e98501a8": {
+        "kind": "gradle",
+        "java_version": "21",
+        "setup_android": True,
+        "android_packages": "platforms;android-37.0 platforms;android-37.1 build-tools;37.0.0",
+        "command": "./gradlew detekt",
+        "snyk": True,
+    },
     "70516095978d4884e183505d261e2485f1b35c7b8835e69d13a726da077ca285": {"mode": "simple", "node_version": "22", "registry_url": "https://npm.pkg.github.com", "scope": "@HereLiesAz", "token": "github", "working_directory": "aznavrail-react", "prepare_command": "corepack enable && yarn install", "build_command": "yarn build", "publish_command": "npm publish"},
     "202a3be9eb627b6679ca3723e6f47d154b9c5b0703c517cf79ec7f6f5ff6c89a": {"mode": "changesets", "node_version": "22", "registry_url": "https://registry.npmjs.org", "scope": "", "token": "npm", "working_directory": ".", "prepare_command": "corepack enable && npm install -g npm@10 && pnpm install --frozen-lockfile", "version_command": "pnpm run version", "publish_command": "pnpm run release", "version_branch": "changeset-release/main", "version_pr_title": "chore: version packages"},
     "edf31723ec2cdb361831175f5005831d3812924e21ed639288c057d87172528d": {"mode": "single-retry", "node_version": "22", "registry_url": "https://registry.npmjs.org", "scope": "", "token": "npm", "working_directory": ".", "prepare_command": "corepack enable && npm install -g npm@10 && pnpm install --frozen-lockfile", "default_package": "@azphalt/azdk", "build_command": "pnpm --filter \"$PACKAGE...\" build", "publish_script": "scripts/publish-one-retry.sh"},

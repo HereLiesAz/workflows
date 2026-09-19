@@ -68,14 +68,14 @@
       "updated_at": "2026-09-15T03:04:04+00:00"
     },
     ".github/workflows/ci.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/azphalt-ci.yml",
-      "implementation_sha256": "7e8cbb8a2e9021cb29944953b487e2d64802ff5f04c60e90eba63c7796016e7c",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/ci-validation.yml",
       "name": "CI",
       "registry_source": "registry/1296954472/ci-899ce9c2.source.yml",
       "source_sha256": "57f245d8d8504ca1ef5146ccc3533aecc5d08c45ab5aa9416b3b619ba3c385a9",
       "status": "active",
-      "updated_at": "2026-09-15T03:04:05+00:00"
+      "updated_at": "2026-09-15T03:04:05+00:00",
+      "semantic_purpose": "CI Validation"
     },
     ".github/workflows/clear_cache.yml": {
       "binding": "curated",

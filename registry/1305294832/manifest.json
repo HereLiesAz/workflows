@@ -79,14 +79,14 @@
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/codeql.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/conveyance-codeql.yml",
-      "implementation_sha256": "c8822d82788d04c1eb17f84be22bf21088827532de5403db3ecd42862067d005",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/ci-validation.yml",
       "name": "KMP Security Pipeline",
       "registry_source": "registry/1305294832/codeql-37c182e8.source.yml",
       "source_sha256": "60c8cb4ab8364f08369e2fae3b9a8322825d0a596405966da26a7889e98501a8",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "CI Validation"
     },
     ".github/workflows/deploy-sftp.yml": {
       "binding": "curated",

@@ -186,8 +186,11 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+    environment: ${{ inputs.target_repository_name }}
     env:
       DATABASE_URL: ${{ fromJSON(inputs.purpose_profile_json).database_url || '' }}
+      GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES }}
+      AZPHALT_VERSION_FROZEN: ${{ fromJSON(inputs.purpose_profile_json).version_frozen || '' }}
     steps:
       - name: Check out target
         uses: actions/checkout@v4
@@ -224,6 +227,24 @@ jobs:
           set -euo pipefail
           cd "$WORKING_DIRECTORY"
           bash -eo pipefail -c "$VALIDATE_COMMAND"
+
+      - name: Run optional Snyk security checks
+        if: ${{ fromJSON(inputs.purpose_profile_json).snyk == true }}
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          TARGET_VARS_JSON: ${{ inputs.target_vars_json }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$SNYK_TOKEN" ]; then
+            echo "::notice::SNYK_TOKEN is not configured; skipping Snyk checks."
+            exit 0
+          fi
+          npm install -g snyk
+          if [ "$(jq -r '.SNYK_CODE_ENABLED // false' <<<"$TARGET_VARS_JSON")" = true ]; then
+            snyk code test --severity-threshold=high
+          fi
+          snyk monitor --all-sub-projects
 
       - name: Upload validation diagnostics
         if: ${{ always() && fromJSON(inputs.purpose_profile_json).report_path != null && fromJSON(inputs.purpose_profile_json).report_path != '' && (fromJSON(inputs.purpose_profile_json).report_when != 'failure' || failure()) }}

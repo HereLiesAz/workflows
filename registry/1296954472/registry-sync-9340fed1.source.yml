@@ -171,8 +171,6 @@ jobs:
             -m "chore(registry): sync catalog from extension repos ($MODE)" \
             -m "$what" \
             -m "Merging this publishes the new bytes; deploy-storefront then rebuilds and redeploys."
-          # Centralized checkout may deliberately avoid persisting git credentials; authenticate only for the push.
-          gh auth setup-git
           git push -u origin "$branch"
 
           # A summary of what actually moved, so the reviewer sees the change in package terms rather

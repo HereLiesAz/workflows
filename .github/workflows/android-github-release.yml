@@ -374,6 +374,7 @@ jobs:
           esac
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
           echo "asset=$ASSET" >> "$GITHUB_OUTPUT"
           if [ -n "$MAPPING_FILE" ] && [ -f "$MAPPING_FILE" ]; then
             MAPPING_ASSET="${APP_NAME}-${VERSION}-mapping.txt"
@@ -410,6 +411,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           TAG: ${{ steps.release.outputs.tag }}
           VERSION: ${{ steps.release.outputs.version }}
+          APP_NAME: ${{ steps.release.outputs.app_name }}
           ASSET: ${{ steps.release.outputs.asset }}
           MAPPING_ASSET: ${{ steps.release.outputs.mapping_asset }}
         shell: bash

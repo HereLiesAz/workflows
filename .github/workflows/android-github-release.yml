@@ -167,6 +167,7 @@ jobs:
             echo "BASE_VERSION=$(jq -r '.base_version // empty' <<<\"$PROFILE_JSON\")"
             echo "FIXED_TAG=$(jq -r '.fixed_tag // empty' <<<\"$PROFILE_JSON\")"
             echo "RELEASE_TITLE=$(jq -r '.release_title // empty' <<<\"$PROFILE_JSON\")"
+            echo "RELEASE_NOTES_MODE=$(jq -r '.release_notes_mode // \"simple\"' <<<\"$PROFILE_JSON\")"
             echo "WRAPPER_VALIDATION=$(jq -r '.wrapper_validation // false' <<<\"$PROFILE_JSON\")"
             echo "KEYSTORE_OUTPUT=$(jq -r '.keystore_output // \"app/keystore.jks\"' <<<\"$PROFILE_JSON\")"
             echo "GRADLE_PROPERTIES_JSON=$(jq -c '.gradle_properties // []' <<<\"$PROFILE_JSON\")"
@@ -325,6 +326,22 @@ jobs:
               rest="${VERSION#*.}"
               MINOR="${rest%%.*}"
               ;;
+            major-minor-run-count)
+              test -f version.properties || { echo "::error::version.properties is required" >&2; exit 1; }
+              MAJOR="$(grep -E '^MAJOR=' version.properties | cut -d= -f2 | tr -d '\r ')"
+              MINOR="$(grep -E '^MINOR=' version.properties | cut -d= -f2 | tr -d '\r ')"
+              test -n "$MAJOR" && test -n "$MINOR" || { echo "::error::MAJOR/MINOR missing from version.properties" >&2; exit 1; }
+              test -n "$TARGET_RUN_NUMBER" || { echo "::error::major-minor-run-count requires target_run_number" >&2; exit 1; }
+              TAG="v${MAJOR}.${MINOR}"
+              if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+                git fetch --tags --force
+                PATCH="$(git rev-list "$TAG"..HEAD --count)"
+              else
+                PATCH=0
+              fi
+              BUILD="$TARGET_RUN_NUMBER"
+              VERSION="${MAJOR}.${MINOR}.${PATCH}.${BUILD}"
+              ;;
             *)
               echo "::error::Unknown version_mode: $VERSION_MODE" >&2
               exit 1
@@ -407,14 +424,32 @@ jobs:
             title="Latest Release v${MAJOR}.${MINOR} (${VERSION})"
           elif [ "$RELEASE_TITLE_STYLE" = "tag" ]; then
             title="$TAG"
+          elif [ "$RELEASE_TITLE_STYLE" = "app-tag" ]; then
+            title="${APP_NAME} ${TAG}"
+          fi
+          notes_args=(--notes "Release build from commit $(git rev-parse HEAD)")
+          if [ "$RELEASE_NOTES_MODE" = "changelog" ]; then
+            last_tag="$(git tag --sort=-v:refname | grep -v "^$TAG$" | head -n 1 || true)"
+            if [ -n "$last_tag" ]; then
+              {
+                echo "### Changelog (since $last_tag)"
+                git log "$last_tag"..HEAD --oneline --pretty=format:"* %s (%h)"
+              } > changelog.md
+            else
+              {
+                echo "### Initial Build"
+                git log --oneline --pretty=format:"* %s (%h)"
+              } > changelog.md
+            fi
+            notes_args=(--notes-file changelog.md)
           fi
           prerelease_flag=""
           if [ "$PRERELEASE" = "true" ]; then prerelease_flag="--prerelease"; fi
           if gh release view "$TAG" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then
-            gh release edit "$TAG" --repo "$TARGET_REPOSITORY" --title "$title" --notes "Release build from commit $(git rev-parse HEAD)" $prerelease_flag
+            gh release edit "$TAG" --repo "$TARGET_REPOSITORY" --title "$title" "${notes_args[@]}" $prerelease_flag
             gh release upload "$TAG" "$ASSET" --repo "$TARGET_REPOSITORY" --clobber
           else
-            gh release create "$TAG" "$ASSET" --repo "$TARGET_REPOSITORY" --title "$title" --notes "Release build from commit $(git rev-parse HEAD)" $prerelease_flag
+            gh release create "$TAG" "$ASSET" --repo "$TARGET_REPOSITORY" --title "$title" "${notes_args[@]}" $prerelease_flag
           fi
           if [ -n "$MAPPING_ASSET" ] && [ -f "$MAPPING_ASSET" ]; then
             gh release upload "$TAG" "$MAPPING_ASSET" --repo "$TARGET_REPOSITORY" --clobber

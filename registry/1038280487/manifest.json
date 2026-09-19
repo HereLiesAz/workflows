@@ -210,14 +210,14 @@
       "updated_at": "2026-09-14T01:00:42+00:00"
     },
     ".github/workflows/publish-npm.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/aznavrail-publish-npm.yml",
-      "implementation_sha256": "5d2db838a544c815a9f764981bc02a247f108346bf900b2048a1dd6fd171cc17",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/node-package-publish.yml",
       "name": "Publish to GitHub Packages",
       "registry_source": "registry/1038280487/publish-npm-106ed605.source.yml",
       "source_sha256": "70516095978d4884e183505d261e2485f1b35c7b8835e69d13a726da077ca285",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "Node Package Publish"
     },
     ".github/workflows/static.yml": {
       "blockers": [

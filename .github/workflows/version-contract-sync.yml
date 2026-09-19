@@ -1,0 +1,67 @@
+name: Enforce version contract everywhere
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/version-contract-sync.yml'
+      - 'scripts/version_contract.py'
+      - 'scripts/sync_version_contract.py'
+
+run-name: version-contract-all · ${{ github.run_number }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: version-contract-account-wide
+  cancel-in-progress: true
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      repositories: ${{ steps.repos.outputs.repositories }}
+      count: ${{ steps.repos.outputs.count }}
+    steps:
+      - name: Enumerate every owned repository
+        id: repos
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          repos="$(
+            gh api --paginate 'user/repos?affiliation=owner&per_page=100'               --jq '.[] | select(.owner.login == "HereLiesAz") | .full_name'               | sort -u               | jq -Rsc 'split("\n") | map(select(length > 0))'
+          )"
+          count="$(jq 'length' <<<"$repos")"
+          test "$count" -gt 0
+          test "$count" -le 256 || {
+            echo "::error::Owned repository count $count exceeds GitHub's 256-job matrix ceiling." >&2
+            exit 1
+          }
+          echo "repositories=$repos" >> "$GITHUB_OUTPUT"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "Owned repositories: $count" >> "$GITHUB_STEP_SUMMARY"
+
+  enforce:
+    needs: discover
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix:
+        repository: ${{ fromJSON(needs.discover.outputs.repositories) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+    steps:
+      - name: Check out version controller
+        uses: actions/checkout@v4
+
+      - name: Install controller dependency
+        run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
+
+      - name: Enforce major.minor.patch.build
+        run: python scripts/sync_version_contract.py --repository "${{ matrix.repository }}"

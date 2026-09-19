@@ -49,6 +49,7 @@ jobs:
             scripts/audit_workflow_collection.py \
             scripts/report_workflow_purposes.py \
             scripts/test_release_centralization.py \
+            scripts/test_version_contract.py \
             scripts/version_contract.py
 
       - name: Audit the complete workflow collection
@@ -152,6 +153,9 @@ jobs:
 
       - name: Regression-test dispatch input contracts
         run: python scripts/test_dispatch_input_contract.py
+
+      - name: Regression-test canonical version contract
+        run: python scripts/test_version_contract.py
 
       - name: Check Worker JavaScript
         run: node --check worker/src/index.js

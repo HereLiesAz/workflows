@@ -71,6 +71,137 @@ def _rewrite_expression_string(text: str) -> str:
 core.rewrite_expression_string = _rewrite_expression_string
 
 
+COMPILE_SIGNATURE_RE = re.compile(
+    r"(?i)(?:"
+    r"(?:^|[\\s;&|])(?:\\./)?gradlew(?:\\.bat)?\\b|"
+    r"\\bgradle\\s+[^\\n]*(?:assemble|bundle|build|compile|package)|"
+    r"\\b(?:npm|pnpm|yarn)\\s+(?:run\\s+)?build\\b|"
+    r"\\bflutter\\s+build\\b|"
+    r"\\bcargo\\s+build\\b|"
+    r"\\bmvn(?:w)?\\s+[^\\n]*(?:package|install|compile)\\b|"
+    r"\\bdotnet\\s+(?:build|publish)\\b|"
+    r"\\bcmake\\s+--build\\b|"
+    r"\\bmake(?:\\s|$)|"
+    r"\\bpyinstaller\\b|"
+    r"\\bjpackage\\b"
+    r")"
+)
+
+
+def _job_compiles(job: dict) -> bool:
+    for value in core.walk_strings(job):
+        if isinstance(value, str) and COMPILE_SIGNATURE_RE.search(value):
+            return True
+    return False
+
+
+def _merge_needs(needs, dependency: str):
+    if needs is None:
+        return dependency
+    if isinstance(needs, str):
+        values = [needs]
+    elif isinstance(needs, list):
+        values = list(needs)
+    else:
+        return needs
+    values = [value for value in values if value != "central_check_start"]
+    if dependency not in values:
+        values.append(dependency)
+    return values[0] if len(values) == 1 else values
+
+
+def _resolved_version_step() -> dict:
+    return {
+        "name": "Apply resolved major.minor.patch.build",
+        "shell": "bash",
+        "env": {
+            "V_MAJOR": "${{ needs.version_contract.outputs.major }}",
+            "V_MINOR": "${{ needs.version_contract.outputs.minor }}",
+            "V_PATCH": "${{ needs.version_contract.outputs.patch }}",
+            "V_BUILD": "${{ needs.version_contract.outputs.build }}",
+        },
+        "run": r'''set -euo pipefail
+python - <<'PY'
+from pathlib import Path
+
+path = Path("version.properties")
+lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+values = {
+    "versionMajor": __import__("os").environ["V_MAJOR"],
+    "versionMinor": __import__("os").environ["V_MINOR"],
+    "versionPatch": __import__("os").environ["V_PATCH"],
+    "versionBuild": __import__("os").environ["V_BUILD"],
+}
+aliases = {
+    "MAJOR": values["versionMajor"], "VERSION_MAJOR": values["versionMajor"],
+    "MINOR": values["versionMinor"], "VERSION_MINOR": values["versionMinor"],
+    "PATCH": values["versionPatch"], "VERSION_PATCH": values["versionPatch"],
+    "BUILD": values["versionBuild"], "BUILD_NUMBER": values["versionBuild"], "VERSION_BUILD": values["versionBuild"],
+}
+seen = set()
+out = []
+for line in lines:
+    stripped = line.strip()
+    if "=" not in stripped or stripped.startswith("#"):
+        out.append(line)
+        continue
+    key = stripped.split("=", 1)[0].strip()
+    if key in values:
+        out.append(f"{key}={values[key]}")
+        seen.add(key)
+    elif key in aliases:
+        out.append(f"{key}={aliases[key]}")
+    else:
+        out.append(line)
+prefix = [f"{key}={values[key]}" for key in values if key not in seen]
+if prefix and out and out[0].strip():
+    prefix.append("")
+path.write_text("\n".join(prefix + out).rstrip() + "\n", encoding="utf-8")
+PY
+''',
+    }
+
+
+def _version_contract_job() -> dict:
+    return {
+        "needs": "central_check_start",
+        "runs-on": "ubuntu-latest",
+        "outputs": {
+            "version": "${{ steps.version.outputs.version }}",
+            "major": "${{ steps.version.outputs.major }}",
+            "minor": "${{ steps.version.outputs.minor }}",
+            "patch": "${{ steps.version.outputs.patch }}",
+            "build": "${{ steps.version.outputs.build }}",
+            "android_version_code": "${{ steps.version.outputs.android_version_code }}",
+        },
+        "steps": [
+            {
+                "name": "Checkout source revision",
+                "uses": "actions/checkout@v4",
+                "with": {
+                    "repository": "${{ inputs.target_repository }}",
+                    "ref": "${{ inputs.target_sha }}",
+                    "fetch-depth": 0,
+                    "token": "${{ secrets.GH_TOKEN }}",
+                    "persist-credentials": False,
+                },
+            },
+            {
+                "name": "Advance canonical version",
+                "id": "version",
+                "uses": "HereLiesAz/workflows/.github/actions/version-contract@main",
+                "with": {
+                    "target_repository": "${{ inputs.target_repository }}",
+                    "target_sha": "${{ inputs.target_sha }}",
+                    "target_ref_name": "${{ inputs.target_ref_name }}",
+                    "target_ref_type": "${{ inputs.target_ref_type }}",
+                    "token": "${{ secrets.GH_TOKEN }}",
+                },
+            },
+        ],
+    }
+
+
 def compile_central(source_text: str, target: dict, source_path: str, check_name: str) -> str:
     compiled = _base_compile_central(source_text, target, source_path, check_name)
     compiled = (
@@ -133,10 +264,44 @@ def compile_central(source_text: str, target: dict, source_path: str, check_name
             rewritten_steps.append(step)
         compiled_job["steps"] = rewritten_steps
 
+    compiling_job_ids = [
+        job_id
+        for job_id, compiled_job in jobs.items()
+        if job_id not in {"central_check_start", "central_check_finish"}
+        and isinstance(compiled_job, dict)
+        and _job_compiles(compiled_job)
+    ]
+    if compiling_job_ids:
+        jobs["version_contract"] = _version_contract_job()
+        for job_id in compiling_job_ids:
+            compiled_job = jobs[job_id]
+            compiled_job["needs"] = _merge_needs(compiled_job.get("needs"), "version_contract")
+            job_env = compiled_job.setdefault("env", {})
+            if isinstance(job_env, dict):
+                job_env.update({
+                    "VERSION": "${{ needs.version_contract.outputs.version }}",
+                    "VERSION_MAJOR": "${{ needs.version_contract.outputs.major }}",
+                    "VERSION_MINOR": "${{ needs.version_contract.outputs.minor }}",
+                    "VERSION_PATCH": "${{ needs.version_contract.outputs.patch }}",
+                    "VERSION_BUILD": "${{ needs.version_contract.outputs.build }}",
+                    "ANDROID_VERSION_CODE": "${{ needs.version_contract.outputs.android_version_code }}",
+                })
+            steps = compiled_job.get("steps") or []
+            if isinstance(steps, list):
+                insert_at = 0
+                for index, step in enumerate(steps):
+                    if isinstance(step, dict) and str(step.get("uses") or "").startswith("actions/checkout@"):
+                        insert_at = index + 1
+                steps.insert(insert_at, _resolved_version_step())
+                compiled_job["steps"] = steps
+
     start = jobs.get("central_check_start")
     finish = jobs.get("central_check_finish")
     if not isinstance(start, dict) or not isinstance(finish, dict):
         raise ValueError("compiled workflow is missing central reporting jobs")
+
+    if compiling_job_ids:
+        finish["needs"] = _merge_needs(finish.get("needs"), "version_contract")
 
     start.pop("outputs", None)
     start_steps = start.get("steps") or []

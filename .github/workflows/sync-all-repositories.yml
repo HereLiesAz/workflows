@@ -2,6 +2,11 @@ name: Sync all owned repositories
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows:
+      - Enforce version contract everywhere
+    types:
+      - completed
 
 run-name: sync-all · ${{ github.run_number }}
 
@@ -10,101 +15,69 @@ permissions:
   contents: read
 
 concurrency:
-  group: workflow-sync-all-repositories-v6
+  group: workflow-sync-all-repositories
   cancel-in-progress: false
 
 env:
   WORKER_URL: https://workflows.hereliesaz.workers.dev
-  BASELINE_DRY_RUN_ID: "34791565740"
 
 jobs:
-  baseline:
+  discover:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     outputs:
-      repositories: ${{ steps.baseline.outputs.repositories }}
-      count: ${{ steps.baseline.outputs.count }}
+      repositories: ${{ steps.repos.outputs.repositories }}
+      count: ${{ steps.repos.outputs.count }}
+      archived: ${{ steps.repos.outputs.archived }}
     steps:
-      - name: Verify and reuse the account-wide dry-run baseline
-        id: baseline
+      - name: Enumerate every owned repository
+        id: repos
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
+          all="$(gh api --paginate 'user/repos?affiliation=owner&per_page=100' --jq '.[] | select(.owner.login == "HereLiesAz") | [.full_name, (.archived|tostring)] | @tsv')"
 
-          : > /tmp/repos.txt
-          : > /tmp/failures.txt
+          repositories="$(
+            awk -F '\t' '$1 != "HereLiesAz/workflows" && $2 == "false" {print $1}' <<<"$all"               | sort -u               | jq -Rsc 'split("\n") | map(select(length > 0))'
+          )"
+          archived="$(
+            awk -F '\t' '$2 == "true" {print $1}' <<<"$all"               | sort -u               | jq -Rsc 'split("\n") | map(select(length > 0))'
+          )"
 
-          for page in 1 2 3; do
-            jobs_json="$(
-              gh api \
-                "repos/${GITHUB_REPOSITORY}/actions/runs/${BASELINE_DRY_RUN_ID}/jobs?per_page=100&page=${page}"
-            )"
-
-            jq -r '
-              .jobs[]
-              | select(.name | startswith("dry_run ("))
-              | .name
-              | sub("^dry_run \\("; "")
-              | sub("\\)$"; "")
-            ' <<<"$jobs_json" >> /tmp/repos.txt
-
-            jq -r '
-              .jobs[]
-              | select(.name | startswith("dry_run ("))
-              | select(.conclusion != "success")
-              | .name
-              | sub("^dry_run \\("; "")
-              | sub("\\)$"; "")
-            ' <<<"$jobs_json" >> /tmp/failures.txt
-          done
-
-          sort -u -o /tmp/repos.txt /tmp/repos.txt
-          sort -u -o /tmp/failures.txt /tmp/failures.txt
-
-          if grep -Eq '^HereLiesAz/(workflows|NoLAWallet|NoLAWallet-id)$' /tmp/repos.txt; then
-            echo "::error::Excluded repository appeared in the dry-run baseline."
+          count="$(jq 'length' <<<"$repositories")"
+          archived_count="$(jq 'length' <<<"$archived")"
+          test "$count" -le 256 || {
+            echo "::error::Writable owned repository count $count exceeds GitHub's 256-job matrix ceiling." >&2
             exit 1
-          fi
+          }
 
-          count="$(grep -cve '^$' /tmp/repos.txt || true)"
-          if [[ "$count" != "252" ]]; then
-            echo "::error::Expected 252 baseline repositories; found $count."
-            exit 1
-          fi
-
-          cat > /tmp/expected-failures.txt <<'FAILURES'
-          HereLiesAz/QaRd
-          HereLiesAz/TheLexorcist
-          FAILURES
-          sort -u -o /tmp/expected-failures.txt /tmp/expected-failures.txt
-
-          if ! diff -u /tmp/expected-failures.txt /tmp/failures.txt; then
-            echo "::error::Historical dry-run failures differ from the two investigated repositories."
-            exit 1
-          fi
-
-          repositories="$(jq -Rsc 'split("\n") | map(select(length > 0))' /tmp/repos.txt)"
           echo "repositories=$repositories" >> "$GITHUB_OUTPUT"
           echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "archived=$archived" >> "$GITHUB_OUTPUT"
 
           {
-            echo "## Verified migration baseline"
+            echo "## Live repository inventory"
             echo
-            echo "- Baseline repositories: **252**"
-            echo "- Successful historical dry-runs: **250**"
-            echo "- Repositories requiring targeted revalidation: **2**"
-            echo "  - \`HereLiesAz/QaRd\`"
-            echo "  - \`HereLiesAz/TheLexorcist\`"
-            echo "- Excluded throughout: \`HereLiesAz/workflows\`, \`HereLiesAz/NoLAWallet\`, \`HereLiesAz/NoLAWallet-id\`"
+            echo "- Writable non-controller repositories: **$count**"
+            echo "- Controller repository: **HereLiesAz/workflows** (versioned locally; never self-centralized)"
+            echo "- Archived repositories skipped from workflow mutation: **$archived_count**"
+            if [ "$archived_count" -gt 0 ]; then
+              jq -r '.[] | "- `" + . + "`"' <<<"$archived"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-  revalidate:
-    needs: baseline
-    if: ${{ needs.baseline.outputs.count == '252' }}
+  sync:
+    needs: discover
+    if: ${{ needs.discover.outputs.count != '0' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix:
+        repository: ${{ fromJSON(needs.discover.outputs.repositories) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 30
     env:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
     steps:
@@ -114,158 +87,14 @@ jobs:
       - name: Install controller dependency
         run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
 
-      - name: Revalidate the two cleaned repositories
+      - name: Synchronize repository
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p migration-results/revalidated
+          out="${RUNNER_TEMP}/sync-result.json"
+          python scripts/retry_repository_sync.py             --repository "${{ matrix.repository }}"             --worker-url "$WORKER_URL"             --json-output "$out"
+          cat "$out"
 
-          sync_with_rate_limit_retry() {
-            local repo="$1"
-            local out="$2"
-            local err
-            err="$(mktemp)"
-
-            while true; do
-              : > "$err"
-              if python scripts/retry_repository_sync.py \
-                --repository "$repo" \
-                --worker-url "$WORKER_URL" \
-                --dry-run \
-                --json-output "$out" 2>"$err"; then
-                cat "$err" >&2
-                rm -f "$err"
-                return 0
-              fi
-
-              cat "$err" >&2
-              if grep -Eqi 'API rate limit exceeded|secondary rate limit|exceeded a secondary rate limit' "$err"; then
-                echo "::warning::GitHub rate-limited $repo; retrying this repository after a cooldown."
-                sleep 300
-                continue
-              fi
-
-              rm -f "$err"
-              return 1
-            done
-          }
-
-          for repo in HereLiesAz/QaRd HereLiesAz/TheLexorcist; do
-            safe_name="$(printf '%s' "$repo" | tr '/:' '--')"
-            sync_with_rate_limit_retry \
-              "$repo" \
-              "migration-results/revalidated/${safe_name}.json"
-          done
-
-          {
-            echo "## Targeted revalidation"
-            echo
-            echo "Both previously failing repositories now pass dry-run validation."
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload targeted revalidation
+      - name: Record repository
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: workflow-sync-targeted-revalidation
-          path: migration-results/
-          retention-days: 30
-
-  apply:
-    needs:
-      - baseline
-      - revalidate
-    if: ${{ needs.baseline.outputs.count == '252' && needs.revalidate.result == 'success' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 360
-    env:
-      GH_TOKEN: ${{ secrets.GH_TOKEN }}
-      REPOSITORIES_JSON: ${{ needs.baseline.outputs.repositories }}
-    steps:
-      - name: Check out central controller
-        uses: actions/checkout@v4
-
-      - name: Install controller dependency
-        run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
-
-      - name: Apply all verified repositories with rate-limit throttling
-        shell: bash
-        run: |
-          set -uo pipefail
-          mkdir -p migration-results/applied
-          : > migration-results/apply-failures.txt
-
-          total="$(jq 'length' <<<"$REPOSITORIES_JSON")"
-          index=0
-
-          sync_with_rate_limit_retry() {
-            local repo="$1"
-            local out="$2"
-            local err
-            err="$(mktemp)"
-
-            while true; do
-              : > "$err"
-              if python scripts/retry_repository_sync.py \
-                --repository "$repo" \
-                --worker-url "$WORKER_URL" \
-                --json-output "$out" 2>"$err"; then
-                cat "$err" >&2
-                rm -f "$err"
-                return 0
-              fi
-
-              cat "$err" >&2
-              if grep -Eqi 'API rate limit exceeded|secondary rate limit|exceeded a secondary rate limit' "$err"; then
-                echo "::warning::GitHub rate-limited $repo; retrying this repository after a cooldown."
-                sleep 300
-                continue
-              fi
-
-              rm -f "$err"
-              return 1
-            done
-          }
-
-          while IFS= read -r repo; do
-            [[ -n "$repo" ]] || continue
-            index=$((index + 1))
-
-            safe_name="$(printf '%s' "$repo" | tr '/:' '--')"
-            out="migration-results/applied/${safe_name}.json"
-
-            echo "::group::[$index/$total] Apply sync $repo"
-            if sync_with_rate_limit_retry "$repo" "$out"; then
-              echo "Apply passed: $repo"
-            else
-              echo "::error::Apply failed: $repo"
-              printf '%s\n' "$repo" >> migration-results/apply-failures.txt
-            fi
-            echo "::endgroup::"
-
-            if (( index < total )); then
-              sleep 15
-            fi
-          done < <(jq -r '.[]' <<<"$REPOSITORIES_JSON")
-
-          if [[ -s migration-results/apply-failures.txt ]]; then
-            echo "## Apply failures" >> "$GITHUB_STEP_SUMMARY"
-            sed 's/^/- `/' migration-results/apply-failures.txt | sed 's/$/`/' >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
-
-          {
-            echo "## Account-wide migration"
-            echo
-            echo "Successfully synchronized **$total** repositories."
-            echo
-            echo "Excluded throughout: \`HereLiesAz/workflows\`, \`HereLiesAz/NoLAWallet\`, \`HereLiesAz/NoLAWallet-id\`."
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload applied results
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: workflow-sync-applied-all
-          path: migration-results/
-          retention-days: 30
+        run: echo "${{ matrix.repository }}" >> "$GITHUB_STEP_SUMMARY"

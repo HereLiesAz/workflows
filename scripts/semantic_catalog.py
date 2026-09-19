@@ -73,6 +73,7 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "aeb8bc10311d29a49ceb316a824021c2ef6f17847d459bea89ace81f5f96c1df",
             "ccc871738c362676351da341dfbf003900ea0578380395818594fb2ed6852579",
             "66b945d96e416473a7bf667158784b6b6175b8afbcc922bc073d17a22387fa24",
+            "f74f4d32dcd258fd1e13fccce422b3900ce7eb50cfbd20e31a5dc9848f179348",
         },
     },
     ".github/workflows/android-dependency-update.yml": {
@@ -156,6 +157,7 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
 }
 
 PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
+    "f74f4d32dcd258fd1e13fccce422b3900ce7eb50cfbd20e31a5dc9848f179348": {"signing": "pem-chain", "chain_secret": "KEYSTORE_CHAIN", "java_version": "17", "inject_signing_args": True, "google_services": "raw", "build_command": "./gradlew assembleGithubRelease", "artifact_glob": "app/build/outputs/apk/github/release/*.apk", "mapping_file": "app/build/outputs/mapping/githubRelease/mapping.txt", "persist_version": True, "release_title_style": "major-minor-version", "app_name": "Guillotine"},
     "b0ef23a564e122b032f710d57a50a0d08fa49b142386df869c99f960f4e5be8b": {"build_mode": "jekyll", "local_dir": "./_site/", "remote_dir": "/app", "ssl_verify_off": True},
     "961e61bc138f682e09cad9b4318e0b44ca82719e751bda9b3594acc1b7937c27": {"build_mode": "node", "local_dir": "./webpage/dist/", "remote_dir": "/qard", "ssl_verify_off": True},
     "31afe4d12a10ef30e8475e959100df371e0384d5af5dab8b41feb42fa1758291": {"build_mode": "none", "local_dir": "./docs/", "remote_dir": "/guillotine", "ssl_verify_off": True},

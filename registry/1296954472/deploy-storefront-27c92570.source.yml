@@ -10,6 +10,15 @@ on:
       - 'packages/azp/**'
       - 'packages/sdk/**'
       - '.github/workflows/deploy-storefront.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/storefront-react/**'
+      - 'apps/storefront-worker/**'
+      - 'apps/storefront/registry/**'
+      - 'packages/azp/**'
+      - 'packages/sdk/**'
+      - '.github/workflows/deploy-storefront.yml'
   workflow_dispatch:
 
 permissions:
@@ -50,7 +59,11 @@ jobs:
       - name: Build static React storefront
         run: pnpm --filter @azphalt/storefront-react build
 
+      - name: Bundle Worker without deploying
+        run: npx --yes wrangler@4 deploy --dry-run --config apps/storefront-worker/wrangler.jsonc
+
       - name: Deploy Worker and static assets to Cloudflare
+        if: github.event_name != 'pull_request'
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

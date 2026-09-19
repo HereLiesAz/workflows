@@ -32,13 +32,13 @@
     },
     ".github/workflows/android-release-apk.yml": {
       "blockers": [
-        "repository-specific in-app GitHub Release flow",
-        "workflow must only build an artifact; publishing must use the Android app's persisted gh_token"
+        "repository-specific in-app GitHub Release and self-update flow",
+        "workflow must only build a stably signed artifact; publishing must use the Android app's persisted gh_token"
       ],
       "name": "Build Android APK for In-App Release",
       "registry_source": "registry/1148736516/android-release-apk-f927747f.source.yml",
       "status": "local",
-      "updated_at": "2026-09-18T01:20:00+00:00"
+      "updated_at": "2026-09-19T05:05:00+00:00"
     },
     ".github/workflows/android-update-libs.yml": {
       "binding": "curated",

@@ -1,21 +1,13 @@
-# This workflow triages pull requests using .github/labeler.yml.
-
+# selected-action: pr-labeler
 name: Labeler
-on: [pull_request]
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   label:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/labeler@v7
-        with:
-          repo-token: "${{ github.token }}"
-          sync-labels: false
+    uses: HereLiesAz/workflows/.github/workflows/pr-labeler.yml@main

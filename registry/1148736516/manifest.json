@@ -108,15 +108,12 @@
       "updated_at": "2026-09-14T02:05:59+00:00"
     },
     ".github/workflows/jekyll-gh-pages.yml": {
-      "blockers": [
-        "job 'deploy' deploys to the runner repository's github-pages environment",
-        "job 'deploy' step 1 uses repository-bound action 'actions/deploy-pages@v5'"
-      ],
       "name": "Deploy Jekyll with GitHub Pages dependencies preinstalled",
       "registry_source": "registry/1148736516/jekyll-gh-pages-5de61e74.source.yml",
       "source_sha256": "bc38315952dc5a20fa874a45475051dd81a7cdde23084779920690407903ba63",
-      "status": "local",
-      "updated_at": "2026-09-14T02:06:00+00:00"
+      "status": "obsolete",
+      "updated_at": "2026-09-14T02:06:00+00:00",
+      "reason": "duplicate GitHub Pages deployment; .github/workflows/deploy.yml is the canonical deployment workflow"
     },
     ".github/workflows/jules-dispatch.yml": {
       "binding": "curated",
@@ -199,15 +196,12 @@
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/static.yml": {
-      "blockers": [
-        "job 'deploy' deploys to the runner repository's github-pages environment",
-        "job 'deploy' step 4 uses repository-bound action 'actions/deploy-pages@v5'"
-      ],
       "name": "Deploy static content to Pages",
       "registry_source": "registry/1148736516/static-876bb641.source.yml",
       "source_sha256": "8d2cf0a167b2b2b5c1ac7ed44dcf5aafb16c96bfbcddcb93b0e295ae359ee8ea",
-      "status": "local",
-      "updated_at": "2026-09-14T02:06:13+00:00"
+      "status": "obsolete",
+      "updated_at": "2026-09-14T02:06:13+00:00",
+      "reason": "duplicate GitHub Pages deployment; .github/workflows/deploy.yml is the canonical deployment workflow"
     },
     ".github/workflows/summary.yml": {
       "binding": "curated",

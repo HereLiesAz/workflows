@@ -83,7 +83,7 @@ def effects_for(text: str, uses: list[str], name: str, path: str) -> set[str]:
         effects.add("github-release")
     if has("upload-google-play", "gradle-play-publisher", "publishbundle", "publishapk", "play_multitrack_publish.py", "publish_play.py", "androidpublisher", "edits().bundles"):
         effects.add("google-play")
-    if has("npm publish", "pnpm publish", "yarn npm publish"):
+    if has("npm publish", "pnpm publish", "yarn npm publish", "changesets/action", "pnpm run release", "publish-one-retry.sh", "publish-staged.sh"):
         effects.add("npm-publish")
     if has("publishplugin", "gradle plugin portal", "plugins.gradle.org"):
         effects.add("gradle-plugin-publish")
@@ -108,8 +108,10 @@ def effects_for(text: str, uses: list[str], name: str, path: str) -> set[str]:
     # Build products.
     if has("assemble", "bundlerelease", "bundle release", "gradlew bundle", "gradlew assemble") and has("gradle", "gradlew"):
         effects.add("android-build")
-    if has("jpackage", "packagedmg", "packagemsi", "packagedeb", "compose.desktop", "electron-builder", "desktop build", "desktop-build"):
+    if has("jpackage", "packagedmg", "packagemsi", "packagedeb", "packagerpm", "packagedistributionforcurrentos", "compose.desktop", "electron-builder", "desktop build", "desktop-build"):
         effects.add("desktop-build")
+    if has("pyinstaller"):
+        effects.add("python-executable")
     if has("actions/upload-artifact", "artifact upload"):
         effects.add("artifact-upload")
 
@@ -190,10 +192,6 @@ def purpose_for(effects: set[str], name: str, path: str) -> str:
         return "android-ci"
     if "provision-storage" in hint or "provision durable storage" in hint:
         return "package-storage-provision"
-    if "publish-package" in hint or "publish single package" in hint:
-        return "package-publish-retry"
-    if "publish-staged" in hint or "publish (staged)" in hint:
-        return "staged-package-publish"
     if "submissions" in hint:
         return "package-submissions"
     if "bump-more-from-az" in hint or "bake more-from-az" in hint:
@@ -224,6 +222,12 @@ def purpose_for(effects: set[str], name: str, path: str) -> str:
         return "vercel-deploy"
     if "wasm-build" in effects:
         return "wasm-ci"
+    if "google-play" in effects and "github-release" in effects:
+        return "android-multichannel-release"
+    if "github-release" in effects and "android-build" in effects and "desktop-build" in effects:
+        return "multi-platform-app-release"
+    if "github-release" in effects and "android-build" in effects and "python-executable" in effects:
+        return "multi-target-app-release"
     if "google-play" in effects:
         return "android-publish-google-play"
     if "github-release" in effects and "android-build" in effects:
@@ -341,8 +345,6 @@ def build_report() -> dict[str, Any]:
             effects = effects_for(behavior_text, uses, name, source_path)
             purpose = purpose_for(effects, name, source_path)
             central_workflow = str(entry.get("central_workflow") or "")
-            if central_workflow == ".github/workflows/ci-validation.yml":
-                purpose = "ci-validation"
             rows.append({
                 "repository": repository,
                 "source_path": source_path,

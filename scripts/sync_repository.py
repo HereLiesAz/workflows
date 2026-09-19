@@ -19,6 +19,25 @@ except ImportError:
     from repository_workflow_mode import activate as activate_repository_mode
     from repository_workflow_mode import finalize_manifest
 
+try:
+    from .version_contract import (
+        Version,
+        parse_state,
+        render_properties,
+        state_payload,
+        version_from_properties,
+        version_from_text,
+    )
+except ImportError:
+    from version_contract import (
+        Version,
+        parse_state,
+        render_properties,
+        state_payload,
+        version_from_properties,
+        version_from_text,
+    )
+
 
 _base_compile_central = core.compile_central
 _base_build_proxy = core.build_proxy
@@ -369,11 +388,89 @@ def _prune_rebound_repository_workflows(
     return removed
 
 
+def _initial_repository_version(gh, repository: str, default_branch: str) -> tuple[Version, str]:
+    existing = ""
+    try:
+        existing, _ = gh.get_file(repository, "version.properties", ref=default_branch)
+    except core.ApiError as exc:
+        if "-> 404:" not in str(exc):
+            raise
+
+    version = version_from_properties(existing) or version_from_text(existing)
+    if version is None:
+        candidates: list[Version] = []
+        try:
+            tags = gh.json("GET", f"/repos/{repository}/tags?per_page=100")
+            if isinstance(tags, list):
+                for item in tags:
+                    if not isinstance(item, dict):
+                        continue
+                    candidate = version_from_text(str(item.get("name") or ""))
+                    if candidate is not None:
+                        candidates.append(candidate)
+        except core.ApiError:
+            pass
+        version = max(candidates) if candidates else Version(0, 0, 0, 0)
+    return version, existing
+
+
+def _ensure_version_contract(gh, repository: str, default_branch: str, dry_run: bool) -> dict:
+    version, existing = _initial_repository_version(gh, repository, default_branch)
+    normalized = render_properties(existing, version)
+
+    state_text = ""
+    try:
+        state_text, _ = gh.get_file(repository, ".version-state.json", ref=default_branch)
+    except core.ApiError as exc:
+        if "-> 404:" not in str(exc):
+            raise
+
+    state_source, state_version = parse_state(state_text)
+    if state_version is None:
+        head = gh.json("GET", f"/repos/{repository}/commits/{default_branch}")
+        state_source = str(head.get("sha") or "") if isinstance(head, dict) else ""
+        state_text = state_payload(state_source, version, "sync")
+    elif not state_source:
+        head = gh.json("GET", f"/repos/{repository}/commits/{default_branch}")
+        state_source = str(head.get("sha") or "") if isinstance(head, dict) else ""
+        state_text = state_payload(state_source, state_version, "sync")
+
+    if not dry_run:
+        gh.put_file(
+            repository,
+            "version.properties",
+            normalized,
+            f"Enforce canonical version {version} [skip ci]",
+            branch=default_branch,
+        )
+        gh.put_file(
+            repository,
+            ".version-state.json",
+            state_text,
+            f"Initialize version state {version} [skip ci]",
+            branch=default_branch,
+        )
+
+    return {
+        "version": str(version),
+        "source_sha": state_source,
+        "properties_changed": existing != normalized,
+        "state_initialized": state_version is None,
+    }
+
+
 def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
     # Repository mode is mandatory. The legacy core is retained only as a compiler
     # engine; it is never allowed to publish shared_variant families.
     repo_info = gh.repo(repository)
     repository_id = int(repo_info["id"])
+    default_branch = str(repo_info["default_branch"])
+    version_contract = _ensure_version_contract(
+        gh,
+        repository,
+        default_branch,
+        dry_run=dry_run,
+    )
     before_manifest = copy.deepcopy(core.load_manifest(gh, repository_id))
 
     activate_repository_mode(core, repository)
@@ -399,6 +496,7 @@ def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
     result.pop("shared_library_gc", None)
     if removed:
         result["repository_workflow_gc"] = removed
+    result["version_contract"] = version_contract
     return result
 
 

@@ -142,6 +142,8 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "9f8da3bca25bfd3dc0b79ccbf911454b10d940e597e3bfeed73995cdc8bd8551",
             "3b152efa3c299bbb83309c04d844b1292a3346a844ba1d3193a6beaa7a5c0699",
             "f8094e4c2c08c047dc17b2ccb7766dab14eeb775d66238b2c1f93c06fe995cce",
+            "8d0bee7aa3ab78d04396737b8f3fdde27eb3f4164f501979a811cac647b569b7",
+            "6ab641050248a526163bd43e627e6bf32c80a618fa1b0bfb4dbf3d24e1e8c697",
         },
     },
     ".github/workflows/android-debug-ci.yml": {
@@ -313,6 +315,22 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
     "f8094e4c2c08c047dc17b2ccb7766dab14eeb775d66238b2c1f93c06fe995cce": {
         "kind": "docker",
         "command": "docker build . --file Dockerfile --tag theharvester:ci",
+    },
+    "8d0bee7aa3ab78d04396737b8f3fdde27eb3f4164f501979a811cac647b569b7": {
+        "kind": "gradle",
+        "java_version": "21",
+        "inject_google_services": True,
+        "command": "node webruntime/src/test/js/jsx-source-chain.test.mjs\nnode webruntime/src/test/js/loader-import-cycle.test.mjs\nnode webruntime/src/test/js/jsx-array-children.test.mjs\nnode webruntime/src/test/js/bridge-source-priority.test.mjs\nset +e\n( timeout --kill-after=1m 25m bash -eo pipefail -c './gradlew assembleDebug bundlePlay testDebugUnitTest desktopMainClasses lintDebug --continue' 2>&1 | tee build.log; echo \"${PIPESTATUS[0]}\" > /tmp/build_exit_code ) &\nBUILD_PID=$!\n( sleep 600; if kill -0 \"$BUILD_PID\" 2>/dev/null; then JCMD=\"${JAVA_HOME:+$JAVA_HOME/bin/jcmd}\"; JCMD=\"${JCMD:-jcmd}\"; for pid in $(\"$JCMD\" -l 2>/dev/null | awk '{print $1}'); do \"$JCMD\" \"$pid\" Thread.print 2>&1 || true; done; fi ) &\nWATCHDOG_PID=$!\nwait \"$BUILD_PID\"\npkill -P \"$WATCHDOG_PID\" 2>/dev/null || true\nkill \"$WATCHDOG_PID\" 2>/dev/null || true\nwait \"$WATCHDOG_PID\" 2>/dev/null || true\nEXIT_CODE=$(cat /tmp/build_exit_code 2>/dev/null || echo 1)\nexit \"$EXIT_CODE\"",
+    },
+    "6ab641050248a526163bd43e627e6bf32c80a618fa1b0bfb4dbf3d24e1e8c697": {
+        "kind": "gradle",
+        "java_version": "21",
+        "setup_android": True,
+        "android_packages": "platform-tools",
+        "extra_checkout_repository": "Stremio/media",
+        "extra_checkout_ref": "95781597c8e3c30d6232e77bdadecc38ad35aa17",
+        "extra_checkout_path": "vendor/stremio-media",
+        "command": "chmod +x ci/build-stremio-media.sh\n./ci/build-stremio-media.sh vendor/stremio-media stremio-aars\nfor aar in lib-exoplayer-release.aar lib-decoder-av1-release.aar lib-decoder-ffmpeg-release.aar lib-decoder-iamf-release.aar lib-decoder-mpegh-release.aar; do test -s \"stremio-aars/$aar\" || { echo \"Missing Stremio playback artifact: $aar\" >&2; exit 1; }; cp \"stremio-aars/$aar\" \"playbackcore/libs/$aar\"; done\nchmod +x gradlew\n./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --no-daemon --stacktrace",
     },
 }
 

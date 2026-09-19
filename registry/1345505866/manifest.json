@@ -11,14 +11,14 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/ci.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/illumera-ci.yml",
-      "implementation_sha256": "f8d9d081d2b0379d7101da37dcd29d19eb7697cfe1a3c0f428bd6bf1be806fe9",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/ci-validation.yml",
       "name": "CI",
       "registry_source": "registry/1345505866/ci-899ce9c2.source.yml",
       "source_sha256": "6ab641050248a526163bd43e627e6bf32c80a618fa1b0bfb4dbf3d24e1e8c697",
       "status": "active",
-      "updated_at": "2026-09-15T03:17:44+00:00"
+      "updated_at": "2026-09-15T03:17:44+00:00",
+      "semantic_purpose": "CI Validation"
     },
     ".github/workflows/glee-dual-audit.yml": {
       "blockers": [
@@ -53,7 +53,7 @@
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "\ud83d\ude08 Glee Audit",
+      "name": "😈 Glee Audit",
       "registry_source": "registry/1345505866/jules-glee-0de23ac9.source.yml",
       "source_sha256": "9aa63d02927a5e790e34e579d446800e097a1f756daa8990e3f5dac1c2ff0203",
       "status": "active",

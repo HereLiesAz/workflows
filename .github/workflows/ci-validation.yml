@@ -241,6 +241,7 @@ jobs:
     permissions:
       contents: read
       packages: read
+    environment: ${{ inputs.target_repository_name }}
     steps:
       - name: Check out target
         uses: actions/checkout@v4
@@ -249,6 +250,22 @@ jobs:
           ref: ${{ inputs.target_sha }}
           token: ${{ secrets.GH_TOKEN }}
           persist-credentials: false
+
+      - name: Inject Google Services template
+        if: ${{ fromJSON(inputs.purpose_profile_json).inject_google_services == true }}
+        env:
+          GOOGLE_SERVICES_API_KEY: ${{ secrets.GOOGLE_SERVICES_API_KEY }}
+          PROJECT_ID: ${{ secrets.PROJECT_ID }}
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TEMPLATE="$(find . -name 'google-services.json.template' -print -quit)"
+          if [ -n "$TEMPLATE" ]; then
+            TARGET="${TEMPLATE%.template}"
+            echo "Injecting ${TEMPLATE} into ${TARGET}"
+            sed -e 's/{{\([^}]*\)}}/${\1}/g' "$TEMPLATE" | envsubst > "$TARGET"
+          fi
 
       - name: Check out extra dependency repository
         if: ${{ fromJSON(inputs.purpose_profile_json).extra_checkout_repository != null && fromJSON(inputs.purpose_profile_json).extra_checkout_repository != '' }}

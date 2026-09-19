@@ -138,14 +138,14 @@
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/pr-check.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/ideaz-pr-check.yml",
-      "implementation_sha256": "44c4c828307b05a1b9fbff35a596a06a8ba0afa922b230850eda910f86c8e114",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/ci-validation.yml",
       "name": "PR Check",
       "registry_source": "registry/1085343418/pr-check-7500c833.source.yml",
       "source_sha256": "8d0bee7aa3ab78d04396737b8f3fdde27eb3f4164f501979a811cac647b569b7",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "CI Validation"
     },
     ".github/workflows/pr-contribution-guidelines-review.yml": {
       "blockers": [

@@ -76,6 +76,7 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "f74f4d32dcd258fd1e13fccce422b3900ce7eb50cfbd20e31a5dc9848f179348",
             "67ce04785215b3aacb24ff9d7703d6e87bfed3aacdf4ab3bd780540c47bb18cb",
             "0734d0c56fd8fc16abd5aee34a30f1170e6b42abafae354aff05eee485e54704",
+            "e6dc8ef902c25e4c1b5dfcc338526e617afb9e104fb1cadbaac740ab7b259d3e",
         },
     },
     ".github/workflows/android-dependency-update.yml": {
@@ -159,6 +160,7 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
 }
 
 PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
+    "e6dc8ef902c25e4c1b5dfcc338526e617afb9e104fb1cadbaac740ab7b259d3e": {"signing": "project", "java_version": "17", "google_services": "none", "build_command": "./gradlew assembleDebug", "artifact_glob": "app/build/outputs/apk/debug/*.apk", "persist_version": False, "version_mode": "major-minor-run-count", "asset_name_mode": "preserve", "move_tag": False, "prerelease": True, "release_title_style": "app-tag", "release_notes_mode": "changelog", "app_name": "ReUp"},
     "0734d0c56fd8fc16abd5aee34a30f1170e6b42abafae354aff05eee485e54704": {"signing": "pem-chain", "java_version": "21", "google_services": "none", "build_command": "./gradlew clean assembleFossRelease -PversionCode=$RUN_NUMBER -PversionName=1.3.0.$RUN_NUMBER", "artifact_glob": "app/build/outputs/apk/foss/release/*.apk", "persist_version": False, "version_mode": "run-number-base", "base_version": "1.3.0", "fixed_tag": "v1.3-debug", "asset_name_mode": "app-v-version", "move_tag": True, "prerelease": True, "release_title": "1.3 Debug Builds", "wrapper_validation": True, "keystore_output": "app/release.keystore", "gradle_properties": ["org.gradle.jvmargs=-Xmx3072m", "android.useAndroidX=true"], "app_name": "Cue-Detat"},
     "67ce04785215b3aacb24ff9d7703d6e87bfed3aacdf4ab3bd780540c47bb18cb": {"signing": "project", "java_version": "21", "google_services": "none", "build_command": "./gradlew assembleRelease", "artifact_glob": "app/build/outputs/apk/release/*.apk", "persist_version": False, "version_mode": "source-tag", "asset_name_mode": "preserve", "move_tag": False, "prerelease": False, "release_title_style": "tag"},
     "f74f4d32dcd258fd1e13fccce422b3900ce7eb50cfbd20e31a5dc9848f179348": {"signing": "pem-chain", "chain_secret": "KEYSTORE_CHAIN", "java_version": "17", "inject_signing_args": True, "google_services": "raw", "build_command": "./gradlew assembleGithubRelease", "artifact_glob": "app/build/outputs/apk/github/release/*.apk", "mapping_file": "app/build/outputs/mapping/githubRelease/mapping.txt", "persist_version": True, "release_title_style": "major-minor-version", "app_name": "Guillotine"},

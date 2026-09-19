@@ -343,6 +343,49 @@ jobs:
           retention-days: ${{ fromJSON(inputs.purpose_profile_json).retention_days || 7 }}
           if-no-files-found: ignore
 
+  validate_flutter:
+    needs: central_check_start
+    if: ${{ fromJSON(inputs.purpose_profile_json).kind == 'flutter' && (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out target
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ fromJSON(inputs.purpose_profile_json).java_version || '17' }}
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ fromJSON(inputs.purpose_profile_json).flutter_version || '3.16.0' }}
+          channel: stable
+
+      - name: Validate Flutter project
+        env:
+          VALIDATE_COMMAND: ${{ fromJSON(inputs.purpose_profile_json).command }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -eo pipefail -c "$VALIDATE_COMMAND"
+
+      - name: Upload validation artifact
+        if: ${{ always() && fromJSON(inputs.purpose_profile_json).report_path != null && fromJSON(inputs.purpose_profile_json).report_path != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-reports-${{ inputs.target_repository_name }}
+          path: ${{ fromJSON(inputs.purpose_profile_json).report_path }}
+          retention-days: ${{ fromJSON(inputs.purpose_profile_json).retention_days || 7 }}
+          if-no-files-found: ignore
   validate_docker:
     needs: central_check_start
     if: ${{ fromJSON(inputs.purpose_profile_json).kind == 'docker' && (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) }}
@@ -373,6 +416,7 @@ jobs:
       - validate_python
       - validate_node
       - validate_gradle
+      - validate_flutter
       - validate_docker
     runs-on: ubuntu-latest
     permissions:

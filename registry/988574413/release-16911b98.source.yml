@@ -92,14 +92,14 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           GH_ACTOR: ${{ secrets.GH_ACTOR }}
-        run: ./gradlew clean assembleFossRelease -PversionCode=${{ steps.versioning.outputs.new_version_code }} -PversionName=${{ steps.versioning.outputs.new_version_name }}
+        run: ./gradlew clean assembleRelease -PversionBuild=${{ steps.versioning.outputs.new_version_code }} -PversionName=${{ steps.versioning.outputs.new_version_name }}
 
       - name: Rename APK
         id: rename_apk
         run: |
-          APK_PATH=$(find ./app/build/outputs/apk/foss/release -name "*.apk" | head -n 1)
+          APK_PATH=$(find ./app/build/outputs/apk/release -name "*.apk" | head -n 1)
           if [ -z "$APK_PATH" ]; then
-            echo "Error: no FOSS release APK found."
+            echo "Error: no release APK found."
             exit 1
           fi
           APK_DIR=$(dirname "$APK_PATH")

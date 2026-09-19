@@ -226,14 +226,14 @@
       "semantic_purpose": "Android Play Release"
     },
     ".github/workflows/release.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/cuedetat-release.yml",
-      "implementation_sha256": "639ae422fb03f55e7871883bc03421d3d2c620a6ef48550d3e3d4aac2f2caf66",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/android-github-release.yml",
       "name": "Android Release Build",
       "registry_source": "registry/988574413/release-16911b98.source.yml",
       "source_sha256": "0734d0c56fd8fc16abd5aee34a30f1170e6b42abafae354aff05eee485e54704",
       "status": "active",
-      "updated_at": "2026-09-15T03:03:32+00:00"
+      "updated_at": "2026-09-15T03:03:32+00:00",
+      "semantic_purpose": "Android GitHub Release"
     },
     ".github/workflows/static.yml": {
       "blockers": [

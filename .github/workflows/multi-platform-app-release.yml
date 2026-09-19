@@ -74,6 +74,7 @@ jobs:
   prepare:
     needs: central_check_start
     runs-on: ubuntu-latest
+    environment: ${{ inputs.target_repository_name }}
     permissions:
       contents: write
     outputs:
@@ -161,6 +162,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(inputs.purpose_profile_json).matrix }}
     runs-on: ${{ matrix.os }}
+    environment: ${{ inputs.target_repository_name }}
     permissions:
       contents: read
     steps:

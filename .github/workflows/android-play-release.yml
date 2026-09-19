@@ -346,9 +346,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          build_file="$(jq -r '.ANDROID_BUILD_FILE // "app/build.gradle.kts"' <<<"$TARGET_VARS_JSON")"
-          if [ ! -f "$build_file" ]; then build_file="$(find . -path '*/build.gradle.kts' -o -path '*/build.gradle' | head -1)"; fi
-          package="$(grep -m1 -E 'applicationId[[:space:]]*=' "$build_file" | sed -E 's/.*"([^"]+)".*/\1/')"
+          package="$(jq -r '.package_name // empty' <<<"$PROFILE_JSON")"
+          if [ -z "$package" ]; then
+            build_file="$(jq -r '.ANDROID_BUILD_FILE // "app/build.gradle.kts"' <<<"$TARGET_VARS_JSON")"
+            if [ ! -f "$build_file" ]; then build_file="$(find . \( -path '*/build.gradle.kts' -o -path '*/build.gradle' \) -print | head -1)"; fi
+            package="$(grep -m1 -E 'applicationId[[:space:]]*=' "$build_file" | sed -E 's/.*"([^"]+)".*/\1/')"
+          fi
           test -n "$package" || { echo "::error::Could not determine Android applicationId" >&2; exit 1; }
           echo "package_name=$package" >> "$GITHUB_OUTPUT"
           args=''

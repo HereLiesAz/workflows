@@ -153,6 +153,15 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "60c8cb4ab8364f08369e2fae3b9a8322825d0a596405966da26a7889e98501a8",
         },
     },
+    ".github/workflows/artifact-github-release.yml": {
+        "name": "Artifact GitHub Release",
+        "canonical_hash": "57c23f2489e4e00b40c10a98d12610d6f95b36b66ee7a242236be21f3058a114",
+        "generalized": True,
+        "source_hashes": {
+            "57c23f2489e4e00b40c10a98d12610d6f95b36b66ee7a242236be21f3058a114",
+            "3ee242e7f4214889ba314e70ef51aec8553ec25bfe5965b9bfb7a89ea08e4a9d",
+        },
+    },
     ".github/workflows/maven-package-publish.yml": {
         "name": "Maven Package Publish",
         "canonical_hash": "968458e29535134b77927dbc8ec6c653ad070e0b6e9cd30f7ac9063544eb14e9",
@@ -185,6 +194,8 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
 }
 
 PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
+    "57c23f2489e4e00b40c10a98d12610d6f95b36b66ee7a242236be21f3058a114": {"tool": "maven", "java_version": "17", "tag_mode": "target-ref", "build_command": "mvn package", "files": ["jbox2d-library/target/jbox2d-library-*.jar", "jbox2d-testbed/target/jbox2d-testbed-*-jar-with-dependencies.jar"], "generate_notes": False},
+    "3ee242e7f4214889ba314e70ef51aec8553ec25bfe5965b9bfb7a89ea08e4a9d": {"tool": "python", "python_version": "3.11", "tag_mode": "computed", "version_command": "python3 tools/next_version.py", "tag_prefix": "v", "version_env": "AZRIENOCH_VERSION", "install_command": "pip install -r requirements.txt", "build_command": "python3 -m tools.designspace_build", "files": ["fonts/variable/Azrienoch-VF.ttf", "fonts/variable/Azrienoch-VF.woff2"], "release_name_prefix": "Azrienoch", "title_include_sha": True, "generate_notes": True},
     "825e6e5a5cbc7d80f2854e239557599c354131b24dee94d3c14b806f640ce98b": {"signing": "pem-chain", "java_version": "21", "google_services": "none", "build_command": "./gradlew :androidApp:assembleRelease :androidApp:bundleRelease --no-daemon", "aab_glob": "androidApp/build/outputs/bundle/release/*.aab", "apk_glob": "androidApp/build/outputs/apk/release/*.apk", "package_name": "com.hereliesaz.morphont", "signing_env_prefix": "MORPHONT", "publish_on_push": False, "publish_default": False, "tracks_from_inputs": True, "persist_version": False, "github_built_release_on_tag": True, "release_app_name": "Morphont"},
     "6f25a5f112d324c4bb19236302c860917f1e65e984e919e778afdd634a97336d": {"kind": "gradle", "java_version": "17", "command": "./gradlew assembleDebug", "report_path": "app/build/outputs/apk/debug/app-debug.apk", "report_when": "always", "retention_days": 7},
     "1606a824a8bd29eb3c6dbd9ca74f88692ee0abd248e910d9a1ee69acb279766c": {"kind": "flutter", "java_version": "17", "flutter_version": "3.16.0", "command": "flutter pub get\nflutter build apk --debug\nVERSION=$(grep '^version:' pubspec.yaml | head -n 1 | sed 's/^version:[[:space:]]*//' | tr -d '\\r ')\nif [ -z \"$VERSION\" ]; then VERSION=1.0.0; fi\nmv build/app/outputs/flutter-apk/app-debug.apk \"build/app/outputs/flutter-apk/IDEaz-$VERSION-debug.apk\"", "report_path": "build/app/outputs/flutter-apk/IDEaz-*-debug.apk", "report_when": "always", "retention_days": 7},

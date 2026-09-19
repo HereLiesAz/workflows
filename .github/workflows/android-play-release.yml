@@ -132,29 +132,11 @@ jobs:
       TARGET_REPOSITORY: ${{ inputs.target_repository }}
       TARGET_SHA: ${{ inputs.target_sha }}
       TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
       TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      PROFILE_JSON: ${{ inputs.purpose_profile_json }}
     steps:
-      - name: Wait for earlier Play publish for this repository
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          CURRENT_RUN: ${{ github.run_id }}
-          QUEUE_TITLE: ${{ inputs.target_repository_name }} · Android Play Release
-        shell: bash
-        run: |
-          set -euo pipefail
-          for attempt in $(seq 1 360); do
-            gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/android-play-release.yml/runs?per_page=100" > "$RUNNER_TEMP/play-runs.json"
-            blockers="$(jq --argjson current "$CURRENT_RUN" --arg title "$QUEUE_TITLE" '[.workflow_runs[] | select((.status == "queued" or .status == "in_progress") and .id < $current and .display_title == $title)] | length' "$RUNNER_TEMP/play-runs.json")"
-            if [ "$blockers" -eq 0 ]; then
-              echo "Play publish slot acquired."
-              exit 0
-            fi
-            echo "Waiting behind $blockers earlier Play publish run(s) for this repository..."
-            sleep 10
-          done
-          echo "::error::Timed out waiting for this repository's Play publish queue" >&2
-          exit 1
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -164,6 +146,15 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           persist-credentials: false
 
+      - name: Check out optional build dependency
+        if: ${{ fromJSON(inputs.purpose_profile_json).extra_checkout_repository != null && fromJSON(inputs.purpose_profile_json).extra_checkout_repository != '' }}
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ fromJSON(inputs.purpose_profile_json).extra_checkout_repository }}
+          ref: ${{ fromJSON(inputs.purpose_profile_json).extra_checkout_ref }}
+          path: ${{ fromJSON(inputs.purpose_profile_json).extra_checkout_path }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
       - name: Resolve Play profile
         env:
           PROFILE_JSON: ${{ inputs.purpose_profile_json }}
@@ -178,8 +169,13 @@ jobs:
           glob="$(jq -r '.aab_glob // "app/build/outputs/bundle/release/*.aab"' <<<"$PROFILE_JSON")"
           apk_glob="$(jq -r '.apk_glob // empty' <<<"$PROFILE_JSON")"
           signing_env_prefix="$(jq -r '.signing_env_prefix // empty' <<<"$PROFILE_JSON")"
+          signing_env_style="$(jq -r '.signing_env_style // "prefix"' <<<"$PROFILE_JSON")"
+          pre_build_command="$(jq -r '.pre_build_command // empty' <<<"$PROFILE_JSON")"
           built_release_on_tag="$(jq -r '.github_built_release_on_tag // false' <<<"$PROFILE_JSON")"
           built_release_always="$(jq -r '.github_built_release_always // false' <<<"$PROFILE_JSON")"
+          built_release_tag_env="$(jq -r '.github_built_release_tag_env // empty' <<<"$PROFILE_JSON")"
+          built_release_include_aab="$(jq -r '.github_built_release_include_aab // true' <<<"$PROFILE_JSON")"
+          built_release_checksum="$(jq -r '.github_built_release_checksum // false' <<<"$PROFILE_JSON")"
           google_mode="$(jq -r '.google_services // "template"' <<<"$PROFILE_JSON")"
           arcore="$(jq -r '.arcore_local_properties // false' <<<"$PROFILE_JSON")"
           version_mode="$(jq -r '.version_mode // "auto"' <<<"$PROFILE_JSON")"
@@ -226,6 +222,11 @@ jobs:
             echo "AAB_GLOB=$glob"
             echo "APK_GLOB=$apk_glob"
             echo "SIGNING_ENV_PREFIX=$signing_env_prefix"
+            echo "SIGNING_ENV_STYLE=$signing_env_style"
+            echo "PRE_BUILD_COMMAND=$pre_build_command"
+            echo "BUILT_RELEASE_TAG_ENV=$built_release_tag_env"
+            echo "BUILT_RELEASE_INCLUDE_AAB=$built_release_include_aab"
+            echo "BUILT_RELEASE_CHECKSUM=$built_release_checksum"
             echo "GOOGLE_SERVICES_MODE=$google_mode"
             echo "ARCORE_LOCAL_PROPERTIES=$arcore"
             echo "VERSION_MODE=$version_mode"
@@ -252,6 +253,28 @@ jobs:
             fi
             echo "PUBLISH_BUILT_GITHUB_RELEASE=$built_release"
           } >> "$GITHUB_ENV"
+
+      - name: Wait for earlier Play publish for this repository
+        if: ${{ env.PUBLISH_PLAY == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          CURRENT_RUN: ${{ github.run_id }}
+          QUEUE_TITLE: ${{ inputs.target_repository_name }} · Android Play Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 360); do
+            gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/android-play-release.yml/runs?per_page=100" > "$RUNNER_TEMP/play-runs.json"
+            blockers="$(jq --argjson current "$CURRENT_RUN" --arg title "$QUEUE_TITLE" '[.workflow_runs[] | select((.status == "queued" or .status == "in_progress") and .id < $current and .display_title == $title)] | length' "$RUNNER_TEMP/play-runs.json")"
+            if [ "$blockers" -eq 0 ]; then
+              echo "Play publish slot acquired."
+              exit 0
+            fi
+            echo "Waiting behind $blockers earlier Play publish run(s) for this repository..."
+            sleep 10
+          done
+          echo "::error::Timed out waiting for this repository's Play publish queue" >&2
+          exit 1
 
       - name: Guard Play publish to default branch
         if: ${{ env.PUBLISH_PLAY == 'true' }}
@@ -328,10 +351,22 @@ jobs:
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
+
+      - name: Set up Android SDK
+        if: ${{ fromJSON(inputs.purpose_profile_json).setup_android == true }}
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ${{ fromJSON(inputs.purpose_profile_json).android_packages || 'platform-tools' }}
+
       - uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: false
       - run: chmod +x gradlew
+
+      - name: Prepare project-specific release inputs
+        if: ${{ env.PRE_BUILD_COMMAND != '' }}
+        shell: bash
+        run: bash -eo pipefail -c "$PRE_BUILD_COMMAND"
 
       - name: Run release tests
         if: ${{ env.TEST_COMMAND != '' }}
@@ -392,6 +427,11 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          TRAKT_CLIENT_ID: ${{ secrets.TRAKT_CLIENT_ID }}
+          TRAKT_CLIENT_SECRET: ${{ secrets.TRAKT_CLIENT_SECRET }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          ACRA_URL: ${{ secrets.ACRA_URL }}
+          ACRA_TOKEN: ${{ secrets.ACRA_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
@@ -401,6 +441,12 @@ jobs:
             export "${SIGNING_ENV_PREFIX}_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
             export "${SIGNING_ENV_PREFIX}_KEY_ALIAS=$KEY_ALIAS"
             export "${SIGNING_ENV_PREFIX}_KEY_PASSWORD=${KEY_PASSWORD:-$KEYSTORE_PASSWORD}"
+          fi
+          if [ "$SIGNING_ENV_STYLE" = "release-store" ]; then
+            export RELEASE_STORE_FILE="$KEYSTORE_FILE"
+            export RELEASE_STORE_PASSWORD="$KEYSTORE_PASSWORD"
+            export RELEASE_KEY_ALIAS="$KEY_ALIAS"
+            export RELEASE_KEY_PASSWORD="${KEY_PASSWORD:-$KEYSTORE_PASSWORD}"
           fi
           if [ "$INJECT_SIGNING_ARGS" = true ]; then
             command="$command -Pandroid.injected.signing.store.file=\"$KEYSTORE_FILE\" -Pandroid.injected.signing.store.password=\"$KEYSTORE_PASSWORD\" -Pandroid.injected.signing.key.alias=\"$KEY_ALIAS\" -Pandroid.injected.signing.key.password=\"$KEY_PASSWORD\""
@@ -483,7 +529,16 @@ jobs:
                           media_body=MediaFileUpload(mapping,mimetype='text/plain'),
                       ).execute()
                   for spec in tracks:
-                      body={'track':spec['track'],'releases':[{'versionCodes':[code],'status':spec['status']}]}
+                      release={'versionCodes':[code],'status':spec['status']}
+                      releases=[release]
+                      if spec.get('preserve_existing'):
+                          current=svc.edits().tracks().get(packageName=package,editId=edit,track=spec['track']).execute()
+                          releases=[
+                              item for item in current.get('releases', [])
+                              if item.get('status') != 'draft'
+                              and code not in [str(value) for value in item.get('versionCodes', [])]
+                          ] + [release]
+                      body={'track':spec['track'],'releases':releases}
                       svc.edits().tracks().update(packageName=package,editId=edit,track=spec['track'],body=body).execute()
                   svc.edits().commit(packageName=package,editId=edit).execute()
                   print(f'Published versionCode {code} to {tracks}')
@@ -495,22 +550,46 @@ jobs:
                   time.sleep(min(60, 5 * 2 ** (attempt-1)))
           PY
 
-      - name: Publish built APK and AAB to tag release
+      - name: Publish built release assets to GitHub
         if: ${{ env.PUBLISH_BUILT_GITHUB_RELEASE == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          test "$TARGET_REF_TYPE" = tag || { echo "::error::Built-asset GitHub release currently requires a tag trigger" >&2; exit 1; }
-          assets=("$AAB_PATH")
-          if [ -n "${APK_PATH:-}" ]; then assets+=("$APK_PATH"); fi
-          title="${RELEASE_APP_NAME:-${{ inputs.target_repository_name }}} $TARGET_REF_NAME"
-          if gh release view "$TARGET_REF_NAME" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then
-            gh release edit "$TARGET_REF_NAME" --repo "$TARGET_REPOSITORY" --title "$title"
-            gh release upload "$TARGET_REF_NAME" "${assets[@]}" --repo "$TARGET_REPOSITORY" --clobber
+          if [ -n "$BUILT_RELEASE_TAG_ENV" ]; then
+            version="${!BUILT_RELEASE_TAG_ENV:-}"
+            test -n "$version" || { echo "::error::$BUILT_RELEASE_TAG_ENV is empty" >&2; exit 1; }
+            tag="v$version"
           else
-            gh release create "$TARGET_REF_NAME" "${assets[@]}" --repo "$TARGET_REPOSITORY" --target "$TARGET_SHA" --generate-notes --title "$title"
+            test "$TARGET_REF_TYPE" = tag || { echo "::error::Built release requires either a tag trigger or github_built_release_tag_env" >&2; exit 1; }
+            tag="$TARGET_REF_NAME"
+            version="${tag#v}"
+          fi
+          assets=()
+          if [ "$BUILT_RELEASE_INCLUDE_AAB" = true ]; then assets+=("$AAB_PATH"); fi
+          if [ -n "${APK_PATH:-}" ]; then assets+=("$APK_PATH"); fi
+          test "${#assets[@]}" -gt 0 || { echo "::error::No GitHub release assets selected" >&2; exit 1; }
+          title="${RELEASE_APP_NAME:-${{ inputs.target_repository_name }}} ${version:-$tag}"
+          notes="Built from commit $TARGET_SHA."
+          if [ "$BUILT_RELEASE_CHECKSUM" = true ] && [ -n "${APK_PATH:-}" ]; then
+            checksum="$(sha256sum "$APK_PATH" | awk '{print $1}')"
+            notes="$notes
+
+SHA-256: $checksum"
+          fi
+          gh auth setup-git
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            git tag -a "$tag" "$TARGET_SHA" -m "$title"
+            git push origin "$tag"
+          fi
+          if gh release view "$tag" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$tag" --repo "$TARGET_REPOSITORY" --title "$title" --notes "$notes" --target "$TARGET_SHA"
+            gh release upload "$tag" "${assets[@]}" --repo "$TARGET_REPOSITORY" --clobber
+          else
+            gh release create "$tag" "${assets[@]}" --repo "$TARGET_REPOSITORY" --target "$TARGET_SHA" --title "$title" --notes "$notes"
           fi
       - name: Build universal APK from published bundle
         if: ${{ env.PUBLISH_GITHUB_RELEASE == 'true' }}

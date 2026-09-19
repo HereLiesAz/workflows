@@ -131,6 +131,10 @@ def main() -> int:
         dispatch_inputs["target_repository_name"] = repository.rsplit("/", 1)[-1]
 
     if uses_purpose_profile(central_workflow):
+        # Generalized workflows add target_repository_name + purpose_profile_json.
+        # GitHub workflow_dispatch accepts at most 25 properties, so omit this
+        # diagnostic-only field for profile-driven dispatches.
+        dispatch_inputs.pop("target_workflow_ref", None)
         dispatch_inputs["purpose_profile_json"] = json.dumps(purpose_profile_for_source(source_sha256) or {}, separators=(",", ":"))
 
     body = {"ref": "main", "inputs": dispatch_inputs}

@@ -67,9 +67,6 @@ on:
       target_run_attempt:
         required: false
         type: string
-      target_workflow_ref:
-        required: false
-        type: string
       target_workflow_name:
         required: true
         type: string
@@ -122,7 +119,6 @@ jobs:
       TARGET_RUN_ID: ${{ inputs.target_run_id }}
       TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
       TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
-      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
   detect_languages:
     needs: central_check_start
@@ -273,5 +269,4 @@ jobs:
       TARGET_RUN_ID: ${{ inputs.target_run_id }}
       TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
       TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
-      TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}

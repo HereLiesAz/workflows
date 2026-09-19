@@ -120,8 +120,19 @@ jobs:
       TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
       TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
-  build_and_publish:
+  version_contract:
     needs: central_check_start
+    uses: ./.github/workflows/version-contract.yml
+    with:
+      target_repository: ${{ inputs.target_repository }}
+      target_sha: ${{ inputs.target_sha }}
+      target_ref_name: ${{ inputs.target_ref_name }}
+      target_ref_type: ${{ inputs.target_ref_type }}
+    secrets:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+  build_and_publish:
+    needs: version_contract
     if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -136,6 +147,12 @@ jobs:
       TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
       TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
       PROFILE_JSON: ${{ inputs.purpose_profile_json }}
+      VERSION: ${{ needs.version_contract.outputs.version }}
+      VERSION_MAJOR: ${{ needs.version_contract.outputs.major }}
+      VERSION_MINOR: ${{ needs.version_contract.outputs.minor }}
+      VERSION_PATCH: ${{ needs.version_contract.outputs.patch }}
+      VERSION_BUILD: ${{ needs.version_contract.outputs.build }}
+      ANDROID_VERSION_CODE: ${{ needs.version_contract.outputs.android_version_code }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -155,6 +172,50 @@ jobs:
           path: ${{ fromJSON(inputs.purpose_profile_json).extra_checkout_path }}
           token: ${{ secrets.GH_TOKEN }}
           persist-credentials: false
+
+      - name: Apply canonical version to checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import os
+
+          path = Path("version.properties")
+          lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+          values = {
+              "versionMajor": os.environ["VERSION_MAJOR"],
+              "versionMinor": os.environ["VERSION_MINOR"],
+              "versionPatch": os.environ["VERSION_PATCH"],
+              "versionBuild": os.environ["VERSION_BUILD"],
+          }
+          aliases = {
+              "MAJOR": values["versionMajor"], "VERSION_MAJOR": values["versionMajor"],
+              "MINOR": values["versionMinor"], "VERSION_MINOR": values["versionMinor"],
+              "PATCH": values["versionPatch"], "VERSION_PATCH": values["versionPatch"],
+              "BUILD": values["versionBuild"], "BUILD_NUMBER": values["versionBuild"], "VERSION_BUILD": values["versionBuild"],
+          }
+          seen = set()
+          out = []
+          for line in lines:
+              stripped = line.strip()
+              if "=" not in stripped or stripped.startswith("#"):
+                  out.append(line)
+                  continue
+              key = stripped.split("=", 1)[0].strip()
+              if key in values:
+                  out.append(f"{key}={values[key]}")
+                  seen.add(key)
+              elif key in aliases:
+                  out.append(f"{key}={aliases[key]}")
+              else:
+                  out.append(line)
+          prefix = [f"{key}={values[key]}" for key in values if key not in seen]
+          if prefix and out and out[0].strip():
+              prefix.append("")
+          path.write_text("\n".join(prefix + out).rstrip() + "\n", encoding="utf-8")
+          PY
+
       - name: Resolve Play profile
         env:
           PROFILE_JSON: ${{ inputs.purpose_profile_json }}
@@ -179,9 +240,7 @@ jobs:
           built_release_changes="$(jq -r '.github_built_release_changes // false' <<<"$PROFILE_JSON")"
           google_mode="$(jq -r '.google_services // "template"' <<<"$PROFILE_JSON")"
           arcore="$(jq -r '.arcore_local_properties // false' <<<"$PROFILE_JSON")"
-          version_mode="$(jq -r '.version_mode // "auto"' <<<"$PROFILE_JSON")"
           version_arg="$(jq -r '.version_arg // "versionBuild"' <<<"$PROFILE_JSON")"
-          persist="$(jq -r '.persist_version // true' <<<"$PROFILE_JSON")"
           inject_signing="$(jq -r '.inject_signing_args // false' <<<"$PROFILE_JSON")"
           pem_legacy="$(jq -r '.pem_legacy // false' <<<"$PROFILE_JSON")"
           publish_default="$(jq -r '.publish_default // true' <<<"$PROFILE_JSON")"
@@ -190,7 +249,6 @@ jobs:
           ad_id_check="$(jq -r '.ad_id_check // false' <<<"$PROFILE_JSON")"
           mapping_file="$(jq -r '.mapping_file // empty' <<<"$PROFILE_JSON")"
           github_release_after_play="$(jq -r '.github_release_after_play // "never"' <<<"$PROFILE_JSON")"
-          release_version_scheme="$(jq -r '.release_version_scheme // "version-properties"' <<<"$PROFILE_JSON")"
           release_app_name="$(jq -r '.release_app_name // empty' <<<"$PROFILE_JSON")"
           tracks="$(jq -c --argjson d "$default_tracks" '.tracks // $d' <<<"$PROFILE_JSON")"
           if [ "$TARGET_EVENT_NAME" = push ] && jq -e '.push_tracks' >/dev/null 2>&1 <<<"$PROFILE_JSON"; then
@@ -231,9 +289,7 @@ jobs:
             echo "BUILT_RELEASE_CHANGES=$built_release_changes"
             echo "GOOGLE_SERVICES_MODE=$google_mode"
             echo "ARCORE_LOCAL_PROPERTIES=$arcore"
-            echo "VERSION_MODE=$version_mode"
             echo "VERSION_ARG=$version_arg"
-            echo "PERSIST_VERSION=$persist"
             echo "INJECT_SIGNING_ARGS=$inject_signing"
             echo "PEM_LEGACY=$pem_legacy"
             echo "PUBLISH_PLAY=$publish"
@@ -242,7 +298,6 @@ jobs:
             echo "AD_ID_CHECK=$ad_id_check"
             echo "MAPPING_FILE=$mapping_file"
             echo "GITHUB_RELEASE_AFTER_PLAY=$github_release_after_play"
-            echo "RELEASE_VERSION_SCHEME=$release_version_scheme"
             echo "RELEASE_APP_NAME=$release_app_name"
             release=false
             if [ "$publish" = true ] && { [ "$github_release_after_play" = always ] || { [ "$github_release_after_play" = manual ] && [ "$TARGET_EVENT_NAME" = workflow_dispatch ]; }; }; then
@@ -391,39 +446,8 @@ jobs:
           fi
           test -n "$package" || { echo "::error::Could not determine Android applicationId" >&2; exit 1; }
           echo "package_name=$package" >> "$GITHUB_OUTPUT"
-          args=''
-          case "$VERSION_MODE" in
-            auto) ;;
-            git-count)
-              code="$(git rev-list --count HEAD)"
-              args="-P${VERSION_ARG}=${code}"
-              ;;
-            play-highest)
-              python -m pip install --quiet google-api-python-client google-auth google-auth-httplib2
-              code="$(PLAY_PACKAGE="$package" python - <<'PY'
-          import json, os
-          import httplib2
-          from google.oauth2 import service_account
-          from google_auth_httplib2 import AuthorizedHttp
-          from googleapiclient.discovery import build
-          info=json.loads(os.environ['PLAY_SERVICE_ACCOUNT_JSON'])
-          creds=service_account.Credentials.from_service_account_info(info, scopes=['https://www.googleapis.com/auth/androidpublisher'])
-          http=AuthorizedHttp(creds, http=httplib2.Http(timeout=180))
-          svc=build('androidpublisher','v3',http=http,cache_discovery=False)
-          package=os.environ['PLAY_PACKAGE']
-          edit=svc.edits().insert(packageName=package,body={}).execute(num_retries=5)['id']
-          try:
-              tracks=svc.edits().tracks().list(packageName=package,editId=edit).execute(num_retries=5).get('tracks',[])
-              codes=[int(v) for t in tracks for r in t.get('releases',[]) for v in r.get('versionCodes',[])]
-              print((max(codes) if codes else 0)+1)
-          finally:
-              svc.edits().delete(packageName=package,editId=edit).execute(num_retries=5)
-          PY
-              )"
-              args="-P${VERSION_ARG}=${code}"
-              ;;
-            *) echo "::error::Unknown version mode: $VERSION_MODE" >&2; exit 1 ;;
-          esac
+          test "$ANDROID_VERSION_CODE" -ge 0 || { echo "::error::Canonical version cannot be encoded as Android versionCode: $VERSION" >&2; exit 1; }
+          args="-P${VERSION_ARG}=${ANDROID_VERSION_CODE} -PversionCodeOverride=${ANDROID_VERSION_CODE} -PversionNameOverride=${VERSION} -PreleaseVersionCode=${ANDROID_VERSION_CODE} -PreleaseVersionName=${VERSION} -PversionBuild=${VERSION_BUILD} -PversionName=${VERSION}"
           echo "VERSION_ARGS=$args" >> "$GITHUB_ENV"
 
       - name: Build signed AAB
@@ -691,27 +715,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          case "$RELEASE_VERSION_SCHEME" in
-            legacy-blame)
-              major="$(grep '^major=' version.properties | cut -d= -f2 | tr -d '\r ')"
-              minor="$(grep '^minor=' version.properties | cut -d= -f2 | tr -d '\r ')"
-              minor_commit="$(git blame -L '/minor=/',+1 version.properties | awk '{print $1}' | tr -d '^')"
-              if [ -n "$minor_commit" ]; then patch="$(git rev-list --count "$minor_commit"..HEAD)"; else patch="$(grep '^patch=' version.properties | cut -d= -f2 | tr -d '\r ')"; fi
-              build="$(git rev-list --count HEAD)"
-              version="$major.$minor.$patch.$build"
-              ;;
-            version-properties)
-              major="$(grep '^versionMajor=' version.properties | cut -d= -f2 | tr -d '\r ')"
-              minor="$(grep '^versionMinor=' version.properties | cut -d= -f2 | tr -d '\r ')"
-              patch="$(grep '^versionPatch=' version.properties | cut -d= -f2 | tr -d '\r ')"
-              build="$(grep '^versionBuild=' version.properties | cut -d= -f2 | tr -d '\r ')"
-              version="$major.$minor.$patch.$build"
-              ;;
-            *)
-              echo "::error::Unknown GitHub release version scheme: $RELEASE_VERSION_SCHEME" >&2
-              exit 1
-              ;;
-          esac
+          version="$VERSION"
           app_name="$RELEASE_APP_NAME"
           if [ -z "$app_name" ] && [ -f settings.gradle.kts ]; then
             app_name="$(sed -nE "s/.*rootProject\\.name[[:space:]]*=[[:space:]]*['\\\"]([^'\\\"]+)['\\\"].*/\\1/p" settings.gradle.kts | head -1)"
@@ -740,25 +744,6 @@ jobs:
             gh release create "$tag" "$asset" --repo "$TARGET_REPOSITORY" $prerelease --title "$app_name $version" --notes "$notes" --target "$TARGET_SHA"
           fi
 
-      - name: Persist monotonic version.properties
-        if: ${{ env.PUBLISH_PLAY == 'true' && env.PERSIST_VERSION == 'true' }}
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ ! -f version.properties ] || git diff --quiet -- version.properties; then exit 0; fi
-          gh auth setup-git
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          new="$(grep -E '^versionBuild=' version.properties | cut -d= -f2 | tr -d '\r ' || echo 0)"
-          git fetch origin "$TARGET_REF_NAME"
-          remote="$(git show "origin/$TARGET_REF_NAME:version.properties" 2>/dev/null | grep -E '^versionBuild=' | cut -d= -f2 | tr -d '\r ' || echo 0)"
-          if [ "$remote" -ge "$new" ]; then echo "Remote versionBuild=$remote already covers this run ($new)."; exit 0; fi
-          git add version.properties
-          git commit -m "ci: versionBuild=${new} [skip ci]"
-          git push origin "HEAD:$TARGET_REF_NAME"
-
       - name: Cleanup signing material
         if: ${{ always() }}
         run: rm -f app/keystore.jks private-key.pem certificate-chain.crt keystore.p12
@@ -766,6 +751,7 @@ jobs:
     if: ${{ always() }}
     needs:
       - central_check_start
+      - version_contract
       - build_and_publish
     runs-on: ubuntu-latest
     steps:

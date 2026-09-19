@@ -183,16 +183,11 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "f085283d13372c3d20dfeb8e47b3fe2541f7c912f15c30547257aa22c11be7c2",
         },
     },
-    ".github/workflows/android-debug-ci.yml": {
-        "name": "Android Debug CI",
-        "canonical_hash": "6f25a5f112d324c4bb19236302c860917f1e65e984e919e778afdd634a97336d",
-        "source_hashes": {
-            "6f25a5f112d324c4bb19236302c860917f1e65e984e919e778afdd634a97336d",
-        },
-    },
 }
 
 PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
+    "6f25a5f112d324c4bb19236302c860917f1e65e984e919e778afdd634a97336d": {"kind": "gradle", "java_version": "17", "command": "./gradlew assembleDebug", "report_path": "app/build/outputs/apk/debug/app-debug.apk", "report_when": "always", "retention_days": 7},
+    "1606a824a8bd29eb3c6dbd9ca74f88692ee0abd248e910d9a1ee69acb279766c": {"kind": "flutter", "java_version": "17", "flutter_version": "3.16.0", "command": "flutter pub get\nflutter build apk --debug\nVERSION=$(grep '^version:' pubspec.yaml | head -n 1 | sed 's/^version:[[:space:]]*//' | tr -d '\\r ')\nif [ -z \"$VERSION\" ]; then VERSION=1.0.0; fi\nmv build/app/outputs/flutter-apk/app-debug.apk \"build/app/outputs/flutter-apk/IDEaz-$VERSION-debug.apk\"", "report_path": "build/app/outputs/flutter-apk/IDEaz-*-debug.apk", "report_when": "always", "retention_days": 7},
     "968458e29535134b77927dbc8ec6c653ad070e0b6e9cd30f7ac9063544eb14e9": {"tool": "maven", "java_version": "17", "publish_command": "mvn --batch-mode deploy"},
     "03e2f1e420d12d9cc0a7cdbd64594ac76c6f5025b064f43083b57b0714cf087a": {"tool": "gradle", "java_version": "21", "jitpack": True, "build_command": "./gradlew assemble", "publish_command": "./gradlew publish"},
     "57f245d8d8504ca1ef5146ccc3533aecc5d08c45ab5aa9416b3b619ba3c385a9": {
@@ -417,6 +412,7 @@ CURATED_SOURCE_OVERRIDES: Final[dict[str, str]] = {
 # useful automation; they are disabled, malformed, placeholders, or one-shot
 # temporary scaffolding. Registry sources remain as history after removal.
 OBSOLETE_WORKFLOWS: Final[dict[tuple[str, str], str]] = {
+    ("hereliesaz/fluttertest", ".github/workflows/android_ci_jules.yml"): "superseded by the Flutter-native CI workflow, which builds the same debug APK through the correct Flutter toolchain",
     ("hereliesaz/ideaz", ".github/workflows/antigravity-branch-manager.yml"): "disabled no-op: the job is hard-disabled pending a valid Gemini key",
     ("hereliesaz/ideaz", ".github/workflows/antigravity-issue-handler.yml"): "disabled no-op: the job is hard-disabled pending a valid Gemini key",
     ("hereliesaz/hereliesaz.github.io", ".github/workflows/dependency-submission-disable.yml"): "dummy workflow whose only trigger is a branch literally named disabled",

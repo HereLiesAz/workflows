@@ -45,6 +45,7 @@ jobs:
             scripts/sync_repository.py \
             scripts/retry_repository_sync.py \
             scripts/dispatch_request.py \
+            scripts/test_dispatch_input_contract.py \
             scripts/audit_workflow_collection.py \
             scripts/report_workflow_purposes.py \
             scripts/test_release_centralization.py
@@ -147,6 +148,9 @@ jobs:
 
       - name: Regression-test release centralization
         run: python scripts/test_release_centralization.py
+
+      - name: Regression-test dispatch input contracts
+        run: python scripts/test_dispatch_input_contract.py
 
       - name: Check Worker JavaScript
         run: node --check worker/src/index.js

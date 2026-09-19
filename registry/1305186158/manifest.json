@@ -129,14 +129,14 @@
       "semantic_purpose": "Android Play Release"
     },
     ".github/workflows/release-apk.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/graffux-release-apk.yml",
-      "implementation_sha256": "c67c127b0d4617625d8bc26af380b6546e2603d2d27aae027d57a7eb92f73bbc",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/multi-platform-app-release.yml",
       "name": "Compile and Release APK + Desktop",
       "registry_source": "registry/1305186158/release-apk-da6a1dd6.source.yml",
       "source_sha256": "91d73e21d7385b0155e9193b8d718f1e9d3ecb5fce92401f0fc06d9bd41aadb8",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "Multi-Platform App Release"
     },
     ".github/workflows/static.yml": {
       "blockers": [

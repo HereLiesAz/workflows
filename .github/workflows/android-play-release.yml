@@ -176,6 +176,10 @@ jobs:
           java="$(jq -r '.java_version // "21"' <<<"$PROFILE_JSON")"
           build="$(jq -r '.build_command // "./gradlew bundleRelease"' <<<"$PROFILE_JSON")"
           glob="$(jq -r '.aab_glob // "app/build/outputs/bundle/release/*.aab"' <<<"$PROFILE_JSON")"
+          apk_glob="$(jq -r '.apk_glob // empty' <<<"$PROFILE_JSON")"
+          signing_env_prefix="$(jq -r '.signing_env_prefix // empty' <<<"$PROFILE_JSON")"
+          built_release_on_tag="$(jq -r '.github_built_release_on_tag // false' <<<"$PROFILE_JSON")"
+          built_release_always="$(jq -r '.github_built_release_always // false' <<<"$PROFILE_JSON")"
           google_mode="$(jq -r '.google_services // "template"' <<<"$PROFILE_JSON")"
           arcore="$(jq -r '.arcore_local_properties // false' <<<"$PROFILE_JSON")"
           version_mode="$(jq -r '.version_mode // "auto"' <<<"$PROFILE_JSON")"
@@ -210,6 +214,8 @@ jobs:
             [ "$dry" = true ] && publish=false || publish=true
           elif [ "$(jq -r 'has("publish")' <<<"$TARGET_INPUTS_JSON")" = true ]; then
             publish="$(jq -r '.publish' <<<"$TARGET_INPUTS_JSON")"
+          elif [ "$(jq -r 'has("publish_play")' <<<"$TARGET_INPUTS_JSON")" = true ]; then
+            publish="$(jq -r '.publish_play' <<<"$TARGET_INPUTS_JSON")"
           else
             publish="$publish_default"
           fi
@@ -218,6 +224,8 @@ jobs:
             echo "JAVA_VERSION=$java"
             echo "BUILD_COMMAND=$build"
             echo "AAB_GLOB=$glob"
+            echo "APK_GLOB=$apk_glob"
+            echo "SIGNING_ENV_PREFIX=$signing_env_prefix"
             echo "GOOGLE_SERVICES_MODE=$google_mode"
             echo "ARCORE_LOCAL_PROPERTIES=$arcore"
             echo "VERSION_MODE=$version_mode"
@@ -238,6 +246,11 @@ jobs:
               release=true
             fi
             echo "PUBLISH_GITHUB_RELEASE=$release"
+            built_release=false
+            if [ "$built_release_always" = true ] || { [ "$built_release_on_tag" = true ] && [ "$TARGET_REF_TYPE" = tag ]; }; then
+              built_release=true
+            fi
+            echo "PUBLISH_BUILT_GITHUB_RELEASE=$built_release"
           } >> "$GITHUB_ENV"
 
       - name: Guard Play publish to default branch
@@ -380,6 +393,12 @@ jobs:
         run: |
           set -euo pipefail
           command="$BUILD_COMMAND $VERSION_ARGS"
+          if [ -n "$SIGNING_ENV_PREFIX" ]; then
+            export "${SIGNING_ENV_PREFIX}_KEYSTORE_FILE=$KEYSTORE_FILE"
+            export "${SIGNING_ENV_PREFIX}_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+            export "${SIGNING_ENV_PREFIX}_KEY_ALIAS=$KEY_ALIAS"
+            export "${SIGNING_ENV_PREFIX}_KEY_PASSWORD=${KEY_PASSWORD:-$KEYSTORE_PASSWORD}"
+          fi
           if [ "$INJECT_SIGNING_ARGS" = true ]; then
             command="$command -Pandroid.injected.signing.store.file=\"$KEYSTORE_FILE\" -Pandroid.injected.signing.store.password=\"$KEYSTORE_PASSWORD\" -Pandroid.injected.signing.key.alias=\"$KEY_ALIAS\" -Pandroid.injected.signing.key.password=\"$KEY_PASSWORD\""
           fi
@@ -387,12 +406,21 @@ jobs:
           aab="$(compgen -G "$AAB_GLOB" | head -1 || true)"
           test -n "$aab" && test -s "$aab" || { echo "::error::No AAB matched $AAB_GLOB" >&2; exit 1; }
           echo "AAB_PATH=$aab" >> "$GITHUB_ENV"
+          if [ -n "$APK_GLOB" ]; then
+            apk="$(compgen -G "$APK_GLOB" | head -1 || true)"
+            test -n "$apk" && test -s "$apk" || { echo "::error::No APK matched $APK_GLOB" >&2; exit 1; }
+            echo "APK_PATH=$apk" >> "$GITHUB_ENV"
+          else
+            echo "APK_PATH=" >> "$GITHUB_ENV"
+          fi
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.target_repository_name }}-release-aab
-          path: ${{ env.AAB_PATH }}
+          path: |
+            ${{ env.AAB_PATH }}
+            ${{ env.APK_PATH }}
           if-no-files-found: error
 
       - name: Verify bundle declares no AD_ID permission
@@ -464,6 +492,23 @@ jobs:
                   time.sleep(min(60, 5 * 2 ** (attempt-1)))
           PY
 
+      - name: Publish built APK and AAB to tag release
+        if: ${{ env.PUBLISH_BUILT_GITHUB_RELEASE == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$TARGET_REF_TYPE" = tag || { echo "::error::Built-asset GitHub release currently requires a tag trigger" >&2; exit 1; }
+          assets=("$AAB_PATH")
+          if [ -n "${APK_PATH:-}" ]; then assets+=("$APK_PATH"); fi
+          title="${RELEASE_APP_NAME:-${{ inputs.target_repository_name }}} $TARGET_REF_NAME"
+          if gh release view "$TARGET_REF_NAME" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TARGET_REF_NAME" --repo "$TARGET_REPOSITORY" --title "$title"
+            gh release upload "$TARGET_REF_NAME" "${assets[@]}" --repo "$TARGET_REPOSITORY" --clobber
+          else
+            gh release create "$TARGET_REF_NAME" "${assets[@]}" --repo "$TARGET_REPOSITORY" --target "$TARGET_SHA" --generate-notes --title "$title"
+          fi
       - name: Build universal APK from published bundle
         if: ${{ env.PUBLISH_GITHUB_RELEASE == 'true' }}
         env:

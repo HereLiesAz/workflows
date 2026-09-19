@@ -132,14 +132,14 @@
       "semantic_purpose": "Android Play Release"
     },
     ".github/workflows/release-apk.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/guillotine-release-apk.yml",
-      "implementation_sha256": "e1a80a63ce7ee353235da4f9b2a08878a6f4af0261d585cf0823753800d57f5a",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/android-github-release.yml",
       "name": "Compile and Release APK",
       "registry_source": "registry/1269434928/release-apk-da6a1dd6.source.yml",
       "source_sha256": "f74f4d32dcd258fd1e13fccce422b3900ce7eb50cfbd20e31a5dc9848f179348",
       "status": "active",
-      "updated_at": "2026-09-17T17:46:10+00:00"
+      "updated_at": "2026-09-17T17:46:10+00:00",
+      "semantic_purpose": "Android GitHub Release"
     },
     ".github/workflows/release-desktop.yml": {
       "binding": "repository",

@@ -153,14 +153,20 @@ jobs:
             echo "JAVA_VERSION=$(jq -r '.java_version // \"21\"' <<<\"$PROFILE_JSON\")"
             echo "INJECT_SIGNING_ARGS=$(jq -r '.inject_signing_args // false' <<<\"$PROFILE_JSON\")"
             echo "ARCORE_LOCAL_PROPERTIES=$(jq -r '.arcore_local_properties // false' <<<\"$PROFILE_JSON\")"
+            echo "GOOGLE_SERVICES_MODE=$(jq -r '.google_services // \"template\"' <<<\"$PROFILE_JSON\")"
             echo "TEST_COMMAND=$(jq -r '.test_command // empty' <<<\"$PROFILE_JSON\")"
             echo "BUILD_COMMAND=$(jq -r '.build_command // \"./gradlew assembleRelease\"' <<<\"$PROFILE_JSON\")"
+            echo "ARTIFACT_GLOB=$(jq -r '.artifact_glob // \"app/build/outputs/apk/*/release/*.apk\"' <<<\"$PROFILE_JSON\")"
+            echo "MAPPING_FILE=$(jq -r '.mapping_file // empty' <<<\"$PROFILE_JSON\")"
+            echo "PERSIST_VERSION=$(jq -r '.persist_version // true' <<<\"$PROFILE_JSON\")"
+            echo "RELEASE_TITLE_STYLE=$(jq -r '.release_title_style // \"simple\"' <<<\"$PROFILE_JSON\")"
             echo "APP_NAME_OVERRIDE=$(jq -r '.app_name // empty' <<<\"$PROFILE_JSON\")"
           } >> "$GITHUB_ENV"
 
       - name: Inject optional project configuration
         env:
-          GOOGLE_SERVICES_API_KEY: ${{ secrets.GOOGLE_SERVICES_API_KEY }}
+          GOOGLE_SERVICES_API_KEY: ${{ secrets.GOOGLE_SERV          GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES }}
+ICES_API_KEY }}
           PROJECT_ID: ${{ secrets.PROJECT_ID }}
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
           CUSTOM_API_KEY: ${{ secrets.CUSTOM_API_KEY }}
@@ -168,9 +174,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ -f app/google-services.json.template ]; then
-            sed -e 's/{{\([^}]*\)}}/${\1}/g' app/google-services.json.template | envsubst > app/google-services.json
-          fi
+          case "$GOOGLE_SERVICES_MODE" in
+            raw)
+              if [ -n "$GOOGLE_SERVICES" ]; then printf '%s' "$GOOGLE_SERVICES" > app/google-services.json; fi
+              ;;
+            template)
+              if [ -f app/google-services.json.template ]; then
+                sed -e 's/{{\([^}]*\)}}/${\1}/g' app/google-services.json.template | envsubst > app/google-services.json
+              fi
+              ;;
+            none) ;;
+            *) echo "::error::Unknown google_services mode: $GOOGLE_SERVICES_MODE" >&2; exit 1 ;;
+          esac
           if [ "$ARCORE_LOCAL_PROPERTIES" = "true" ]; then
             test -n "$ARCORE_API_KEY" || { echo "::error::ARCORE_API_KEY is required by this release profile" >&2; exit 1; }
             printf 'ARCORE_API_KEY=%s\n' "$ARCORE_API_KEY" >> local.properties
@@ -262,15 +277,23 @@ jobs:
           VERSION="${MAJOR}.${MINOR}.${PATCH}.${BUILD}"
           TAG="latest-release-v${MAJOR}.${MINOR}"
           APP_NAME="${APP_NAME_OVERRIDE:-${{ inputs.target_repository_name }}}"
-          APK="$(find app/build/outputs/apk -type f -name '*.apk' -path '*/release/*' | sort | head -1)"
-          test -n "$APK" && test -s "$APK" || { echo "::error::No release APK found" >&2; exit 1; }
+          APK="$(compgen -G "$ARTIFACT_GLOB" | sort | head -1 || true)"
+          test -n "$APK" && test -s "$APK" || { echo "::error::No release APK matched $ARTIFACT_GLOB" >&2; exit 1; }
           ASSET="${APP_NAME}-${VERSION}-release.apk"
           cp "$APK" "$ASSET"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "asset=$ASSET" >> "$GITHUB_OUTPUT"
+          if [ -n "$MAPPING_FILE" ] && [ -f "$MAPPING_FILE" ]; then
+            MAPPING_ASSET="${APP_NAME}-${VERSION}-mapping.txt"
+            cp "$MAPPING_FILE" "$MAPPING_ASSET"
+            echo "mapping_asset=$MAPPING_ASSET" >> "$GITHUB_OUTPUT"
+          else
+            echo "mapping_asset=" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Persist changed version safely
+        if: ${{ env.PERSIST_VERSION == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         shell: bash
@@ -297,6 +320,7 @@ jobs:
           TAG: ${{ steps.release.outputs.tag }}
           VERSION: ${{ steps.release.outputs.version }}
           ASSET: ${{ steps.release.outputs.asset }}
+          MAPPING_ASSET: ${{ steps.release.outputs.mapping_asset }}
         shell: bash
         run: |
           set -euo pipefail
@@ -305,11 +329,18 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -fa "$TAG" -m "Latest Release Build"
           git push origin "$TAG" --force
+          title="Latest Release ${VERSION}"
+          if [ "$RELEASE_TITLE_STYLE" = "major-minor-version" ]; then
+            title="Latest Release v${MAJOR}.${MINOR} (${VERSION})"
+          fi
           if gh release view "$TAG" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then
-            gh release edit "$TAG" --repo "$TARGET_REPOSITORY" --title "Latest Release ${VERSION}" --notes "Release build from commit $(git rev-parse HEAD)" --latest
+            gh release edit "$TAG" --repo "$TARGET_REPOSITORY" --title "$title" --notes "Release build from commit $(git rev-parse HEAD)" --latest
             gh release upload "$TAG" "$ASSET" --repo "$TARGET_REPOSITORY" --clobber
           else
-            gh release create "$TAG" "$ASSET" --repo "$TARGET_REPOSITORY" --title "Latest Release ${VERSION}" --notes "Release build from commit $(git rev-parse HEAD)" --latest
+            gh release create "$TAG" "$ASSET" --repo "$TARGET_REPOSITORY" --title "$title" --notes "Release build from commit $(git rev-parse HEAD)" --latest
+          fi
+          if [ -n "$MAPPING_ASSET" ] && [ -f "$MAPPING_ASSET" ]; then
+            gh release upload "$TAG" "$MAPPING_ASSET" --repo "$TARGET_REPOSITORY" --clobber
           fi
 
       - name: Cleanup signing material

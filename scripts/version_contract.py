@@ -14,14 +14,18 @@ from typing import Iterable
 
 CANONICAL_KEYS = ("versionMajor", "versionMinor", "versionPatch", "versionBuild")
 ALIASES = {
-    "versionMajor": ("versionMajor", "MAJOR", "VERSION_MAJOR"),
-    "versionMinor": ("versionMinor", "MINOR", "VERSION_MINOR"),
-    "versionPatch": ("versionPatch", "PATCH", "VERSION_PATCH"),
-    "versionBuild": ("versionBuild", "BUILD", "BUILD_NUMBER", "VERSION_BUILD"),
+    "versionMajor": ("versionMajor", "MAJOR", "VERSION_MAJOR", "major"),
+    "versionMinor": ("versionMinor", "MINOR", "VERSION_MINOR", "minor"),
+    "versionPatch": ("versionPatch", "PATCH", "VERSION_PATCH", "patch"),
+    "versionBuild": ("versionBuild", "BUILD", "BUILD_NUMBER", "VERSION_BUILD", "build"),
 }
 VERSION_RE = re.compile(r"(?<!\d)(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?(?!\d)")
 FEATURE_RE = re.compile(
-    r"(?im)(?:^|\n)\s*(?:feat|feature)(?:\([^\n)]*\))?!?:|\[(?:minor|feature)\]|version\s*:\s*minor"
+    r"(?im)(?:^|\n)\s*(?:"
+    r"(?:feat|feature)(?:\([^\n)]*\))?!?:|"
+    r"\[(?:minor|feature)\]|"
+    r"version(?:[-_ ]impact)?\s*:\s*(?:minor|feature)"
+    r")"
 )
 
 
@@ -90,13 +94,18 @@ def _first_int(values: dict[str, str], names: Iterable[str]) -> int | None:
 
 def version_from_properties(text: str) -> Version | None:
     _, values = parse_property_lines(text)
-    parts: list[int] = []
-    for key in CANONICAL_KEYS:
-        value = _first_int(values, ALIASES[key])
-        if value is None:
-            return None
-        parts.append(value)
-    return Version(*parts)
+    major = _first_int(values, ALIASES["versionMajor"])
+    if major is None:
+        return None
+    minor = _first_int(values, ALIASES["versionMinor"])
+    patch = _first_int(values, ALIASES["versionPatch"])
+    build = _first_int(values, ALIASES["versionBuild"])
+    return Version(
+        major,
+        0 if minor is None else minor,
+        0 if patch is None else patch,
+        0 if build is None else build,
+    )
 
 
 def version_from_text(text: str) -> Version | None:
@@ -115,6 +124,11 @@ def version_from_text(text: str) -> Version | None:
 
 def render_properties(existing: str, version: Version) -> str:
     lines, _ = parse_property_lines(existing)
+    if not existing.strip():
+        lines = [
+            "# Canonical version: major.minor.patch.build",
+            "# Major is owner-managed; minor is AI-managed for features; patch is automatic for other source changes; build increments on every compilation.",
+        ]
     canonical = {
         "versionMajor": str(version.major),
         "versionMinor": str(version.minor),
@@ -184,6 +198,26 @@ def commit_message(sha: str) -> str:
     return run("git", "show", "-s", "--format=%B", sha)
 
 
+def commit_messages(previous_source_sha: str, target_sha: str) -> str:
+    if previous_source_sha and previous_source_sha != target_sha:
+        ancestor = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", previous_source_sha, target_sha],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if ancestor.returncode == 0:
+            messages = run(
+                "git",
+                "log",
+                "--format=%B%x00",
+                f"{previous_source_sha}..{target_sha}",
+                check=False,
+            )
+            if messages:
+                return messages
+    return commit_message(target_sha)
+
+
 def classify_next(
     previous: Version,
     previous_source_sha: str,
@@ -205,14 +239,6 @@ def classify_next(
         and source_version.minor > previous.minor
     ):
         return Version(previous.major, source_version.minor, 0, 1), "minor"
-
-    if (
-        source_version is not None
-        and source_version.major == previous.major
-        and source_version.minor == previous.minor
-        and source_version.patch > previous.patch
-    ):
-        return Version(previous.major, previous.minor, source_version.patch, 1), "patch"
 
     if FEATURE_RE.search(message):
         return Version(previous.major, previous.minor + 1, 0, 1), "minor"
@@ -274,7 +300,7 @@ def apply_contract(
             state_source,
             target_sha,
             source_version,
-            commit_message(target_sha),
+            commit_messages(state_source, target_sha),
         )
 
         # Fail early if this build may need an Android versionCode.

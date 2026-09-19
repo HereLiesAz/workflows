@@ -68,10 +68,10 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
     ".github/workflows/android-github-release.yml": {
         "name": "Android GitHub Release",
         "canonical_hash": "41ccb8c30d393fdc42a44d3b208b179f948ebc44e1c316c4e78b76f627f3bb3c",
-            "4574d6f09eca2407de0f4303494e984c4bba5b3edcc035a5903824ce0ef58315",
         "generalized": True,
         "source_hashes": {
             "41ccb8c30d393fdc42a44d3b208b179f948ebc44e1c316c4e78b76f627f3bb3c",
+            "4574d6f09eca2407de0f4303494e984c4bba5b3edcc035a5903824ce0ef58315",
             "09588a228454cd17abb67313111597bf62edf69ac9286a225bed91913b7ffb35",
             "aeb8bc10311d29a49ceb316a824021c2ef6f17847d459bea89ace81f5f96c1df",
             "ccc871738c362676351da341dfbf003900ea0578380395818594fb2ed6852579",
@@ -131,10 +131,10 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
     ".github/workflows/ci-validation.yml": {
         "name": "CI Validation",
         "canonical_hash": "5fe909668facbf1604c5b7b3b84ba42ecff633f5ed2a52a4ba54180d8a0053d0",
-            "52ca995d48319a2c683fa64cd248e8cdab22514d19dd7df731d47adc7db6e3cd",
         "generalized": True,
         "source_hashes": {
             "5fe909668facbf1604c5b7b3b84ba42ecff633f5ed2a52a4ba54180d8a0053d0",
+            "52ca995d48319a2c683fa64cd248e8cdab22514d19dd7df731d47adc7db6e3cd",
             "1e1a288d8b11d79b01237145826c5d0dd03a1398dc40685fefbe5ab1e9ec66e7",
             "76ed7e227ffb3569d5c7ff6dc196e029a9be297c6e18413c0dce509f48d0a1ac",
             "10548e68e51337b353f1bb359e619b9e4e541e09028b3d67bec2ab33f3f65065",

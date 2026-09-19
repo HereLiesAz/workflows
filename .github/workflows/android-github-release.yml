@@ -148,6 +148,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          PROFILE_JSON="$(jq -c 'if type == "string" then fromjson else . end' <<<"$PROFILE_JSON")"
+          jq -e 'type == "object"' >/dev/null <<<"$PROFILE_JSON" || {
+            echo "::error::Android release purpose_profile_json must decode to a JSON object." >&2
+            exit 1
+          }
           {
             echo "SIGNING_MODE=$(jq -r '.signing // "raw-jks"' <<<"$PROFILE_JSON")"
             echo "CHAIN_SECRET=$(jq -r '.chain_secret // "KEYSTORE_CHAIN"' <<<"$PROFILE_JSON")"

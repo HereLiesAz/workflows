@@ -196,7 +196,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Prepare target build
-        if: ${{ matrix.prepare != null && matrix.prepare != '' }}
+        if: ${{ matrix.prepare != null && matrix.prepare != '' && matrix.shell != 'pwsh' }}
         env:
           PREPARE_COMMAND: ${{ matrix.prepare }}
           GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES }}
@@ -204,6 +204,16 @@ jobs:
         run: |
           set -euo pipefail
           bash -eo pipefail -c "$PREPARE_COMMAND"
+
+      - name: Prepare target build on PowerShell
+        if: ${{ matrix.prepare != null && matrix.prepare != '' && matrix.shell == 'pwsh' }}
+        env:
+          PREPARE_COMMAND: ${{ matrix.prepare }}
+          GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Invoke-Expression $env:PREPARE_COMMAND
 
       - name: Build target
         if: ${{ matrix.shell != 'pwsh' }}

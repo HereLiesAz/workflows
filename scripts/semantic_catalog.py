@@ -152,6 +152,15 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "60c8cb4ab8364f08369e2fae3b9a8322825d0a596405966da26a7889e98501a8",
         },
     },
+    ".github/workflows/maven-package-publish.yml": {
+        "name": "Maven Package Publish",
+        "canonical_hash": "968458e29535134b77927dbc8ec6c653ad070e0b6e9cd30f7ac9063544eb14e9",
+        "generalized": True,
+        "source_hashes": {
+            "968458e29535134b77927dbc8ec6c653ad070e0b6e9cd30f7ac9063544eb14e9",
+            "03e2f1e420d12d9cc0a7cdbd64594ac76c6f5025b064f43083b57b0714cf087a",
+        },
+    },
     ".github/workflows/node-package-publish.yml": {
         "name": "Node Package Publish",
         "canonical_hash": "70516095978d4884e183505d261e2485f1b35c7b8835e69d13a726da077ca285",
@@ -184,6 +193,8 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
 }
 
 PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
+    "968458e29535134b77927dbc8ec6c653ad070e0b6e9cd30f7ac9063544eb14e9": {"tool": "maven", "java_version": "17", "publish_command": "mvn --batch-mode deploy"},
+    "03e2f1e420d12d9cc0a7cdbd64594ac76c6f5025b064f43083b57b0714cf087a": {"tool": "gradle", "java_version": "21", "jitpack": True, "build_command": "./gradlew assemble", "publish_command": "./gradlew publish"},
     "57f245d8d8504ca1ef5146ccc3533aecc5d08c45ab5aa9416b3b619ba3c385a9": {
         "kind": "node",
         "node_version": "22",

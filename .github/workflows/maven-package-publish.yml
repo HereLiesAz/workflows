@@ -1,0 +1,171 @@
+# Generalized purpose workflow: Maven Package Publish.
+# Build tool, repository destination, signing, and credentials are profiles rather than separate executors.
+name: Maven Package Publish
+run-name: ${{ inputs.target_repository_name }} · Maven Package Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository: {required: true, type: string}
+      target_repository_id: {required: true, type: string}
+      target_repository_owner: {required: true, type: string}
+      target_repository_owner_id: {required: true, type: string}
+      target_sha: {required: true, type: string}
+      target_check_sha: {required: true, type: string}
+      target_ref: {required: true, type: string}
+      target_ref_name: {required: false, type: string}
+      target_ref_type: {required: false, type: string}
+      target_head_ref: {required: false, type: string}
+      target_base_ref: {required: false, type: string}
+      target_actor: {required: true, type: string}
+      target_actor_id: {required: false, type: string}
+      target_event_name: {required: true, type: string}
+      target_event_json: {required: true, type: string}
+      target_inputs_json: {required: true, type: string}
+      target_vars_json: {required: true, type: string}
+      target_run_id: {required: true, type: string}
+      target_run_number: {required: false, type: string}
+      target_run_attempt: {required: false, type: string}
+      target_workflow_name: {required: true, type: string}
+      source_workflow_path: {required: true, type: string}
+      source_sha256: {required: true, type: string}
+      target_repository_name: {required: true, type: string}
+      purpose_profile_json: {required: true, type: string}
+
+permissions:
+  contents: read
+
+env:
+  TARGET_REPOSITORY: ${{ inputs.target_repository }}
+  TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+  TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+  TARGET_SHA: ${{ inputs.target_sha }}
+  TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+  TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+  TARGET_ACTOR: ${{ inputs.target_actor }}
+  PROFILE_JSON: ${{ inputs.purpose_profile_json }}
+
+jobs:
+  central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo_json="$(gh api "repos/$TARGET_REPOSITORY")"
+          [[ "$(jq -r '.id' <<<"$repo_json")" == "$TARGET_REPOSITORY_ID" ]] || { echo "Repository ID mismatch" >&2; exit 1; }
+          [[ "$(jq -r '.owner.id' <<<"$repo_json")" == "103241502" ]] || { echo "Repository is not owned by HereLiesAz" >&2; exit 1; }
+          [[ "$TARGET_REPOSITORY_OWNER_ID" == "103241502" ]] || { echo "OIDC owner ID mismatch" >&2; exit 1; }
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload="$(jq -n --arg state pending --arg context "$STATUS_CONTEXT" --arg description "Publishing Maven package from HereLiesAz/workflows." --arg target_url "$DETAILS_URL" '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+          gh api --method POST "repos/$TARGET_REPOSITORY/statuses/$TARGET_CHECK_SHA" --input - <<<"$payload"
+
+  publish:
+    needs: central_check_start
+    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    environment: ${{ inputs.target_repository_name }}
+    steps:
+      - name: Wait for earlier package publication for this repository
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          CURRENT_RUN: ${{ github.run_id }}
+          QUEUE_TITLE: ${{ inputs.target_repository_name }} · Maven Package Publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 360); do
+            gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/maven-package-publish.yml/runs?per_page=100" > "$RUNNER_TEMP/maven-runs.json"
+            blockers="$(jq --argjson current "$CURRENT_RUN" --arg title "$QUEUE_TITLE" '[.workflow_runs[] | select((.status == "queued" or .status == "in_progress") and .id < $current and .display_title == $title)] | length' "$RUNNER_TEMP/maven-runs.json")"
+            [ "$blockers" -eq 0 ] && exit 0
+            echo "Waiting behind $blockers earlier Maven publication run(s) for this repository..."
+            sleep 10
+          done
+          echo "::error::Timed out waiting for Maven publication queue" >&2
+          exit 1
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+
+      - name: Set up Java for Gradle/GitHub Packages
+        if: ${{ fromJSON(inputs.purpose_profile_json).tool == 'gradle' }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ fromJSON(inputs.purpose_profile_json).java_version || '21' }}
+          distribution: temurin
+          server-id: github
+          settings-path: ${{ github.workspace }}
+
+      - name: Set up Java for Maven Central
+        if: ${{ fromJSON(inputs.purpose_profile_json).tool == 'maven' }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ fromJSON(inputs.purpose_profile_json).java_version || '17' }}
+          distribution: temurin
+          server-id: central
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: GPG_PASSPHRASE
+
+      - name: Set up Gradle
+        if: ${{ fromJSON(inputs.purpose_profile_json).tool == 'gradle' }}
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build before publish
+        if: ${{ fromJSON(inputs.purpose_profile_json).build_command != null && fromJSON(inputs.purpose_profile_json).build_command != '' }}
+        env:
+          JITPACK: ${{ fromJSON(inputs.purpose_profile_json).jitpack && 'true' || '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -eo pipefail -c "$(jq -r '.build_command' <<<"$PROFILE_JSON")"
+
+      - name: Publish package
+        env:
+          JITPACK: ${{ fromJSON(inputs.purpose_profile_json).jitpack && 'true' || '' }}
+          USERNAME: ${{ inputs.target_actor }}
+          TOKEN: ${{ secrets.GH_TOKEN }}
+          MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -eo pipefail -c "$(jq -r '.publish_command' <<<"$PROFILE_JSON")"
+
+  central_check_finish:
+    if: ${{ always() }}
+    needs: [central_check_start, publish]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$FAILED" = true ]; then state=failure; description="Maven package publication failed."; else state=success; description="Maven package publication completed successfully."; fi
+          payload="$(jq -n --arg state "$state" --arg context "$STATUS_CONTEXT" --arg description "$description" --arg target_url "$DETAILS_URL" '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+          gh api --method POST "repos/$TARGET_REPOSITORY/statuses/$TARGET_CHECK_SHA" --input - <<<"$payload"

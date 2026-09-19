@@ -11,14 +11,14 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/deploy-maven-central.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/kbox2d-deploy-maven-central.yml",
-      "implementation_sha256": "57a2a8a9493f9ef7ed89209eabb305b586118242bffbefb99df46b7f77700f83",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/maven-package-publish.yml",
       "name": "Publish package to the Maven Central Repository",
       "registry_source": "registry/1035440042/deploy-maven-central-5eca88cd.source.yml",
       "source_sha256": "968458e29535134b77927dbc8ec6c653ad070e0b6e9cd30f7ac9063544eb14e9",
       "status": "active",
-      "updated_at": "2026-09-15T03:05:59+00:00"
+      "updated_at": "2026-09-15T03:05:59+00:00",
+      "semantic_purpose": "Maven Package Publish"
     },
     ".github/workflows/gh-release.yml": {
       "binding": "repository",
@@ -33,7 +33,7 @@
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "\ud83d\ude08 Glee Audit",
+      "name": "😈 Glee Audit",
       "registry_source": "registry/1035440042/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",

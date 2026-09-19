@@ -129,14 +129,14 @@
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/gradle-publish.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/aznavrail-gradle-publish.yml",
-      "implementation_sha256": "41afc1fa7ad4b01808470fdd9c7073f066b3806f90642086f062364e7b675851",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/maven-package-publish.yml",
       "name": "Gradle Package",
       "registry_source": "registry/1038280487/gradle-publish-2f015cef.source.yml",
       "source_sha256": "03e2f1e420d12d9cc0a7cdbd64594ac76c6f5025b064f43083b57b0714cf087a",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "Maven Package Publish"
     },
     ".github/workflows/jekyll-gh-pages.yml": {
       "blockers": [

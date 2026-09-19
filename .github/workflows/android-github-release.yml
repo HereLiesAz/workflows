@@ -165,8 +165,8 @@ jobs:
 
       - name: Inject optional project configuration
         env:
-          GOOGLE_SERVICES_API_KEY: ${{ secrets.GOOGLE_SERV          GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES }}
-ICES_API_KEY }}
+          GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES }}
+          GOOGLE_SERVICES_API_KEY: ${{ secrets.GOOGLE_SERVICES_API_KEY }}
           PROJECT_ID: ${{ secrets.PROJECT_ID }}
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
           CUSTOM_API_KEY: ${{ secrets.CUSTOM_API_KEY }}

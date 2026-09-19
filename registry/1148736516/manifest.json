@@ -11,14 +11,14 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/android-ci.yml": {
-      "blockers": [
-        "job 'build-and-release' step 8 uses actions/github-script with runner-repository context"
-      ],
+      "binding": "curated",
+      "central_workflow": ".github/workflows/ci-validation.yml",
       "name": "Android CI",
       "registry_source": "registry/1148736516/android-ci-3798bddf.source.yml",
-      "source_sha256": "f648cd6f5789f3e09cacb9ff9a1f8dd1132f7ac3223f14587757ae9f3474302e",
-      "status": "local",
-      "updated_at": "2026-09-14T02:05:41+00:00"
+      "semantic_purpose": "CI Validation",
+      "source_sha256": "52ca995d48319a2c683fa64cd248e8cdab22514d19dd7df731d47adc7db6e3cd",
+      "status": "active",
+      "updated_at": "2026-09-19T21:15:00+00:00"
     },
     ".github/workflows/android-release-aab.yml": {
       "binding": "curated",
@@ -31,13 +31,14 @@
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/android-release-apk.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/hereliesaz-admin-apk-build.yml",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/android-github-release.yml",
       "name": "Build & Publish Android APK",
       "registry_source": "registry/1148736516/android-release-apk-f927747f.source.yml",
       "semantic_purpose": "Android GitHub Release",
+      "source_sha256": "4574d6f09eca2407de0f4303494e984c4bba5b3edcc035a5903824ce0ef58315",
       "status": "active",
-      "updated_at": "2026-09-19T20:10:00+00:00"
+      "updated_at": "2026-09-19T21:15:00+00:00"
     },
     ".github/workflows/android-update-libs.yml": {
       "binding": "curated",

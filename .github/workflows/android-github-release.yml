@@ -159,6 +159,10 @@ jobs:
             echo "ARTIFACT_GLOB=$(jq -r '.artifact_glob // \"app/build/outputs/apk/*/release/*.apk\"' <<<\"$PROFILE_JSON\")"
             echo "MAPPING_FILE=$(jq -r '.mapping_file // empty' <<<\"$PROFILE_JSON\")"
             echo "PERSIST_VERSION=$(jq -r '.persist_version // true' <<<\"$PROFILE_JSON\")"
+            echo "VERSION_MODE=$(jq -r '.version_mode // \"version-properties\"' <<<\"$PROFILE_JSON\")"
+            echo "ASSET_NAME_MODE=$(jq -r '.asset_name_mode // \"normalized\"' <<<\"$PROFILE_JSON\")"
+            echo "MOVE_TAG=$(jq -r '.move_tag // true' <<<\"$PROFILE_JSON\")"
+            echo "PRERELEASE=$(jq -r '.prerelease // false' <<<\"$PROFILE_JSON\")"
             echo "RELEASE_TITLE_STYLE=$(jq -r '.release_title_style // \"simple\"' <<<\"$PROFILE_JSON\")"
             echo "APP_NAME_OVERRIDE=$(jq -r '.app_name // empty' <<<\"$PROFILE_JSON\")"
           } >> "$GITHUB_ENV"
@@ -207,6 +211,8 @@ jobs:
             raw-jks)
               test -n "$KEYSTORE_RAW" || { echo "::error::KEYSTORE_RAW is required" >&2; exit 1; }
               printf '%s' "$KEYSTORE_RAW" | base64 --decode > app/keystore.jks
+              ;;
+            project)
               ;;
             pem-chain)
               chain="$KEYSTORE_CHAIN"
@@ -268,19 +274,39 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f version.properties || { echo "::error::version.properties is required" >&2; exit 1; }
-          MAJOR="$(grep -E '^versionMajor=' version.properties | cut -d= -f2 | tr -d '\r ')"
-          MINOR="$(grep -E '^versionMinor=' version.properties | cut -d= -f2 | tr -d '\r ')"
-          PATCH="$(grep -E '^versionPatch=' version.properties | cut -d= -f2 | tr -d '\r ')"
-          BUILD="$(grep -E '^versionBuild=' version.properties | cut -d= -f2 | tr -d '\r ')"
-          for value in MAJOR MINOR PATCH BUILD; do test -n "${!value}" || { echo "::error::Missing $value in version.properties" >&2; exit 1; }; done
-          VERSION="${MAJOR}.${MINOR}.${PATCH}.${BUILD}"
-          TAG="latest-release-v${MAJOR}.${MINOR}"
+          case "$VERSION_MODE" in
+            version-properties)
+              test -f version.properties || { echo "::error::version.properties is required" >&2; exit 1; }
+              MAJOR="$(grep -E '^versionMajor=' version.properties | cut -d= -f2 | tr -d '\r ')"
+              MINOR="$(grep -E '^versionMinor=' version.properties | cut -d= -f2 | tr -d '\r ')"
+              PATCH="$(grep -E '^versionPatch=' version.properties | cut -d= -f2 | tr -d '\r ')"
+              BUILD="$(grep -E '^versionBuild=' version.properties | cut -d= -f2 | tr -d '\r ')"
+              for value in MAJOR MINOR PATCH BUILD; do test -n "${!value}" || { echo "::error::Missing $value in version.properties" >&2; exit 1; }; done
+              VERSION="${MAJOR}.${MINOR}.${PATCH}.${BUILD}"
+              TAG="latest-release-v${MAJOR}.${MINOR}"
+              ;;
+            source-tag)
+              test -n "$TARGET_REF_NAME" || { echo "::error::source-tag versioning requires a tag ref" >&2; exit 1; }
+              TAG="$TARGET_REF_NAME"
+              VERSION="${TAG#v}"
+              MAJOR="${VERSION%%.*}"
+              rest="${VERSION#*.}"
+              MINOR="${rest%%.*}"
+              ;;
+            *)
+              echo "::error::Unknown version_mode: $VERSION_MODE" >&2
+              exit 1
+              ;;
+          esac
           APP_NAME="${APP_NAME_OVERRIDE:-${{ inputs.target_repository_name }}}"
           APK="$(compgen -G "$ARTIFACT_GLOB" | sort | head -1 || true)"
           test -n "$APK" && test -s "$APK" || { echo "::error::No release APK matched $ARTIFACT_GLOB" >&2; exit 1; }
-          ASSET="${APP_NAME}-${VERSION}-release.apk"
-          cp "$APK" "$ASSET"
+          if [ "$ASSET_NAME_MODE" = "preserve" ]; then
+            ASSET="$APK"
+          else
+            ASSET="${APP_NAME}-${VERSION}-release.apk"
+            cp "$APK" "$ASSET"
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "asset=$ASSET" >> "$GITHUB_OUTPUT"
@@ -327,17 +353,23 @@ jobs:
           gh auth setup-git
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -fa "$TAG" -m "Latest Release Build"
-          git push origin "$TAG" --force
+          if [ "$MOVE_TAG" = "true" ]; then
+            git tag -fa "$TAG" -m "Latest Release Build"
+            git push origin "$TAG" --force
+          fi
           title="Latest Release ${VERSION}"
           if [ "$RELEASE_TITLE_STYLE" = "major-minor-version" ]; then
             title="Latest Release v${MAJOR}.${MINOR} (${VERSION})"
+          elif [ "$RELEASE_TITLE_STYLE" = "tag" ]; then
+            title="$TAG"
           fi
+          prerelease_flag=""
+          if [ "$PRERELEASE" = "true" ]; then prerelease_flag="--prerelease"; fi
           if gh release view "$TAG" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then
-            gh release edit "$TAG" --repo "$TARGET_REPOSITORY" --title "$title" --notes "Release build from commit $(git rev-parse HEAD)" --latest
+            gh release edit "$TAG" --repo "$TARGET_REPOSITORY" --title "$title" --notes "Release build from commit $(git rev-parse HEAD)" $prerelease_flag
             gh release upload "$TAG" "$ASSET" --repo "$TARGET_REPOSITORY" --clobber
           else
-            gh release create "$TAG" "$ASSET" --repo "$TARGET_REPOSITORY" --title "$title" --notes "Release build from commit $(git rev-parse HEAD)" --latest
+            gh release create "$TAG" "$ASSET" --repo "$TARGET_REPOSITORY" --title "$title" --notes "Release build from commit $(git rev-parse HEAD)" $prerelease_flag
           fi
           if [ -n "$MAPPING_ASSET" ] && [ -f "$MAPPING_ASSET" ]; then
             gh release upload "$TAG" "$MAPPING_ASSET" --repo "$TARGET_REPOSITORY" --clobber

@@ -7,6 +7,9 @@ import os
 import re
 import time
 import urllib.parse
+from pathlib import Path
+
+from ruamel.yaml import YAML
 
 from sync_repository import (
     CENTRAL_REPOSITORY,
@@ -22,6 +25,66 @@ try:
 except ImportError:
     from semantic_catalog import purpose_profile_for_source, uses_purpose_profile, uses_target_repository_name
 
+
+
+ROOT = Path(__file__).resolve().parents[1]
+MAX_WORKFLOW_DISPATCH_INPUTS = 25
+
+
+def declared_dispatch_inputs(workflow_path: str) -> dict[str, object]:
+    """Return the exact workflow_dispatch input contract for a central workflow."""
+    path = ROOT / workflow_path
+    if not path.is_file():
+        raise RuntimeError(f"Central workflow file is missing: {workflow_path}")
+
+    doc = YAML(typ="safe").load(path.read_text(encoding="utf-8")) or {}
+    on_value = doc.get("on") or {}
+    dispatch = on_value.get("workflow_dispatch") if isinstance(on_value, dict) else None
+    inputs = (dispatch or {}).get("inputs") if isinstance(dispatch, dict) else None
+    if inputs is None:
+        return {}
+    if not isinstance(inputs, dict):
+        raise RuntimeError(f"Central workflow has invalid workflow_dispatch inputs: {workflow_path}")
+    if len(inputs) > MAX_WORKFLOW_DISPATCH_INPUTS:
+        raise RuntimeError(
+            f"Central workflow declares {len(inputs)} workflow_dispatch inputs; "
+            f"GitHub allows at most {MAX_WORKFLOW_DISPATCH_INPUTS}: {workflow_path}"
+        )
+    return inputs
+
+
+def conform_dispatch_inputs(
+    workflow_path: str,
+    candidate_inputs: dict[str, str],
+) -> dict[str, str]:
+    """Send only keys the destination workflow actually declares, and verify required keys."""
+    declared = declared_dispatch_inputs(workflow_path)
+    allowed = set(declared)
+    dropped = sorted(set(candidate_inputs) - allowed)
+    if dropped:
+        print(
+            json.dumps(
+                {
+                    "status": "dispatch-inputs-filtered",
+                    "workflow": workflow_path,
+                    "dropped": dropped,
+                },
+                sort_keys=True,
+            )
+        )
+
+    filtered = {key: value for key, value in candidate_inputs.items() if key in allowed}
+    missing_required = [
+        key
+        for key, spec in declared.items()
+        if isinstance(spec, dict) and spec.get("required") is True and key not in filtered
+    ]
+    if missing_required:
+        raise RuntimeError(
+            f"Dispatch is missing required inputs for {workflow_path}: "
+            + ", ".join(sorted(missing_required))
+        )
+    return filtered
 
 def require(value: str, name: str) -> str:
     if value is None or value == "":
@@ -131,11 +194,16 @@ def main() -> int:
         dispatch_inputs["target_repository_name"] = repository.rsplit("/", 1)[-1]
 
     if uses_purpose_profile(central_workflow):
-        # Generalized workflows add target_repository_name + purpose_profile_json.
-        # GitHub workflow_dispatch accepts at most 25 properties, so omit this
-        # diagnostic-only field for profile-driven dispatches.
-        dispatch_inputs.pop("target_workflow_ref", None)
-        dispatch_inputs["purpose_profile_json"] = json.dumps(purpose_profile_for_source(source_sha256) or {}, separators=(",", ":"))
+        dispatch_inputs["purpose_profile_json"] = json.dumps(
+            purpose_profile_for_source(source_sha256) or {},
+            separators=(",", ":"),
+        )
+
+    # GitHub rejects workflow_dispatch when the request includes even one undeclared property.
+    # Build the candidate metadata once, then conform it to the destination workflow's actual
+    # contract. This makes generalized workflows safe at the 25-input ceiling and prevents future
+    # schema changes from silently turning into HTTP 422 failures.
+    dispatch_inputs = conform_dispatch_inputs(central_workflow, dispatch_inputs)
 
     body = {"ref": "main", "inputs": dispatch_inputs}
     endpoint = f"/repos/{CENTRAL_REPOSITORY}/actions/workflows/{workflow_id}/dispatches"

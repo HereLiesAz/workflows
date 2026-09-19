@@ -187,6 +187,8 @@ def audit() -> tuple[list[str], dict[str, int]]:
         inputs = dispatch.get("inputs") if isinstance(dispatch, dict) else None
         if not isinstance(inputs, dict) or "target_repository_name" not in inputs:
             errors.append(f"{central}: semantic workflow is missing target_repository_name input")
+        elif len(inputs) > 25:
+            errors.append(f"{central}: workflow_dispatch declares {len(inputs)} inputs; GitHub allows at most 25")
         for job_id, job in (doc.get("jobs") or {}).items():
             if not isinstance(job, dict):
                 continue

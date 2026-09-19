@@ -60,14 +60,14 @@
       "updated_at": "2026-09-15T03:17:47+00:00"
     },
     ".github/workflows/release.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/illumera-release.yml",
-      "implementation_sha256": "9ac5706db1ce1f8defe3dd845431ec54c9a862ce3272162766e4408990aa639c",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/android-play-release.yml",
       "name": "Build and Release APK + Play AAB",
       "registry_source": "registry/1345505866/release-16911b98.source.yml",
       "source_sha256": "a95687c1a4f8af0ad53e5d420d557fc7237dd2f97d70d63201ac4cdff6edb6c6",
       "status": "active",
-      "updated_at": "2026-09-15T03:17:50+00:00"
+      "updated_at": "2026-09-15T03:17:50+00:00",
+      "semantic_purpose": "Android Play Release"
     },
     ".github/workflows/temp-dispatch-release.yml": {
       "name": "Temporary corrected release dispatch",

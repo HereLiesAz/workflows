@@ -50,14 +50,25 @@ jobs:
           tag="v$version"
           source_path=".github/workflows/morphont-publish.yml"
           source_hash="$(jq -r --arg path "$source_path" '.workflows[$path].source_sha256 // empty' registry/1356357185/manifest.json)"
-          [[ -n "$source_hash" ]] || {
-            echo "Morphont publisher is not registered in the central manifest." >&2
+          central_workflow="$(jq -r --arg path "$source_path" '.workflows[$path].central_workflow // empty' registry/1356357185/manifest.json)"
+          [[ -n "$source_hash" && "$central_workflow" == ".github/workflows/android-play-release.yml" ]] || {
+            echo "Morphont publisher is not registered to the canonical Android publisher." >&2
             exit 1
           }
+          profile_json="$(SOURCE_HASH="$source_hash" python - <<'PY'
+import json, os, sys
+sys.path.insert(0, "scripts")
+from semantic_catalog import purpose_profile_for_source
+profile = purpose_profile_for_source(os.environ["SOURCE_HASH"])
+if not profile:
+    raise SystemExit("Morphont release profile is missing")
+print(json.dumps(profile, separators=(",", ":")))
+PY
+          )"
 
           event_json="$(jq -nc --arg ref "refs/tags/$tag" --arg ref_name "$tag" '{ref:$ref,ref_name:$ref_name,ref_type:"tag"}')"
 
-          gh workflow run morphont-publish.yml \
+          gh workflow run android-play-release.yml \
             --repo HereLiesAz/workflows \
             --ref main \
             -f target_repository=HereLiesAz/morphont \
@@ -77,8 +88,10 @@ jobs:
             -f target_run_id="$GITHUB_RUN_ID" \
             -f target_run_number="$GITHUB_RUN_NUMBER" \
             -f target_run_attempt="$GITHUB_RUN_ATTEMPT" \
-            -f target_workflow_name='Publish Android [central proxy]' \
+            -f target_workflow_name='Publish Android' \
             -f source_workflow_path="$source_path" \
-            -f source_sha256="$source_hash"
+            -f source_sha256="$source_hash" \
+            -f target_repository_name=morphont \
+            -f purpose_profile_json="$profile_json"
 
           echo "Dispatched Morphont $tag from $target_sha through the centralized publisher."

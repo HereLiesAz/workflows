@@ -55,16 +55,7 @@ jobs:
             echo "Morphont publisher is not registered to the canonical Android publisher." >&2
             exit 1
           }
-          profile_json="$(SOURCE_HASH="$source_hash" python - <<'PY'
-import json, os, sys
-sys.path.insert(0, "scripts")
-from semantic_catalog import purpose_profile_for_source
-profile = purpose_profile_for_source(os.environ["SOURCE_HASH"])
-if not profile:
-    raise SystemExit("Morphont release profile is missing")
-print(json.dumps(profile, separators=(",", ":")))
-PY
-          )"
+          profile_json="$(SOURCE_HASH="$source_hash" python -c 'import json, os, sys; sys.path.insert(0, "scripts"); from semantic_catalog import purpose_profile_for_source; profile=purpose_profile_for_source(os.environ["SOURCE_HASH"]); assert profile, "Morphont release profile is missing"; print(json.dumps(profile, separators=(",", ":")))' )"
 
           event_json="$(jq -nc --arg ref "refs/tags/$tag" --arg ref_name "$tag" '{ref:$ref,ref_name:$ref_name,ref_type:"tag"}')"
 

@@ -399,22 +399,25 @@ jobs:
               args="-P${VERSION_ARG}=${code}"
               ;;
             play-highest)
-              python -m pip install --quiet google-api-python-client google-auth
+              python -m pip install --quiet google-api-python-client google-auth google-auth-httplib2
               code="$(PLAY_PACKAGE="$package" python - <<'PY'
           import json, os
+          import httplib2
           from google.oauth2 import service_account
+          from google_auth_httplib2 import AuthorizedHttp
           from googleapiclient.discovery import build
           info=json.loads(os.environ['PLAY_SERVICE_ACCOUNT_JSON'])
           creds=service_account.Credentials.from_service_account_info(info, scopes=['https://www.googleapis.com/auth/androidpublisher'])
-          svc=build('androidpublisher','v3',credentials=creds,cache_discovery=False)
+          http=AuthorizedHttp(creds, http=httplib2.Http(timeout=180))
+          svc=build('androidpublisher','v3',http=http,cache_discovery=False)
           package=os.environ['PLAY_PACKAGE']
-          edit=svc.edits().insert(packageName=package,body={}).execute()['id']
+          edit=svc.edits().insert(packageName=package,body={}).execute(num_retries=5)['id']
           try:
-              tracks=svc.edits().tracks().list(packageName=package,editId=edit).execute().get('tracks',[])
+              tracks=svc.edits().tracks().list(packageName=package,editId=edit).execute(num_retries=5).get('tracks',[])
               codes=[int(v) for t in tracks for r in t.get('releases',[]) for v in r.get('versionCodes',[])]
               print((max(codes) if codes else 0)+1)
           finally:
-              svc.edits().delete(packageName=package,editId=edit).execute()
+              svc.edits().delete(packageName=package,editId=edit).execute(num_retries=5)
           PY
               )"
               args="-P${VERSION_ARG}=${code}"
@@ -503,55 +506,111 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install --quiet google-api-python-client google-auth
+          python -m pip install --quiet google-api-python-client google-auth google-auth-httplib2
           python - <<'PY'
           import json, os, time
+          import httplib2
           from google.oauth2 import service_account
+          from google_auth_httplib2 import AuthorizedHttp
           from googleapiclient.discovery import build
           from googleapiclient.http import MediaFileUpload
           from googleapiclient.errors import HttpError
+
+          HTTP_TIMEOUT_SECONDS=180
+          REQUEST_RETRIES=5
+          EDIT_ATTEMPTS=6
+          UPLOAD_CHUNK_BYTES=8 * 1024 * 1024
+
           info=json.loads(os.environ['PLAY_SERVICE_ACCOUNT_JSON'])
-          creds=service_account.Credentials.from_service_account_info(info, scopes=['https://www.googleapis.com/auth/androidpublisher'])
-          svc=build('androidpublisher','v3',credentials=creds,cache_discovery=False)
+          creds=service_account.Credentials.from_service_account_info(
+              info,
+              scopes=['https://www.googleapis.com/auth/androidpublisher'],
+          )
+          http=AuthorizedHttp(creds, http=httplib2.Http(timeout=HTTP_TIMEOUT_SECONDS))
+          svc=build('androidpublisher','v3',http=http,cache_discovery=False)
           package=os.environ['PACKAGE_NAME']
           aab=os.environ['AAB_PATH']
           tracks=json.loads(os.environ['TRACKS_JSON'])
-          for attempt in range(1,7):
+
+          def execute(request, retries=REQUEST_RETRIES):
+              return request.execute(num_retries=retries)
+
+          def upload_bundle(edit_id):
+              request=svc.edits().bundles().upload(
+                  packageName=package,
+                  editId=edit_id,
+                  media_body=MediaFileUpload(
+                      aab,
+                      mimetype='application/octet-stream',
+                      chunksize=UPLOAD_CHUNK_BYTES,
+                      resumable=True,
+                  ),
+              )
+              response=None
+              while response is None:
+                  status,response=request.next_chunk(num_retries=REQUEST_RETRIES)
+                  if status is not None:
+                      print(f'Play bundle upload: {status.progress() * 100:.0f}%', flush=True)
+              return response
+
+          transient=(HttpError, TimeoutError, ConnectionError, httplib2.HttpLib2Error)
+
+          for attempt in range(1,EDIT_ATTEMPTS + 1):
+              edit=None
               try:
-                  edit=svc.edits().insert(packageName=package,body={}).execute()['id']
-                  bundle=svc.edits().bundles().upload(packageName=package,editId=edit,media_body=MediaFileUpload(aab,mimetype='application/octet-stream')).execute()
+                  edit=execute(svc.edits().insert(packageName=package,body={}))['id']
+                  bundle=upload_bundle(edit)
                   code=str(bundle['versionCode'])
                   mapping=os.environ.get('MAPPING_FILE','')
                   if mapping and os.path.isfile(mapping):
-                      svc.edits().deobfuscationfiles().upload(
+                      execute(svc.edits().deobfuscationfiles().upload(
                           packageName=package,
                           editId=edit,
                           apkVersionCode=code,
                           deobfuscationFileType='proguard',
                           media_body=MediaFileUpload(mapping,mimetype='text/plain'),
-                      ).execute()
+                      ))
                   for spec in tracks:
                       release={'versionCodes':[code],'status':spec['status']}
                       if spec.get('name'):
                           release['name']=os.path.expandvars(str(spec['name']))
                       releases=[release]
                       if spec.get('preserve_existing'):
-                          current=svc.edits().tracks().get(packageName=package,editId=edit,track=spec['track']).execute()
+                          current=execute(svc.edits().tracks().get(
+                              packageName=package,
+                              editId=edit,
+                              track=spec['track'],
+                          ))
                           releases=[
                               item for item in current.get('releases', [])
                               if item.get('status') != 'draft'
                               and code not in [str(value) for value in item.get('versionCodes', [])]
                           ] + [release]
                       body={'track':spec['track'],'releases':releases}
-                      svc.edits().tracks().update(packageName=package,editId=edit,track=spec['track'],body=body).execute()
-                  svc.edits().commit(packageName=package,editId=edit).execute()
+                      execute(svc.edits().tracks().update(
+                          packageName=package,
+                          editId=edit,
+                          track=spec['track'],
+                          body=body,
+                      ))
+                  execute(svc.edits().commit(packageName=package,editId=edit))
                   print(f'Published versionCode {code} to {tracks}')
                   break
-              except HttpError as exc:
-                  if attempt == 6:
+              except transient as exc:
+                  if edit:
+                      try:
+                          execute(svc.edits().delete(packageName=package,editId=edit), retries=2)
+                      except Exception as cleanup_exc:
+                          print(f'Warning: could not discard failed Play edit {edit}: {cleanup_exc}', flush=True)
+                  if attempt == EDIT_ATTEMPTS:
                       raise
-                  print(f'Play edit attempt {attempt} failed: {exc}; retrying', flush=True)
-                  time.sleep(min(60, 5 * 2 ** (attempt-1)))
+                  wait=min(60, 5 * 2 ** (attempt-1))
+                  print(
+                      f'Play edit attempt {attempt} failed with {type(exc).__name__}: '
+                      f'{exc}; retrying in {wait}s',
+                      flush=True,
+                  )
+                  time.sleep(wait)
           PY
 
       - name: Publish built release assets to GitHub

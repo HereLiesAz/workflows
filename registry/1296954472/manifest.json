@@ -188,24 +188,20 @@
       "updated_at": "2026-09-15T03:04:11+00:00"
     },
     ".github/workflows/publish-package.yml": {
-      "binding": "curated",
-      "central_workflow": ".github/workflows/node-package-publish.yml",
       "name": "Publish single package (retry)",
       "registry_source": "registry/1296954472/publish-package-ec2d7dd3.source.yml",
       "source_sha256": "edf31723ec2cdb361831175f5005831d3812924e21ed639288c057d87172528d",
-      "status": "active",
+      "status": "obsolete",
       "updated_at": "2026-09-15T03:04:13+00:00",
-      "semantic_purpose": "Node Package Publish"
+      "reason": "superseded by release.yml; the canonical release now falls back to staged/backoff publication after a partial or rate-limited publish"
     },
     ".github/workflows/publish-staged.yml": {
-      "binding": "curated",
-      "central_workflow": ".github/workflows/node-package-publish.yml",
       "name": "Publish (staged)",
       "registry_source": "registry/1296954472/publish-staged-e7bd3073.source.yml",
       "source_sha256": "40b44c43d74996ee59074631cdb2746a7910024a716db4f4619ba1e748977c80",
-      "status": "active",
+      "status": "obsolete",
       "updated_at": "2026-09-15T03:04:14+00:00",
-      "semantic_purpose": "Node Package Publish"
+      "reason": "superseded by release.yml; staged publication is now the automatic resilient fallback inside the canonical release action"
     },
     ".github/workflows/registry-sync.yml": {
       "binding": "repository",

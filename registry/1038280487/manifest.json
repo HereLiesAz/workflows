@@ -220,15 +220,12 @@
       "semantic_purpose": "Node Package Publish"
     },
     ".github/workflows/static.yml": {
-      "blockers": [
-        "job 'deploy' deploys to the runner repository's github-pages environment",
-        "job 'deploy' step 4 uses repository-bound action 'actions/deploy-pages@v5'"
-      ],
       "name": "Deploy static content to Pages",
       "registry_source": "registry/1038280487/static-876bb641.source.yml",
       "source_sha256": "8d2cf0a167b2b2b5c1ac7ed44dcf5aafb16c96bfbcddcb93b0e295ae359ee8ea",
-      "status": "local",
-      "updated_at": "2026-09-14T01:00:45+00:00"
+      "status": "obsolete",
+      "updated_at": "2026-09-14T01:00:45+00:00",
+      "reason": "duplicate GitHub Pages deployment; .github/workflows/jekyll-gh-pages.yml is the canonical deployment workflow"
     },
     ".github/workflows/summary.yml": {
       "binding": "curated",

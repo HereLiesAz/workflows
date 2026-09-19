@@ -49,14 +49,14 @@
       "updated_at": "2026-09-17T17:45:50+00:00"
     },
     ".github/workflows/desktop-build.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/guillotine-desktop-build.yml",
-      "implementation_sha256": "f254e0d7be3c8e3f2a095843c8924709bd01b62e4e01d344f9e6846b61583d6a",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/desktop-package.yml",
       "name": "Desktop Build",
       "registry_source": "registry/1269434928/desktop-build-f6dce8a8.source.yml",
       "source_sha256": "acc1dc959c04a0f3c4c42f8768b3aa469dfd5a449d0a02584cb2a98641f8d14b",
       "status": "active",
-      "updated_at": "2026-09-17T17:45:52+00:00"
+      "updated_at": "2026-09-17T17:45:52+00:00",
+      "semantic_purpose": "Desktop Package"
     },
     ".github/workflows/extensions.yml": {
       "name": "Extensions",
@@ -142,14 +142,14 @@
       "semantic_purpose": "Android GitHub Release"
     },
     ".github/workflows/release-desktop.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/guillotine-release-desktop.yml",
-      "implementation_sha256": "4cd8d3970e7d06760ff1b321fb690f7f2b82a4015e8629d6dca6754fc8978e1c",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/desktop-package.yml",
       "name": "Release Desktop Installers",
       "registry_source": "registry/1269434928/release-desktop-884eb667.source.yml",
       "source_sha256": "c6251f2b6b5fe71bea894085048df9338151bc914505f23dbd5f8f37c4721190",
       "status": "active",
-      "updated_at": "2026-09-17T17:46:13+00:00"
+      "updated_at": "2026-09-17T17:46:13+00:00",
+      "semantic_purpose": "Desktop Package"
     },
     ".github/workflows/static.yml": {
       "blockers": [

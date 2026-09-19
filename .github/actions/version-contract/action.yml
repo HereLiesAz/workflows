@@ -1,0 +1,51 @@
+name: HereLiesAz version contract
+description: Resolve and persist the canonical major.minor.patch.build version before a compilation.
+inputs:
+  target_repository:
+    description: owner/repository being compiled
+    required: true
+  target_sha:
+    description: source commit being compiled
+    required: true
+  target_ref_name:
+    description: source ref name
+    required: false
+    default: ""
+  target_ref_type:
+    description: source ref type
+    required: false
+    default: ""
+  token:
+    description: token with write access to the target repository
+    required: true
+outputs:
+  version:
+    value: ${{ steps.version.outputs.version }}
+  major:
+    value: ${{ steps.version.outputs.major }}
+  minor:
+    value: ${{ steps.version.outputs.minor }}
+  patch:
+    value: ${{ steps.version.outputs.patch }}
+  build:
+    value: ${{ steps.version.outputs.build }}
+  bump:
+    value: ${{ steps.version.outputs.bump }}
+  android_version_code:
+    value: ${{ steps.version.outputs.android_version_code }}
+runs:
+  using: composite
+  steps:
+    - name: Apply major.minor.patch.build contract
+      id: version
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+        python "$GITHUB_ACTION_PATH/../../../scripts/version_contract.py" \
+          --repository "${{ inputs.target_repository }}" \
+          --target-sha "${{ inputs.target_sha }}" \
+          --ref-name "${{ inputs.target_ref_name }}" \
+          --ref-type "${{ inputs.target_ref_type }}" \
+          --workspace "$GITHUB_WORKSPACE"

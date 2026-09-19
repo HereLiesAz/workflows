@@ -120,8 +120,19 @@ jobs:
       TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
       TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
-  build_and_release:
+  version_contract:
     needs: central_check_start
+    uses: ./.github/workflows/version-contract.yml
+    with:
+      target_repository: ${{ inputs.target_repository }}
+      target_sha: ${{ inputs.target_sha }}
+      target_ref_name: ${{ inputs.target_ref_name }}
+      target_ref_type: ${{ inputs.target_ref_type }}
+    secrets:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+  build_and_release:
+    needs: version_contract
     if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
     runs-on: ubuntu-latest
     permissions:
@@ -132,6 +143,12 @@ jobs:
       TARGET_SHA: ${{ inputs.target_sha }}
       TARGET_REF_NAME: ${{ inputs.target_ref_name }}
       TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      VERSION: ${{ needs.version_contract.outputs.version }}
+      VERSION_MAJOR: ${{ needs.version_contract.outputs.major }}
+      VERSION_MINOR: ${{ needs.version_contract.outputs.minor }}
+      VERSION_PATCH: ${{ needs.version_contract.outputs.patch }}
+      VERSION_BUILD: ${{ needs.version_contract.outputs.build }}
+      ANDROID_VERSION_CODE: ${{ needs.version_contract.outputs.android_version_code }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -141,6 +158,49 @@ jobs:
           ref: ${{ inputs.target_sha }}
           token: ${{ secrets.GH_TOKEN }}
           persist-credentials: false
+
+      - name: Apply canonical version to checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import os
+
+          path = Path("version.properties")
+          lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+          values = {
+              "versionMajor": os.environ["VERSION_MAJOR"],
+              "versionMinor": os.environ["VERSION_MINOR"],
+              "versionPatch": os.environ["VERSION_PATCH"],
+              "versionBuild": os.environ["VERSION_BUILD"],
+          }
+          aliases = {
+              "MAJOR": values["versionMajor"], "VERSION_MAJOR": values["versionMajor"],
+              "MINOR": values["versionMinor"], "VERSION_MINOR": values["versionMinor"],
+              "PATCH": values["versionPatch"], "VERSION_PATCH": values["versionPatch"],
+              "BUILD": values["versionBuild"], "BUILD_NUMBER": values["versionBuild"], "VERSION_BUILD": values["versionBuild"],
+          }
+          seen = set()
+          out = []
+          for line in lines:
+              stripped = line.strip()
+              if "=" not in stripped or stripped.startswith("#"):
+                  out.append(line)
+                  continue
+              key = stripped.split("=", 1)[0].strip()
+              if key in values:
+                  out.append(f"{key}={values[key]}")
+                  seen.add(key)
+              elif key in aliases:
+                  out.append(f"{key}={aliases[key]}")
+              else:
+                  out.append(line)
+          prefix = [f"{key}={values[key]}" for key in values if key not in seen]
+          if prefix and out and out[0].strip():
+              prefix.append("")
+          path.write_text("\n".join(prefix + out).rstrip() + "\n", encoding="utf-8")
+          PY
 
       - name: Resolve release profile
         env:
@@ -303,55 +363,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          case "$VERSION_MODE" in
-            version-properties)
-              test -f version.properties || { echo "::error::version.properties is required" >&2; exit 1; }
-              MAJOR="$(grep -E '^versionMajor=' version.properties | cut -d= -f2 | tr -d '\r ')"
-              MINOR="$(grep -E '^versionMinor=' version.properties | cut -d= -f2 | tr -d '\r ')"
-              PATCH="$(grep -E '^versionPatch=' version.properties | cut -d= -f2 | tr -d '\r ')"
-              BUILD="$(grep -E '^versionBuild=' version.properties | cut -d= -f2 | tr -d '\r ')"
-              for value in MAJOR MINOR PATCH BUILD; do test -n "${!value}" || { echo "::error::Missing $value in version.properties" >&2; exit 1; }; done
-              VERSION="${MAJOR}.${MINOR}.${PATCH}.${BUILD}"
-              TAG="latest-release-v${MAJOR}.${MINOR}"
-              ;;
-            source-tag)
-              test -n "$TARGET_REF_NAME" || { echo "::error::source-tag versioning requires a tag ref" >&2; exit 1; }
-              TAG="$TARGET_REF_NAME"
-              VERSION="${TAG#v}"
-              MAJOR="${VERSION%%.*}"
-              rest="${VERSION#*.}"
-              MINOR="${rest%%.*}"
-              ;;
-            run-number-base)
-              test -n "$BASE_VERSION" || { echo "::error::run-number-base requires base_version" >&2; exit 1; }
-              test -n "$TARGET_RUN_NUMBER" || { echo "::error::run-number-base requires target_run_number" >&2; exit 1; }
-              VERSION="${BASE_VERSION}.${TARGET_RUN_NUMBER}"
-              TAG="${FIXED_TAG:-v${VERSION}}"
-              MAJOR="${VERSION%%.*}"
-              rest="${VERSION#*.}"
-              MINOR="${rest%%.*}"
-              ;;
-            major-minor-run-count)
-              test -f version.properties || { echo "::error::version.properties is required" >&2; exit 1; }
-              MAJOR="$(grep -E '^MAJOR=' version.properties | cut -d= -f2 | tr -d '\r ')"
-              MINOR="$(grep -E '^MINOR=' version.properties | cut -d= -f2 | tr -d '\r ')"
-              test -n "$MAJOR" && test -n "$MINOR" || { echo "::error::MAJOR/MINOR missing from version.properties" >&2; exit 1; }
-              test -n "$TARGET_RUN_NUMBER" || { echo "::error::major-minor-run-count requires target_run_number" >&2; exit 1; }
-              TAG="v${MAJOR}.${MINOR}"
-              if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
-                git fetch --tags --force
-                PATCH="$(git rev-list "$TAG"..HEAD --count)"
-              else
-                PATCH=0
-              fi
-              BUILD="$TARGET_RUN_NUMBER"
-              VERSION="${MAJOR}.${MINOR}.${PATCH}.${BUILD}"
-              ;;
-            *)
-              echo "::error::Unknown version_mode: $VERSION_MODE" >&2
-              exit 1
-              ;;
-          esac
+          MAJOR="$VERSION_MAJOR"
+          MINOR="$VERSION_MINOR"
+          PATCH="$VERSION_PATCH"
+          BUILD="$VERSION_BUILD"
+          TAG="v$VERSION"
           APP_NAME="${APP_NAME_OVERRIDE:-${{ inputs.target_repository_name }}}"
           APK="$(compgen -G "$ARTIFACT_GLOB" | sort | head -1 || true)"
           test -n "$APK" && test -s "$APK" || { echo "::error::No release APK matched $ARTIFACT_GLOB" >&2; exit 1; }
@@ -383,28 +399,6 @@ jobs:
           else
             echo "mapping_asset=" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Persist changed version safely
-        if: ${{ env.PERSIST_VERSION == 'true' }}
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if git diff --quiet -- version.properties; then
-            echo "version.properties unchanged."
-            exit 0
-          fi
-          test -n "$TARGET_REF_NAME" || { echo "::error::Build changed version.properties but this run has no branch to persist it to" >&2; exit 1; }
-          gh auth setup-git
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch origin "$TARGET_REF_NAME"
-          REMOTE_SHA="$(git rev-parse "origin/$TARGET_REF_NAME")"
-          test "$REMOTE_SHA" = "$TARGET_SHA" || { echo "::error::Target branch advanced during the build; refusing to tag an artifact against a different commit. Re-run the release." >&2; exit 1; }
-          git add version.properties
-          git commit -m "chore: release ${{ steps.release.outputs.version }} [skip ci]"
-          git push origin "HEAD:$TARGET_REF_NAME"
 
       - name: Publish rolling GitHub release
         env:
@@ -469,6 +463,7 @@ jobs:
     if: ${{ always() }}
     needs:
       - central_check_start
+      - version_contract
       - build_and_release
     runs-on: ubuntu-latest
     steps:

@@ -110,7 +110,6 @@ jobs:
       TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
       TARGET_REF: ${{ inputs.target_ref }}
       TARGET_REF_NAME: ${{ inputs.target_ref_name }}
-      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
       TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
       TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
       TARGET_BASE_REF: ${{ inputs.target_base_ref }}
@@ -132,6 +131,7 @@ jobs:
       TARGET_REPOSITORY: ${{ inputs.target_repository }}
       TARGET_SHA: ${{ inputs.target_sha }}
       TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

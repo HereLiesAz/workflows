@@ -31,14 +31,13 @@
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/android-release-apk.yml": {
-      "blockers": [
-        "repository-specific automatic Android APK build plus in-app GitHub Release flow",
-        "workflow may build automatically but must never auto-publish; publishing remains in-app with persisted gh_token"
-      ],
+      "binding": "repository",
+      "central_workflow": ".github/workflows/hereliesaz-admin-apk-build.yml",
       "name": "Build Android APK for In-App Release",
       "registry_source": "registry/1148736516/android-release-apk-f927747f.source.yml",
-      "status": "local",
-      "updated_at": "2026-09-19T06:20:00+00:00"
+      "semantic_purpose": "Android APK Build",
+      "status": "active",
+      "updated_at": "2026-09-19T06:30:00+00:00"
     },
     ".github/workflows/android-update-libs.yml": {
       "binding": "curated",

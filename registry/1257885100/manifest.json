@@ -11,19 +11,19 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/ci.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/sail-ci.yml",
-      "implementation_sha256": "84362f5d8b1687052025f98527e0d6d55d60d9dbc1f042f8bfa98dd8329b9547",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/ci-validation.yml",
       "name": "CI",
       "registry_source": "registry/1257885100/ci-899ce9c2.source.yml",
       "source_sha256": "b39fb843f7d476e46f871a0d9893e572be0c10158021ef707640b7d3f2baa721",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "CI Validation"
     },
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "\ud83d\ude08 Glee Audit",
+      "name": "😈 Glee Audit",
       "registry_source": "registry/1257885100/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",

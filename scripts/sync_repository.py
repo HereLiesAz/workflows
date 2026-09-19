@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import re
+import urllib.parse
 
 try:
     from . import sync_repository_catalog as core
@@ -308,12 +309,86 @@ def build_proxy(source_text: str, source_path: str, source_hash: str, workflow_n
     return header + dump_yaml(doc)
 
 
+def _prune_rebound_repository_workflows(
+    gh,
+    repository: str,
+    before_manifest: dict,
+    after_manifest: dict,
+) -> list[str]:
+    """Delete obsolete repo-specific executors after a source is rebound to a curated purpose workflow."""
+
+    before_entries = before_manifest.get("workflows") or {}
+    after_entries = after_manifest.get("workflows") or {}
+    active_after_paths = {
+        str(entry.get("central_workflow") or "")
+        for entry in after_entries.values()
+        if isinstance(entry, dict) and entry.get("status") == "active" and entry.get("central_workflow")
+    }
+    repo_name = repository.rsplit("/", 1)[-1]
+    repo_slug = re.sub(r"[^a-z0-9]+", "-", repo_name.casefold()).strip("-") or "workflow"
+    prefix = f".github/workflows/{repo_slug}-"
+    removed: list[str] = []
+
+    for source_path, old_entry in before_entries.items():
+        if not isinstance(old_entry, dict) or old_entry.get("status") != "active" or old_entry.get("binding") != "repository":
+            continue
+        old_path = str(old_entry.get("central_workflow") or "")
+        if not old_path.startswith(prefix) or old_path in active_after_paths:
+            continue
+
+        new_entry = after_entries.get(source_path)
+        if isinstance(new_entry, dict) and new_entry.get("status") == "active" and str(new_entry.get("central_workflow") or "") == old_path:
+            continue
+
+        try:
+            text, sha = gh.get_file(core.CENTRAL_REPOSITORY, old_path, ref="main")
+        except core.ApiError as exc:
+            if "-> 404:" in str(exc):
+                continue
+            raise
+
+        generated_markers = (
+            f"# Generated for {repository}:",
+            f"# Repository-scoped central workflow for {repository}:",
+        )
+        if not text.startswith(generated_markers):
+            continue
+
+        endpoint = f"/repos/{core.CENTRAL_REPOSITORY}/contents/{urllib.parse.quote(old_path, safe='/')}"
+        gh.json(
+            "DELETE",
+            endpoint,
+            {
+                "message": f"Remove superseded {repo_name} workflow executor",
+                "sha": sha,
+                "branch": "main",
+            },
+        )
+        removed.append(old_path)
+
+    return removed
+
+
 def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
     # Repository mode is mandatory. The legacy core is retained only as a compiler
     # engine; it is never allowed to publish shared_variant families.
+    repo_info = gh.repo(repository)
+    repository_id = int(repo_info["id"])
+    before_manifest = copy.deepcopy(core.load_manifest(gh, repository_id))
+
     activate_repository_mode(core, repository)
     result = _base_sync_repository(gh, repository, worker_url, dry_run)
     finalize_manifest(gh, core, int(result["repository_id"]), dry_run=dry_run)
+
+    removed: list[str] = []
+    if not dry_run:
+        after_manifest = core.load_manifest(gh, repository_id)
+        removed = _prune_rebound_repository_workflows(
+            gh,
+            repository,
+            before_manifest,
+            after_manifest,
+        )
 
     for row in result.get("results") or []:
         if not isinstance(row, dict):
@@ -322,6 +397,8 @@ def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
         if row.get("status") == "shared":
             row["status"] = "repository"
     result.pop("shared_library_gc", None)
+    if removed:
+        result["repository_workflow_gc"] = removed
     return result
 
 

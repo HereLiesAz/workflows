@@ -340,13 +340,16 @@ def build_report() -> dict[str, Any]:
             behavior_text, uses, step_names = source_behavior(doc)
             effects = effects_for(behavior_text, uses, name, source_path)
             purpose = purpose_for(effects, name, source_path)
+            central_workflow = str(entry.get("central_workflow") or "")
+            if central_workflow == ".github/workflows/ci-validation.yml":
+                purpose = "ci-validation"
             rows.append({
                 "repository": repository,
                 "source_path": source_path,
                 "name": name,
                 "status": status,
                 "binding": str(entry.get("binding") or ""),
-                "central_workflow": str(entry.get("central_workflow") or ""),
+                "central_workflow": central_workflow,
                 "registry_source": str(entry.get("registry_source") or ""),
                 "source_sha256": str(entry.get("source_sha256") or ""),
                 "triggers": trigger_kinds(doc),

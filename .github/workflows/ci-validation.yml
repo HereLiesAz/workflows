@@ -1,0 +1,366 @@
+# Generalized purpose workflow: CI Validation.
+# Language, toolchain, commands, service requirements, and diagnostics are profiles instead of duplicate workflows.
+name: CI Validation
+run-name: ${{ inputs.target_repository_name }} · CI Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_ref:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+      target_repository_name:
+        required: true
+        type: string
+      purpose_profile_json:
+        required: false
+        type: string
+        default: '{}'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-validation-${{ inputs.target_repository_name }}-${{ inputs.target_ref_name || inputs.target_sha }}-${{ inputs.source_workflow_path }}
+  cancel-in-progress: true
+
+jobs:
+  central_check_start:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo_json="$(gh api "repos/${TARGET_REPOSITORY}")"
+          actual_repo_id="$(jq -r '.id' <<<"$repo_json")"
+          actual_owner_id="$(jq -r '.owner.id' <<<"$repo_json")"
+          actual_owner="$(jq -r '.owner.login' <<<"$repo_json")"
+          [[ "$actual_repo_id" == "$TARGET_REPOSITORY_ID" ]] || { echo "Repository ID mismatch" >&2; exit 1; }
+          [[ "$actual_owner_id" == "103241502" ]] || { echo "Repository is not owned by HereLiesAz" >&2; exit 1; }
+          [[ "${actual_owner,,}" == "hereliesaz" ]] || { echo "Repository owner mismatch" >&2; exit 1; }
+          [[ "$TARGET_REPOSITORY_OWNER_ID" == "103241502" ]] || { echo "OIDC owner ID mismatch" >&2; exit 1; }
+
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload="$(jq -n             --arg state "pending"             --arg context "$STATUS_CONTEXT"             --arg description "Running shared CI validation."             --arg target_url "$DETAILS_URL"             '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+          gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload"
+
+  validate_python:
+    needs: central_check_start
+    if: ${{ fromJSON(inputs.purpose_profile_json).kind == 'python' && (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(inputs.purpose_profile_json).os || fromJSON('["ubuntu-latest"]') }}
+        python-version: ${{ fromJSON(inputs.purpose_profile_json).python_versions || fromJSON('["3.12"]') }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - name: Check out target
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Validate Python project
+        env:
+          WORKING_DIRECTORY: ${{ fromJSON(inputs.purpose_profile_json).working_directory || '.' }}
+          INSTALL_COMMAND: ${{ fromJSON(inputs.purpose_profile_json).install_command || '' }}
+          VALIDATE_COMMAND: ${{ fromJSON(inputs.purpose_profile_json).command }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$WORKING_DIRECTORY"
+          if [ -n "$INSTALL_COMMAND" ]; then
+            bash -eo pipefail -c "$INSTALL_COMMAND"
+          fi
+          bash -eo pipefail -c "$VALIDATE_COMMAND"
+
+  validate_node:
+    needs: central_check_start
+    if: ${{ fromJSON(inputs.purpose_profile_json).kind == 'node' && (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pricepilot
+          POSTGRES_PASSWORD: pricepilot
+          POSTGRES_DB: pricepilot
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pricepilot -d pricepilot"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: ${{ fromJSON(inputs.purpose_profile_json).database_url || '' }}
+    steps:
+      - name: Check out target
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+
+      - name: Set up Java
+        if: ${{ fromJSON(inputs.purpose_profile_json).java_version != null && fromJSON(inputs.purpose_profile_json).java_version != '' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ fromJSON(inputs.purpose_profile_json).java_version }}
+
+      - name: Set up pnpm
+        if: ${{ fromJSON(inputs.purpose_profile_json).package_manager == 'pnpm' }}
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ fromJSON(inputs.purpose_profile_json).package_manager_version || '10' }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ fromJSON(inputs.purpose_profile_json).node_version || '22' }}
+
+      - name: Validate Node project
+        env:
+          WORKING_DIRECTORY: ${{ fromJSON(inputs.purpose_profile_json).working_directory || '.' }}
+          VALIDATE_COMMAND: ${{ fromJSON(inputs.purpose_profile_json).command }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$WORKING_DIRECTORY"
+          bash -eo pipefail -c "$VALIDATE_COMMAND"
+
+      - name: Upload validation diagnostics
+        if: ${{ always() && fromJSON(inputs.purpose_profile_json).report_path != null && fromJSON(inputs.purpose_profile_json).report_path != '' && (fromJSON(inputs.purpose_profile_json).report_when != 'failure' || failure()) }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-reports-${{ inputs.target_repository_name }}
+          path: ${{ fromJSON(inputs.purpose_profile_json).report_path }}
+          retention-days: ${{ fromJSON(inputs.purpose_profile_json).retention_days || 7 }}
+          if-no-files-found: ignore
+
+  validate_gradle:
+    needs: central_check_start
+    if: ${{ fromJSON(inputs.purpose_profile_json).kind == 'gradle' && (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Check out target
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+
+      - name: Check out extra dependency repository
+        if: ${{ fromJSON(inputs.purpose_profile_json).extra_checkout_repository != null && fromJSON(inputs.purpose_profile_json).extra_checkout_repository != '' }}
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ fromJSON(inputs.purpose_profile_json).extra_checkout_repository }}
+          ref: ${{ fromJSON(inputs.purpose_profile_json).extra_checkout_ref }}
+          path: ${{ fromJSON(inputs.purpose_profile_json).extra_checkout_path }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+
+      - name: Validate Gradle wrapper
+        if: ${{ fromJSON(inputs.purpose_profile_json).validate_wrapper == true }}
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ fromJSON(inputs.purpose_profile_json).java_version || '21' }}
+
+      - name: Set up Android SDK
+        if: ${{ fromJSON(inputs.purpose_profile_json).setup_android == true }}
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ${{ fromJSON(inputs.purpose_profile_json).android_packages || '' }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Validate Gradle project
+        env:
+          WORKING_DIRECTORY: ${{ fromJSON(inputs.purpose_profile_json).working_directory || '.' }}
+          PRE_COMMAND: ${{ fromJSON(inputs.purpose_profile_json).pre_command || '' }}
+          VALIDATE_COMMAND: ${{ fromJSON(inputs.purpose_profile_json).command }}
+          GITHUB_ACTOR: ${{ inputs.target_actor }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$WORKING_DIRECTORY"
+          if [ -f ./gradlew ]; then chmod +x ./gradlew; fi
+          if [ -n "$PRE_COMMAND" ]; then
+            bash -eo pipefail -c "$PRE_COMMAND"
+          fi
+          bash -eo pipefail -c "$VALIDATE_COMMAND"
+
+      - name: Upload validation diagnostics
+        if: ${{ always() && fromJSON(inputs.purpose_profile_json).report_path != null && fromJSON(inputs.purpose_profile_json).report_path != '' && (fromJSON(inputs.purpose_profile_json).report_when != 'failure' || failure()) }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-reports-${{ inputs.target_repository_name }}
+          path: ${{ fromJSON(inputs.purpose_profile_json).report_path }}
+          retention-days: ${{ fromJSON(inputs.purpose_profile_json).retention_days || 7 }}
+          if-no-files-found: ignore
+
+  validate_docker:
+    needs: central_check_start
+    if: ${{ fromJSON(inputs.purpose_profile_json).kind == 'docker' && (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out target
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+
+      - name: Validate container build
+        env:
+          VALIDATE_COMMAND: ${{ fromJSON(inputs.purpose_profile_json).command }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -eo pipefail -c "$VALIDATE_COMMAND"
+
+  central_check_finish:
+    if: ${{ always() }}
+    needs:
+      - central_check_start
+      - validate_python
+      - validate_node
+      - validate_gradle
+      - validate_docker
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$FAILED" == "true" ]]; then
+            state="failure"
+            description="CI validation failed."
+          else
+            state="success"
+            description="CI validation completed successfully."
+          fi
+          payload="$(jq -n             --arg state "$state"             --arg context "$STATUS_CONTEXT"             --arg description "$description"             --arg target_url "$DETAILS_URL"             '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+          gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload"

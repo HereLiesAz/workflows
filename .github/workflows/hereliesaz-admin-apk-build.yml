@@ -1,4 +1,4 @@
-name: HereLiesAz Admin APK Build
+name: HereLiesAz Admin APK Build & Release
 
 on:
   workflow_call:
@@ -9,10 +9,17 @@ on:
       request_id:
         required: true
         type: string
-      release_signed:
-        required: true
+      notes:
+        required: false
+        type: string
+        default: ""
+      prerelease:
+        required: false
         type: boolean
+        default: false
     secrets:
+      GH_TOKEN:
+        required: false
       ANDROID_KEYSTORE_BASE64:
         required: false
       ANDROID_KEYSTORE_PASSWORD:
@@ -26,11 +33,12 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  build-and-release:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
+
     steps:
-      - name: Resolve build metadata
+      - name: Resolve release metadata
         id: meta
         shell: bash
         env:
@@ -42,10 +50,12 @@ jobs:
           [[ -n "$SAFE_VERSION" ]] || { echo "::error::Version is empty after sanitizing."; exit 1; }
           [[ -n "$REQUEST_ID" ]] || { echo "::error::request_id is required."; exit 1; }
           echo "safe_version=$SAFE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=admin-v$SAFE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "asset=HereLiesAz-Admin-$SAFE_VERSION.apk" >> "$GITHUB_OUTPUT"
 
-      - name: Require stable Android signing material
-        if: ${{ inputs.release_signed }}
+      - name: Require publish and signing credentials
         env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -53,12 +63,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          [[ -n "${GH_TOKEN:-}" ]] || { echo "::error::GH_TOKEN is not configured. Automatic GitHub Release publishing is blocked."; exit 1; }
           [[ -n "${KEYSTORE_B64:-}" ]] || { echo "::error::ANDROID_KEYSTORE_BASE64 is not configured."; exit 1; }
           [[ -n "${KEYSTORE_PASSWORD:-}" ]] || { echo "::error::ANDROID_KEYSTORE_PASSWORD is not configured."; exit 1; }
           [[ -n "${KEY_ALIAS:-}" ]] || { echo "::error::ANDROID_KEY_ALIAS is not configured."; exit 1; }
           [[ -n "${KEY_PASSWORD:-}" ]] || { echo "::error::ANDROID_KEY_PASSWORD is not configured."; exit 1; }
 
-      - name: Checkout caller repository
+      - name: Checkout caller repository without persisted credentials
         uses: actions/checkout@v4
         with:
           persist-credentials: false
@@ -74,8 +85,7 @@ jobs:
         with:
           dependency-graph: disabled
 
-      - name: Decode release keystore
-        if: ${{ inputs.release_signed }}
+      - name: Decode stable release keystore
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         shell: bash
@@ -91,13 +101,7 @@ jobs:
           chmod +x gradlew
           ./gradlew testDebugUnitTest --build-cache --no-daemon --stacktrace
 
-      - name: Build automatic debug APK
-        if: ${{ !inputs.release_signed }}
-        shell: bash
-        run: ./gradlew assembleDebug --build-cache --no-daemon --stacktrace
-
       - name: Build stable signed release APK
-        if: ${{ inputs.release_signed }}
         env:
           VERSION: ${{ inputs.version }}
           ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/hereliesaz-admin-release.jks
@@ -108,27 +112,74 @@ jobs:
         run: |
           set -euo pipefail
           VERSION_CODE=$(( $(date +%s) - 1577836800 ))
-          ./gradlew assembleRelease             -PreleaseVersionName="$VERSION"             -PreleaseVersionCode="$VERSION_CODE"             --build-cache --no-daemon --stacktrace
+          ./gradlew assembleRelease \
+            -PreleaseVersionName="$VERSION" \
+            -PreleaseVersionCode="$VERSION_CODE" \
+            --build-cache --no-daemon --stacktrace
 
       - name: Prepare APK
         shell: bash
         env:
-          SAFE_VERSION: ${{ steps.meta.outputs.safe_version }}
-          RELEASE_SIGNED: ${{ inputs.release_signed }}
+          ASSET: ${{ steps.meta.outputs.asset }}
         run: |
           set -euo pipefail
-          if [[ "$RELEASE_SIGNED" == "true" ]]; then
-            SOURCE="app/build/outputs/apk/release/app-release.apk"
-          else
-            SOURCE="app/build/outputs/apk/debug/app-debug.apk"
-          fi
+          SOURCE="app/build/outputs/apk/release/app-release.apk"
           test -s "$SOURCE" || { echo "::error::Expected APK not found at $SOURCE"; exit 1; }
-          cp "$SOURCE" "HereLiesAz-Admin-$SAFE_VERSION.apk"
+          cp "$SOURCE" "$ASSET"
 
-      - name: Upload APK artifact
+      - name: Upload Actions artifact
         uses: actions/upload-artifact@v4
         with:
           name: admin-apk-${{ inputs.request_id }}
-          path: HereLiesAz-Admin-*.apk
+          path: ${{ steps.meta.outputs.asset }}
           if-no-files-found: error
           retention-days: 7
+
+      - name: Verify GH_TOKEN can publish target repository
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          push="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.permissions.push // false')"
+          [[ "$push" == "true" ]] || { echo "::error::GH_TOKEN cannot write to $GITHUB_REPOSITORY."; exit 1; }
+
+      - name: Refuse to overwrite an existing release
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Release $TAG already exists. Every Android build must publish a new immutable release."
+            exit 1
+          fi
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          ASSET: ${{ steps.meta.outputs.asset }}
+          VERSION: ${{ inputs.version }}
+          NOTES: ${{ inputs.notes }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(
+            release create "$TAG"
+            "$ASSET#HereLiesAz Admin APK $VERSION"
+            --repo "$GITHUB_REPOSITORY"
+            --target "$GITHUB_SHA"
+            --title "HereLiesAz Admin $VERSION"
+          )
+          if [[ -n "$NOTES" ]]; then
+            args+=(--notes "$NOTES")
+          else
+            args+=(--notes "Automatic HereLiesAz Admin Android release for $GITHUB_SHA.")
+          fi
+          if [[ "$PRERELEASE" == "true" ]]; then
+            args+=(--prerelease)
+          fi
+          gh "${args[@]}"

@@ -1,0 +1,68 @@
+name: Canonical version contract
+
+on:
+  workflow_call:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+        default: ""
+      target_ref_type:
+        required: false
+        type: string
+        default: ""
+    secrets:
+      GH_TOKEN:
+        required: true
+    outputs:
+      version:
+        value: ${{ jobs.resolve.outputs.version }}
+      major:
+        value: ${{ jobs.resolve.outputs.major }}
+      minor:
+        value: ${{ jobs.resolve.outputs.minor }}
+      patch:
+        value: ${{ jobs.resolve.outputs.patch }}
+      build:
+        value: ${{ jobs.resolve.outputs.build }}
+      android_version_code:
+        value: ${{ jobs.resolve.outputs.android_version_code }}
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      major: ${{ steps.version.outputs.major }}
+      minor: ${{ steps.version.outputs.minor }}
+      patch: ${{ steps.version.outputs.patch }}
+      build: ${{ steps.version.outputs.build }}
+      android_version_code: ${{ steps.version.outputs.android_version_code }}
+    steps:
+      - name: Checkout source revision
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          fetch-depth: 0
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+
+      - name: Advance canonical version
+        id: version
+        uses: HereLiesAz/workflows/.github/actions/version-contract@main
+        with:
+          target_repository: ${{ inputs.target_repository }}
+          target_sha: ${{ inputs.target_sha }}
+          target_ref_name: ${{ inputs.target_ref_name }}
+          target_ref_type: ${{ inputs.target_ref_type }}
+          token: ${{ secrets.GH_TOKEN }}

@@ -261,7 +261,26 @@ jobs:
                   echo "Updated existing version PR #$existing."
                 fi
               else
-                bash -eo pipefail -c "$publish_cmd"
+                if bash -eo pipefail -c "$publish_cmd"; then
+                  echo "Primary package publication completed."
+                else
+                  fallback="$(jq -r '.fallback_publish_script // empty' <<<"$PROFILE_JSON")"
+                  if [ -z "$fallback" ]; then
+                    echo "::error::Primary package publication failed and no resilient fallback is configured." >&2
+                    exit 1
+                  fi
+                  echo "::warning::Primary package publication failed; switching to the idempotent staged/backoff publisher."
+                  export STAGE_SIZE="$(jq -r '.fallback_stage_size // "5"' <<<"$PROFILE_JSON")"
+                  export STAGE_COOLDOWN="$(jq -r '.fallback_stage_cooldown // "120"' <<<"$PROFILE_JSON")"
+                  export PUBLISH_COOLDOWN="$(jq -r '.fallback_call_cooldown // "30"' <<<"$PROFILE_JSON")"
+                  export PUBLISH_TAG="$(jq -r '.fallback_staging_tag // "staging"' <<<"$PROFILE_JSON")"
+                  bash "$fallback"
+                  promote="$(jq -r '.fallback_promote // true' <<<"$PROFILE_JSON")"
+                  promote_script="$(jq -r '.fallback_promote_script // empty' <<<"$PROFILE_JSON")"
+                  if [ "$promote" = true ] && [ -n "$promote_script" ]; then
+                    bash "$promote_script"
+                  fi
+                fi
               fi
               ;;
 

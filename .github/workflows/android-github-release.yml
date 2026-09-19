@@ -110,6 +110,7 @@ jobs:
       TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
       TARGET_REF: ${{ inputs.target_ref }}
       TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
       TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
       TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
       TARGET_BASE_REF: ${{ inputs.target_base_ref }}
@@ -163,6 +164,12 @@ jobs:
             echo "ASSET_NAME_MODE=$(jq -r '.asset_name_mode // \"normalized\"' <<<\"$PROFILE_JSON\")"
             echo "MOVE_TAG=$(jq -r '.move_tag // true' <<<\"$PROFILE_JSON\")"
             echo "PRERELEASE=$(jq -r '.prerelease // false' <<<\"$PROFILE_JSON\")"
+            echo "BASE_VERSION=$(jq -r '.base_version // empty' <<<\"$PROFILE_JSON\")"
+            echo "FIXED_TAG=$(jq -r '.fixed_tag // empty' <<<\"$PROFILE_JSON\")"
+            echo "RELEASE_TITLE=$(jq -r '.release_title // empty' <<<\"$PROFILE_JSON\")"
+            echo "WRAPPER_VALIDATION=$(jq -r '.wrapper_validation // false' <<<\"$PROFILE_JSON\")"
+            echo "KEYSTORE_OUTPUT=$(jq -r '.keystore_output // \"app/keystore.jks\"' <<<\"$PROFILE_JSON\")"
+            echo "GRADLE_PROPERTIES_JSON=$(jq -c '.gradle_properties // []' <<<\"$PROFILE_JSON\")"
             echo "RELEASE_TITLE_STYLE=$(jq -r '.release_title_style // \"simple\"' <<<\"$PROFILE_JSON\")"
             echo "APP_NAME_OVERRIDE=$(jq -r '.app_name // empty' <<<\"$PROFILE_JSON\")"
           } >> "$GITHUB_ENV"
@@ -206,11 +213,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p app
+          mkdir -p "$(dirname "$KEYSTORE_OUTPUT")"
           case "$SIGNING_MODE" in
             raw-jks)
               test -n "$KEYSTORE_RAW" || { echo "::error::KEYSTORE_RAW is required" >&2; exit 1; }
-              printf '%s' "$KEYSTORE_RAW" | base64 --decode > app/keystore.jks
+              printf '%s' "$KEYSTORE_RAW" | base64 --decode > "$KEYSTORE_OUTPUT"
               ;;
             project)
               ;;
@@ -222,7 +229,7 @@ jobs:
               printf '%s\n' "$KEYSTORE_PRIVATE" > private-key.pem
               printf '%s\n' "$chain" > certificate-chain.crt
               openssl pkcs12 -export -in certificate-chain.crt -inkey private-key.pem -out keystore.p12 -name "$KEY_ALIAS" -passout pass:"$KEYSTORE_PASSWORD"
-              keytool -importkeystore -srckeystore keystore.p12 -srcstoretype PKCS12 -srcstorepass "$KEYSTORE_PASSWORD" -destkeystore app/keystore.jks -deststoretype JKS -deststorepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" -noprompt
+              keytool -importkeystore -srckeystore keystore.p12 -srcstoretype PKCS12 -srcstorepass "$KEYSTORE_PASSWORD" -destkeystore "$KEYSTORE_OUTPUT" -deststoretype JKS -deststorepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" -noprompt
               rm -f private-key.pem certificate-chain.crt keystore.p12
               ;;
             *)
@@ -230,7 +237,13 @@ jobs:
               exit 1
               ;;
           esac
-          test -s app/keystore.jks || { echo "::error::Signing keystore is empty" >&2; exit 1; }
+          if [ "$SIGNING_MODE" != "project" ]; then
+            test -s "$KEYSTORE_OUTPUT" || { echo "::error::Signing keystore is empty" >&2; exit 1; }
+          fi
+
+      - name: Validate Gradle wrapper
+        if: ${{ env.WRAPPER_VALIDATION == 'true' }}
+        uses: gradle/actions/wrapper-validation@v4
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -249,6 +262,14 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Apply profile Gradle properties
+        if: ${{ env.GRADLE_PROPERTIES_JSON != '[]' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.gradle
+          jq -r '.[]' <<<"$GRADLE_PROPERTIES_JSON" >> ~/.gradle/gradle.properties
+
       - name: Run release tests
         if: ${{ env.TEST_COMMAND != '' }}
         shell: bash
@@ -256,7 +277,9 @@ jobs:
 
       - name: Build signed release APK
         env:
-          KEYSTORE_FILE: ${{ github.workspace }}/app/keystore.jks
+          KEYSTORE_FILE: ${{ github.workspace }}/${{ env.KEYSTORE_OUTPUT }}
+          KEYSTORE_PATH: ${{ github.workspace }}/${{ env.KEYSTORE_OUTPUT }}
+          RUN_NUMBER: ${{ inputs.target_run_number }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
@@ -293,6 +316,15 @@ jobs:
               rest="${VERSION#*.}"
               MINOR="${rest%%.*}"
               ;;
+            run-number-base)
+              test -n "$BASE_VERSION" || { echo "::error::run-number-base requires base_version" >&2; exit 1; }
+              test -n "$TARGET_RUN_NUMBER" || { echo "::error::run-number-base requires target_run_number" >&2; exit 1; }
+              VERSION="${BASE_VERSION}.${TARGET_RUN_NUMBER}"
+              TAG="${FIXED_TAG:-v${VERSION}}"
+              MAJOR="${VERSION%%.*}"
+              rest="${VERSION#*.}"
+              MINOR="${rest%%.*}"
+              ;;
             *)
               echo "::error::Unknown version_mode: $VERSION_MODE" >&2
               exit 1
@@ -301,12 +333,23 @@ jobs:
           APP_NAME="${APP_NAME_OVERRIDE:-${{ inputs.target_repository_name }}}"
           APK="$(compgen -G "$ARTIFACT_GLOB" | sort | head -1 || true)"
           test -n "$APK" && test -s "$APK" || { echo "::error::No release APK matched $ARTIFACT_GLOB" >&2; exit 1; }
-          if [ "$ASSET_NAME_MODE" = "preserve" ]; then
-            ASSET="$APK"
-          else
-            ASSET="${APP_NAME}-${VERSION}-release.apk"
-            cp "$APK" "$ASSET"
-          fi
+          case "$ASSET_NAME_MODE" in
+            preserve)
+              ASSET="$APK"
+              ;;
+            app-v-version)
+              ASSET="${APP_NAME}-v${VERSION}.apk"
+              cp "$APK" "$ASSET"
+              ;;
+            normalized)
+              ASSET="${APP_NAME}-${VERSION}-release.apk"
+              cp "$APK" "$ASSET"
+              ;;
+            *)
+              echo "::error::Unknown asset_name_mode: $ASSET_NAME_MODE" >&2
+              exit 1
+              ;;
+          esac
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "asset=$ASSET" >> "$GITHUB_OUTPUT"
@@ -358,7 +401,9 @@ jobs:
             git push origin "$TAG" --force
           fi
           title="Latest Release ${VERSION}"
-          if [ "$RELEASE_TITLE_STYLE" = "major-minor-version" ]; then
+          if [ -n "$RELEASE_TITLE" ]; then
+            title="$RELEASE_TITLE"
+          elif [ "$RELEASE_TITLE_STYLE" = "major-minor-version" ]; then
             title="Latest Release v${MAJOR}.${MINOR} (${VERSION})"
           elif [ "$RELEASE_TITLE_STYLE" = "tag" ]; then
             title="$TAG"
@@ -377,7 +422,7 @@ jobs:
 
       - name: Cleanup signing material
         if: ${{ always() }}
-        run: rm -f app/keystore.jks private-key.pem certificate-chain.crt keystore.p12
+        run: rm -f "$KEYSTORE_OUTPUT" private-key.pem certificate-chain.crt keystore.p12
   central_check_finish:
     if: ${{ always() }}
     needs:

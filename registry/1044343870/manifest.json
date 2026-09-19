@@ -11,14 +11,14 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/android.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/thelexorcist-android.yml",
-      "implementation_sha256": "a7cb5b6a9274f7222de60e58a10fe422eefacf1dfcd4628f8cf578c11943a147",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/android-github-release.yml",
       "name": "Build & Publish Release APK",
       "registry_source": "registry/1044343870/android-3f3614b6.source.yml",
       "source_sha256": "67ce04785215b3aacb24ff9d7703d6e87bfed3aacdf4ab3bd780540c47bb18cb",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "Android GitHub Release"
     },
     ".github/workflows/backup.yml": {
       "binding": "curated",

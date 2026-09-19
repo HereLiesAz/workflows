@@ -230,14 +230,14 @@
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/tests.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/sir-match-a-lot-tests.yml",
-      "implementation_sha256": "59c54493d013efa60f752fd5baa50ed0d517112562d7feaedd2a7732f1d6b37a",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/ci-validation.yml",
       "name": "Unit tests",
       "registry_source": "registry/1308046744/tests-6b8eb115.source.yml",
       "source_sha256": "ca84d43ee0762c0d02fb98325047a1b5aee2be2c832c16972af7775c265e465a",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "CI Validation"
     }
   }
 }

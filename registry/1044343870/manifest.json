@@ -40,14 +40,14 @@
       "updated_at": "2026-09-14T01:12:52+00:00"
     },
     ".github/workflows/ci.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/thelexorcist-ci.yml",
-      "implementation_sha256": "68abd6bac3e63f205ca10125864d3a29078a18c5894544542cefc708d3208eae",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/ci-validation.yml",
       "name": "CI",
       "registry_source": "registry/1044343870/ci-899ce9c2.source.yml",
       "source_sha256": "9f8da3bca25bfd3dc0b79ccbf911454b10d940e597e3bfeed73995cdc8bd8551",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-14T16:03:50+00:00",
+      "semantic_purpose": "CI Validation"
     },
     ".github/workflows/jekyll-gh-pages.yml": {
       "blockers": [
@@ -63,7 +63,7 @@
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "\ud83d\ude08 Glee Audit",
+      "name": "😈 Glee Audit",
       "registry_source": "registry/1044343870/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",

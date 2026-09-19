@@ -1,0 +1,297 @@
+# Generalized purpose workflow: Node Package Publish.
+# Registry, package manager, release strategy, and retry/staging policy are profiles.
+name: Node Package Publish
+run-name: ${{ inputs.target_repository_name }} · Node Package Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+      target_repository_name:
+        required: true
+        type: string
+      purpose_profile_json:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  TARGET_REPOSITORY: ${{ inputs.target_repository }}
+  TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+  TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+  TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+  TARGET_SHA: ${{ inputs.target_sha }}
+  TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+  TARGET_REF: ${{ inputs.target_ref }}
+  TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+  TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+  TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+  TARGET_INPUTS_JSON: ${{ inputs.target_inputs_json }}
+  PROFILE_JSON: ${{ inputs.purpose_profile_json }}
+
+jobs:
+  central_check_start:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo_json="$(gh api "repos/$TARGET_REPOSITORY")"
+          actual_repo_id="$(jq -r '.id' <<<"$repo_json")"
+          actual_owner_id="$(jq -r '.owner.id' <<<"$repo_json")"
+          actual_owner="$(jq -r '.owner.login' <<<"$repo_json")"
+          [[ "$actual_repo_id" == "$TARGET_REPOSITORY_ID" ]] || { echo "Repository ID mismatch" >&2; exit 1; }
+          [[ "$actual_owner_id" == "103241502" ]] || { echo "Repository is not owned by HereLiesAz" >&2; exit 1; }
+          [[ "${actual_owner,,}" == "hereliesaz" ]] || { echo "Repository owner mismatch" >&2; exit 1; }
+          [[ "$TARGET_REPOSITORY_OWNER_ID" == "103241502" ]] || { echo "OIDC owner ID mismatch" >&2; exit 1; }
+
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload="$(jq -n --arg state pending --arg context "$STATUS_CONTEXT" --arg description "Running Node package publication from HereLiesAz/workflows." --arg target_url "$DETAILS_URL" '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+          gh api --method POST "repos/$TARGET_REPOSITORY/statuses/$TARGET_CHECK_SHA" --input - <<<"$payload"
+
+  publish:
+    needs: central_check_start
+    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: write
+      pull-requests: write
+      packages: write
+      id-token: write
+    environment: ${{ inputs.target_repository_name }}
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      NODE_AUTH_TOKEN: ${{ fromJSON(inputs.purpose_profile_json).token == 'github' && secrets.GH_TOKEN || secrets.NPM_AUTH_TOKEN }}
+      NPM_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+    steps:
+      - name: Wait for earlier package publication for this repository
+        env:
+          CURRENT_RUN: ${{ github.run_id }}
+          QUEUE_TITLE: ${{ inputs.target_repository_name }} · Node Package Publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 720); do
+            gh api "repos/${{ github.repository }}/actions/workflows/node-package-publish.yml/runs?per_page=100" > "$RUNNER_TEMP/node-package-runs.json"
+            blockers="$(jq --argjson current "$CURRENT_RUN" --arg title "$QUEUE_TITLE" '[.workflow_runs[] | select((.status == "queued" or .status == "in_progress") and .id < $current and .display_title == $title)] | length' "$RUNNER_TEMP/node-package-runs.json")"
+            if [ "$blockers" -eq 0 ]; then
+              echo "Package publication slot acquired."
+              exit 0
+            fi
+            echo "Waiting behind $blockers earlier package publication run(s) for this repository..."
+            sleep 10
+          done
+          echo "::error::Timed out waiting for the package publication queue" >&2
+          exit 1
+
+      - name: Checkout target repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ fromJSON(inputs.purpose_profile_json).node_version || '22' }}
+          registry-url: ${{ fromJSON(inputs.purpose_profile_json).registry_url }}
+          scope: ${{ fromJSON(inputs.purpose_profile_json).scope || '' }}
+
+      - name: Prepare package workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          workdir="$(jq -r '.working_directory // "."' <<<"$PROFILE_JSON")"
+          cd "$workdir"
+          prepare="$(jq -r '.prepare_command // empty' <<<"$PROFILE_JSON")"
+          if [ -n "$prepare" ]; then
+            bash -eo pipefail -c "$prepare"
+          fi
+
+      - name: Publish packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          workdir="$(jq -r '.working_directory // "."' <<<"$PROFILE_JSON")"
+          cd "$workdir"
+          mode="$(jq -r '.mode' <<<"$PROFILE_JSON")"
+
+          case "$mode" in
+            simple)
+              build="$(jq -r '.build_command // empty' <<<"$PROFILE_JSON")"
+              publish="$(jq -r '.publish_command // "npm publish"' <<<"$PROFILE_JSON")"
+              if [ -n "$build" ]; then bash -eo pipefail -c "$build"; fi
+              bash -eo pipefail -c "$publish"
+              ;;
+
+            single-retry)
+              package="$(jq -r --arg fallback "$(jq -r '.default_package // empty' <<<"$PROFILE_JSON")" '.package // $fallback' <<<"$TARGET_INPUTS_JSON")"
+              test -n "$package" || { echo "::error::A package name is required" >&2; exit 1; }
+              build="$(jq -r '.build_command // empty' <<<"$PROFILE_JSON")"
+              if [ -n "$build" ]; then
+                PACKAGE="$package" bash -eo pipefail -c "$build"
+              fi
+              script="$(jq -r '.publish_script' <<<"$PROFILE_JSON")"
+              bash "$script" "$package"
+              ;;
+
+            staged)
+              build="$(jq -r '.build_command // empty' <<<"$PROFILE_JSON")"
+              if [ -n "$build" ]; then bash -eo pipefail -c "$build"; fi
+              export STAGE_SIZE="$(jq -r --arg d "$(jq -r '.stage_size // "5"' <<<"$PROFILE_JSON")" '.stageSize // $d' <<<"$TARGET_INPUTS_JSON")"
+              export STAGE_COOLDOWN="$(jq -r --arg d "$(jq -r '.stage_cooldown // "120"' <<<"$PROFILE_JSON")" '.stageCooldown // $d' <<<"$TARGET_INPUTS_JSON")"
+              export PUBLISH_COOLDOWN="$(jq -r --arg d "$(jq -r '.call_cooldown // "30"' <<<"$PROFILE_JSON")" '.callCooldown // $d' <<<"$TARGET_INPUTS_JSON")"
+              export PUBLISH_TAG="$(jq -r --arg d "$(jq -r '.staging_tag // "staging"' <<<"$PROFILE_JSON")" '.stagingTag // $d' <<<"$TARGET_INPUTS_JSON")"
+              bash "$(jq -r '.publish_script' <<<"$PROFILE_JSON")"
+              promote="$(jq -r '.promote // false' <<<"$TARGET_INPUTS_JSON")"
+              if [ "$promote" = true ]; then
+                bash "$(jq -r '.promote_script' <<<"$PROFILE_JSON")"
+              fi
+              ;;
+
+            changesets)
+              if who="$(npm whoami --registry=https://registry.npmjs.org 2>/dev/null)"; then
+                echo "::notice::NPM token authenticates as $who"
+              else
+                echo "::warning::NPM token authentication check failed; publication will fail if publishing is required."
+              fi
+
+              version_cmd="$(jq -r '.version_command // "pnpm run version"' <<<"$PROFILE_JSON")"
+              publish_cmd="$(jq -r '.publish_command // "pnpm run release"' <<<"$PROFILE_JSON")"
+              bash -eo pipefail -c "$version_cmd"
+
+              if ! git diff --quiet || ! git diff --cached --quiet; then
+                branch="$(jq -r '.version_branch // "changeset-release/main"' <<<"$PROFILE_JSON")"
+                title="$(jq -r '.version_pr_title // "chore: version packages"' <<<"$PROFILE_JSON")"
+                gh auth setup-git
+                git config user.name "github-actions[bot]"
+                git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                git checkout -B "$branch"
+                git add -A
+                git commit -m "$title"
+                git push --force-with-lease origin "HEAD:$branch"
+                existing="$(gh pr list --repo "$TARGET_REPOSITORY" --state open --head "$branch" --json number --jq '.[0].number // empty')"
+                if [ -z "$existing" ]; then
+                  gh pr create --repo "$TARGET_REPOSITORY" --head "$branch" --base "$TARGET_REF_NAME" --title "$title" --body "Automated Changesets version update."
+                else
+                  echo "Updated existing version PR #$existing."
+                fi
+              else
+                bash -eo pipefail -c "$publish_cmd"
+              fi
+              ;;
+
+            *)
+              echo "::error::Unknown Node package publish mode: $mode" >&2
+              exit 1
+              ;;
+          esac
+
+  central_check_finish:
+    if: ${{ always() }}
+    needs: [central_check_start, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$FAILED" = true ]; then
+            state=failure
+            description="Node package publication failed."
+          else
+            state=success
+            description="Node package publication completed successfully."
+          fi
+          payload="$(jq -n --arg state "$state" --arg context "$STATUS_CONTEXT" --arg description "$description" --arg target_url "$DETAILS_URL" '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+          gh api --method POST "repos/$TARGET_REPOSITORY/statuses/$TARGET_CHECK_SHA" --input - <<<"$payload"

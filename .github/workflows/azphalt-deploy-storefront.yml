@@ -1,7 +1,7 @@
 # Generated for HereLiesAz/azphalt:.github/workflows/deploy-storefront.yml.
 # Edit the registered source or synchronizer, not this compiled workflow.
-name: azphalt · Build & Deploy Storefront to Vercel
-run-name: azphalt · Build & Deploy Storefront to Vercel
+name: azphalt · Build & Deploy Storefront to Cloudflare
+run-name: azphalt · Build & Deploy Storefront to Cloudflare
 on:
   workflow_dispatch:
     inputs:
@@ -140,7 +140,6 @@ jobs:
       TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
       TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
-      VERCEL_TOKEN: ${{ secrets.VERCEL_API_KEY }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -148,11 +147,6 @@ jobs:
           ref: ${{ inputs.target_sha }}
           token: ${{ secrets.GH_TOKEN }}
           persist-credentials: false
-      - name: Setup Java (for the Kotlin/Wasm Gradle build)
-        uses: actions/setup-java@v4
-        with:
-          distribution: corretto
-          java-version: '17'
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -162,25 +156,22 @@ jobs:
         with:
           node-version: '24'
           cache: pnpm
-      - name: Build Kotlin/Wasm bundle (emits into apps/storefront/public)
-        working-directory: apps/storefront-cmp
-        run: ./gradlew wasmJsBrowserDistribution --no-daemon --stacktrace
-      - name: Verify the WASM loader was produced
-        run: "test -f apps/storefront/public/storefront-cmp.js || { echo \"storefront-cmp.js was not emitted\"; exit 1; }\nls -la apps/storefront/public/*.wasm apps/storefront/public/storefront-cmp.js\n"
       - name: Install workspace deps
         run: pnpm install --frozen-lockfile
-      - name: Build @azphalt/azp (build-catalog imports it at runtime)
+      - name: Build @azphalt/azp and workspace dependencies
         run: pnpm --filter "@azphalt/azp..." build
-      - name: Verify the committed catalog matches its pinned sources
+      - name: Verify committed registry catalog
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         run: pnpm --filter @azphalt/storefront build-catalog --check
-      - name: Build & embed the docs site (served at azphalt.org via host rewrites)
-        run: pnpm --filter @azphalt/storefront embed-docs
-      - name: Resolve Vercel org & project ids
-        run: "set -uo pipefail\nAPI=https://api.vercel.com\nauth=(-H \"Authorization: Bearer $VERCEL_TOKEN\")\nteamId=$(curl -s \"${auth[@]}\" \"$API/v2/teams\" | jq -r '.teams[0].id // empty')\ntq=\"\"; [ -n \"$teamId\" ] && tq=\"&teamId=$teamId\"\npid=$(curl -s \"${auth[@]}\" \"$API/v9/projects?limit=100$tq\" | jq -r '.projects[] | select(.name|test(\"storefront|azphalt\";\"i\")) | .id' | head -1)\nif [ -z \"$pid\" ]; then echo \"Could not resolve Vercel project id\"; exit 1; fi\necho \"VERCEL_ORG_ID=$teamId\" >> \"$GITHUB_ENV\"\necho \"VERCEL_PROJECT_ID=$pid\" >> \"$GITHUB_ENV\"\necho \"Resolved org=$teamId project=$pid\"\n"
-      - name: Vercel pull / build / deploy (prebuilt, production)
-        run: "npx --yes vercel@latest pull --yes --environment=production --token=\"$VERCEL_TOKEN\"\nnpx --yes vercel@latest build --prod --token=\"$VERCEL_TOKEN\"\nurl=$(npx --yes vercel@latest deploy --prebuilt --prod --token=\"$VERCEL_TOKEN\")\necho \"Deployed: $url\"\necho \"### Deployed: $url\" >> \"$GITHUB_STEP_SUMMARY\"\n"
+      - name: Build static React storefront
+        run: pnpm --filter @azphalt/storefront-react build
+      - name: Deploy Worker and static assets to Cloudflare
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --config apps/storefront-worker/wrangler.jsonc
     needs: central_check_start
     if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
     permissions:

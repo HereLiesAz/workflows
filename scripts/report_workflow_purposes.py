@@ -334,7 +334,7 @@ def build_report() -> dict[str, Any]:
                 continue
             status = str(entry.get("status") or "unknown")
             status_counts[status] += 1
-            if status != "active":
+            if status not in {"active", "local", "blocked"}:
                 continue
             doc, error = load_source(entry)
             if error or doc is None:
@@ -398,7 +398,10 @@ def build_report() -> dict[str, Any]:
         "summary": {
             "manifest_count": len(list(REGISTRY.glob("*/manifest.json"))),
             "workflow_entries_by_status": dict(sorted(status_counts.items())),
-            "active_workflows": len(rows),
+            "active_workflows": sum(1 for row in rows if row["status"] == "active"),
+            "live_workflows": len(rows),
+            "local_workflows": sum(1 for row in rows if row["status"] == "local"),
+            "blocked_workflows": sum(1 for row in rows if row["status"] == "blocked"),
             "purpose_groups": len(groups),
             "needs_manual_review": sum(1 for row in rows if row["purpose"] == "needs-manual-review"),
             "same_repository_same_purpose_groups": len(intra_repo),
@@ -418,7 +421,8 @@ def markdown(report: dict[str, Any]) -> str:
         "",
         "This report groups active workflows by **what they accomplish**, not by filename, repository, or implementation hash.",
         "",
-        f"- Active workflows: **{summary['active_workflows']}**",
+        f"- Active centralized workflows: **{summary['active_workflows']}**",
+        f"- Live workflows audited: **{summary['live_workflows']}** (including {summary['local_workflows']} local and {summary['blocked_workflows']} blocked)",
         f"- Purpose groups: **{summary['purpose_groups']}**",
         f"- Manual-review workflows: **{summary['needs_manual_review']}**",
         f"- Same-repository/same-purpose groups: **{summary['same_repository_same_purpose_groups']}**",

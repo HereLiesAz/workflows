@@ -110,12 +110,11 @@
     ".github/workflows/deploy-storefront.yml": {
       "binding": "repository",
       "central_workflow": ".github/workflows/azphalt-deploy-storefront.yml",
-      "implementation_sha256": "5b52ad49cc81d8079a3713e4dd070ee6d44c81ecb57ca3fa9ca7e8815cb265fc",
-      "name": "Build & Deploy Storefront to Vercel",
+      "name": "Build & Deploy Storefront to Cloudflare",
       "registry_source": "registry/1296954472/deploy-storefront-27c92570.source.yml",
-      "source_sha256": "48d4be344221c7c6f1661eb97d46fc242bffc3f7834e1a59ba60ab687ba5bf95",
+      "source_sha256": "b696585b6e1335fcb404a037907f4e86934daf1d7450ab6068d1249021193ed8",
       "status": "active",
-      "updated_at": "2026-09-15T03:04:08+00:00"
+      "updated_at": "2026-09-18T21:15:00-05:00"
     },
     ".github/workflows/jekyll-gh-pages.yml": {
       "blockers": [
@@ -188,16 +187,6 @@
       "status": "local",
       "updated_at": "2026-09-15T03:04:11+00:00"
     },
-    ".github/workflows/provision-storage.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/azphalt-provision-storage.yml",
-      "implementation_sha256": "ebf04cd63dc3a32dc786ad2e3ab8e568a6ffc63d0da3baa9554ee1cedece592b",
-      "name": "Provision durable storage (manual)",
-      "registry_source": "registry/1296954472/provision-storage-14e0c0d4.source.yml",
-      "source_sha256": "15015547384559e7f22e9f961c475813c734cf9a7475df675bcecf0c09c11659",
-      "status": "active",
-      "updated_at": "2026-09-15T03:04:12+00:00"
-    },
     ".github/workflows/publish-package.yml": {
       "binding": "repository",
       "central_workflow": ".github/workflows/azphalt-publish-package.yml",
@@ -268,16 +257,6 @@
       "source_sha256": "9158d4587eeca12602514ad7da12f02c600029539ba1567bf63b405d972b65ff",
       "status": "active",
       "updated_at": "2026-09-15T03:04:18+00:00"
-    },
-    ".github/workflows/vercel-logs.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/azphalt-vercel-logs.yml",
-      "implementation_sha256": "12d9b8574b66d6f9714f71bc704e8b3afe53debfce2465b72d04b7be3b0987cd",
-      "name": "Vercel Build Logs (diagnostic)",
-      "registry_source": "registry/1296954472/vercel-logs-e7070fe4.source.yml",
-      "source_sha256": "ffd0e2cd346d0a82d9e70eff9a728b1bc0e8e384ee3a21782670ecc58ffa8212",
-      "status": "active",
-      "updated_at": "2026-09-15T03:04:19+00:00"
     }
   }
 }

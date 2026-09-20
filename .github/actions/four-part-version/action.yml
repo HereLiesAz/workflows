@@ -20,6 +20,10 @@ inputs:
     description: Highest major version considered prerelease by default.
     required: false
     default: "0"
+  environment-variable:
+    description: Optional environment variable name to export the derived version for later steps.
+    required: false
+    default: ""
 outputs:
   version:
     description: Derived MAJOR.MINOR.PATCH.BUILD.
@@ -41,4 +45,5 @@ runs:
         SOURCE_VERSION_KEY: ${{ inputs.source-version-key }}
         BUILD_NUMBER: ${{ inputs.build-number }}
         PRERELEASE_MAJOR_MAX: ${{ inputs.prerelease-major-max }}
+        ENVIRONMENT_VARIABLE: ${{ inputs.environment-variable }}
       run: python3 "$GITHUB_ACTION_PATH/derive.py"

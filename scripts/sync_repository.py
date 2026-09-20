@@ -597,6 +597,114 @@ def _enforce_new_workflow_submission_policy(
         )
 
 
+def _commit_staged_target_files(
+    gh,
+    repository: str,
+    branch: str,
+    staged: dict[str, tuple[str | None, str]],
+) -> dict:
+    """Commit all target-repository sync writes as one push.
+
+    The legacy synchronizer writes one file at a time through the Contents API,
+    which emits one push event per file. On repositories with push-triggered CI
+    or GitHub's automatic dependency submission enabled, a single sync therefore
+    explodes into a burst of redundant Actions runs. Build one Git tree/commit
+    instead so the target sees at most one controller-generated push.
+    """
+
+    pending: dict[str, str | None] = {}
+    for path, (content, _message) in staged.items():
+        try:
+            current, _ = gh.get_file(repository, path, ref=branch)
+        except core.ApiError as exc:
+            if "-> 404:" not in str(exc):
+                raise
+            current = None
+        if content is None:
+            if current is not None:
+                pending[path] = None
+        elif current != content:
+            pending[path] = content
+
+    if not pending:
+        return {"changed": False, "paths": []}
+
+    branch_ref = urllib.parse.quote(branch, safe="")
+    ref = gh.json("GET", f"/repos/{repository}/git/ref/heads/{branch_ref}")
+    if not isinstance(ref, dict) or not isinstance(ref.get("object"), dict):
+        raise RuntimeError(f"Could not resolve {repository}:{branch}")
+    head_sha = str(ref["object"].get("sha") or "")
+    if not head_sha:
+        raise RuntimeError(f"Could not resolve head SHA for {repository}:{branch}")
+
+    head_commit = gh.json("GET", f"/repos/{repository}/git/commits/{head_sha}")
+    if not isinstance(head_commit, dict) or not isinstance(head_commit.get("tree"), dict):
+        raise RuntimeError(f"Could not resolve base tree for {repository}:{head_sha}")
+    base_tree = str(head_commit["tree"].get("sha") or "")
+    if not base_tree:
+        raise RuntimeError(f"Could not resolve base tree SHA for {repository}:{head_sha}")
+
+    tree_entries: list[dict[str, object]] = []
+    for path, content in sorted(pending.items()):
+        if content is None:
+            tree_entries.append(
+                {
+                    "path": path,
+                    "mode": "100644",
+                    "type": "blob",
+                    "sha": None,
+                }
+            )
+            continue
+        blob = gh.json(
+            "POST",
+            f"/repos/{repository}/git/blobs",
+            {"content": content, "encoding": "utf-8"},
+        )
+        if not isinstance(blob, dict) or not blob.get("sha"):
+            raise RuntimeError(f"Could not create blob for {repository}:{path}")
+        tree_entries.append(
+            {
+                "path": path,
+                "mode": "100644",
+                "type": "blob",
+                "sha": str(blob["sha"]),
+            }
+        )
+
+    tree = gh.json(
+        "POST",
+        f"/repos/{repository}/git/trees",
+        {"base_tree": base_tree, "tree": tree_entries},
+    )
+    if not isinstance(tree, dict) or not tree.get("sha"):
+        raise RuntimeError(f"Could not create sync tree for {repository}")
+
+    commit = gh.json(
+        "POST",
+        f"/repos/{repository}/git/commits",
+        {
+            "message": "Centralize workflow bindings and version state [skip ci]",
+            "tree": str(tree["sha"]),
+            "parents": [head_sha],
+        },
+    )
+    if not isinstance(commit, dict) or not commit.get("sha"):
+        raise RuntimeError(f"Could not create sync commit for {repository}")
+
+    commit_sha = str(commit["sha"])
+    gh.json(
+        "PATCH",
+        f"/repos/{repository}/git/refs/heads/{branch_ref}",
+        {"sha": commit_sha, "force": False},
+    )
+    return {
+        "changed": True,
+        "commit": commit_sha,
+        "paths": sorted(pending),
+    }
+
+
 def _initial_repository_version(gh, repository: str, default_branch: str) -> tuple[Version, str]:
     existing = ""
     try:
@@ -676,16 +784,59 @@ def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
     default_branch = str(repo_info["default_branch"])
     before_manifest = copy.deepcopy(core.load_manifest(gh, repository_id))
     _enforce_new_workflow_submission_policy(gh, repository, before_manifest)
-    version_contract = _ensure_version_contract(
-        gh,
-        repository,
-        default_branch,
-        dry_run=dry_run,
-    )
 
-    activate_repository_mode(core, repository)
-    result = _base_sync_repository(gh, repository, worker_url, dry_run)
-    finalize_manifest(gh, core, int(result["repository_id"]), dry_run=dry_run)
+    # Stage target-repository writes in memory. The legacy synchronizer uses the
+    # Contents API per file, which turns one synchronization into many pushes and
+    # therefore many redundant Actions runs. Central-repository writes still flow
+    # through immediately; only this target/default-branch pair is batched.
+    original_put_file = gh.put_file
+    staged_target_files: dict[str, tuple[str | None, str]] = {}
+
+    def stage_target_file(
+        full_name: str,
+        path: str,
+        content: str,
+        message: str,
+        branch: str | None = None,
+    ) -> None:
+        effective_branch = branch or default_branch
+        if (
+            full_name.casefold() == repository.casefold()
+            and effective_branch == default_branch
+        ):
+            # A generated proxy is evidence that the source successfully compiled
+            # into the central controller. The target must not retain the proxy:
+            # future triggers arrive through the repository webhook instead.
+            if path.startswith(".github/workflows/") and content.startswith(core.PROXY_MARKER):
+                staged_target_files[path] = (None, f"Remove centralized workflow {path}")
+            else:
+                staged_target_files[path] = (content, message)
+            return
+        original_put_file(full_name, path, content, message, branch=branch)
+
+    gh.put_file = stage_target_file
+    try:
+        version_contract = _ensure_version_contract(
+            gh,
+            repository,
+            default_branch,
+            dry_run=dry_run,
+        )
+
+        activate_repository_mode(core, repository)
+        result = _base_sync_repository(gh, repository, "", dry_run)
+        finalize_manifest(gh, core, int(result["repository_id"]), dry_run=dry_run)
+    finally:
+        gh.put_file = original_put_file
+
+    target_batch = {"changed": False, "paths": []}
+    if not dry_run:
+        target_batch = _commit_staged_target_files(
+            gh,
+            repository,
+            default_branch,
+            staged_target_files,
+        )
 
     removed: list[str] = []
     if not dry_run:
@@ -707,6 +858,18 @@ def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
     if removed:
         result["repository_workflow_gc"] = removed
     result["version_contract"] = version_contract
+    result["target_batch"] = target_batch
+    result["trigger_transport"] = "repository-webhook"
+    result["proxy_files_written"] = 0
+    if not dry_run:
+        try:
+            gh.json(
+                "DELETE",
+                f"/repos/{repository}/actions/variables/WORKFLOWS_GATEWAY_URL",
+            )
+        except core.ApiError as exc:
+            if "-> 404:" not in str(exc):
+                raise
     return result
 
 

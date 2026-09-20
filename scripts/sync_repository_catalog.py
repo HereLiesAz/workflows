@@ -175,6 +175,10 @@ def contains_workflow_call(on_value: Any) -> bool:
     return isinstance(on_value, dict) and "workflow_call" in on_value
 
 
+def workflow_call_only(on_value: Any) -> bool:
+    return isinstance(on_value, dict) and set(on_value.keys()) == {"workflow_call"}
+
+
 def walk_strings(value: Any):
     if isinstance(value, str):
         yield value
@@ -263,7 +267,7 @@ def central_execution_blockers(doc: dict[str, Any]) -> list[str]:
             if isinstance(uses, str) and uses.startswith("actions/github-script@"):
                 script = str((step.get("with") or {}).get("script", ""))
                 if any(token in script for token in (
-                    "context.repo", "context.issue", "context.eventName", "context.payload", "github.rest."
+                    "context.repo", "context.issue", "context.eventName", "context.payload"
                 )):
                     blockers.append(
                         f"job {job_id!r} step {index} uses actions/github-script with runner-repository context"
@@ -274,8 +278,8 @@ def central_execution_blockers(doc: dict[str, Any]) -> list[str]:
 def migration_blockers(doc: dict[str, Any]) -> list[str]:
     blockers: list[str] = []
     on_value = doc.get("on")
-    if contains_workflow_call(on_value):
-        blockers.append("workflow_call cannot preserve synchronous outputs across the Worker boundary")
+    if workflow_call_only(on_value):
+        blockers.append("workflow_call-only libraries require caller expansion before target removal")
 
     for job_id, job in (doc.get("jobs") or {}).items():
         if not isinstance(job, dict):
@@ -991,7 +995,7 @@ def sync_repository(gh: GitHub, full_name: str, worker_url: str, dry_run: bool =
             results.append({"path": path, "status": "blocked", "blockers": blockers})
             continue
 
-        if contains_workflow_call(parsed.get("on")):
+        if workflow_call_only(parsed.get("on")):
             workflows_manifest[path] = {"status": "library", "name": workflow_name, "source_sha256": source_hash, "registry_source": registry_source, "updated_at": now_iso()}
             if not dry_run:
                 gh.put_file(CENTRAL_REPOSITORY, registry_source, source_text, f"Register workflow library {repo['full_name']}:{path}", branch="main")

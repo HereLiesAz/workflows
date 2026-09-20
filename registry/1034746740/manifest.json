@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-09-20T00:35:32+00:00",
+  "last_sync_at": "2026-09-20T23:10:24+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/QaRd",
@@ -8,7 +8,7 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
+  "worker_url_configured": false,
   "workflows": {
     ".github/workflows/android-ci.yml": {
       "binding": "curated",
@@ -17,7 +17,7 @@
       "registry_source": "registry/1034746740/android-ci-3798bddf.source.yml",
       "source_sha256": "41fe12a37af090d9bbb2d801dc044c858f4620f9215678277c71d9a83a5fd22d",
       "status": "active",
-      "updated_at": "2026-09-20T00:35:23+00:00"
+      "updated_at": "2026-09-20T23:10:17+00:00"
     },
     ".github/workflows/build.yml": {
       "blockers": [
@@ -27,7 +27,7 @@
       "registry_source": "registry/1034746740/build-fe77d5d1.source.yml",
       "source_sha256": "8df27119d1190b6aa37ebd982c8cb790c83a9d2b78870642c8418c735e17a770",
       "status": "local",
-      "updated_at": "2026-09-20T00:35:24+00:00"
+      "updated_at": "2026-09-20T23:10:18+00:00"
     },
     ".github/workflows/deploy-webpage.yml": {
       "binding": "curated",
@@ -36,17 +36,18 @@
       "registry_source": "registry/1034746740/deploy-webpage-c36a4430.source.yml",
       "source_sha256": "961e61bc138f682e09cad9b4318e0b44ca82719e751bda9b3594acc1b7937c27",
       "status": "active",
-      "updated_at": "2026-09-20T00:35:25+00:00"
+      "updated_at": "2026-09-20T23:10:19+00:00"
     },
     ".github/workflows/generate-wrapper.yml": {
-      "binding": "repository",
+      "binding": "shared-variant",
       "central_workflow": ".github/workflows/qard-generate-wrapper.yml",
       "implementation_sha256": "99fff7a3147bced98cc524a9494cb5b691095077acd298a137eb78a8264ee5aa",
       "name": "Generate Gradle Wrapper",
       "registry_source": "registry/1034746740/generate-wrapper-a800fedd.source.yml",
+      "shared_variant": "99fff7a3147bced9",
       "source_sha256": "0fbe6665a0cab8d43c6331228abb01eabb7914190285b2df92060e841fb5aaa2",
       "status": "active",
-      "updated_at": "2026-09-20T00:35:27+00:00"
+      "updated_at": "2026-09-20T23:10:20+00:00"
     },
     ".github/workflows/gradle.yaml": {
       "blockers": [
@@ -56,7 +57,7 @@
       "registry_source": "registry/1034746740/gradle-48190a30.source.yml",
       "source_sha256": "1b2afec813b2bd2b96f8ca606fae5f0b042cc269c2f9201ae6ab16dc49f4ad19",
       "status": "local",
-      "updated_at": "2026-09-20T00:35:30+00:00"
+      "updated_at": "2026-09-20T23:10:21+00:00"
     },
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
@@ -65,14 +66,18 @@
       "registry_source": "registry/1034746740/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",
-      "updated_at": "2026-09-20T00:35:31+00:00"
+      "updated_at": "2026-09-20T23:10:22+00:00"
     },
     ".github/workflows/play-release.yml": {
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/qard-play-release.yml",
+      "implementation_sha256": "bd6121e5c303d48dc7ed357f3c472df910b8f650818eca67c487383b5092d22b",
       "name": "Play Release (AAB)",
       "registry_source": "registry/1034746740/play-release-2358287c.source.yml",
+      "shared_variant": "bd6121e5c303d48d",
       "source_sha256": "dee6f7b8f329c64093b03787ecab565a92a6eab18a8a14c5d5d49d6815e045d0",
-      "status": "library",
-      "updated_at": "2026-09-20T00:35:32+00:00"
+      "status": "active",
+      "updated_at": "2026-09-20T23:10:23+00:00"
     }
   }
 }

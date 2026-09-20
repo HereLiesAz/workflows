@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-09-20T00:07:16+00:00",
+  "last_sync_at": "2026-09-20T23:09:26+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/Guillotine",
@@ -8,7 +8,7 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
+  "worker_url_configured": false,
   "workflows": {
     ".github/workflows/backup.yml": {
       "binding": "curated",
@@ -17,7 +17,7 @@
       "registry_source": "registry/1269434928/backup-d598524a.source.yml",
       "source_sha256": "3a4f16e99f43e7ff92c92791ff368bc12e612766d692ac424a0c843deea01c71",
       "status": "active",
-      "updated_at": "2026-09-20T00:07:09+00:00"
+      "updated_at": "2026-09-20T23:09:15+00:00"
     },
     ".github/workflows/clear_cache.yml": {
       "binding": "curated",
@@ -26,7 +26,7 @@
       "registry_source": "registry/1269434928/clear_cache-7bd18479.source.yml",
       "source_sha256": "8d05b801f0d5d9115c59300c700e6bb67ba0ca1039628ef58db639c68b6567b3",
       "status": "active",
-      "updated_at": "2026-09-20T00:07:09+00:00"
+      "updated_at": "2026-09-20T23:09:16+00:00"
     },
     ".github/workflows/deploy-sftp.yml": {
       "binding": "curated",
@@ -35,17 +35,18 @@
       "registry_source": "registry/1269434928/deploy-sftp-1401405c.source.yml",
       "source_sha256": "31afe4d12a10ef30e8475e959100df371e0384d5af5dab8b41feb42fa1758291",
       "status": "active",
-      "updated_at": "2026-09-20T00:07:10+00:00"
+      "updated_at": "2026-09-20T23:09:17+00:00"
     },
     ".github/workflows/deploy-space.yml": {
-      "binding": "repository",
+      "binding": "shared-variant",
       "central_workflow": ".github/workflows/guillotine-deploy-space.yml",
       "implementation_sha256": "053c220703a2404f96475db868e70847576f93f35aecb23abe7282c468529408",
       "name": "Deploy T2V Space",
       "registry_source": "registry/1269434928/deploy-space-f4187c1f.source.yml",
+      "shared_variant": "053c220703a2404f",
       "source_sha256": "2941509ada66736d6d7692fcbd2a328de2cdd63b6ac90733fc9157681cd5827b",
       "status": "active",
-      "updated_at": "2026-09-20T00:07:10+00:00"
+      "updated_at": "2026-09-20T23:09:17+00:00"
     },
     ".github/workflows/desktop-build.yml": {
       "binding": "curated",
@@ -54,7 +55,7 @@
       "registry_source": "registry/1269434928/desktop-build-f6dce8a8.source.yml",
       "source_sha256": "acc1dc959c04a0f3c4c42f8768b3aa469dfd5a449d0a02584cb2a98641f8d14b",
       "status": "active",
-      "updated_at": "2026-09-20T00:07:11+00:00"
+      "updated_at": "2026-09-20T23:09:18+00:00"
     },
     ".github/workflows/extensions.yml": {
       "name": "Extensions",
@@ -87,7 +88,7 @@
       "registry_source": "registry/1269434928/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",
-      "updated_at": "2026-09-20T00:07:12+00:00"
+      "updated_at": "2026-09-20T23:09:19+00:00"
     },
     ".github/workflows/label.yml": {
       "blockers": [
@@ -97,7 +98,7 @@
       "registry_source": "registry/1269434928/label-04cea97c.source.yml",
       "source_sha256": "9e4ca08e0ce167c9f1ee6c3add108323047fe6af5cecbde30037314360a8c7da",
       "status": "local",
-      "updated_at": "2026-09-20T00:07:12+00:00"
+      "updated_at": "2026-09-20T23:09:20+00:00"
     },
     ".github/workflows/merged-build.yml": {
       "blockers": [
@@ -107,17 +108,18 @@
       "registry_source": "registry/1269434928/merged-build-7328551a.source.yml",
       "source_sha256": "b54ec6624635738b7a4f6c941d5034d94e06ecfff6be30f434cb1b040c95f258",
       "status": "local",
-      "updated_at": "2026-09-20T00:07:12+00:00"
+      "updated_at": "2026-09-20T23:09:20+00:00"
     },
     ".github/workflows/mirror-models.yml": {
-      "binding": "repository",
+      "binding": "shared-variant",
       "central_workflow": ".github/workflows/guillotine-mirror-models.yml",
       "implementation_sha256": "5d0e10b7871ecc318abf1803bc70a7f6746616da1570e05bd2b4341a904c138d",
       "name": "Mirror models to HF",
       "registry_source": "registry/1269434928/mirror-models-594ea6b1.source.yml",
+      "shared_variant": "5d0e10b7871ecc31",
       "source_sha256": "d7d558bb5f45e7a88d2e1ed1b05c3295b253dc4d5064d01e955b8e04fde05889",
       "status": "active",
-      "updated_at": "2026-09-20T00:07:13+00:00"
+      "updated_at": "2026-09-20T23:09:21+00:00"
     },
     ".github/workflows/release-aab.yml": {
       "binding": "curated",
@@ -126,7 +128,7 @@
       "registry_source": "registry/1269434928/release-aab-b108bf8f.source.yml",
       "source_sha256": "09adb91f6846d345ebb261ae428ad9412bfbfac6fe1d1192a726b84546b46928",
       "status": "active",
-      "updated_at": "2026-09-20T00:07:13+00:00"
+      "updated_at": "2026-09-20T23:09:22+00:00"
     },
     ".github/workflows/release-apk.yml": {
       "binding": "curated",
@@ -135,7 +137,7 @@
       "registry_source": "registry/1269434928/release-apk-da6a1dd6.source.yml",
       "source_sha256": "f74f4d32dcd258fd1e13fccce422b3900ce7eb50cfbd20e31a5dc9848f179348",
       "status": "active",
-      "updated_at": "2026-09-20T00:07:14+00:00"
+      "updated_at": "2026-09-20T23:09:23+00:00"
     },
     ".github/workflows/release-desktop.yml": {
       "binding": "curated",
@@ -144,7 +146,7 @@
       "registry_source": "registry/1269434928/release-desktop-884eb667.source.yml",
       "source_sha256": "c6251f2b6b5fe71bea894085048df9338151bc914505f23dbd5f8f37c4721190",
       "status": "active",
-      "updated_at": "2026-09-20T00:07:15+00:00"
+      "updated_at": "2026-09-20T23:09:24+00:00"
     },
     ".github/workflows/static.yml": {
       "blockers": [
@@ -157,7 +159,7 @@
       "registry_source": "registry/1269434928/static-876bb641.source.yml",
       "source_sha256": "ec390f5c5f7674be5319c8b7031a7b3813ef8dcecc95ec9e79eb0eaccf1f9bbd",
       "status": "local",
-      "updated_at": "2026-09-20T00:07:15+00:00"
+      "updated_at": "2026-09-20T23:09:24+00:00"
     },
     ".github/workflows/summary.yml": {
       "binding": "curated",
@@ -166,7 +168,7 @@
       "registry_source": "registry/1269434928/summary-bc1f0d2a.source.yml",
       "source_sha256": "c6534bad6ca4dbda9ce365f12a5894a92729d6be5e2e0bb4944b192812aa11e2",
       "status": "active",
-      "updated_at": "2026-09-20T00:07:15+00:00"
+      "updated_at": "2026-09-20T23:09:25+00:00"
     },
     ".github/workflows/update-libs.yml": {
       "binding": "curated",
@@ -175,7 +177,7 @@
       "registry_source": "registry/1269434928/update-libs-70ffc54c.source.yml",
       "source_sha256": "320489791ba36be59acabf9ac3b0267bfaab93e7e68e4b40700a5016a90bc1ef",
       "status": "active",
-      "updated_at": "2026-09-20T00:07:16+00:00"
+      "updated_at": "2026-09-20T23:09:25+00:00"
     }
   }
 }

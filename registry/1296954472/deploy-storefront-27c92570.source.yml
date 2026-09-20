@@ -61,6 +61,24 @@ jobs:
       - name: Build static React storefront
         run: pnpm --filter @azphalt/storefront-react build
 
+      - name: Verify exported Aive workflow and role catalog
+        shell: bash
+        run: |
+          set -euo pipefail
+          catalog="apps/storefront-react/dist/catalog.json"
+          test -s "$catalog" || {
+            echo "::error::Storefront build did not emit catalog.json"
+            exit 1
+          }
+          jq -e '
+            any(.[]; .id == "com.hereliesaz.haive.feature-delivery" and .kind == "workflow")
+            and
+            any(.[]; .id == "com.hereliesaz.haive.role.ux-researcher" and .kind == "role")
+          ' "$catalog" >/dev/null || {
+            echo "::error::Exported storefront catalog is missing the Aive workflow/role lane"
+            exit 1
+          }
+
       - name: Bundle Worker without deploying
         run: npx --yes wrangler@4 deploy --dry-run --config apps/storefront-worker/wrangler.jsonc
 
@@ -71,3 +89,35 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy --config apps/storefront-worker/wrangler.jsonc
+
+      - name: Verify live Aive workflow and role catalog
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          verify_package() {
+            local query="$1"
+            local expected_id="$2"
+            local expected_kind="$3"
+            local response="$RUNNER_TEMP/azphalt-live-${expected_kind}.json"
+
+            for attempt in $(seq 1 30); do
+              if curl --fail --silent --show-error --retry 2                 "https://azphalt.store/packages?app=com.hereliesaz.aive&kind=${expected_kind}&q=${query}&page=1&sort=name"                 -o "$response" &&
+                jq -e --arg id "$expected_id" --arg kind "$expected_kind" '
+                  (.total // 0) > 0 and
+                  any(.packages[]?; .id == $id and .kind == $kind)
+                ' "$response" >/dev/null; then
+                return 0
+              fi
+              echo "Live catalog has not converged yet (attempt $attempt/30 for $expected_id)"
+              sleep 10
+            done
+
+            echo "::error::Live azphalt.store catalog is missing $expected_id for Aive"
+            cat "$response" 2>/dev/null || true
+            return 1
+          }
+
+          verify_package "feature-delivery" "com.hereliesaz.haive.feature-delivery" "workflow"
+          verify_package "ux-researcher" "com.hereliesaz.haive.role.ux-researcher" "role"

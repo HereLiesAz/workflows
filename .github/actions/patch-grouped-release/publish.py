@@ -6,7 +6,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -237,7 +236,16 @@ def upload_idempotently(tag: str, file: Path) -> None:
 
 
 def legacy_release_tags() -> list[str]:
-    payload = json.loads(gh("api", "--paginate", f"repos/{repo}/releases?per_page=100", capture=True))
+    pages = json.loads(
+        gh(
+            "api",
+            "--paginate",
+            "--slurp",
+            f"repos/{repo}/releases?per_page=100",
+            capture=True,
+        )
+    )
+    payload = [item for page in pages for item in page]
     pattern = re.compile("^" + re.escape(tag_prefix + patch_version) + r"\.\d+$")
     return sorted(
         {

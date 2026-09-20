@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-09-20T00:08:29+00:00",
+  "last_sync_at": "2026-09-20T23:16:28+00:00",
   "repository": {
     "default_branch": "master",
     "full_name": "HereLiesAz/HG2Gui",
@@ -8,24 +8,25 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
+  "worker_url_configured": false,
   "workflows": {
     ".github/workflows/_reusable-build.yml": {
       "name": "Reusable Build",
       "registry_source": "registry/1148245553/_reusable-build-6c1544d2.source.yml",
       "source_sha256": "49747b243ac29ed300f671f2b294e8815525429b71827d5aa312547f03063e5b",
       "status": "library",
-      "updated_at": "2026-09-20T00:07:56+00:00"
+      "updated_at": "2026-09-20T23:16:09+00:00"
     },
     ".github/workflows/android-ci.yml": {
-      "blockers": [
-        "job 'build-and-release' step 8 uses actions/github-script with runner-repository context"
-      ],
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/hg2gui-android-ci.yml",
+      "implementation_sha256": "972f7688243f2f08aa995dc75cf06c853c19c8993b602ec64f7f1d01f3beba70",
       "name": "Android CI",
       "registry_source": "registry/1148245553/android-ci-3798bddf.source.yml",
-      "source_sha256": "3e547cd9afd611d74b4792ff1ecac8203d712aafcfbf71d02a013c911c6532cb",
-      "status": "local",
-      "updated_at": "2026-09-20T00:07:57+00:00"
+      "shared_variant": "972f7688243f2f08",
+      "source_sha256": "40d7c09991511924bfca9208376dabb8cb0387d7ae38d6047f556f4e65e05cb8",
+      "status": "active",
+      "updated_at": "2026-09-20T23:16:10+00:00"
     },
     ".github/workflows/android-release-aab.yml": {
       "binding": "curated",
@@ -34,7 +35,7 @@
       "registry_source": "registry/1148245553/android-release-aab-c7afaeed.source.yml",
       "source_sha256": "c7e435bc33db1508560b4f5e700570d3f9544ce3d2efa16b4b7df2a60ee3c1f4",
       "status": "active",
-      "updated_at": "2026-09-20T00:07:59+00:00"
+      "updated_at": "2026-09-20T23:16:12+00:00"
     },
     ".github/workflows/android-release-apk.yml": {
       "binding": "curated",
@@ -43,7 +44,7 @@
       "registry_source": "registry/1148245553/android-release-apk-f927747f.source.yml",
       "source_sha256": "41ccb8c30d393fdc42a44d3b208b179f948ebc44e1c316c4e78b76f627f3bb3c",
       "status": "active",
-      "updated_at": "2026-09-20T00:08:01+00:00"
+      "updated_at": "2026-09-20T23:16:13+00:00"
     },
     ".github/workflows/android-update-libs.yml": {
       "name": "Update Dependencies",
@@ -54,14 +55,15 @@
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/audit-storyboard-sheets.yml": {
-      "binding": "repository",
+      "binding": "shared-variant",
       "central_workflow": ".github/workflows/hg2gui-audit-storyboard-sheets.yml",
       "implementation_sha256": "b16c15ce59b344fa841b200ccf64a5e49b6f38f8f071006dba5f700738f51e7f",
       "name": "Audit storyboard sheets",
       "registry_source": "registry/1148245553/audit-storyboard-sheets-e32f9bd6.source.yml",
+      "shared_variant": "b16c15ce59b344fa",
       "source_sha256": "860206683ff52a240619d46cdf72f422aa7b041cf4ba3cdb77185f97bc3a1338",
       "status": "active",
-      "updated_at": "2026-09-20T00:08:02+00:00"
+      "updated_at": "2026-09-20T23:16:13+00:00"
     },
     ".github/workflows/backup.yml": {
       "binding": "curated",
@@ -70,7 +72,7 @@
       "registry_source": "registry/1148245553/backup-d598524a.source.yml",
       "source_sha256": "3a4f16e99f43e7ff92c92791ff368bc12e612766d692ac424a0c843deea01c71",
       "status": "active",
-      "updated_at": "2026-09-20T00:08:05+00:00"
+      "updated_at": "2026-09-20T23:16:14+00:00"
     },
     ".github/workflows/clear_cache.yml": {
       "binding": "curated",
@@ -79,7 +81,7 @@
       "registry_source": "registry/1148245553/clear_cache-7bd18479.source.yml",
       "source_sha256": "5d40dac9f75a6e3e651ff6a4b1c8e7bf52b09178d0aa30c586d3fbef46694fca",
       "status": "active",
-      "updated_at": "2026-09-20T00:08:07+00:00"
+      "updated_at": "2026-09-20T23:16:15+00:00"
     },
     ".github/workflows/code-quality.yml": {
       "binding": "curated",
@@ -88,7 +90,7 @@
       "registry_source": "registry/1148245553/code-quality-dd34ada1.source.yml",
       "source_sha256": "e0453104ae87efbcbaff88ffbf48bb4f13960d6793b9b0961e26930e9738b5c3",
       "status": "active",
-      "updated_at": "2026-09-20T00:08:08+00:00"
+      "updated_at": "2026-09-20T23:16:16+00:00"
     },
     ".github/workflows/deploy-sftp.yml": {
       "binding": "curated",
@@ -97,7 +99,7 @@
       "registry_source": "registry/1148245553/deploy-sftp-1401405c.source.yml",
       "source_sha256": "b0ef23a564e122b032f710d57a50a0d08fa49b142386df869c99f960f4e5be8b",
       "status": "active",
-      "updated_at": "2026-09-20T00:08:10+00:00"
+      "updated_at": "2026-09-20T23:16:17+00:00"
     },
     ".github/workflows/jekyll-gh-pages.yml": {
       "blockers": [
@@ -108,7 +110,7 @@
       "registry_source": "registry/1148245553/jekyll-gh-pages-5de61e74.source.yml",
       "source_sha256": "bc38315952dc5a20fa874a45475051dd81a7cdde23084779920690407903ba63",
       "status": "local",
-      "updated_at": "2026-09-20T00:08:11+00:00"
+      "updated_at": "2026-09-20T23:16:17+00:00"
     },
     ".github/workflows/jules-dispatch.yml": {
       "binding": "curated",
@@ -117,7 +119,7 @@
       "registry_source": "registry/1148245553/jules-dispatch-800d0b01.source.yml",
       "source_sha256": "17c13d04cfa6d1e55af692790eaab5608a1b4b511a1f66e56ec133a8803eb5da",
       "status": "active",
-      "updated_at": "2026-09-20T00:08:12+00:00"
+      "updated_at": "2026-09-20T23:16:18+00:00"
     },
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
@@ -126,39 +128,39 @@
       "registry_source": "registry/1148245553/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",
-      "updated_at": "2026-09-20T00:08:14+00:00"
+      "updated_at": "2026-09-20T23:16:18+00:00"
     },
     ".github/workflows/jules-invoke.yml": {
+      "binding": "curated",
+      "central_workflow": ".github/workflows/jules-dispatch.yml",
       "name": "\u25b6\ufe0f Jules Invoke",
       "registry_source": "registry/1148245553/jules-invoke-b23fc002.source.yml",
       "source_sha256": "cb2a978450da9b6dc82f8527a4ff2dbcde9af37e4e88d99e4409f217826572f0",
-      "status": "library",
-      "updated_at": "2026-09-20T00:08:15+00:00"
+      "status": "active",
+      "updated_at": "2026-09-20T23:16:19+00:00"
     },
     ".github/workflows/jules-review.yml": {
       "name": "\ud83d\udd0e Jules Review",
       "registry_source": "registry/1148245553/jules-review-9f7b6ce5.source.yml",
       "source_sha256": "b170093ab22ff75431fb6ea62d3e4ff1a254c5ba7352ee150e59e8dfa4b6f416",
       "status": "library",
-      "updated_at": "2026-09-20T00:08:15+00:00"
+      "updated_at": "2026-09-20T23:16:19+00:00"
     },
     ".github/workflows/jules-scheduled-triage.yml": {
-      "blockers": [
-        "job 'find-issues' step 1 uses actions/github-script with runner-repository context",
-        "job 'triage' step 1 uses repository-bound action 'google-labs-code/jules-invoke@v1.0.0'"
-      ],
+      "binding": "curated",
+      "central_workflow": ".github/workflows/jules-scheduled-triage.yml",
       "name": "\ud83d\udccb Jules Scheduled Issue Triage",
       "registry_source": "registry/1148245553/jules-scheduled-triage-7b36475f.source.yml",
       "source_sha256": "417422c330b5c2c0b37ef35eb18ec3c5424671bffa96288d868e69202fef8327",
-      "status": "local",
-      "updated_at": "2026-09-20T00:08:15+00:00"
+      "status": "active",
+      "updated_at": "2026-09-20T23:16:20+00:00"
     },
     ".github/workflows/jules-triage.yml": {
       "name": "\ud83d\udd00 Jules Triage",
       "registry_source": "registry/1148245553/jules-triage-5c552504.source.yml",
       "source_sha256": "bb9bbb7f43322a405c7b6b9e69af715543747de6c6584641fb977f42f139611c",
       "status": "library",
-      "updated_at": "2026-09-20T00:08:16+00:00"
+      "updated_at": "2026-09-20T23:16:20+00:00"
     },
     ".github/workflows/label.yml": {
       "blockers": [
@@ -168,34 +170,40 @@
       "registry_source": "registry/1148245553/label-04cea97c.source.yml",
       "source_sha256": "9e4ca08e0ce167c9f1ee6c3add108323047fe6af5cecbde30037314360a8c7da",
       "status": "local",
-      "updated_at": "2026-09-20T00:08:18+00:00"
+      "updated_at": "2026-09-20T23:16:21+00:00"
     },
     ".github/workflows/materialize-animation-boundaries.yml": {
-      "binding": "repository",
+      "binding": "shared-variant",
       "central_workflow": ".github/workflows/hg2gui-materialize-animation-boundaries.yml",
       "implementation_sha256": "8056b3eec1b9ddfaf0e4d7e4766bc9551f26d31df9da6afb1212c3ad00a550d7",
       "name": "Materialize animation boundaries",
       "registry_source": "registry/1148245553/materialize-animation-boundaries-3f5c3cd9.source.yml",
+      "shared_variant": "8056b3eec1b9ddfa",
       "source_sha256": "e7d634059ddc056b216cc13ab5f4ef63440498200e82b4ca02f857d37133f796",
       "status": "active",
-      "updated_at": "2026-09-20T00:08:18+00:00"
+      "updated_at": "2026-09-20T23:16:22+00:00"
     },
     ".github/workflows/merged-build.yml": {
-      "binding": "repository",
+      "binding": "shared-variant",
       "central_workflow": ".github/workflows/hg2gui-merged-build.yml",
       "implementation_sha256": "5716c082eda0b601e55928ecb3fe1525231471fbd8114125ed9201b2885728fa",
       "name": "Merged Build & Release",
       "registry_source": "registry/1148245553/merged-build-7328551a.source.yml",
+      "shared_variant": "5716c082eda0b601",
       "source_sha256": "e92084b6fddbc2347ef9b23c344d25fa643c2a8ac99a68326d4be33037b7b419",
       "status": "active",
-      "updated_at": "2026-09-20T00:08:22+00:00"
+      "updated_at": "2026-09-20T23:16:23+00:00"
     },
     ".github/workflows/release-play.yml": {
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/hg2gui-release-play.yml",
+      "implementation_sha256": "54a5db9145456032e4e0edf36059c527b5cf458d4b9152731958f4e260235bc6",
       "name": "Release to Play",
       "registry_source": "registry/1148245553/release-play-9e558a96.source.yml",
-      "source_sha256": "cb3057f2f8c1cf43ed10b8909b78b0d66293b4d2cd7df4bceaffe7212ab65ab9",
-      "status": "library",
-      "updated_at": "2026-09-20T00:08:24+00:00"
+      "shared_variant": "54a5db9145456032",
+      "source_sha256": "1bfa81e3c54b72a86189006020d2ed55043bed3ca963ac752ed9c0022d28e692",
+      "status": "active",
+      "updated_at": "2026-09-20T23:16:24+00:00"
     },
     ".github/workflows/static.yml": {
       "name": "Deploy static content to Pages",
@@ -212,7 +220,7 @@
       "registry_source": "registry/1148245553/summary-bc1f0d2a.source.yml",
       "source_sha256": "9158d4587eeca12602514ad7da12f02c600029539ba1567bf63b405d972b65ff",
       "status": "active",
-      "updated_at": "2026-09-20T00:08:26+00:00"
+      "updated_at": "2026-09-20T23:16:27+00:00"
     },
     ".github/workflows/update-libs.yml": {
       "binding": "curated",
@@ -221,7 +229,7 @@
       "registry_source": "registry/1148245553/update-libs-70ffc54c.source.yml",
       "source_sha256": "8e5f1bac9cf34a4b89d0d49d1a137c46a18212420d820f3103e5020b6628a0ff",
       "status": "active",
-      "updated_at": "2026-09-20T00:08:28+00:00"
+      "updated_at": "2026-09-20T23:16:28+00:00"
     }
   }
 }

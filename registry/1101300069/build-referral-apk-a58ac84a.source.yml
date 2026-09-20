@@ -1,0 +1,153 @@
+name: Build Referral APK
+
+# Builds a per-referrer copy of the app whose package id is
+# com.<username>.nolawallet (the attribution carrier). Triggered by the
+# `requestReferralBuild` Cloud Function (after a user pays + generates an ID)
+# and by the fan-out workflow (to keep every attributed build on the current
+# version). The code namespace is unchanged — only applicationId is overridden.
+on:
+  repository_dispatch:
+    types: [build-referral-apk]
+  workflow_dispatch:
+    inputs:
+      username:
+        description: "Referral username (package becomes com.<username>.nolawallet)"
+        required: true
+
+concurrency:
+  group: referral-${{ github.event.client_payload.username || github.event.inputs.username }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Resolve username
+        id: who
+        run: |
+          U="${{ github.event.client_payload.username || github.event.inputs.username }}"
+          # Defensive: must be a valid lowercase package segment.
+          if ! printf '%s' "$U" | grep -Eq '^[a-z][a-z0-9_]*$'; then
+            echo "::error::Invalid username '$U'"; exit 1
+          fi
+          echo "username=$U" >> "$GITHUB_OUTPUT"
+          echo "appid=com.$U.nolawallet" >> "$GITHUB_OUTPUT"
+          echo "tag=ref-$U" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Generate Keystore from Secrets
+        env:
+          KEYSTORE_PRIVATE: ${{ secrets.KEYSTORE_PRIVATE }}
+          KEYSTORE_CHAIN: ${{ secrets.KEYSTORE_CHAIN }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          echo "$KEYSTORE_PRIVATE" > private_key.pem
+          echo "$KEYSTORE_CHAIN" > certificate_chain.crt
+          openssl pkcs12 -export -in certificate_chain.crt -inkey private_key.pem \
+            -name "$KEY_ALIAS" -out keystore.p12 -password pass:"$KEYSTORE_PASSWORD"
+          keytool -importkeystore -srckeystore keystore.p12 -srcstoretype PKCS12 \
+            -destkeystore app/keystore.jks -deststoretype JKS \
+            -srcstorepass "$KEYSTORE_PASSWORD" -deststorepass "$KEYSTORE_PASSWORD" \
+            -alias "$KEY_ALIAS" -noprompt
+          rm private_key.pem certificate_chain.crt keystore.p12
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Compute version numbers
+        run: |
+          # Same formula as the canonical build, so every attributed copy shares
+          # the canonical version (fan-out rebuilds all users on each release).
+          BUILD_NUMBER=$(git rev-list --count HEAD)
+          MAJOR_COMMIT=$(git blame -L '/versionMajor=/',+1 version.properties | awk '{print $1}' | tr -d '^')
+          MINOR_COMMIT=$(git blame -L '/versionMinor=/',+1 version.properties | awk '{print $1}' | tr -d '^')
+          PATCH=""
+          for C in "$MAJOR_COMMIT" "$MINOR_COMMIT"; do
+            [ -z "$C" ] && continue
+            CNT=$(git rev-list --count "$C"..HEAD)
+            if [ -z "$PATCH" ] || [ "$CNT" -lt "$PATCH" ]; then PATCH=$CNT; fi
+          done
+          [ -z "$PATCH" ] && PATCH=$(grep 'versionPatch=' version.properties | cut -d'=' -f2 | tr -d '\r ')
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "PATCH=$PATCH" >> "$GITHUB_ENV"
+
+      - name: Build (applicationId override)
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          ./gradlew assembleDebug \
+            -PappIdOverride=${{ steps.who.outputs.appid }} \
+            -PversionBuild=$BUILD_NUMBER -PversionPatch=$PATCH --build-cache \
+            -Pandroid.injected.signing.store.file=$(pwd)/app/keystore.jks \
+            -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
+            -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
+            -Pandroid.injected.signing.key.password=$KEY_PASSWORD
+
+      - name: Name + verify APK
+        id: apk
+        run: |
+          MAJOR=$(grep 'versionMajor=' version.properties | cut -d'=' -f2 | tr -d '\r ')
+          MINOR=$(grep 'versionMinor=' version.properties | cut -d'=' -f2 | tr -d '\r ')
+          NAME="NoLAWallet-${MAJOR}.${MINOR}.${PATCH}.${BUILD_NUMBER}-debug.apk"
+          SRC=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
+          [ -z "$SRC" ] && { echo "::error::No APK produced"; exit 1; }
+          mv "$SRC" "$NAME"
+          # Sanity: the installed package must be the referral one. Resolve a single
+          # aapt — the runner has several build-tools versions, so a bare
+          # "$ANDROID_HOME"/build-tools/*/aapt glob expands to multiple paths and
+          # runs aapt with another aapt as its argument (empty output, false miss).
+          AAPT=$(ls "${ANDROID_HOME:-$ANDROID_SDK_ROOT}"/build-tools/*/aapt 2>/dev/null | sort -V | tail -n 1)
+          [ -z "$AAPT" ] && { echo "::error::aapt not found under build-tools"; exit 1; }
+          PKG=$("$AAPT" dump badging "$NAME" | sed -n "s/.*package: name='\([^']*\)'.*/\1/p" | head -1)
+          echo "Built package: $PKG (aapt: $AAPT)"
+          if [ "$PKG" != "${{ steps.who.outputs.appid }}" ]; then
+            echo "::error::Package mismatch: got '$PKG', expected '${{ steps.who.outputs.appid }}'"; exit 1
+          fi
+          echo "apk=$NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Publish per-referrer release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.who.outputs.tag }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${{ steps.apk.outputs.apk }}" --clobber
+          else
+            gh release create "$TAG" "${{ steps.apk.outputs.apk }}" --prerelease \
+              --title "Referral build (${{ steps.who.outputs.appid }})" \
+              --notes "Attributed build for ${{ steps.who.outputs.username }}" \
+              --target "$GITHUB_SHA"
+          fi
+
+      - name: Notify backend of published URL
+        env:
+          CALLBACK_URL: ${{ secrets.REFERRAL_CALLBACK_URL }}
+          CALLBACK_SECRET: ${{ secrets.REFERRAL_CALLBACK_SECRET }}
+        run: |
+          if [ -z "$CALLBACK_URL" ]; then
+            echo "REFERRAL_CALLBACK_URL not set; skipping backend notify."; exit 0
+          fi
+          URL="https://github.com/${{ github.repository }}/releases/download/${{ steps.who.outputs.tag }}/${{ steps.apk.outputs.apk }}"
+          curl -fsS -X POST "$CALLBACK_URL" \
+            -H "Content-Type: application/json" \
+            -H "x-build-secret: $CALLBACK_SECRET" \
+            -d "{\"username\":\"${{ steps.who.outputs.username }}\",\"url\":\"$URL\"}" || \
+            echo "::warning::callback to backend failed (referralApkUrl not updated)"

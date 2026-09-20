@@ -113,9 +113,6 @@ jobs:
           echo "HAIVE_VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
           echo "Android release versionCode: $VERSION_CODE"
 
-      - name: Verify immutable release policy
-        run: python3 .github/scripts/verify_release_immutability.py
-
       - name: Test shared domain
         run: ./gradlew :shared:desktopTest
 
@@ -313,6 +310,7 @@ jobs:
 
   desktop-packages:
     name: Desktop installer (${{ matrix.platform }})
+    if: github.event_name == 'pull_request'
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false

@@ -149,9 +149,15 @@ jobs:
           import subprocess
 
           event = json.loads(os.environ.get("TARGET_EVENT_JSON") or "{}")
+          target_inputs = json.loads(os.environ.get("TARGET_INPUTS_JSON") or "{}")
           event_name = os.environ["TARGET_EVENT_NAME"]
           repository = os.environ["TARGET_REPOSITORY"]
           actor = os.environ.get("TARGET_ACTOR", "")
+          explicit_request = str(
+              target_inputs.get("additional_context")
+              or target_inputs.get("prompt")
+              or ""
+          ).strip()
           allowed = {"OWNER", "MEMBER", "COLLABORATOR"}
 
           def gh_json(endpoint):
@@ -168,7 +174,21 @@ jobs:
           title = ""
           body = ""
 
-          if event_name == "pull_request":
+          if explicit_request:
+              command = "invoke"
+              request = explicit_request
+              issue = event.get("issue") or {}
+              pr_event = event.get("pull_request") or {}
+              issue_number = str(
+                  pr_event.get("number")
+                  or issue.get("number")
+                  or event.get("number")
+                  or ""
+              )
+              title = str(pr_event.get("title") or issue.get("title") or "")
+              body = str(pr_event.get("body") or issue.get("body") or "")
+
+          elif event_name == "pull_request":
               # Ordinary PR-open auditing belongs exclusively to Glee. Jules
               # Dispatch only responds to explicit @jules PR interactions.
               pass

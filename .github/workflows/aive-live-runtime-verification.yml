@@ -1,7 +1,7 @@
 # Generated for HereLiesAz/aive:.github/workflows/live-runtime-verification.yml.
 # Edit the registered source or synchronizer, not this compiled workflow.
 # Generated shared catalog workflow. Do not edit by hand.
-# catalog-source: shared/edffb6677b3b1fa962397fb9cc5dd6dbb364e33289515695af142311d021a4ba
+# catalog-source: shared/1e1daf12b5cf0e969bc0f5507635370105ceb6c95a8d0c0540166dc39ab69d48
 name: aive · Live Runtime Verification
 on:
   workflow_dispatch:
@@ -120,7 +120,7 @@ jobs:
         shell: bash
         run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from HereLiesAz/workflows.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
   verify-live-runtime:
-    if: ${{ (inputs.target_event_name == 'workflow_dispatch' || fromJSON(inputs.target_event_json).pull_request.head.repo.full_name == inputs.target_repository) && (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) }}
+    if: ${{ (inputs.target_event_name == 'workflow_dispatch' || (inputs.target_event_name == 'pull_request' && fromJSON(inputs.target_event_json).pull_request.head.repo.full_name == inputs.target_repository && fromJSON(inputs.target_event_json).pull_request.head.ref == 'acceptance/live-runtime-verification')) && (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -154,9 +154,9 @@ jobs:
           path: vendor/conveyance-h2g2/vendor/Conveyance
           token: ${{ secrets.GH_TOKEN }}
           persist-credentials: false
-      - name: Require a live provider credential
+      - name: Select or bootstrap live provider
         shell: bash
-        run: "set -euo pipefail\nif [ -z \"${OPENAI_API_KEY:-}\" ] && [ -z \"${ANTHROPIC_API_KEY:-}\" ] && [ -z \"${GEMINI_API_KEY:-}\" ] && [ -z \"${XAI_API_KEY:-}\" ]; then\n  echo \"::error::Configure at least one of OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, or XAI_API_KEY\"\n  exit 1\nfi\n"
+        run: "set -euo pipefail\n\nrequested=\"${AIVE_LIVE_PROVIDER:-}\"\nuse_ollama=false\n\nif [ -n \"$requested\" ] && [ \"$requested\" != \"ollama\" ]; then\n  case \"$requested\" in\n    openai) required=\"${OPENAI_API_KEY:-}\" ;;\n    anthropic) required=\"${ANTHROPIC_API_KEY:-}\" ;;\n    gemini) required=\"${GEMINI_API_KEY:-}\" ;;\n    xai) required=\"${XAI_API_KEY:-}\" ;;\n    *)\n      echo \"::error::AIVE_LIVE_PROVIDER must be one of: openai, anthropic, gemini, xai, ollama\"\n      exit 1\n      ;;\n  esac\n  test -n \"$required\" || {\n    echo \"::error::The requested provider '$requested' has no configured credential.\"\n    exit 1\n  }\nelif [ \"$requested\" = \"ollama\" ]; then\n  use_ollama=true\nelif [ -z \"${OPENAI_API_KEY:-}\" ] && [ -z \"${ANTHROPIC_API_KEY:-}\" ] && [ -z \"${GEMINI_API_KEY:-}\" ] && [ -z \"${XAI_API_KEY:-}\" ]; then\n  use_ollama=true\nfi\n\nif [ \"$use_ollama\" = true ]; then\n  echo \"No hosted-provider credential selected; bootstrapping real local Ollama inference.\"\n  curl -fsSL https://ollama.com/install.sh | sh\n  nohup env OLLAMA_HOST=127.0.0.1:11434 ollama serve >\"${RUNNER_TEMP}/ollama.log\" 2>&1 &\n  for attempt in $(seq 1 60); do\n    if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null; then\n      break\n    fi\n    if [ \"$attempt\" -eq 60 ]; then\n      cat \"${RUNNER_TEMP}/ollama.log\" || true\n      echo \"::error::Ollama did not become ready.\"\n      exit 1\n    fi\n    sleep 1\n  done\n  ollama pull smollm2:135m-instruct-q2_K\n\n  echo \"AIVE_LIVE_PROVIDER=ollama\" >> \"$GITHUB_ENV\"\n  echo \"AIVE_LIVE_OLLAMA_BASE_URL=http://127.0.0.1:11434/v1\" >> \"$GITHUB_ENV\"\n  echo \"AIVE_LIVE_OLLAMA_MODEL=smollm2:135m-instruct-q2_K\" >> \"$GITHUB_ENV\"\n\n  response=\"$(curl -fsS http://127.0.0.1:11434/v1/chat/completions \\\n    -H 'Content-Type: application/json' \\\n    -d '{\"model\":\"smollm2:135m-instruct-q2_K\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with OK.\"}],\"stream\":false}')\"\n  python - \"$response\" <<'PY'\nimport json\nimport sys\n\npayload = json.loads(sys.argv[1])\ntext = payload[\"choices\"][0][\"message\"][\"content\"].strip()\nif not text:\n    raise SystemExit(\"Ollama smoke response contained no assistant text\")\nprint(\"Ollama live provider ready:\", text[:120])\nPY\nfi\n"
       - name: Set up JDK 21
         uses: actions/setup-java@v5
         with:

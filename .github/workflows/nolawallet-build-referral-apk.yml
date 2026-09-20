@@ -1,0 +1,192 @@
+# Generated for HereLiesAz/NoLAWallet:.github/workflows/build-referral-apk.yml.
+# Edit the registered source or synchronizer, not this compiled workflow.
+# Generated shared catalog workflow. Do not edit by hand.
+# catalog-source: shared/39fc1b8c7db91f7adf89a3f56f5a1c0267c6f3cfe7909bec12a87b1594d4b551
+name: NoLAWallet · Build Referral APK
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_ref:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+permissions:
+  contents: read
+env:
+  TARGET_REPOSITORY: ${{ inputs.target_repository }}
+  TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+  TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+  TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+  TARGET_SHA: ${{ inputs.target_sha }}
+  TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+  TARGET_REF: ${{ inputs.target_ref }}
+  TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+  TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+  TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+  TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+  TARGET_ACTOR: ${{ inputs.target_actor }}
+  TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+  TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+  TARGET_RUN_ID: ${{ inputs.target_run_id }}
+  TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+  TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+  TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+  TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+concurrency:
+  group: referral-${{ fromJSON(inputs.target_event_json).client_payload.username || fromJSON(inputs.target_event_json).inputs.username }}-NoLAWallet
+  cancel-in-progress: true
+jobs:
+  central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from HereLiesAz/workflows.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Resolve username
+        id: who
+        run: "U=\"${{ fromJSON(inputs.target_event_json).client_payload.username || fromJSON(inputs.target_event_json).inputs.username }}\"\n# Defensive: must be a valid lowercase package segment.\nif ! printf '%s' \"$U\" | grep -Eq '^[a-z][a-z0-9_]*$'; then\n  echo \"::error::Invalid username '$U'\"; exit 1\nfi\necho \"username=$U\" >> \"$GITHUB_OUTPUT\"\necho \"appid=com.$U.nolawallet\" >> \"$GITHUB_OUTPUT\"\necho \"tag=ref-$U\" >> \"$GITHUB_OUTPUT\"\n"
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+      - name: Generate Keystore from Secrets
+        env:
+          KEYSTORE_PRIVATE: ${{ secrets.KEYSTORE_PRIVATE }}
+          KEYSTORE_CHAIN: ${{ secrets.KEYSTORE_CHAIN }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: "echo \"$KEYSTORE_PRIVATE\" > private_key.pem\necho \"$KEYSTORE_CHAIN\" > certificate_chain.crt\nopenssl pkcs12 -export -in certificate_chain.crt -inkey private_key.pem \\\n  -name \"$KEY_ALIAS\" -out keystore.p12 -password pass:\"$KEYSTORE_PASSWORD\"\nkeytool -importkeystore -srckeystore keystore.p12 -srcstoretype PKCS12 \\\n  -destkeystore app/keystore.jks -deststoretype JKS \\\n  -srcstorepass \"$KEYSTORE_PASSWORD\" -deststorepass \"$KEYSTORE_PASSWORD\" \\\n  -alias \"$KEY_ALIAS\" -noprompt\nrm private_key.pem certificate_chain.crt keystore.p12\n"
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: temurin
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Compute version numbers
+        run: "# Same formula as the canonical build, so every attributed copy shares\n# the canonical version (fan-out rebuilds all users on each release).\nBUILD_NUMBER=$(git rev-list --count HEAD)\nMAJOR_COMMIT=$(git blame -L '/versionMajor=/',+1 version.properties | awk '{print $1}' | tr -d '^')\nMINOR_COMMIT=$(git blame -L '/versionMinor=/',+1 version.properties | awk '{print $1}' | tr -d '^')\nPATCH=\"\"\nfor C in \"$MAJOR_COMMIT\" \"$MINOR_COMMIT\"; do\n  [ -z \"$C\" ] && continue\n  CNT=$(git rev-list --count \"$C\"..HEAD)\n  if [ -z \"$PATCH\" ] || [ \"$CNT\" -lt \"$PATCH\" ]; then PATCH=$CNT; fi\ndone\n[ -z \"$PATCH\" ] && PATCH=$(grep 'versionPatch=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\necho \"BUILD_NUMBER=$BUILD_NUMBER\" >> \"$GITHUB_ENV\"\necho \"PATCH=$PATCH\" >> \"$GITHUB_ENV\"\n"
+      - name: Build (applicationId override)
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: "./gradlew assembleDebug \\\n  -PappIdOverride=${{ steps.who.outputs.appid }} \\\n  -PversionBuild=$BUILD_NUMBER -PversionPatch=$PATCH --build-cache \\\n  -Pandroid.injected.signing.store.file=$(pwd)/app/keystore.jks \\\n  -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \\\n  -Pandroid.injected.signing.key.alias=$KEY_ALIAS \\\n  -Pandroid.injected.signing.key.password=$KEY_PASSWORD\n"
+      - name: Name + verify APK
+        id: apk
+        run: "MAJOR=$(grep 'versionMajor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nMINOR=$(grep 'versionMinor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nNAME=\"NoLAWallet-${MAJOR}.${MINOR}.${PATCH}.${BUILD_NUMBER}-debug.apk\"\nSRC=$(find app/build/outputs/apk/debug -name \"*.apk\" | head -n 1)\n[ -z \"$SRC\" ] && { echo \"::error::No APK produced\"; exit 1; }\nmv \"$SRC\" \"$NAME\"\n# Sanity: the installed package must be the referral one. Resolve a single\n# aapt — the runner has several build-tools versions, so a bare\n# \"$ANDROID_HOME\"/build-tools/*/aapt glob expands to multiple paths and\n# runs aapt with another aapt as its argument (empty output, false miss).\nAAPT=$(ls \"${ANDROID_HOME:-$ANDROID_SDK_ROOT}\"/build-tools/*/aapt 2>/dev/null | sort -V | tail -n 1)\n[ -z \"$AAPT\" ] && { echo \"::error::aapt not found under build-tools\"; exit 1; }\nPKG=$(\"$AAPT\" dump badging \"$NAME\" | sed -n \"s/.*package: name='\\([^']*\\)'.*/\\1/p\" | head -1)\necho \"Built package: $PKG (aapt: $AAPT)\"\nif [ \"$PKG\" != \"${{ steps.who.outputs.appid }}\" ]; then\n  echo \"::error::Package mismatch: got '$PKG', expected '${{ steps.who.outputs.appid }}'\"; exit 1\nfi\necho \"apk=$NAME\" >> \"$GITHUB_OUTPUT\"\n"
+      - name: Publish per-referrer release
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: "TAG=\"${{ steps.who.outputs.tag }}\"\nif gh release view \"$TAG\" >/dev/null 2>&1; then\n  gh release upload \"$TAG\" \"${{ steps.apk.outputs.apk }}\" --clobber\nelse\n  gh release create \"$TAG\" \"${{ steps.apk.outputs.apk }}\" --prerelease \\\n    --title \"Referral build (${{ steps.who.outputs.appid }})\" \\\n    --notes \"Attributed build for ${{ steps.who.outputs.username }}\" \\\n    --target \"$TARGET_SHA\"\nfi\n"
+      - name: Notify backend of published URL
+        env:
+          CALLBACK_URL: ${{ secrets.REFERRAL_CALLBACK_URL }}
+          CALLBACK_SECRET: ${{ secrets.REFERRAL_CALLBACK_SECRET }}
+        run: "if [ -z \"$CALLBACK_URL\" ]; then\n  echo \"REFERRAL_CALLBACK_URL not set; skipping backend notify.\"; exit 0\nfi\nURL=\"https://github.com/${{ inputs.target_repository }}/releases/download/${{ steps.who.outputs.tag }}/${{ steps.apk.outputs.apk }}\"\ncurl -fsS -X POST \"$CALLBACK_URL\" \\\n  -H \"Content-Type: application/json\" \\\n  -H \"x-build-secret: $CALLBACK_SECRET\" \\\n  -d \"{\\\"username\\\":\\\"${{ steps.who.outputs.username }}\\\",\\\"url\\\":\\\"$URL\\\"}\" || \\\n  echo \"::warning::callback to backend failed (referralApkUrl not updated)\"\n"
+    needs: central_check_start
+    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
+    environment: NoLAWallet
+  central_check_finish:
+    if: ${{ always() }}
+    needs:
+      - central_check_start
+      - build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Central workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Central workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+run-name: NoLAWallet · Build Referral APK

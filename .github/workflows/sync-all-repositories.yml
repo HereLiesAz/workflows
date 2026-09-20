@@ -2,6 +2,10 @@ name: Sync all owned repositories
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.controller/sync-all-epoch'
   workflow_run:
     workflows:
       - Enforce version contract everywhere

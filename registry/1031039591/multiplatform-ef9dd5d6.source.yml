@@ -439,7 +439,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    name: Publish versioned release
+    name: Publish patch-grouped release
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs:
       - build
@@ -484,29 +484,21 @@ jobs:
           name: aive-release-notes
           path: release-input/notes
 
+      - name: Derive four-part release version
+        id: version
+        uses: HereLiesAz/workflows/.github/actions/four-part-version@main
+        with:
+          source-version-file: gradle.properties
+          source-version-key: app.versionName
+          build-number: ${{ github.run_number }}
+          prerelease-major-max: "0"
+
       - name: Prepare release assets
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.version }}
         shell: bash
         run: |
           set -euo pipefail
-
-          SOURCE_VERSION=$(grep '^app.versionName=' gradle.properties | cut -d'=' -f2- | tr -d '\r ')
-          if ! printf '%s' "$SOURCE_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "::error::app.versionName must be MAJOR.MINOR.PATCH.BUILD (for example 0.9.6.0)"
-            exit 1
-          fi
-
-          MAJOR=$(printf '%s' "$SOURCE_VERSION" | cut -d. -f1)
-          MINOR=$(printf '%s' "$SOURCE_VERSION" | cut -d. -f2)
-          PATCH=$(printf '%s' "$SOURCE_VERSION" | cut -d. -f3)
-          VERSION_NAME="${MAJOR}.${MINOR}.${PATCH}.${GITHUB_RUN_NUMBER}"
-          TAG_NAME="v${VERSION_NAME}"
-          RELEASE_TITLE="The Aive ${VERSION_NAME}"
-
-          IS_PRERELEASE=false
-          if [ "$MAJOR" -eq 0 ] || { [ "$MAJOR" -eq 1 ] && [ "$MINOR" -le 3 ]; }; then
-            IS_PRERELEASE=true
-          fi
-
           mkdir -p release-files
 
           APK_SOURCE=$(find release-input/android -type f -name '*.apk' -print -quit)
@@ -545,54 +537,19 @@ jobs:
             fi
           } > release-notes.md
 
-          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
-          echo "TAG_NAME=$TAG_NAME" >> "$GITHUB_ENV"
-          echo "RELEASE_TITLE=$RELEASE_TITLE" >> "$GITHUB_ENV"
-          echo "IS_PRERELEASE=$IS_PRERELEASE" >> "$GITHUB_ENV"
-
-          echo "Release assets:"
-          ls -lh release-files
-
-      - name: Publish versioned release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          # Release history is immutable. Every MAJOR.MINOR.PATCH.BUILD may be published exactly once.
-          # Never move a version tag, edit an existing release, delete its assets, or clobber uploads.
-          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
-            echo "Release $TAG_NAME already exists. Leaving the existing release completely unchanged."
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          if git rev-parse -q --verify "refs/tags/$TAG_NAME" >/dev/null; then
-            TAG_COMMIT=$(git rev-list -n 1 "$TAG_NAME")
-            if [ "$TAG_COMMIT" != "$GITHUB_SHA" ]; then
-              echo "::error::Immutable tag $TAG_NAME already exists at $TAG_COMMIT; refusing to move it to $GITHUB_SHA"
-              exit 1
-            fi
-          else
-            git tag -a "$TAG_NAME" -m "The Aive ${VERSION_NAME}"
-            git push origin "$TAG_NAME"
-          fi
-
-          if [ "$IS_PRERELEASE" = "true" ]; then
-            gh release create "$TAG_NAME" release-files/* \
-              --prerelease \
-              --verify-tag \
-              --title "$RELEASE_TITLE" \
-              --notes-file release-notes.md
-          else
-            gh release create "$TAG_NAME" release-files/* \
-              --verify-tag \
-              --title "$RELEASE_TITLE" \
-              --notes-file release-notes.md
-          fi
+      - name: Publish grouped patch release
+        uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@main
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          target-repository: ${{ github.repository }}
+          target-sha: ${{ github.sha }}
+          build-version: ${{ steps.version.outputs.version }}
+          assets: release-files/*
+          title-prefix: The Aive
+          notes-file: release-notes.md
+          prerelease: ${{ steps.version.outputs.prerelease }}
+          make-latest: "true"
+          migrate-legacy-build-releases: "true"
 
   deploy-pages:
     if: github.event_name != 'pull_request'

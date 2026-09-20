@@ -35,6 +35,8 @@ Runtime results are reported back to the target SHA using **commit statuses**, n
 
 New workflow implementations must be submitted to this repository and generalized for reuse before they are allowed into a target repository. See **[Generalized workflow policy](docs/WORKFLOW_POLICY.md)**.
 
+Release/version semantics are also centralized. See **[Central release and version policy](docs/RELEASE_VERSIONING.md)**. Four-part builds keep immutable exact-build tags while their artifacts are grouped under one patch-level GitHub Release.
+
 Repository starters:
 
 - `HereLiesAz/workflows-starter-template` — general/meta repository
@@ -90,6 +92,10 @@ Project-specific `scripts/` and local composite actions stay in their target rep
 The synchronizer blocks a workflow if it tries to use a repo-local script/action before a full target-repository checkout.
 
 Dependencies that are part of a **shared workflow implementation** should live here alongside the shared workflow instead of being copied into every target repository.
+
+The same rule applies to cross-repository release policy. Shared release families use the reusable
+`four-part-version` and `patch-grouped-release` actions here rather than copying version/tag/release
+shell logic into target repositories.
 
 ## Controller workflows
 

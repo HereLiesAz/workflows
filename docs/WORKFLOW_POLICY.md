@@ -30,3 +30,25 @@ Existing workflow paths present when the policy was introduced are listed in `gr
 `policy/workflow-policy.json#secret_catalog` contains secret **names and purposes only**. It never contains secret values.
 
 When no existing secret provides the required authority, add the new name and its purpose to that catalog and make the workflow fail explicitly if the secret is absent.
+
+
+## Release and version policy
+
+Release workflows are subject to the same centralization rule as build/test workflows.
+
+When a project uses `MAJOR.MINOR.PATCH.BUILD` versions:
+
+- use `.github/actions/four-part-version` for BUILD derivation;
+- use `.github/actions/patch-grouped-release` for Git tags and GitHub Release publication;
+- keep exact four-part tags immutable;
+- group build artifacts under the three-part patch Release;
+- keep the full four-part version in asset names;
+- never use clobber semantics to replace different bytes under an existing grouped asset name; and
+- preserve exact-build tags when legacy one-build-per-Release objects are migrated.
+
+Generalized Android, multi-platform, and artifact release families apply this automatically when the
+resolved version is four-part. Non-four-part profiles retain their existing release behavior.
+
+A target workflow may contain artifact-building logic that is genuinely target-specific, but it must
+not duplicate central tag/grouping/version policy merely for convenience. See
+[`RELEASE_VERSIONING.md`](RELEASE_VERSIONING.md).

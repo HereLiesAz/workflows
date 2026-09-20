@@ -37,6 +37,26 @@ jobs:
       - name: Install centralizer dependency
         run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
 
+      - name: Register direct repository webhook
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          repository="${{ inputs.repository }}"
+          repository_id="$(gh api "repos/${repository}" --jq '.id')"
+          oidc_response="$(curl --fail-with-body --silent --show-error \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=hereliesaz-workflows")"
+          oidc_token="$(jq -r '.value // empty' <<<"$oidc_response")"
+          [[ -n "$oidc_token" ]] || { echo "::error::GitHub did not issue an OIDC token."; exit 1; }
+          payload="$(jq -nc --arg repository "$repository" --arg repository_id "$repository_id" '{repository:$repository,repository_id:$repository_id}')"
+          curl --fail-with-body --silent --show-error \
+            -X POST "${WORKER_URL%/}/register" \
+            -H "Authorization: Bearer $oidc_token" \
+            -H "Content-Type: application/json" \
+            --data "$payload"
+
       - name: Scan and centralize
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -46,26 +66,6 @@ jobs:
             args+=(--dry-run)
           fi
           python scripts/retry_repository_sync.py "${args[@]}" --json-output sync-result.json
-
-      - name: Register direct repository webhook
-        if: ${{ success() }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          result_file="sync-result.json"
-          repository_id="$(jq -r '.repository_id // empty' "$result_file")"
-          [[ -n "$repository_id" ]] || { echo "::error::Sync result did not contain repository_id."; exit 1; }
-          oidc_response="$(curl --fail-with-body --silent --show-error \
-            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=hereliesaz-workflows")"
-          oidc_token="$(jq -r '.value // empty' <<<"$oidc_response")"
-          [[ -n "$oidc_token" ]] || { echo "::error::GitHub did not issue an OIDC token."; exit 1; }
-          payload="$(jq -nc --arg repository "${{ inputs.repository }}" --arg repository_id "$repository_id" '{repository:$repository,repository_id:$repository_id}')"
-          curl --fail-with-body --silent --show-error \
-            -X POST "${WORKER_URL%/}/register" \
-            -H "Authorization: Bearer $oidc_token" \
-            -H "Content-Type: application/json" \
-            --data "$payload"
 
       - name: Write summary
         if: ${{ always() && hashFiles('sync-result.json') != '' }}

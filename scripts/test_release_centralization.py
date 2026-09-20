@@ -72,29 +72,30 @@ assert "return request.execute(num_retries=retries)" in play_workflow
 assert "MediaFileUpload(aab,mimetype='application/octet-stream')).execute()" not in play_workflow
 
 
-patch_release = Path('.github/workflows/patch-grouped-github-release.yml').read_text(encoding='utf-8')
-assert '# workflow-policy: generalized-v1' in patch_release
-assert 'PATCH_TAG="v$PATCH_VERSION"' in patch_release
-assert 'BUILD_TAG="v$BUILD_VERSION"' in patch_release
-assert 'gh release delete "$legacy_tag" --repo "$TARGET_REPOSITORY" --yes' in patch_release
-assert '--clobber' not in patch_release
-assert 'git tag -fa' not in patch_release
-assert 'git push origin "$PATCH_TAG" --force' not in patch_release
-assert 'git push origin "$BUILD_TAG" --force' not in patch_release
-assert 'Release asset $name already exists with different content; refusing to clobber it' in patch_release
+multi_platform_release = Path(
+    '.github/workflows/multi-platform-app-release.yml'
+).read_text(encoding='utf-8')
+assert 'workflow_call:' in multi_platform_release
+assert 'reuse_existing_tag="$(jq -r \'.reuse_existing_tag // false\'' in multi_platform_release
+assert 'Keeping stable grouped-release tag $TAG' in multi_platform_release
+assert 'git tag -fa "$TAG"' in multi_platform_release  # retained only for explicit force_tag profiles
 
 aive_release_source = Path(
     'registry/1031039591/multiplatform-ef9dd5d6.source.yml'
 ).read_text(encoding='utf-8')
 assert (
-    'uses: HereLiesAz/workflows/.github/workflows/patch-grouped-github-release.yml@main'
+    'uses: HereLiesAz/workflows/.github/workflows/multi-platform-app-release.yml@main'
     in aive_release_source
 )
-assert 'name: Prepare grouped GitHub release assets' in aive_release_source
-assert 'name: Publish patch-grouped release' in aive_release_source
-assert 'artifact_name: aive-github-release-bundle' in aive_release_source
-assert 'migrate_legacy_build_releases: true' in aive_release_source
-assert 'gh release create "$TAG_NAME"' not in aive_release_source
+assert 'reuse_existing_tag' in aive_release_source
+assert '"tag_mode": "prepare-output"' in aive_release_source
+assert 'version="${PATCH_VERSION}.${TARGET_RUN_NUMBER}"' in aive_release_source
+assert 'tag="v${PATCH_VERSION}"' in aive_release_source
+assert 'build_tag="v${version}"' in aive_release_source
+assert 'TheAive-${RELEASE_VERSION}.deb' in aive_release_source
+assert 'TheAive-${RELEASE_VERSION}.dmg' in aive_release_source
+assert 'TheAive-$env:RELEASE_VERSION.msi' in aive_release_source
+assert "if: github.event_name == 'pull_request'" in aive_release_source
 assert 'Verify immutable release policy' not in aive_release_source
 
 print('release centralization regression test passed')

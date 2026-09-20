@@ -124,18 +124,21 @@ jobs:
                       compile(match.group(1), f'{path}:step-{index}', 'exec')
           PY
 
-      - name: Smoke-test repository-scoped generation
+      - name: Smoke-test repository-scoped generation and webhook routing
         run: |
           python - <<'PY'
           from scripts import sync_repository_catalog as core
+          from scripts.dispatch_request import _event_trigger
           from scripts.repository_workflow_mode import activate
-          from scripts.sync_repository import build_proxy, compile_central, load_yaml, sha256_text
+          from scripts.sync_repository import compile_central, load_yaml
 
           source = '''
           name: Fixture
           on:
             push:
               branches: [main]
+              paths-ignore:
+                - '.github/workflows/**'
           jobs:
             test:
               runs-on: ubuntu-latest
@@ -146,11 +149,25 @@ jobs:
                 - uses: actions/checkout@v4
                 - run: echo ok
           '''
-          proxy = build_proxy(source, '.github/workflows/fixture.yml', sha256_text(source), 'Fixture')
-          proxy_doc = load_yaml(proxy.split('\n', 4)[4])
-          assert proxy_doc['name'] == 'Fixture'
-          assert '[central proxy]' not in proxy
-          assert proxy_doc['jobs']['central-dispatch']['name'] == 'Dispatch'
+          source_doc = load_yaml(source)
+          assert _event_trigger(
+              source_doc,
+              'push',
+              {'ref': 'refs/heads/main'},
+              ['src/App.kt'],
+          ) == 'push'
+          assert _event_trigger(
+              source_doc,
+              'push',
+              {'ref': 'refs/heads/main'},
+              ['.github/workflows/fixture.yml'],
+          ) is None
+          assert _event_trigger(
+              source_doc,
+              'push',
+              {'ref': 'refs/heads/other'},
+              ['src/App.kt'],
+          ) is None
 
           central = compile_central(source, {'full_name': 'HereLiesAz/fixture', 'private': False}, '.github/workflows/fixture.yml', 'Fixture')
           activate(core, 'HereLiesAz/fixture')

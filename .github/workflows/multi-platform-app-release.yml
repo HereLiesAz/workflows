@@ -377,6 +377,28 @@ jobs:
             gh "${args[@]}"
           fi
 
+          migrate_build_releases="$(jq -r '.migrate_build_releases // false' <<<"$PROFILE_JSON")"
+          if [ "$migrate_build_releases" = true ]; then
+            escaped_tag="$(printf '%s' "$TAG" | sed -e 's/[][\\.^$*+?{}()|/]/\\&/g')"
+            mapfile -t legacy_tags < <(
+              gh api --paginate "repos/$TARGET_REPOSITORY/releases?per_page=100" --jq '.[].tag_name' \
+                | grep -E "^${escaped_tag}\\.[0-9]+$" || true
+            )
+            for legacy_tag in "${legacy_tags[@]}"; do
+              [ "$legacy_tag" != "$TAG" ] || continue
+              echo "Migrating legacy build release $legacy_tag into grouped release $TAG"
+              legacy_dir="$(mktemp -d)"
+              gh release download "$legacy_tag" --repo "$TARGET_REPOSITORY" --dir "$legacy_dir" || true
+              while IFS= read -r legacy_asset; do
+                [ -f "$legacy_asset" ] || continue
+                gh release upload "$TAG" "$legacy_asset" --repo "$TARGET_REPOSITORY" --clobber
+              done < <(find "$legacy_dir" -type f -print | sort)
+              rm -rf "$legacy_dir"
+              # Delete only the redundant release object; its exact-build tag remains immutable.
+              gh release delete "$legacy_tag" --repo "$TARGET_REPOSITORY" --yes
+            done
+          fi
+
           rolling="$(jq -r '.rolling_tag // empty' <<<"$PROFILE_JSON")"
           if [ -n "$rolling" ]; then
             git -C release-repo tag -fa "$rolling" "${{ needs.prepare.outputs.build_sha }}" -m "Latest release"

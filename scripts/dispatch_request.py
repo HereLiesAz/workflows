@@ -314,13 +314,11 @@ def _dispatch_entry(
         )
 
     binding = str(entry.get("binding") or "")
-    if binding == "repository":
-        repo_slug = slug(repository.rsplit("/", 1)[-1])
-        expected_prefix = f".github/workflows/{repo_slug}-"
-        if not central_workflow.startswith(expected_prefix):
-            raise RuntimeError(f"Repository binding points outside its namespace: {central_workflow}")
-    elif binding != "curated":
-        raise RuntimeError(f"Unsupported workflow binding: {binding!r}")
+    validate_central_workflow_binding(
+        repository=repository,
+        binding=binding,
+        central_workflow=central_workflow,
+    )
 
     workflow_id = urllib.parse.quote(central_workflow.rsplit("/", 1)[-1], safe="")
     actor = str(request.get("actor") or "github")

@@ -1,0 +1,140 @@
+# workflow-policy: generalized-v1
+# workflow-purpose: Synchronize repositories whose registered workflow source files changed in the central registry.
+# required-secret: GH_TOKEN | Central GitHub token used for cross-repository workflow synchronization.
+
+name: Sync changed registry sources
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        description: owner/repository to synchronize
+        required: true
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - 'registry/**/*.source.yml'
+
+run-name: registry-sync · ${{ github.event_name == 'workflow_dispatch' && inputs.target_repository || github.sha }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workflow-registry-source-sync
+  cancel-in-progress: false
+
+env:
+  WORKER_URL: https://workflows.hereliesaz.workers.dev
+
+jobs:
+  policy_secret_preflight:
+    runs-on: ubuntu-latest
+    env:
+      REQUIRED_GH_TOKEN: ${{ secrets.GH_TOKEN }}
+    steps:
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${REQUIRED_GH_TOKEN:-}" || {
+            echo "::error::Missing required secret GH_TOKEN — Central GitHub token used for cross-repository workflow synchronization."
+            exit 1
+          }
+
+  discover:
+    needs: policy_secret_preflight
+    runs-on: ubuntu-latest
+    outputs:
+      repositories: ${{ steps.targets.outputs.repositories }}
+      count: ${{ steps.targets.outputs.count }}
+    steps:
+      - name: Check out central controller
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Resolve affected repositories
+        id: targets
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MANUAL_REPOSITORY: ${{ inputs.target_repository }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+          import subprocess
+
+          if os.environ["EVENT_NAME"] == "workflow_dispatch":
+              repositories = [os.environ["MANUAL_REPOSITORY"].strip()]
+          else:
+              before = os.environ.get("BEFORE_SHA", "")
+              after = os.environ["AFTER_SHA"]
+              zero = "0" * 40
+              if not before or before == zero:
+                  command = ["git", "show", "--pretty=", "--name-only", after]
+              else:
+                  command = ["git", "diff", "--name-only", before, after, "--", "registry"]
+              changed = subprocess.check_output(command, text=True).splitlines()
+              registry_ids = sorted({
+                  parts[1]
+                  for path in changed
+                  if path.endswith(".source.yml")
+                  for parts in [path.split("/")]
+                  if len(parts) >= 3 and parts[0] == "registry" and parts[1].isdigit()
+              })
+              repositories = []
+              for registry_id in registry_ids:
+                  manifest = pathlib.Path("registry") / registry_id / "manifest.json"
+                  if not manifest.is_file():
+                      raise SystemExit(f"Missing registry manifest for {registry_id}")
+                  payload = json.loads(manifest.read_text(encoding="utf-8"))
+                  full_name = str(payload.get("repository", {}).get("full_name", "")).strip()
+                  if not full_name:
+                      raise SystemExit(f"Registry {registry_id} manifest has no repository.full_name")
+                  repositories.append(full_name)
+
+          repositories = sorted(set(filter(None, repositories)))
+          output = pathlib.Path(os.environ["GITHUB_OUTPUT"])
+          with output.open("a", encoding="utf-8") as handle:
+              handle.write("repositories=" + json.dumps(repositories, separators=(",", ":")) + "\n")
+              handle.write(f"count={len(repositories)}\n")
+          print(json.dumps({"repositories": repositories}, indent=2))
+          PY
+
+  sync:
+    needs: discover
+    if: ${{ needs.discover.outputs.count != '0' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target_repository: ${{ fromJSON(needs.discover.outputs.repositories) }}
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+    steps:
+      - name: Check out central controller
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install centralizer dependency
+        run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
+
+      - name: Synchronize affected repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="${RUNNER_TEMP}/sync-result.json"
+          python scripts/retry_repository_sync.py \
+            --repository "${{ matrix.target_repository }}" \
+            --worker-url "$WORKER_URL" \
+            --json-output "$out"
+          cat "$out"

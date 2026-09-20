@@ -1,8 +1,8 @@
-# Generated for HereLiesAz/NoLAWallet:.github/workflows/deploy-worker.yml.
+# Generated for HereLiesAz/morphont:.github/workflows/platform-parity.yml.
 # Edit the registered source or synchronizer, not this compiled workflow.
 # Generated shared catalog workflow. Do not edit by hand.
-# catalog-source: shared/239e1f2d4c817683e95495638aba40724cae5d97db09eb8cb85fedcd8308e805
-name: NoLAWallet · Deploy Worker
+# catalog-source: shared/fb977d9782025832ae1dc1d3a332d793363a8c3d5e715e91cc4a3d4b1e45ec9c
+name: morphont · Platform Parity
 on:
   workflow_dispatch:
     inputs:
@@ -100,9 +100,6 @@ env:
   TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
   TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
   TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
-concurrency:
-  group: deploy-worker-NoLAWallet
-  cancel-in-progress: false
 jobs:
   central_check_start:
     runs-on: ubuntu-latest
@@ -119,34 +116,44 @@ jobs:
           DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         shell: bash
         run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from HereLiesAz/workflows.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
-  deploy:
+  parity:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}
           token: ${{ secrets.GH_TOKEN }}
           persist-credentials: false
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-java@v5
         with:
-          node-version: '20'
-      - name: Deploy with Wrangler
-        uses: cloudflare/wrangler-action@v3
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Build Android and wasm from the shared core
+        env:
+          GITHUB_ACTOR: ${{ inputs.target_actor }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: ./gradlew parityCheck --stacktrace
+      - name: Publish installable Android APK
+        uses: actions/upload-artifact@v4
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: worker
+          name: morphont-android-debug-${{ fromJSON(inputs.target_event_json).pull_request.head.sha || inputs.target_sha }}
+          path: androidApp/build/outputs/apk/debug/androidApp-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
     needs: central_check_start
     if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
-    environment: NoLAWallet
+    permissions:
+      contents: read
+      packages: read
+    environment: morphont
   central_check_finish:
     if: ${{ always() }}
     needs:
       - central_check_start
-      - deploy
+      - parity
     runs-on: ubuntu-latest
     steps:
       - name: Complete target status
@@ -157,4 +164,4 @@ jobs:
           DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         shell: bash
         run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Central workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Central workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
-run-name: NoLAWallet · Deploy Worker
+run-name: morphont · Platform Parity

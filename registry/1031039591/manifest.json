@@ -1,8 +1,8 @@
 {
-  "last_sync_at": "2026-09-14T02:05:37+00:00",
+  "last_sync_at": "2026-09-20T07:41:29+00:00",
   "repository": {
     "default_branch": "main",
-    "full_name": "HereLiesAz/haive",
+    "full_name": "HereLiesAz/aive",
     "id": 1031039591,
     "owner_id": 103241502,
     "owner_login": "HereLiesAz"
@@ -12,13 +12,14 @@
   "workflows": {
     ".github/workflows/android-ci.yml": {
       "blockers": [
-        "job 'build-and-release' step 6 uses actions/github-script with runner-repository context"
+        "job 'build-and-release' step 9 uses actions/github-script with runner-repository context",
+        "job 'unit-tests' step 5 uses repository-bound action 'gradle/actions/dependency-submission@v6'"
       ],
       "name": "Android CI",
       "registry_source": "registry/1031039591/android-ci-3798bddf.source.yml",
-      "source_sha256": "d3106dd1c1478b6e666e605b099e65e72f99371c8c62a3e76727180adc97a43e",
+      "source_sha256": "681cb9ea4408d529f16d11e91fc6030c87fd1d35e5a1f8d977f1e7374b7cfd90",
       "status": "local",
-      "updated_at": "2026-09-14T02:05:27+00:00"
+      "updated_at": "2026-09-20T07:41:11+00:00"
     },
     ".github/workflows/backup.yml": {
       "binding": "curated",
@@ -27,7 +28,27 @@
       "registry_source": "registry/1031039591/backup-d598524a.source.yml",
       "source_sha256": "3a4f16e99f43e7ff92c92791ff368bc12e612766d692ac424a0c843deea01c71",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-20T07:41:11+00:00"
+    },
+    ".github/workflows/bitcos-engine.yml": {
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aive-bitcos-engine.yml",
+      "implementation_sha256": "6273e66713f6f866af1da1665827decc965649169739c5cba5e3542feaf393f6",
+      "name": "BITCOS Engine",
+      "registry_source": "registry/1031039591/bitcos-engine-2de7dc9e.source.yml",
+      "source_sha256": "88d52a2d9c2a19653df934aeba1696dd21dc4e1d18dda4c65d30359cfa9909d4",
+      "status": "active",
+      "updated_at": "2026-09-20T07:41:12+00:00"
+    },
+    ".github/workflows/bitnet-benchmark.yml": {
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aive-bitnet-benchmark.yml",
+      "implementation_sha256": "f03dd19b87665b97eb7d19a204181a67c9982c1a424726026ace8aab0f889954",
+      "name": "BitNet Pre-Adoption Benchmark",
+      "registry_source": "registry/1031039591/bitnet-benchmark-4bc1f484.source.yml",
+      "source_sha256": "86eff3fc32dbfc8a663e469719866037510ec8aa3596fb38294a4d430ee36d0f",
+      "status": "active",
+      "updated_at": "2026-09-20T07:41:13+00:00"
     },
     ".github/workflows/clear_cache.yml": {
       "binding": "curated",
@@ -36,7 +57,7 @@
       "registry_source": "registry/1031039591/clear_cache-7bd18479.source.yml",
       "source_sha256": "5d40dac9f75a6e3e651ff6a4b1c8e7bf52b09178d0aa30c586d3fbef46694fca",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-20T07:41:15+00:00"
     },
     ".github/workflows/dependency-submission.yml": {
       "blockers": [
@@ -46,7 +67,27 @@
       "registry_source": "registry/1031039591/dependency-submission-a80520d4.source.yml",
       "source_sha256": "0e7badc7e0cc2c9fe82aa44561c68ecb2ee54325edeb59fa1845e923c1f59681",
       "status": "local",
-      "updated_at": "2026-09-14T02:05:30+00:00"
+      "updated_at": "2026-09-20T07:41:16+00:00"
+    },
+    ".github/workflows/distributed-compute.yml": {
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aive-distributed-compute.yml",
+      "implementation_sha256": "1c9ca6d315656b05e6f7f8a3b5fe1419d9bf36dc845d3a29a5a08b920ac83932",
+      "name": "Distributed Compute",
+      "registry_source": "registry/1031039591/distributed-compute-f6bfa7e1.source.yml",
+      "source_sha256": "5e96ab5df46eb0a4ef6ce0ca770cf3b5f7cdfd76b8c5966297136690bd86eb26",
+      "status": "active",
+      "updated_at": "2026-09-20T07:41:17+00:00"
+    },
+    ".github/workflows/inspect-epoch8-layout.yml": {
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aive-inspect-epoch8-layout.yml",
+      "implementation_sha256": "2418f19fc5ee071234fb95299deff9ae3fc217d3c2eb56b99d0bc403a0b52ee1",
+      "name": "Inspect epoch-8 memory artifacts",
+      "registry_source": "registry/1031039591/inspect-epoch8-layout-6d5e7c17.source.yml",
+      "source_sha256": "f5ff5ba18fa3bfaadb07dcf5fadc5e3adf80be3924db30df558293aa17471d5e",
+      "status": "active",
+      "updated_at": "2026-09-20T07:41:18+00:00"
     },
     ".github/workflows/jules-dispatch.yml": {
       "binding": "curated",
@@ -55,7 +96,7 @@
       "registry_source": "registry/1031039591/jules-dispatch-800d0b01.source.yml",
       "source_sha256": "17c13d04cfa6d1e55af692790eaab5608a1b4b511a1f66e56ec133a8803eb5da",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-20T07:41:19+00:00"
     },
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
@@ -64,21 +105,21 @@
       "registry_source": "registry/1031039591/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-20T07:41:20+00:00"
     },
     ".github/workflows/jules-invoke.yml": {
       "name": "\u25b6\ufe0f Jules Invoke",
       "registry_source": "registry/1031039591/jules-invoke-b23fc002.source.yml",
       "source_sha256": "cb2a978450da9b6dc82f8527a4ff2dbcde9af37e4e88d99e4409f217826572f0",
       "status": "library",
-      "updated_at": "2026-09-14T02:05:33+00:00"
+      "updated_at": "2026-09-20T07:41:20+00:00"
     },
     ".github/workflows/jules-review.yml": {
       "name": "\ud83d\udd0e Jules Review",
       "registry_source": "registry/1031039591/jules-review-9f7b6ce5.source.yml",
       "source_sha256": "b170093ab22ff75431fb6ea62d3e4ff1a254c5ba7352ee150e59e8dfa4b6f416",
       "status": "library",
-      "updated_at": "2026-09-14T02:05:34+00:00"
+      "updated_at": "2026-09-20T07:41:20+00:00"
     },
     ".github/workflows/jules-scheduled-triage.yml": {
       "blockers": [
@@ -87,16 +128,26 @@
       ],
       "name": "\ud83d\udccb Jules Scheduled Issue Triage",
       "registry_source": "registry/1031039591/jules-scheduled-triage-7b36475f.source.yml",
-      "source_sha256": "c5795302751261681062afb2384c0a30807517ee87a9246fcc46f874d0b0f7f1",
+      "source_sha256": "417422c330b5c2c0b37ef35eb18ec3c5424671bffa96288d868e69202fef8327",
       "status": "local",
-      "updated_at": "2026-09-14T02:05:35+00:00"
+      "updated_at": "2026-09-20T07:41:21+00:00"
     },
     ".github/workflows/jules-triage.yml": {
       "name": "\ud83d\udd00 Jules Triage",
       "registry_source": "registry/1031039591/jules-triage-5c552504.source.yml",
-      "source_sha256": "dd3c04d1b62501e2260474da42dff9fb083431b27c1b21c47b20a0dc8cb8a09c",
+      "source_sha256": "bb9bbb7f43322a405c7b6b9e69af715543747de6c6584641fb977f42f139611c",
       "status": "library",
-      "updated_at": "2026-09-14T02:05:36+00:00"
+      "updated_at": "2026-09-20T07:41:21+00:00"
+    },
+    ".github/workflows/live-runtime-verification.yml": {
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aive-live-runtime-verification.yml",
+      "implementation_sha256": "1e1daf12b5cf0e969bc0f5507635370105ceb6c95a8d0c0540166dc39ab69d48",
+      "name": "Live Runtime Verification",
+      "registry_source": "registry/1031039591/live-runtime-verification-914e86e3.source.yml",
+      "source_sha256": "b132c031e5e66e0e35a95be1c54387718e73576f9405478754d9987f73066c38",
+      "status": "active",
+      "updated_at": "2026-09-20T07:41:22+00:00"
     },
     ".github/workflows/multiplatform.yml": {
       "blockers": [
@@ -105,9 +156,49 @@
       ],
       "name": "Build and Deploy",
       "registry_source": "registry/1031039591/multiplatform-ef9dd5d6.source.yml",
-      "source_sha256": "06200f47f77b8df11535d4f5f23a0b33e6833b57754d823cb2ea85a59104e885",
+      "source_sha256": "5823096d6c5399e03a803ad568313ee900fd1956a6243b2204970158f941dfd1",
       "status": "local",
-      "updated_at": "2026-09-14T02:05:37+00:00"
+      "updated_at": "2026-09-20T07:41:24+00:00"
+    },
+    ".github/workflows/node-creature-engine.yml": {
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aive-node-creature-engine.yml",
+      "implementation_sha256": "6e0de504091477654b18b722bb7c25a54e6a02eb6ed676774b36bd344f4d5eb6",
+      "name": "Node Creature Engine",
+      "registry_source": "registry/1031039591/node-creature-engine-f0f67fec.source.yml",
+      "source_sha256": "d89c771be65d5bdaa7888a2c540e192674a86f1e52050e1a72f3b73092c4b10a",
+      "status": "active",
+      "updated_at": "2026-09-20T07:41:25+00:00"
+    },
+    ".github/workflows/play-store-assets.yml": {
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aive-play-store-assets.yml",
+      "implementation_sha256": "aeba63858bda1fa9ee3b78597b6358509e3b5cf955f0096f992108a15ffa1157",
+      "name": "Play Store Assets",
+      "registry_source": "registry/1031039591/play-store-assets-dc8399ef.source.yml",
+      "source_sha256": "e5bd3db4adb5187c7ceb3486a6e51a68f9c15b9fd0025ce3c9ae8306ee9b3ed6",
+      "status": "active",
+      "updated_at": "2026-09-20T07:41:26+00:00"
+    },
+    ".github/workflows/specialist-optimization.yml": {
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aive-specialist-optimization.yml",
+      "implementation_sha256": "a035a83b37e38128f49449bfdc9cdf8ed972e3b78ad917cf49dc87d3254236a9",
+      "name": "Specialist Optimization",
+      "registry_source": "registry/1031039591/specialist-optimization-2b83415f.source.yml",
+      "source_sha256": "ca15ad153e6f8649455aaaaf2c6edd6d4a2f616d48302171b2c287e67b8323d9",
+      "status": "active",
+      "updated_at": "2026-09-20T07:41:27+00:00"
+    },
+    ".github/workflows/terrarium-visual-proof.yml": {
+      "binding": "repository",
+      "central_workflow": ".github/workflows/aive-terrarium-visual-proof.yml",
+      "implementation_sha256": "3ac8faddce786a6acd758c518440063f4a93abdc2ca51b9416b9912917546413",
+      "name": "Terrarium Visual Proof",
+      "registry_source": "registry/1031039591/terrarium-visual-proof-2b9a31a9.source.yml",
+      "source_sha256": "c22b3cf5990dc65072edaa770e536030df703758aecfcaedf3446594de276c69",
+      "status": "active",
+      "updated_at": "2026-09-20T07:41:28+00:00"
     }
   }
 }

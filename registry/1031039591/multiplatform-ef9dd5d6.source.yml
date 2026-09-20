@@ -20,8 +20,10 @@ permissions:
   id-token: write
 
 concurrency:
-  group: haive-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Main/release runs must never be cancelled after an immutable tag has been created.
+  # Pull-request runs may cancel stale commits so review CI does not starve the release runners.
+  group: aive-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -32,12 +34,26 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Resolve four-part build version
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_VERSION=$(grep '^app.versionName=' gradle.properties | cut -d'=' -f2- | tr -d '\r ')
+          if ! printf '%s' "$SOURCE_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::app.versionName must be MAJOR.MINOR.PATCH.BUILD"
+            exit 1
+          fi
+          BASE_VERSION=$(printf '%s' "$SOURCE_VERSION" | cut -d. -f1-3)
+          AIVE_VERSION="${BASE_VERSION}.${GITHUB_RUN_NUMBER}"
+          echo "AIVE_VERSION=$AIVE_VERSION" >> "$GITHUB_ENV"
+          echo "Aive build version: $AIVE_VERSION"
+
 
       - name: Check out pinned h2g2
         uses: actions/checkout@v7
         with:
           repository: HereLiesAz/conveyance-h2g2
-          ref: 8da4f0b3a764fe6ecd96f9e32c6ba7d3b2eb900a
+          ref: 8566a9db02d533d9534327df40424ee7b88ebe88
           path: vendor/conveyance-h2g2
 
       - name: Check out pinned Conveyance
@@ -52,6 +68,16 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+
+      - name: Set up Rust renderer toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown,aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
+      - name: Install cargo-ndk
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-ndk
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
@@ -92,8 +118,14 @@ jobs:
           echo "HAIVE_VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
           echo "Android release versionCode: $VERSION_CODE"
 
+      - name: Verify immutable release policy
+        run: python3 .github/scripts/verify_release_immutability.py
+
       - name: Test shared domain
         run: ./gradlew :shared:desktopTest
+
+      - name: Test semantic workflow renderer
+        run: ./gradlew -p vendor/conveyance-h2g2 desktopTest
 
       - name: Test Jules provider
         run: ./gradlew :providers:jules:desktopTest
@@ -108,19 +140,32 @@ jobs:
         run: ./gradlew :providers:jules:compileKotlinWasmJs
 
       - name: Test Android provider bootstrap
-        run: ./gradlew :androidApp:testDebugUnitTest
+        run: ./gradlew :androidApp:testPlayDebugUnitTest :androidApp:testGithubDebugUnitTest
 
-      - name: Build Android (debug on PRs, release on push)
+      - name: Build Android distributions
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            ./gradlew :androidApp:assembleDebug
+            ./gradlew -Papp.versionName="$AIVE_VERSION" \
+              :androidApp:assemblePlayDebug :androidApp:assembleGithubDebug
           else
-            ./gradlew -Papp.versionCode="$HAIVE_VERSION_CODE" :androidApp:assembleRelease :androidApp:bundleRelease
+            ./gradlew -Papp.versionCode="$HAIVE_VERSION_CODE" \
+              -Papp.versionName="$AIVE_VERSION" \
+              :androidApp:bundlePlayRelease \
+              :androidApp:assembleGithubRelease
           fi
+
+      - name: Verify Android native runtime packaging
+        shell: bash
+        run: |
+          set -euo pipefail
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            test -f "androidApp/build/generated/node-creatures/jniLibs/${abi}/libhaive_node_creatures.so"
+            test -f "androidApp/build/generated/bitcos/jniLibs/${abi}/libhaive_bitcos.so"
+          done
 
       - name: Publish pinned Conveyance for isolated web builds
         run: |
@@ -132,10 +177,10 @@ jobs:
         run: ./gradlew -p vendor/conveyance-h2g2 publishToMavenLocal
 
       - name: Build Web JS
-        run: ./gradlew -Phaive.useLocalH2g2=false -Phaive.useMavenLocalH2g2=true :webApp:jsBrowserProductionWebpack
+        run: ./gradlew :webApp:jsBrowserProductionWebpack
 
       - name: Build Web Wasm
-        run: ./gradlew -Phaive.useLocalH2g2=false -Phaive.useMavenLocalH2g2=true :webApp:wasmJsBrowserProductionWebpack
+        run: ./gradlew :webApp:wasmJsBrowserProductionWebpack
 
       - name: Stage GitHub Pages
         shell: bash
@@ -163,8 +208,12 @@ jobs:
           cp -R webApp/src/webMain/resources/. webApp/build/pages/wasm/
           test -f webApp/build/pages/index.html
           test -f webApp/build/pages/haive.js
+          test -f webApp/build/pages/node-creatures.js
+          test -f webApp/build/pages/haive_node_creatures.wasm
           test -f webApp/build/pages/wasm/index.html
           test -f webApp/build/pages/wasm/haive.js
+          test -f webApp/build/pages/wasm/node-creatures.js
+          test -f webApp/build/pages/wasm/haive_node_creatures.wasm
 
       - name: Generate release notes
         if: github.event_name != 'pull_request'
@@ -183,31 +232,87 @@ jobs:
           echo "=== Release notes ==="
           cat fastlane/metadata/android/en-US/changelogs/default.txt
 
-      - name: Upload Android release inputs
+      - name: Verify Play build excludes accessibility bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            VARIANT_PATTERN='*playDebug*'
+          else
+            VARIANT_PATTERN='*playRelease*'
+          fi
+          MATCHES=$(find androidApp/build/intermediates -type f -path "$VARIANT_PATTERN" -name 'AndroidManifest.xml' -print)
+          if [ -z "$MATCHES" ]; then
+            echo "::error::Could not find merged Play manifest for $VARIANT_PATTERN"
+            exit 1
+          fi
+          if printf '%s\n' "$MATCHES" | xargs grep -IlE 'InstalledGeminiAccessibilityService|BIND_ACCESSIBILITY_SERVICE' | grep -q .; then
+            echo "::error::Play manifest contains the installed-Gemini accessibility bridge"
+            exit 1
+          fi
+          if printf '%s\n' "$MATCHES" | xargs grep -IlE 'REQUEST_INSTALL_PACKAGES|androidx\.core\.content\.FileProvider|\.updates' | grep -q .; then
+            echo "::error::Play manifest contains GitHub self-update/sideload components"
+            exit 1
+          fi
+
+      - name: Verify GitHub build keeps accessibility bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            VARIANT_PATTERN='*githubDebug*'
+          else
+            VARIANT_PATTERN='*githubRelease*'
+          fi
+          MATCHES=$(find androidApp/build/intermediates -type f -path "$VARIANT_PATTERN" -name 'AndroidManifest.xml' -print)
+          if [ -z "$MATCHES" ]; then
+            echo "::error::Could not find merged GitHub manifest for $VARIANT_PATTERN"
+            exit 1
+          fi
+          if ! printf '%s\n' "$MATCHES" | xargs grep -Il 'InstalledGeminiAccessibilityService' | grep -q .; then
+            echo "::error::GitHub manifest is missing the installed-Gemini accessibility bridge"
+            exit 1
+          fi
+          if ! printf '%s\n' "$MATCHES" | xargs grep -Il 'REQUEST_INSTALL_PACKAGES' | grep -q .; then
+            echo "::error::GitHub manifest is missing package-install permission for self-update"
+            exit 1
+          fi
+          if ! printf '%s\n' "$MATCHES" | xargs grep -Il 'androidx.core.content.FileProvider' | grep -q .; then
+            echo "::error::GitHub manifest is missing update FileProvider"
+            exit 1
+          fi
+
+      - name: Upload GitHub Android release
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v7
         with:
-          name: haive-android-release
-          path: |
-            androidApp/build/outputs/apk/release/*.apk
-            androidApp/build/outputs/bundle/release/*.aab
+          name: aive-android-github-release
+          path: androidApp/build/outputs/apk/github/release/*.apk
+          if-no-files-found: error
+
+      - name: Upload Play Android release
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          name: aive-android-play-release
+          path: androidApp/build/outputs/bundle/playRelease/*.aab
           if-no-files-found: error
 
       - name: Upload release notes
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v7
         with:
-          name: haive-release-notes
+          name: aive-release-notes
           path: fastlane/metadata/android/en-US/changelogs/
           if-no-files-found: error
 
       - name: Configure GitHub Pages
         if: github.event_name != 'pull_request'
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Upload GitHub Pages artifact
         if: github.event_name != 'pull_request'
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: webApp/build/pages
 
@@ -221,28 +326,42 @@ jobs:
           - platform: linux
             runner: ubuntu-latest
             task: packageDeb
-            artifact: haive-desktop-linux
+            artifact: aive-desktop-linux
             path: desktopApp/build/compose/binaries/main/deb/*.deb
           - platform: windows
             runner: windows-latest
             task: packageMsi
-            artifact: haive-desktop-windows
+            artifact: aive-desktop-windows
             path: desktopApp/build/compose/binaries/main/msi/*.msi
           - platform: macos
             runner: macos-latest
             task: packageDmg
-            artifact: haive-desktop-macos
+            artifact: aive-desktop-macos
             path: desktopApp/build/compose/binaries/main/dmg/*.dmg
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+      - name: Resolve four-part build version
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_VERSION=$(grep '^app.versionName=' gradle.properties | cut -d'=' -f2- | tr -d '\r ')
+          if ! printf '%s' "$SOURCE_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::app.versionName must be MAJOR.MINOR.PATCH.BUILD"
+            exit 1
+          fi
+          BASE_VERSION=$(printf '%s' "$SOURCE_VERSION" | cut -d. -f1-3)
+          AIVE_VERSION="${BASE_VERSION}.${GITHUB_RUN_NUMBER}"
+          echo "AIVE_VERSION=$AIVE_VERSION" >> "$GITHUB_ENV"
+          echo "Aive build version: $AIVE_VERSION"
+
 
       - name: Check out pinned h2g2
         uses: actions/checkout@v7
         with:
           repository: HereLiesAz/conveyance-h2g2
-          ref: 8da4f0b3a764fe6ecd96f9e32c6ba7d3b2eb900a
+          ref: 8566a9db02d533d9534327df40424ee7b88ebe88
           path: vendor/conveyance-h2g2
 
       - name: Check out pinned Conveyance
@@ -258,15 +377,20 @@ jobs:
           distribution: temurin
           java-version: "21"
 
+      - name: Set up Rust renderer toolchain
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Verify desktop icons exist
+      - name: Generate and verify desktop icons
         shell: bash
         run: |
-          test -f branding/haive-icon-color.png || { echo "Missing haive-icon-color.png"; exit 1; }
-          test -f branding/haive-icon.ico || { echo "Missing haive-icon.ico"; exit 1; }
-          test -f branding/haive-icon.icns || { echo "Missing haive-icon.icns"; exit 1; }
+          set -euo pipefail
+          ./gradlew :desktopApp:generateDesktopBrandAssets
+          test -f desktopApp/build/generated/brand/desktop/haive-icon-color.png
+          test -f desktopApp/build/generated/brand/desktop/haive-icon.ico
+          test -f desktopApp/build/generated/brand/desktop/haive-icon.icns
 
       - name: Publish pinned Conveyance to Maven Local
         shell: bash
@@ -283,7 +407,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          ./gradlew -Phaive.useLocalH2g2=false -Phaive.useMavenLocalH2g2=true ":desktopApp:${{ matrix.task }}"
+          ./gradlew -Papp.versionName="$AIVE_VERSION" ":desktopApp:${{ matrix.task }}"
           EXIT_CODE=$?
           if [ "$EXIT_CODE" -ne 0 ]; then
             echo "=== Native packaging diagnostics ==="
@@ -298,6 +422,15 @@ jobs:
           fi
           exit "$EXIT_CODE"
 
+      - name: Verify desktop native runtime packaging
+        shell: bash
+        run: |
+          set -euo pipefail
+          find desktopApp/build/generated/node-creatures/desktop/node-creatures -type f -maxdepth 1 -print
+          find desktopApp/build/generated/bitcos/desktop/bitcos -type f -maxdepth 1 -print
+          test "$(find desktopApp/build/generated/node-creatures/desktop/node-creatures -type f -maxdepth 1 | wc -l | tr -d ' ')" -ge 1
+          test "$(find desktopApp/build/generated/bitcos/desktop/bitcos -type f -maxdepth 1 | wc -l | tr -d ' ')" -ge 1
+
       - name: Upload native installer
         uses: actions/upload-artifact@v7
         with:
@@ -306,7 +439,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    name: Publish rolling alpha release
+    name: Publish versioned release
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs:
       - build
@@ -321,34 +454,34 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download Android release inputs
+      - name: Download GitHub Android release
         uses: actions/download-artifact@v8
         with:
-          name: haive-android-release
+          name: aive-android-github-release
           path: release-input/android
 
       - name: Download Linux installer
         uses: actions/download-artifact@v8
         with:
-          name: haive-desktop-linux
+          name: aive-desktop-linux
           path: release-input/linux
 
       - name: Download Windows installer
         uses: actions/download-artifact@v8
         with:
-          name: haive-desktop-windows
+          name: aive-desktop-windows
           path: release-input/windows
 
       - name: Download macOS installer
         uses: actions/download-artifact@v8
         with:
-          name: haive-desktop-macos
+          name: aive-desktop-macos
           path: release-input/macos
 
       - name: Download release notes
         uses: actions/download-artifact@v8
         with:
-          name: haive-release-notes
+          name: aive-release-notes
           path: release-input/notes
 
       - name: Prepare release assets
@@ -356,14 +489,23 @@ jobs:
         run: |
           set -euo pipefail
 
-          VERSION_NAME=$(grep '^app.versionName=' gradle.properties | cut -d'=' -f2- | tr -d '\r ')
-          if [ -z "$VERSION_NAME" ]; then
-            echo "::error::app.versionName is missing from gradle.properties"
+          SOURCE_VERSION=$(grep '^app.versionName=' gradle.properties | cut -d'=' -f2- | tr -d '\r ')
+          if ! printf '%s' "$SOURCE_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::app.versionName must be MAJOR.MINOR.PATCH.BUILD (for example 0.9.6.0)"
             exit 1
           fi
 
-          MAJOR_MINOR=$(printf '%s' "$VERSION_NAME" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
-          TAG_NAME="latest-alpha-v${MAJOR_MINOR}"
+          MAJOR=$(printf '%s' "$SOURCE_VERSION" | cut -d. -f1)
+          MINOR=$(printf '%s' "$SOURCE_VERSION" | cut -d. -f2)
+          PATCH=$(printf '%s' "$SOURCE_VERSION" | cut -d. -f3)
+          VERSION_NAME="${MAJOR}.${MINOR}.${PATCH}.${GITHUB_RUN_NUMBER}"
+          TAG_NAME="v${VERSION_NAME}"
+          RELEASE_TITLE="The Aive ${VERSION_NAME}"
+
+          IS_PRERELEASE=false
+          if [ "$MAJOR" -eq 0 ] || { [ "$MAJOR" -eq 1 ] && [ "$MINOR" -le 3 ]; }; then
+            IS_PRERELEASE=true
+          fi
 
           mkdir -p release-files
 
@@ -386,16 +528,16 @@ jobs:
             fi
           done
 
-          cp "$APK_SOURCE" "release-files/TheHaive-${VERSION_NAME}-android.apk"
-          cp "$DEB_SOURCE" "release-files/$(basename "$DEB_SOURCE")"
-          cp "$MSI_SOURCE" "release-files/$(basename "$MSI_SOURCE")"
-          cp "$DMG_SOURCE" "release-files/$(basename "$DMG_SOURCE")"
+          cp "$APK_SOURCE" "release-files/TheAive-${VERSION_NAME}-android.apk"
+          cp "$DEB_SOURCE" "release-files/TheAive-${VERSION_NAME}.deb"
+          cp "$MSI_SOURCE" "release-files/TheAive-${VERSION_NAME}.msi"
+          cp "$DMG_SOURCE" "release-files/TheAive-${VERSION_NAME}.dmg"
 
           NOTES_SOURCE=$(find release-input/notes -type f -name 'default.txt' -print -quit)
           {
-            echo "# The Haive ${VERSION_NAME}"
+            echo "# The Aive ${VERSION_NAME}"
             echo
-            echo "Rolling alpha build from commit \`${GITHUB_SHA}\`."
+            echo "Versioned build from commit \`${GITHUB_SHA}\`."
             if [ -n "$NOTES_SOURCE" ] && [ -s "$NOTES_SOURCE" ]; then
               echo
               echo "## Changes"
@@ -404,42 +546,51 @@ jobs:
           } > release-notes.md
 
           echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
-          echo "MAJOR_MINOR=$MAJOR_MINOR" >> "$GITHUB_ENV"
           echo "TAG_NAME=$TAG_NAME" >> "$GITHUB_ENV"
+          echo "RELEASE_TITLE=$RELEASE_TITLE" >> "$GITHUB_ENV"
+          echo "IS_PRERELEASE=$IS_PRERELEASE" >> "$GITHUB_ENV"
 
           echo "Release assets:"
           ls -lh release-files
 
-      - name: Publish rolling alpha release
+      - name: Publish versioned release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
 
-          LEGACY_TAG="latest-debug-v${MAJOR_MINOR}"
-          if gh release view "$LEGACY_TAG" >/dev/null 2>&1; then
-            gh release delete "$LEGACY_TAG" --yes --cleanup-tag
-          elif git ls-remote --exit-code --tags origin "refs/tags/$LEGACY_TAG" >/dev/null 2>&1; then
-            git push origin ":refs/tags/$LEGACY_TAG"
+          # Release history is immutable. Every MAJOR.MINOR.PATCH.BUILD may be published exactly once.
+          # Never move a version tag, edit an existing release, delete its assets, or clobber uploads.
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Release $TAG_NAME already exists. Leaving the existing release completely unchanged."
+            exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -fa "$TAG_NAME" -m "Latest Haive alpha ${VERSION_NAME}"
-          git push origin "$TAG_NAME" --force
 
-          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
-            gh release edit "$TAG_NAME" \
-              --title "The Haive ${VERSION_NAME} — Latest Alpha" \
-              --notes-file release-notes.md \
-              --prerelease
-            gh release upload "$TAG_NAME" release-files/* --clobber
+          if git rev-parse -q --verify "refs/tags/$TAG_NAME" >/dev/null; then
+            TAG_COMMIT=$(git rev-list -n 1 "$TAG_NAME")
+            if [ "$TAG_COMMIT" != "$GITHUB_SHA" ]; then
+              echo "::error::Immutable tag $TAG_NAME already exists at $TAG_COMMIT; refusing to move it to $GITHUB_SHA"
+              exit 1
+            fi
           else
+            git tag -a "$TAG_NAME" -m "The Aive ${VERSION_NAME}"
+            git push origin "$TAG_NAME"
+          fi
+
+          if [ "$IS_PRERELEASE" = "true" ]; then
             gh release create "$TAG_NAME" release-files/* \
               --prerelease \
               --verify-tag \
-              --title "The Haive ${VERSION_NAME} — Latest Alpha" \
+              --title "$RELEASE_TITLE" \
+              --notes-file release-notes.md
+          else
+            gh release create "$TAG_NAME" release-files/* \
+              --verify-tag \
+              --title "$RELEASE_TITLE" \
               --notes-file release-notes.md
           fi
 
@@ -456,27 +607,35 @@ jobs:
         uses: actions/deploy-pages@v5
 
   publish-play:
-    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish_play) }}
+    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.publish_play) }}
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download Android release bundle
+      - name: Download Play Android release bundle
         uses: actions/download-artifact@v8
         with:
-          name: haive-android-release
+          name: aive-android-play-release
           path: android-release
 
       - name: Download release notes
         uses: actions/download-artifact@v8
         with:
-          name: haive-release-notes
+          name: aive-release-notes
           path: fastlane/metadata/android/en-US/changelogs
 
+      - name: Prepare Google Play localized release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          NOTES_DIR="fastlane/metadata/android/en-US/changelogs"
+          test -s "$NOTES_DIR/default.txt"
+          cp "$NOTES_DIR/default.txt" "$NOTES_DIR/whatsnew-en-US"
+
       - name: Publish to Google Play internal track
-        uses: r0adkll/upload-google-play@v1
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: com.hereliesaz.haive
+          packageName: com.hereliesaz.aive
           releaseFiles: android-release/**/*.aab
           track: internal
           status: completed

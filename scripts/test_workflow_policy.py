@@ -48,6 +48,34 @@ def step_runs(job: dict[str, Any]) -> str:
     return "\n".join(values)
 
 
+def repository_bound_workflows() -> set[str]:
+    """Return generated executor paths owned by active repository bindings.
+
+    These workflows are emitted by the repository synchronizer and validated by the
+    collection audit's binding/namespace checks. The generalized-v1 contract applies
+    to hand-authored reusable central workflows, not generated repository executors.
+    """
+    paths: set[str] = set()
+    registry_root = ROOT / "registry"
+    if not registry_root.is_dir():
+        return paths
+
+    for manifest_path in registry_root.glob("*/manifest.json"):
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        for entry in (manifest.get("workflows") or {}).values():
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("status") != "active" or entry.get("binding") != "repository":
+                continue
+            central_workflow = str(entry.get("central_workflow") or "").strip()
+            if central_workflow:
+                paths.add(central_workflow)
+    return paths
+
+
 def validate_new_workflow(
     path: Path,
     text: str,
@@ -220,7 +248,7 @@ def validation_errors_for_workflow(workflow_path: str) -> list[str]:
 
     policy = json.loads(POLICY_PATH.read_text(encoding="utf-8"))
     grandfathered = set(policy.get("grandfathered_workflows") or [])
-    if workflow_path in grandfathered:
+    if workflow_path in grandfathered or workflow_path in repository_bound_workflows():
         return []
 
     path = ROOT / workflow_path
@@ -244,6 +272,7 @@ def validation_errors_for_workflow(workflow_path: str) -> list[str]:
 def main() -> int:
     policy = json.loads(POLICY_PATH.read_text(encoding="utf-8"))
     grandfathered = set(policy.get("grandfathered_workflows") or [])
+    generated_repository_workflows = repository_bound_workflows()
     secret_catalog = policy.get("secret_catalog") or {}
     errors: list[str] = []
 
@@ -264,7 +293,8 @@ def main() -> int:
         if path.is_file()
     }
 
-    for workflow_path in sorted(current - grandfathered):
+    policy_governed = current - grandfathered - generated_repository_workflows
+    for workflow_path in sorted(policy_governed):
         path = ROOT / workflow_path
         validate_new_workflow(
             path,
@@ -279,10 +309,11 @@ def main() -> int:
         print(f"generalized workflow policy failed with {len(errors)} error(s)")
         return 1
 
-    new_count = len(current - grandfathered)
     print(
         "generalized workflow policy passed: "
-        f"{len(grandfathered & current)} grandfathered, {new_count} policy-governed new workflow(s)"
+        f"{len(grandfathered & current)} grandfathered, "
+        f"{len(generated_repository_workflows & current)} generated repository executor(s), "
+        f"{len(policy_governed)} policy-governed new workflow(s)"
     )
     return 0
 

@@ -553,6 +553,50 @@ def _prune_rebound_repository_workflows(
     return removed
 
 
+
+def _enforce_new_workflow_submission_policy(
+    gh,
+    repository: str,
+    manifest: dict,
+) -> None:
+    """Block brand-new target-repository workflow implementations.
+
+    Existing registered workflow paths are grandfathered. New capabilities must
+    be generalized and submitted to HereLiesAz/workflows before a target repo can
+    acquire an executable workflow for them.
+    """
+
+    registered = manifest.get("workflows") or {}
+    try:
+        listing = gh.contents(repository, ".github/workflows")
+    except core.ApiError as exc:
+        if "-> 404:" in str(exc):
+            return
+        raise
+
+    if not isinstance(listing, list):
+        raise RuntimeError(f"{repository}:.github/workflows is not a directory")
+
+    unsubmitted: list[str] = []
+    for item in listing:
+        path = str(item.get("path") or "")
+        if item.get("type") != "file" or not path.endswith((".yml", ".yaml")):
+            continue
+        if path in registered:
+            continue
+        unsubmitted.append(path)
+
+    if unsubmitted:
+        paths = "\n".join(f"  - {path}" for path in sorted(unsubmitted))
+        raise RuntimeError(
+            "New workflow policy blocked unsubmitted target-repository workflow(s):\n"
+            f"{paths}\n"
+            "Submit the capability to HereLiesAz/workflows, generalize it for reuse by "
+            "any repository, reuse an existing secret when possible, and explicitly "
+            "declare the name and purpose of any genuinely new required secret."
+        )
+
+
 def _initial_repository_version(gh, repository: str, default_branch: str) -> tuple[Version, str]:
     existing = ""
     try:
@@ -630,13 +674,14 @@ def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
     repo_info = gh.repo(repository)
     repository_id = int(repo_info["id"])
     default_branch = str(repo_info["default_branch"])
+    before_manifest = copy.deepcopy(core.load_manifest(gh, repository_id))
+    _enforce_new_workflow_submission_policy(gh, repository, before_manifest)
     version_contract = _ensure_version_contract(
         gh,
         repository,
         default_branch,
         dry_run=dry_run,
     )
-    before_manifest = copy.deepcopy(core.load_manifest(gh, repository_id))
 
     activate_repository_mode(core, repository)
     result = _base_sync_repository(gh, repository, worker_url, dry_run)

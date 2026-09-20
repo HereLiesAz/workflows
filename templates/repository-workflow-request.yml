@@ -1,0 +1,49 @@
+# CENTRAL WORKFLOW MENU / REQUEST
+#
+# This file belongs at .github/workflow-request.yml in a target repository.
+# It is documentation/request metadata, not executable GitHub Actions.
+#
+# POLICY
+# - Do not add a new implementation under .github/workflows in a target repository.
+# - New implementations are submitted to HereLiesAz/workflows first.
+# - New implementations must be repository-agnostic.
+# - Reuse an existing secret from policy/workflow-policy.json whenever possible.
+# - If a new secret is unavoidable, declare its exact name and plain-language purpose.
+#
+# GENERAL
+#   ci-validation              build/test/validation
+#   codeql-scan               CodeQL security scan
+#   issue-summary             issue summarization
+#   jules-dispatch            Jules request dispatch
+#   jules-glee                Jules PR Glee audit
+#   jules-auto-assign         Jules issue assignment
+#   context-backup            repository context backup
+#   clear-cache               cache cleanup
+#
+# ANDROID
+#   android-dependency-update managed Android native dependency refresh
+#   android-github-release    build/sign APK and publish GitHub release
+#   android-play-release      build/sign AAB and publish to Google Play
+#
+# RELEASES / PACKAGES
+#   artifact-github-release   publish existing artifacts to GitHub Releases
+#   multi-platform-app-release build/release a multi-platform application
+#   desktop-package           native desktop packaging
+#   maven-package-publish     Maven/GitHub Packages/JitPack-oriented publishing
+#   node-package-publish      Node package publishing
+#   azp-model-release         managed model asset release
+#   azp-sign-release          release signing
+#
+# DEPLOYMENT
+#   website-sftp-deploy       build/deploy website over SFTP
+#
+requested: []
+
+new_workflow_request:
+  name: ""
+  purpose: ""
+  required_inputs: []
+  required_secrets:
+    # - name: EXAMPLE_SECRET
+    #   purpose: Authenticates to Example Service so the generalized workflow can publish artifacts.
+    []

@@ -9,6 +9,9 @@ on:
       - 'worker/**'
       - 'registry/**/manifest.json'
       - 'wrangler.jsonc'
+      - 'policy/**'
+      - 'templates/**'
+      - '.github/ISSUE_TEMPLATE/**'
   pull_request:
     paths:
       - '.github/workflows/**'
@@ -16,6 +19,9 @@ on:
       - 'worker/**'
       - 'registry/**/manifest.json'
       - 'wrangler.jsonc'
+      - 'policy/**'
+      - 'templates/**'
+      - '.github/ISSUE_TEMPLATE/**'
   workflow_dispatch:
 
 permissions:
@@ -50,10 +56,14 @@ jobs:
             scripts/report_workflow_purposes.py \
             scripts/test_release_centralization.py \
             scripts/test_version_contract.py \
+            scripts/test_workflow_policy.py \
             scripts/version_contract.py
 
       - name: Audit the complete workflow collection
         run: python scripts/audit_workflow_collection.py
+
+      - name: Enforce generalized workflow policy
+        run: python scripts/test_workflow_policy.py
 
       - name: Classify workflows by purpose
         if: ${{ always() }}

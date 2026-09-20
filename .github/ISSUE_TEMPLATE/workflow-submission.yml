@@ -1,0 +1,74 @@
+name: Generalized workflow submission
+description: Request or submit a new reusable workflow capability for all repositories.
+title: "[workflow] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        New workflow implementations belong in HereLiesAz/workflows. They must be generalized enough for any repository to use through inputs/profile data.
+
+  - type: input
+    id: name
+    attributes:
+      label: Capability name
+      description: A generic capability name, not a repository/project name.
+      placeholder: Android emulator smoke test
+    validations:
+      required: true
+
+  - type: textarea
+    id: purpose
+    attributes:
+      label: Purpose
+      description: What should this workflow accomplish for any compatible repository?
+    validations:
+      required: true
+
+  - type: textarea
+    id: inputs
+    attributes:
+      label: Repository-specific inputs/profile data
+      description: List every value that must vary by repository instead of being hard-coded.
+      placeholder: |
+        - build command
+        - artifact glob
+        - Java version
+        - package/application ID only if the operation truly needs it
+    validations:
+      required: true
+
+  - type: textarea
+    id: existing_secrets
+    attributes:
+      label: Existing secrets to reuse
+      description: List secret names already present in policy/workflow-policy.json that satisfy the workflow.
+      placeholder: |
+        GH_TOKEN — GitHub API/release access
+        KEYSTORE_RAW — Android signing keystore
+    validations:
+      required: true
+
+  - type: textarea
+    id: new_secrets
+    attributes:
+      label: New secrets, if unavoidable
+      description: For each new secret give the exact secret name and exactly what it authenticates/authorizes. Write "None" when no new secret is needed.
+      placeholder: |
+        EXAMPLE_TOKEN — authenticates uploads to Example Service because no existing secret grants that access.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: generalization
+    attributes:
+      label: Generalization checklist
+      options:
+        - label: No target repository name is hard-coded.
+          required: true
+        - label: No package/application ID, branch, path, artifact name, or release name is hard-coded when it can be an input/profile value.
+          required: true
+        - label: I reviewed the existing secret catalog before requesting a new secret.
+          required: true
+        - label: Missing required secrets will fail explicitly with the secret name and purpose.
+          required: true

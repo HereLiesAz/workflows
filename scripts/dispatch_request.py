@@ -12,14 +12,24 @@ from pathlib import Path
 
 from ruamel.yaml import YAML
 
-from sync_repository import (
-    CENTRAL_REPOSITORY,
-    GitHub,
-    OWNER_ID,
-    OWNER_LOGIN,
-    ApiError,
-    load_manifest,
-)
+try:
+    from .sync_repository import (
+        CENTRAL_REPOSITORY,
+        GitHub,
+        OWNER_ID,
+        OWNER_LOGIN,
+        ApiError,
+        load_manifest,
+    )
+except ImportError:
+    from sync_repository import (
+        CENTRAL_REPOSITORY,
+        GitHub,
+        OWNER_ID,
+        OWNER_LOGIN,
+        ApiError,
+        load_manifest,
+    )
 
 try:
     from .semantic_catalog import purpose_profile_for_source, uses_purpose_profile, uses_target_repository_name

@@ -48,13 +48,69 @@ jobs:
           ref: b3e13674df9dfbcc0b35f800b57d78a305d07b03
           path: vendor/conveyance-h2g2/vendor/Conveyance
 
-      - name: Require a live provider credential
+      - name: Select or bootstrap live provider
         shell: bash
         run: |
           set -euo pipefail
-          if [ -z "${OPENAI_API_KEY:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${GEMINI_API_KEY:-}" ] && [ -z "${XAI_API_KEY:-}" ]; then
-            echo "::error::Configure at least one of OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, or XAI_API_KEY"
-            exit 1
+
+          requested="${AIVE_LIVE_PROVIDER:-}"
+          use_ollama=false
+
+          if [ -n "$requested" ] && [ "$requested" != "ollama" ]; then
+            case "$requested" in
+              openai) required="${OPENAI_API_KEY:-}" ;;
+              anthropic) required="${ANTHROPIC_API_KEY:-}" ;;
+              gemini) required="${GEMINI_API_KEY:-}" ;;
+              xai) required="${XAI_API_KEY:-}" ;;
+              *)
+                echo "::error::AIVE_LIVE_PROVIDER must be one of: openai, anthropic, gemini, xai, ollama"
+                exit 1
+                ;;
+            esac
+            test -n "$required" || {
+              echo "::error::The requested provider '$requested' has no configured credential."
+              exit 1
+            }
+          elif [ "$requested" = "ollama" ]; then
+            use_ollama=true
+          elif [ -z "${OPENAI_API_KEY:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${GEMINI_API_KEY:-}" ] && [ -z "${XAI_API_KEY:-}" ]; then
+            use_ollama=true
+          fi
+
+          if [ "$use_ollama" = true ]; then
+            echo "No hosted-provider credential selected; bootstrapping real local Ollama inference."
+            curl -fsSL https://ollama.com/install.sh | sh
+            nohup env OLLAMA_HOST=127.0.0.1:11434 ollama serve >"${RUNNER_TEMP}/ollama.log" 2>&1 &
+            for attempt in $(seq 1 60); do
+              if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null; then
+                break
+              fi
+              if [ "$attempt" -eq 60 ]; then
+                cat "${RUNNER_TEMP}/ollama.log" || true
+                echo "::error::Ollama did not become ready."
+                exit 1
+              fi
+              sleep 1
+            done
+            ollama pull smollm2:135m-instruct-q2_K
+
+            echo "AIVE_LIVE_PROVIDER=ollama" >> "$GITHUB_ENV"
+            echo "AIVE_LIVE_OLLAMA_BASE_URL=http://127.0.0.1:11434/v1" >> "$GITHUB_ENV"
+            echo "AIVE_LIVE_OLLAMA_MODEL=smollm2:135m-instruct-q2_K" >> "$GITHUB_ENV"
+
+            response="$(curl -fsS http://127.0.0.1:11434/v1/chat/completions \
+              -H 'Content-Type: application/json' \
+              -d '{"model":"smollm2:135m-instruct-q2_K","messages":[{"role":"user","content":"Reply with OK."}],"stream":false}')"
+            python - "$response" <<'PY'
+          import json
+          import sys
+
+          payload = json.loads(sys.argv[1])
+          text = payload["choices"][0]["message"]["content"].strip()
+          if not text:
+              raise SystemExit("Ollama smoke response contained no assistant text")
+          print("Ollama live provider ready:", text[:120])
+          PY
           fi
 
       - name: Set up JDK 21

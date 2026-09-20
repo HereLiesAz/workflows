@@ -18,10 +18,6 @@ def main() -> int:
     parser.add_argument("--repository", required=True)
     args = parser.parse_args()
 
-    if args.repository.casefold() == "hereliesaz/ideaz":
-        print(json.dumps({"repository": args.repository, "status": "dormant", "changed": False}))
-        return 0
-
     gh = GitHub(os.environ.get("GH_TOKEN", ""))
     repo = gh.repo(args.repository)
     if bool(repo.get("archived")):

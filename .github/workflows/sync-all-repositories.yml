@@ -40,7 +40,7 @@ jobs:
           all="$(gh api --paginate 'user/repos?affiliation=owner&per_page=100' --jq '.[] | select(.owner.login == "HereLiesAz") | [.full_name, (.archived|tostring)] | @tsv')"
 
           repositories="$(
-            awk -F '\t' '$1 != "HereLiesAz/workflows" && $1 != "HereLiesAz/IDEaz" && $2 == "false" {print $1}' <<<"$all"               | sort -u               | jq -Rsc 'split("\n") | map(select(length > 0))'
+            awk -F '\t' '$1 != "HereLiesAz/workflows" && $2 == "false" {print $1}' <<<"$all"               | sort -u               | jq -Rsc 'split("\n") | map(select(length > 0))'
           )"
           archived="$(
             awk -F '\t' '$2 == "true" {print $1}' <<<"$all"               | sort -u               | jq -Rsc 'split("\n") | map(select(length > 0))'
@@ -62,7 +62,6 @@ jobs:
             echo
             echo "- Writable non-controller repositories: **$count**"
             echo "- Controller repository: **HereLiesAz/workflows** (versioned locally; never self-centralized)"
-            echo "- Dormant repository skipped entirely: **HereLiesAz/IDEaz**"
             echo "- Archived repositories skipped from workflow mutation: **$archived_count**"
             if [ "$archived_count" -gt 0 ]; then
               jq -r '.[] | "- `" + . + "`"' <<<"$archived"

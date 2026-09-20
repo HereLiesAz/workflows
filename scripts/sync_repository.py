@@ -669,13 +669,6 @@ def _ensure_version_contract(gh, repository: str, default_branch: str, dry_run: 
 
 
 def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
-    if repository.casefold() == "hereliesaz/ideaz":
-        return {
-            "repository": repository,
-            "status": "dormant",
-            "reason": "Repository is explicitly excluded from central workflow synchronization.",
-            "results": [],
-        }
     # Repository mode is mandatory. The legacy core is retained only as a compiler
     # engine; it is never allowed to publish shared_variant families.
     repo_info = gh.repo(repository)

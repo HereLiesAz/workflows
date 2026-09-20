@@ -33,7 +33,7 @@ jobs:
         run: |
           set -euo pipefail
           repos="$(
-            gh api --paginate 'user/repos?affiliation=owner&per_page=100'               --jq '.[] | select(.owner.login == "HereLiesAz" and .full_name != "HereLiesAz/IDEaz") | .full_name'               | sort -u               | jq -Rsc 'split("\n") | map(select(length > 0))'
+            gh api --paginate 'user/repos?affiliation=owner&per_page=100'               --jq '.[] | select(.owner.login == "HereLiesAz") | .full_name'               | sort -u               | jq -Rsc 'split("\n") | map(select(length > 0))'
           )"
           count="$(jq 'length' <<<"$repos")"
           test "$count" -gt 0
@@ -43,8 +43,7 @@ jobs:
           }
           echo "repositories=$repos" >> "$GITHUB_OUTPUT"
           echo "count=$count" >> "$GITHUB_OUTPUT"
-          echo "Owned repositories under version enforcement: $count" >> "$GITHUB_STEP_SUMMARY"
-          echo "Dormant repository skipped: HereLiesAz/IDEaz" >> "$GITHUB_STEP_SUMMARY"
+          echo "Owned repositories: $count" >> "$GITHUB_STEP_SUMMARY"
 
   enforce:
     needs: discover

@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-09-14T01:01:02+00:00",
+  "last_sync_at": "2026-09-20T00:01:41+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/BadUSB-Roulette",
@@ -11,14 +11,15 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/deploy.yml": {
-      "binding": "repository",
+      "binding": "shared-variant",
       "central_workflow": ".github/workflows/badusb-roulette-deploy.yml",
       "implementation_sha256": "72485528ee31f223912429e24f2c31a7b9e05fba52a303d84a200ec3bef4aafd",
       "name": "Deploy System (Unified)",
       "registry_source": "registry/1146066982/deploy-f130ad0d.source.yml",
+      "shared_variant": "72485528ee31f223",
       "source_sha256": "3a67072cf8501b2ca1270903995a80229352007b6aa7a1be007eb7ff58c36e84",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-20T00:01:37+00:00"
     },
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
@@ -27,7 +28,7 @@
       "registry_source": "registry/1146066982/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",
-      "updated_at": "2026-09-14T16:03:50+00:00"
+      "updated_at": "2026-09-20T00:01:40+00:00"
     }
   }
 }

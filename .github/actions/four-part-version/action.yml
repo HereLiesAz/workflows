@@ -1,0 +1,44 @@
+name: Four-part release version
+description: Derive MAJOR.MINOR.PATCH.BUILD and patch grouping metadata from a project version source.
+inputs:
+  source-version:
+    description: Optional explicit MAJOR.MINOR.PATCH.BUILD base version.
+    required: false
+    default: ""
+  source-version-file:
+    description: Optional properties-style file containing the base version.
+    required: false
+    default: ""
+  source-version-key:
+    description: Key to read from source-version-file.
+    required: false
+    default: ""
+  build-number:
+    description: Build number replacing the fourth component.
+    required: true
+  prerelease-major-max:
+    description: Highest major version considered prerelease by default.
+    required: false
+    default: "0"
+outputs:
+  version:
+    description: Derived MAJOR.MINOR.PATCH.BUILD.
+    value: ${{ steps.derive.outputs.version }}
+  patch-version:
+    description: MAJOR.MINOR.PATCH grouping key.
+    value: ${{ steps.derive.outputs.patch-version }}
+  prerelease:
+    description: true when the derived version should be a prerelease.
+    value: ${{ steps.derive.outputs.prerelease }}
+runs:
+  using: composite
+  steps:
+    - id: derive
+      shell: bash
+      env:
+        SOURCE_VERSION: ${{ inputs.source-version }}
+        SOURCE_VERSION_FILE: ${{ inputs.source-version-file }}
+        SOURCE_VERSION_KEY: ${{ inputs.source-version-key }}
+        BUILD_NUMBER: ${{ inputs.build-number }}
+        PRERELEASE_MAJOR_MAX: ${{ inputs.prerelease-major-max }}
+      run: python3 "$GITHUB_ACTION_PATH/derive.py"

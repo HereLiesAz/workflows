@@ -203,6 +203,7 @@ jobs:
           PY
 
       - name: Resolve release profile
+        id: release_profile
         env:
           PROFILE_JSON: ${{ inputs.purpose_profile_json }}
         shell: bash
@@ -239,6 +240,7 @@ jobs:
             echo "RELEASE_TITLE_STYLE=$(jq -r '.release_title_style // "simple"' <<<"$PROFILE_JSON")"
             echo "APP_NAME_OVERRIDE=$(jq -r '.app_name // empty' <<<"$PROFILE_JSON")"
           } >> "$GITHUB_ENV"
+          echo "prerelease=$(jq -r '.prerelease // false' <<<"$PROFILE_JSON")" >> "$GITHUB_OUTPUT"
 
       - name: Inject optional project configuration
         env:
@@ -400,61 +402,55 @@ jobs:
             echo "mapping_asset=" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Publish rolling GitHub release
+      - name: Stage grouped release assets
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          TAG: ${{ steps.release.outputs.tag }}
-          VERSION: ${{ steps.release.outputs.version }}
-          APP_NAME: ${{ steps.release.outputs.app_name }}
           ASSET: ${{ steps.release.outputs.asset }}
           MAPPING_ASSET: ${{ steps.release.outputs.mapping_asset }}
         shell: bash
         run: |
           set -euo pipefail
-          gh auth setup-git
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if [ "$MOVE_TAG" = "true" ]; then
-            git tag -fa "$TAG" -m "Latest Release Build"
-            git push origin "$TAG" --force
+          rm -rf release-files
+          mkdir -p release-files
+          cp "$ASSET" "release-files/$(basename "$ASSET")"
+          if [ -n "$MAPPING_ASSET" ] && [ -f "$MAPPING_ASSET" ]; then
+            cp "$MAPPING_ASSET" "release-files/$(basename "$MAPPING_ASSET")"
           fi
-          title="Latest Release ${VERSION}"
-          if [ -n "$RELEASE_TITLE" ]; then
-            title="$RELEASE_TITLE"
-          elif [ "$RELEASE_TITLE_STYLE" = "major-minor-version" ]; then
-            title="Latest Release v${MAJOR}.${MINOR} (${VERSION})"
-          elif [ "$RELEASE_TITLE_STYLE" = "tag" ]; then
-            title="$TAG"
-          elif [ "$RELEASE_TITLE_STYLE" = "app-tag" ]; then
-            title="${APP_NAME} ${TAG}"
-          fi
-          notes_args=(--notes "Release build from commit $(git rev-parse HEAD)")
+
+      - name: Prepare release notes
+        shell: bash
+        run: |
+          set -euo pipefail
           if [ "$RELEASE_NOTES_MODE" = "changelog" ]; then
-            last_tag="$(git tag --sort=-v:refname | grep -v "^$TAG$" | head -n 1 || true)"
+            last_tag="$(git tag --sort=-v:refname | grep -v "^v$VERSION$" | head -n 1 || true)"
             if [ -n "$last_tag" ]; then
               {
                 echo "### Changelog (since $last_tag)"
                 git log "$last_tag"..HEAD --oneline --pretty=format:"* %s (%h)"
-              } > changelog.md
+              } > grouped-release-notes.md
             else
               {
                 echo "### Initial Build"
                 git log --oneline --pretty=format:"* %s (%h)"
-              } > changelog.md
+              } > grouped-release-notes.md
             fi
-            notes_args=(--notes-file changelog.md)
-          fi
-          prerelease_flag=""
-          if [ "$PRERELEASE" = "true" ]; then prerelease_flag="--prerelease"; fi
-          if gh release view "$TAG" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then
-            gh release edit "$TAG" --repo "$TARGET_REPOSITORY" --title "$title" "${notes_args[@]}" $prerelease_flag
-            gh release upload "$TAG" "$ASSET" --repo "$TARGET_REPOSITORY" --clobber
           else
-            gh release create "$TAG" "$ASSET" --repo "$TARGET_REPOSITORY" --title "$title" "${notes_args[@]}" $prerelease_flag
+            printf 'Release build from commit %s\n' "$(git rev-parse HEAD)" > grouped-release-notes.md
           fi
-          if [ -n "$MAPPING_ASSET" ] && [ -f "$MAPPING_ASSET" ]; then
-            gh release upload "$TAG" "$MAPPING_ASSET" --repo "$TARGET_REPOSITORY" --clobber
-          fi
+
+      - name: Publish patch-grouped GitHub release
+        uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@main
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          target-repository: ${{ inputs.target_repository }}
+          target-sha: ${{ inputs.target_sha }}
+          build-version: ${{ steps.release.outputs.version }}
+          assets: release-files/**/*
+          title-prefix: ${{ steps.release.outputs.app_name }}
+          notes-file: grouped-release-notes.md
+          tag-prefix: "v"
+          prerelease: ${{ steps.release_profile.outputs.prerelease }}
+          make-latest: "true"
+          migrate-legacy-build-releases: "true"
 
       - name: Cleanup signing material
         if: ${{ always() }}

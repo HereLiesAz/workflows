@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-09-15T03:05:47+00:00",
+  "last_sync_at": "2026-09-20T04:13:34+00:00",
   "repository": {
     "default_branch": "master",
     "full_name": "HereLiesAz/fluttertest",
@@ -11,31 +11,32 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/android_ci_flutter.yml": {
-      "binding": "curated",
-      "central_workflow": ".github/workflows/ci-validation.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/fluttertest-android-ci-flutter.yml",
+      "implementation_sha256": "84ae1ecb1cfdb67f3f8d8a79039a8d6692c7841d7d3cfd13e39f56542e921f75",
       "name": "Android CI (Flutter)",
       "registry_source": "registry/1120831810/android_ci_flutter-7604c878.source.yml",
+      "shared_variant": "84ae1ecb1cfdb67f",
       "source_sha256": "1606a824a8bd29eb3c6dbd9ca74f88692ee0abd248e910d9a1ee69acb279766c",
       "status": "active",
-      "updated_at": "2026-09-15T03:05:44+00:00",
-      "semantic_purpose": "CI Validation"
+      "updated_at": "2026-09-20T04:13:31+00:00"
     },
     ".github/workflows/android_ci_jules.yml": {
       "name": "Android CI (Jules)",
+      "reason": "superseded by the Flutter-native CI workflow, which builds the same debug APK through the correct Flutter toolchain",
       "registry_source": "registry/1120831810/android_ci_jules-294d5140.source.yml",
       "source_sha256": "6f25a5f112d324c4bb19236302c860917f1e65e984e919e778afdd634a97336d",
       "status": "obsolete",
-      "updated_at": "2026-09-15T03:05:45+00:00",
-      "reason": "superseded by the Flutter-native CI workflow, which builds the same debug APK through the correct Flutter toolchain"
+      "updated_at": "2026-09-15T03:05:45+00:00"
     },
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "😈 Glee Audit",
+      "name": "\ud83d\ude08 Glee Audit",
       "registry_source": "registry/1120831810/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",
-      "updated_at": "2026-09-15T03:05:46+00:00"
+      "updated_at": "2026-09-20T04:13:33+00:00"
     },
     ".github/workflows/release.yml": {
       "name": "Release",

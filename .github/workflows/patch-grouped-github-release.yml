@@ -1,0 +1,367 @@
+# workflow-policy: generalized-v1
+# workflow-purpose: Publish immutable build artifacts into one GitHub Release per MAJOR.MINOR.PATCH line.
+# required-secret: GH_TOKEN | GitHub token with Actions read and Contents write access to the target repository.
+
+name: Patch-grouped GitHub Release
+
+on:
+  workflow_call:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      source_run_id:
+        required: true
+        type: string
+      artifact_name:
+        required: true
+        type: string
+      patch_version:
+        required: true
+        type: string
+      build_version:
+        required: true
+        type: string
+      release_title_prefix:
+        required: false
+        type: string
+        default: ""
+      notes_filename:
+        required: false
+        type: string
+        default: release-notes.md
+      prerelease:
+        required: false
+        type: boolean
+        default: false
+      migrate_legacy_build_releases:
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      GH_TOKEN:
+        required: true
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        description: owner/repository whose release should be grouped
+        required: true
+        type: string
+      target_sha:
+        description: immutable build commit
+        required: true
+        type: string
+      source_run_id:
+        description: Actions run containing the prepared release artifact
+        required: true
+        type: string
+      artifact_name:
+        description: artifact containing uniquely named build assets and optional release notes
+        required: true
+        type: string
+      patch_version:
+        description: MAJOR.MINOR.PATCH release line, for example 0.9.6
+        required: true
+        type: string
+      build_version:
+        description: exact MAJOR.MINOR.PATCH.BUILD version, for example 0.9.6.412
+        required: true
+        type: string
+      release_title_prefix:
+        description: optional title prefix such as The Aive
+        required: false
+        default: ""
+        type: string
+      notes_filename:
+        description: filename inside the artifact containing notes for this exact build
+        required: false
+        default: release-notes.md
+        type: string
+      prerelease:
+        description: mark the patch release as a prerelease
+        required: false
+        default: false
+        type: boolean
+      migrate_legacy_build_releases:
+        description: fold legacy four-part releases into the patch release while retaining their tags
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: patch-group-release-${{ inputs.target_repository }}-${{ inputs.patch_version }}
+  cancel-in-progress: false
+
+jobs:
+  policy_secret_preflight:
+    runs-on: ubuntu-latest
+    env:
+      REQUIRED_GH_TOKEN: ${{ secrets.GH_TOKEN }}
+    steps:
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${REQUIRED_GH_TOKEN:-}" || {
+            echo "::error::Missing required secret GH_TOKEN — GitHub token with Actions read and Contents write access to the target repository."
+            exit 1
+          }
+
+  publish:
+    needs: policy_secret_preflight
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+      ARTIFACT_NAME: ${{ inputs.artifact_name }}
+      PATCH_VERSION: ${{ inputs.patch_version }}
+      BUILD_VERSION: ${{ inputs.build_version }}
+      RELEASE_TITLE_PREFIX: ${{ inputs.release_title_prefix }}
+      NOTES_FILENAME: ${{ inputs.notes_filename }}
+      PRERELEASE: ${{ inputs.prerelease }}
+      MIGRATE_LEGACY: ${{ inputs.migrate_legacy_build_releases }}
+    steps:
+      - name: Validate target and version contract
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          repo_json="$(gh api "repos/$TARGET_REPOSITORY")"
+          test -n "$(jq -r '.id // empty' <<<"$repo_json")" || {
+            echo "::error::Unable to resolve target repository $TARGET_REPOSITORY"
+            exit 1
+          }
+
+          if ! printf '%s' "$PATCH_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::patch_version must be MAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          if ! printf '%s' "$BUILD_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::build_version must be MAJOR.MINOR.PATCH.BUILD"
+            exit 1
+          fi
+          case "$BUILD_VERSION" in
+            "$PATCH_VERSION".*) ;;
+            *)
+              echo "::error::build_version $BUILD_VERSION does not belong to patch line $PATCH_VERSION"
+              exit 1
+              ;;
+          esac
+
+          commit_sha="$(gh api "repos/$TARGET_REPOSITORY/commits/$TARGET_SHA" --jq '.sha')"
+          test "$commit_sha" = "$TARGET_SHA" || {
+            echo "::error::target_sha did not resolve exactly"
+            exit 1
+          }
+
+      - name: Check out exact target build
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download prepared release artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf release-bundle
+          mkdir -p release-bundle
+          gh run download "$SOURCE_RUN_ID"             --repo "$TARGET_REPOSITORY"             --name "$ARTIFACT_NAME"             --dir release-bundle
+          find release-bundle -type f -print
+          test "$(find release-bundle -type f | wc -l | tr -d ' ')" -gt 0 || {
+            echo "::error::Artifact $ARTIFACT_NAME from run $SOURCE_RUN_ID was empty"
+            exit 1
+          }
+
+      - name: Publish grouped patch release
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PATCH_TAG="v$PATCH_VERSION"
+          BUILD_TAG="v$BUILD_VERSION"
+          if [ -n "$RELEASE_TITLE_PREFIX" ]; then
+            RELEASE_TITLE="$RELEASE_TITLE_PREFIX $PATCH_VERSION"
+          else
+            RELEASE_TITLE="$PATCH_VERSION"
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:$GH_TOKEN@github.com/$TARGET_REPOSITORY.git"
+          git fetch --tags origin
+
+          resolve_tag_commit() {
+            git rev-list -n 1 "$1" 2>/dev/null || true
+          }
+
+          build_existing="$(resolve_tag_commit "$BUILD_TAG")"
+          if [ -n "$build_existing" ]; then
+            if [ "$build_existing" != "$TARGET_SHA" ]; then
+              echo "::error::Immutable build tag $BUILD_TAG already points to $build_existing, not $TARGET_SHA"
+              exit 1
+            fi
+          else
+            git tag -a "$BUILD_TAG" "$TARGET_SHA" -m "$BUILD_TAG"
+            git push origin "$BUILD_TAG"
+          fi
+
+          patch_existing="$(resolve_tag_commit "$PATCH_TAG")"
+          if [ -z "$patch_existing" ]; then
+            # The patch tag anchors the first published build and never moves.
+            git tag -a "$PATCH_TAG" "$TARGET_SHA" -m "$PATCH_TAG"
+            git push origin "$PATCH_TAG"
+          fi
+
+          initial_body="$(mktemp)"
+          {
+            echo "# $RELEASE_TITLE"
+            echo
+            echo "All builds in the **$PATCH_VERSION** patch line are grouped in this release."
+            echo
+            echo "The patch tag `$PATCH_TAG` anchors the first published build and never moves."
+            echo "Every exact build keeps its own immutable tag, such as `$BUILD_TAG`."
+          } > "$initial_body"
+
+          release_flags=()
+          if [ "$PRERELEASE" = "true" ]; then
+            release_flags+=(--prerelease)
+          fi
+
+          if gh release view "$PATCH_TAG" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$PATCH_TAG"               --repo "$TARGET_REPOSITORY"               --title "$RELEASE_TITLE"               "${release_flags[@]}"
+          else
+            gh release create "$PATCH_TAG"               --repo "$TARGET_REPOSITORY"               --verify-tag               --title "$RELEASE_TITLE"               --notes-file "$initial_body"               "${release_flags[@]}"
+          fi
+
+          upload_without_clobber() {
+            local source="$1"
+            local name
+            name="$(basename "$source")"
+            local existing_id
+            existing_id="$(
+              gh api "repos/$TARGET_REPOSITORY/releases/tags/$PATCH_TAG"                 --jq ".assets[] | select(.name == \"$name\") | .id"                 | head -n 1
+            )"
+
+            if [ -z "$existing_id" ]; then
+              gh release upload "$PATCH_TAG" "$source" --repo "$TARGET_REPOSITORY"
+              return
+            fi
+
+            local compare_dir
+            compare_dir="$(mktemp -d)"
+            gh release download "$PATCH_TAG"               --repo "$TARGET_REPOSITORY"               --pattern "$name"               --dir "$compare_dir"
+            local existing_file="$compare_dir/$name"
+            test -f "$existing_file" || {
+              echo "::error::Release asset $name exists but could not be downloaded for verification"
+              exit 1
+            }
+            local expected actual
+            expected="$(sha256sum "$source" | awk '{print $1}')"
+            actual="$(sha256sum "$existing_file" | awk '{print $1}')"
+            rm -rf "$compare_dir"
+            if [ "$expected" != "$actual" ]; then
+              echo "::error::Release asset $name already exists with different content; refusing to clobber it"
+              exit 1
+            fi
+            echo "Asset $name already exists with identical SHA-256; keeping it unchanged."
+          }
+
+          append_build_note() {
+            local version="$1"
+            local sha="$2"
+            local notes_file="${3:-}"
+            local marker="<!-- build:$version -->"
+            local current_body next_body
+            current_body="$(mktemp)"
+            next_body="$(mktemp)"
+            gh release view "$PATCH_TAG" --repo "$TARGET_REPOSITORY" --json body --jq '.body // ""' > "$current_body"
+            if grep -Fq "$marker" "$current_body"; then
+              rm -f "$current_body" "$next_body"
+              return
+            fi
+            cat "$current_body" > "$next_body"
+            {
+              echo
+              echo "---"
+              echo
+              echo "## Build `$version`"
+              echo "$marker"
+              if [ -n "$sha" ]; then
+                echo
+                echo "Commit: `$sha`"
+              fi
+              if [ -n "$notes_file" ] && [ -s "$notes_file" ]; then
+                echo
+                cat "$notes_file"
+              fi
+            } >> "$next_body"
+            gh release edit "$PATCH_TAG" --repo "$TARGET_REPOSITORY" --notes-file "$next_body"
+            rm -f "$current_body" "$next_body"
+          }
+
+          if [ "$MIGRATE_LEGACY" = "true" ]; then
+            mapfile -t legacy_tags < <(
+              gh api --paginate "repos/$TARGET_REPOSITORY/releases?per_page=100" --jq '.[].tag_name'                 | while IFS= read -r tag; do
+                    escaped_patch="${PATCH_VERSION//./\\.}"
+                    if [[ "$tag" =~ ^v${escaped_patch}\.[0-9]+$ ]]; then
+                      printf '%s\n' "$tag"
+                    fi
+                  done
+            )
+
+            for legacy_tag in "${legacy_tags[@]}"; do
+              legacy_version="${legacy_tag#v}"
+              echo "Migrating legacy release $legacy_tag into $PATCH_TAG"
+
+              legacy_body="$(mktemp)"
+              gh release view "$legacy_tag" --repo "$TARGET_REPOSITORY" --json body --jq '.body // ""' > "$legacy_body"
+
+              legacy_dir="$(mktemp -d)"
+              if gh release download "$legacy_tag" --repo "$TARGET_REPOSITORY" --dir "$legacy_dir"; then
+                while IFS= read -r file; do
+                  upload_without_clobber "$file"
+                done < <(find "$legacy_dir" -type f -print | sort)
+              fi
+
+              legacy_sha="$(resolve_tag_commit "$legacy_tag")"
+              append_build_note "$legacy_version" "$legacy_sha" "$legacy_body"
+
+              rm -rf "$legacy_dir"
+              rm -f "$legacy_body"
+
+              # Delete only the redundant GitHub Release object. The immutable four-part tag remains.
+              gh release delete "$legacy_tag" --repo "$TARGET_REPOSITORY" --yes
+            done
+          fi
+
+          notes_path=""
+          if [ -n "$NOTES_FILENAME" ]; then
+            notes_path="$(find release-bundle -type f -name "$NOTES_FILENAME" -print -quit)"
+          fi
+
+          while IFS= read -r file; do
+            if [ -n "$notes_path" ] && [ "$file" = "$notes_path" ]; then
+              continue
+            fi
+            upload_without_clobber "$file"
+          done < <(find release-bundle -type f -print | sort)
+
+          append_build_note "$BUILD_VERSION" "$TARGET_SHA" "$notes_path"
+
+          echo "Patch release $PATCH_TAG now contains build $BUILD_VERSION."
+          gh release view "$PATCH_TAG" --repo "$TARGET_REPOSITORY" --json tagName,name,isPrerelease,assets

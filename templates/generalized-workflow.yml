@@ -1,0 +1,58 @@
+# workflow-policy: generalized-v1
+# workflow-purpose: Replace this with the repository-agnostic capability this workflow provides.
+# required-secret: GH_TOKEN | Central GitHub token used for cross-repository API operations.
+#
+# GENERALIZATION CONTRACT
+# - This implementation lives in HereLiesAz/workflows, not a target repository.
+# - Do not hard-code a target repository, package/application ID, branch, artifact
+#   name, deployment path, or release name. Make those inputs/profile values.
+# - Reuse names from policy/workflow-policy.json#secret_catalog.
+# - A genuinely new secret must be added to that catalog with an explicit purpose
+#   and must be reported by the preflight job when absent.
+
+name: Generalized Workflow Template
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        description: owner/repository that requested the operation
+        required: true
+        type: string
+      target_sha:
+        description: immutable source revision to operate on
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  policy_secret_preflight:
+    runs-on: ubuntu-latest
+    env:
+      REQUIRED_GH_TOKEN: ${{ secrets.GH_TOKEN }}
+    steps:
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${REQUIRED_GH_TOKEN:-}" || {
+            echo "::error::Missing required secret GH_TOKEN — Central GitHub token used for cross-repository API operations."
+            exit 1
+          }
+
+  run:
+    needs: policy_secret_preflight
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out requested repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+
+      - name: Implement generalized operation
+        run: echo "Replace this step with repository-agnostic behavior."

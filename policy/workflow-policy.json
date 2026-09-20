@@ -1,0 +1,239 @@
+{
+  "schema": 1,
+  "policy": {
+    "central_repository": "HereLiesAz/workflows",
+    "new_target_workflows": "central-submission-required",
+    "new_central_workflows": "generalized-required"
+  },
+  "grandfathered_workflows": [
+    ".github/workflows/android-dependency-update.yml",
+    ".github/workflows/android-github-release.yml",
+    ".github/workflows/android-play-release.yml",
+    ".github/workflows/artifact-github-release.yml",
+    ".github/workflows/aznavrail-android-sample-build.yml",
+    ".github/workflows/aznavrail-apply-unattached-visibility.yml",
+    ".github/workflows/aznavrail-bump-more-from-az.yml",
+    ".github/workflows/aznavrail-chatgpt-vendor-artifact.yml",
+    ".github/workflows/aznavrail-sync-embedded-guide.yml",
+    ".github/workflows/aznavrail-sync-platform-parity.yml",
+    ".github/workflows/azp-model-release.yml",
+    ".github/workflows/azp-sign-release.yml",
+    ".github/workflows/azphalt-deploy-storefront.yml",
+    ".github/workflows/azphalt-registry-sync.yml",
+    ".github/workflows/azphalt-submissions.yml",
+    ".github/workflows/badusb-roulette-deploy.yml",
+    ".github/workflows/barbacker-deploy.yml",
+    ".github/workflows/blusnu-stale.yml",
+    ".github/workflows/ci-validation.yml",
+    ".github/workflows/clear-cache.yml",
+    ".github/workflows/click-android-ci-jules.yml",
+    ".github/workflows/click-web-ci-pages.yml",
+    ".github/workflows/codeql-scan.yml",
+    ".github/workflows/context-backup.yml",
+    ".github/workflows/conveyance-publish-docs.yml",
+    ".github/workflows/cuedetat-deploy-docs-sftp.yml",
+    ".github/workflows/cuedetat-gitlab.yml",
+    ".github/workflows/cuedetat-play-publish.yml",
+    ".github/workflows/cuedetat-release.yml",
+    ".github/workflows/desktop-package.yml",
+    ".github/workflows/dubious-dub-job.yml",
+    ".github/workflows/gateway.yml",
+    ".github/workflows/graffitixr-deploy-sftp.yml",
+    ".github/workflows/graffux-cloudflare-deploy.yml",
+    ".github/workflows/graffux-m2-physical-population-alt-validation.yml",
+    ".github/workflows/guillotine-deploy-space.yml",
+    ".github/workflows/guillotine-mirror-models.yml",
+    ".github/workflows/hereliesaz-github-io-bootstrap.yml",
+    ".github/workflows/hereliesaz-github-io-process-art.yml",
+    ".github/workflows/hereliesaz-github-io-remove-painting.yml",
+    ".github/workflows/hereliesaz-github-io-theater-bake.yml",
+    ".github/workflows/hg2gui-audit-storyboard-sheets.yml",
+    ".github/workflows/hg2gui-materialize-animation-boundaries.yml",
+    ".github/workflows/hg2gui-merged-build.yml",
+    ".github/workflows/issue-summary.yml",
+    ".github/workflows/jules-auto-assign.yml",
+    ".github/workflows/jules-dispatch.yml",
+    ".github/workflows/jules-glee.yml",
+    ".github/workflows/jules-scheduled-triage.yml",
+    ".github/workflows/lefauxpass-azure-staticwebapp.yml",
+    ".github/workflows/maven-package-publish.yml",
+    ".github/workflows/morphont-release-request.yml",
+    ".github/workflows/multi-platform-app-release.yml",
+    ".github/workflows/node-package-publish.yml",
+    ".github/workflows/paperplanes-pipeline.yml",
+    ".github/workflows/pr-labeler.yml",
+    ".github/workflows/pwnagotchionandroid-python-publish.yml",
+    ".github/workflows/qard-generate-wrapper.yml",
+    ".github/workflows/redblightdistrict-update-database.yml",
+    ".github/workflows/sync-all-repositories.yml",
+    ".github/workflows/sync-repository.yml",
+    ".github/workflows/validate-controller.yml",
+    ".github/workflows/version-contract-sync.yml",
+    ".github/workflows/version-contract.yml",
+    ".github/workflows/website-sftp-deploy.yml"
+  ],
+  "secret_catalog": {
+    "ACRA_TOKEN": {
+      "purpose": "Authenticates crash-reporting operations against the configured ACRA service."
+    },
+    "ACRA_URL": {
+      "purpose": "Provides the protected ACRA service endpoint used by release configuration."
+    },
+    "ARCORE_API_KEY": {
+      "purpose": "Authenticates Google ARCore API access used by Android builds."
+    },
+    "AZP_PRIVATE_KEY": {
+      "purpose": "Private signing key used by AZP release-signing automation."
+    },
+    "AZPHALT_PACKAGE_SIGNING_KEY": {
+      "purpose": "Private key used to sign Azphalt package metadata and artifacts."
+    },
+    "AZPHALT_PACKAGE_SIGNING_KEY_ID": {
+      "purpose": "Identifies the Azphalt package-signing key used for published signatures."
+    },
+    "AZURE_STATIC_WEB_APPS_API_TOKEN": {
+      "purpose": "Authorizes deployment to Azure Static Web Apps."
+    },
+    "CHAIN": {
+      "purpose": "Legacy PEM certificate-chain material used by Android signing workflows."
+    },
+    "CLIENT_ID": {
+      "purpose": "OAuth client identifier injected where a target application requires it."
+    },
+    "CLOUDFLARE_ACCOUNT_ID": {
+      "purpose": "Identifies the Cloudflare account used by deployment workflows."
+    },
+    "CLOUDFLARE_API_TOKEN": {
+      "purpose": "Authorizes Cloudflare deployment and management operations."
+    },
+    "CUSTOM_API_KEY": {
+      "purpose": "Application-specific API credential injected by generalized Android release profiles."
+    },
+    "FTP_PASSWORD": {
+      "purpose": "Authenticates SFTP/FTP deployment to the configured remote host."
+    },
+    "FTP_SERVER": {
+      "purpose": "Protected deployment host value for SFTP/FTP publishing."
+    },
+    "FTP_USERNAME": {
+      "purpose": "Authenticates SFTP/FTP deployment to the configured remote host."
+    },
+    "GEMINI_API_KEY": {
+      "purpose": "Authenticates requests to the Gemini API."
+    },
+    "GH_TOKEN": {
+      "purpose": "Central GitHub token used for cross-repository API, release, status, package, and synchronization operations."
+    },
+    "GITHUB_TOKEN": {
+      "purpose": "GitHub-provided per-run token for repository-scoped Actions operations."
+    },
+    "GITLAB_PAT": {
+      "purpose": "Authenticates mirroring or synchronization operations against GitLab."
+    },
+    "GITLAB_URL": {
+      "purpose": "Protected GitLab endpoint used by mirroring workflows."
+    },
+    "GOOGLE_SERVICES": {
+      "purpose": "Complete google-services.json content injected into Android builds that use Firebase/Google services."
+    },
+    "GOOGLE_SERVICES_API_KEY": {
+      "purpose": "Google services API key injected into generated Android service configuration."
+    },
+    "GPG_PASSPHRASE": {
+      "purpose": "Unlocks the GPG private key used to sign Maven publications."
+    },
+    "GPG_PRIVATE_KEY": {
+      "purpose": "Private GPG key used to sign Maven publications."
+    },
+    "HF_TOKEN": {
+      "purpose": "Authenticates model and Space operations against Hugging Face."
+    },
+    "JULES_API_KEY": {
+      "purpose": "Authenticates Jules API requests for code and repository automation."
+    },
+    "KEYSTORE_CHAIN": {
+      "purpose": "Certificate chain paired with the Android signing private key."
+    },
+    "KEYSTORE_PASSWORD": {
+      "purpose": "Unlocks the Android signing keystore."
+    },
+    "KEYSTORE_PRIVATE": {
+      "purpose": "Private key material used to construct or use an Android signing keystore."
+    },
+    "KEYSTORE_PUBLIC": {
+      "purpose": "Public certificate/key material paired with Android signing credentials."
+    },
+    "KEYSTORE_RAW": {
+      "purpose": "Base64 or raw encoded Android keystore content used for release signing."
+    },
+    "KEYSTORE_RSA": {
+      "purpose": "RSA key material used by Android signing workflows."
+    },
+    "KEY_ALIAS": {
+      "purpose": "Selects the signing key entry inside an Android keystore."
+    },
+    "KEY_PASSWORD": {
+      "purpose": "Unlocks the selected Android signing key entry."
+    },
+    "NPM_AUTH_TOKEN": {
+      "purpose": "Authenticates package publication to the configured npm registry."
+    },
+    "OSSRH_TOKEN": {
+      "purpose": "Authenticates Maven Central/Sonatype publishing."
+    },
+    "OSSRH_USERNAME": {
+      "purpose": "Identifies the Maven Central/Sonatype publishing account."
+    },
+    "PLAY_SERVICE_ACCOUNT_JSON": {
+      "purpose": "Google Play service-account credentials used to upload and promote Android releases."
+    },
+    "PROJECT_ID": {
+      "purpose": "Protected Google/Firebase project identifier injected into application configuration."
+    },
+    "SHEETS_API": {
+      "purpose": "Authenticates Google Sheets API operations."
+    },
+    "SNYK_TOKEN": {
+      "purpose": "Authenticates Snyk security scanning."
+    },
+    "STREETVIEW_DRIVE_FOLDER_ID": {
+      "purpose": "Identifies the protected Google Drive folder used by Street View database automation."
+    },
+    "TMDB_API_KEY": {
+      "purpose": "Authenticates TMDB API access required by the target application build."
+    },
+    "TRAKT_CLIENT_ID": {
+      "purpose": "OAuth client identifier for Trakt integration."
+    },
+    "TRAKT_CLIENT_SECRET": {
+      "purpose": "OAuth client secret for Trakt integration."
+    },
+    "USERNAME": {
+      "purpose": "Legacy protected username consumed by GitLab synchronization automation."
+    },
+    "VITE_FIREBASE_API_KEY": {
+      "purpose": "Firebase browser API key injected into Vite builds."
+    },
+    "VITE_FIREBASE_APP_ID": {
+      "purpose": "Firebase application identifier injected into Vite builds."
+    },
+    "VITE_FIREBASE_AUTH_DOMAIN": {
+      "purpose": "Firebase authentication domain injected into Vite builds."
+    },
+    "VITE_FIREBASE_MESSAGING_SENDER_ID": {
+      "purpose": "Firebase messaging sender identifier injected into Vite builds."
+    },
+    "VITE_FIREBASE_PROJECT_ID": {
+      "purpose": "Firebase project identifier injected into Vite builds."
+    },
+    "VITE_FIREBASE_STORAGE_BUCKET": {
+      "purpose": "Firebase storage bucket injected into Vite builds."
+    },
+    "VITE_FIREBASE_VAPID_KEY": {
+      "purpose": "Web Push VAPID key injected into Vite/Firebase builds."
+    },
+    "VITE_ICAL_FEED_BASE_URL": {
+      "purpose": "Protected iCalendar feed base URL injected into the Vite application."
+    }
+  }
+}

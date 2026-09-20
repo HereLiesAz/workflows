@@ -25,6 +25,11 @@ try:
 except ImportError:
     from semantic_catalog import purpose_profile_for_source, uses_purpose_profile, uses_target_repository_name
 
+try:
+    from .test_workflow_policy import validation_errors_for_workflow
+except ImportError:
+    from test_workflow_policy import validation_errors_for_workflow
+
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -153,6 +158,12 @@ def main() -> int:
         raise RuntimeError("Obsolete shared-variant registry binding is not dispatchable")
 
     central_workflow = require(str(entry.get("central_workflow", "")), "central_workflow")
+    policy_errors = validation_errors_for_workflow(central_workflow)
+    if policy_errors:
+        raise RuntimeError(
+            "Central workflow violates generalized workflow policy and cannot execute:\n"
+            + "\n".join(f"  - {item}" for item in policy_errors)
+        )
     binding = str(entry.get("binding") or "")
     if binding == "repository":
         repo_slug = slug(repository.rsplit("/", 1)[-1])

@@ -29,6 +29,20 @@ The Worker verifies GitHub OIDC identity and immutable repository ownership befo
 
 Runtime results are reported back to the target SHA using **commit statuses**, not Check Runs.
 
+## Workflow policy and repository templates
+
+New workflow implementations must be submitted to this repository and generalized for reuse before they are allowed into a target repository. See **[Generalized workflow policy](docs/WORKFLOW_POLICY.md)**.
+
+Repository starters:
+
+- `HereLiesAz/workflows-starter-template` — general/meta repository
+- `HereLiesAz/android-app-template` — Android + Compose
+- `HereLiesAz/compose-multiplatform-template` — Compose Multiplatform with Android and desktop entry points
+- `HereLiesAz/react-app-template` — React + TypeScript + Vite
+- `HereLiesAz/gradle-library-template` — Kotlin/JVM library for GitHub Packages and JitPack
+
+Each template carries `.github/workflow-request.yml`, a non-executable menu/request file. Executable implementations stay centralized here.
+
 ## Adding another repository
 
 See **[Repository onboarding](docs/REPOSITORY_ONBOARDING.md)** for the complete conversion procedure, safety rules, classification model, smoke-test process, rollback procedure, and the checklist we will use for every repository.

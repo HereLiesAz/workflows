@@ -6,7 +6,7 @@ const OWNER_ID = "103241502";
 const CENTRAL_REPOSITORY = "HereLiesAz/workflows";
 const GATEWAY_WORKFLOW = "gateway.yml";
 const API_VERSION = "2026-03-10";
-const MAX_REQUEST_JSON_BYTES = 512 * 1024;
+const MAX_REQUEST_JSON_BYTES = 5 * 1024 * 1024;
 const MAX_WORKFLOW_DISPATCH_INPUT_CHARS = 60000;
 
 let jwksCache;
@@ -17,81 +17,20 @@ export default {
     const url = new URL(request.url);
 
     if (request.method === "GET" && url.pathname === "/health") {
-      return json({ ok: true, service: "HereLiesAz/workflows gateway" });
-    }
-
-    if (request.method !== "POST" || url.pathname !== "/dispatch") {
-      return new Response("Not found", { status: 404 });
+      return json({ ok: true, service: "HereLiesAz/workflows gateway", mode: "webhook-central" });
     }
 
     try {
-      if (!env.DISPATCH_TOKEN) {
-        throw new HttpError(500, "Worker DISPATCH_TOKEN is not configured");
+      if (request.method === "POST" && url.pathname === "/register") {
+        return await registerRepositoryWebhook(request, env, url);
       }
-
-      const bearer = request.headers.get("Authorization") || "";
-      const match = bearer.match(/^Bearer\s+(.+)$/i);
-      if (!match) {
-        throw new HttpError(401, "Missing OIDC bearer token");
+      if (request.method === "POST" && url.pathname === "/webhook") {
+        return await receiveRepositoryWebhook(request, env);
       }
-
-      const claims = await verifyGitHubOidc(match[1]);
-      const rawBody = await request.text();
-      if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_JSON_BYTES) {
-        throw new HttpError(413, "Dispatch payload is too large");
+      if (request.method === "POST" && url.pathname === "/dispatch") {
+        return await receiveLegacyOidcDispatch(request, env);
       }
-
-      let body;
-      try {
-        body = JSON.parse(rawBody);
-      } catch {
-        throw new HttpError(400, "Request body is not valid JSON");
-      }
-
-      validateDispatch(body, claims);
-
-      // workflow_dispatch has a finite input envelope. GitHub event payloads, especially
-      // pull_request events, routinely exceed it when base64-encoded raw. Gzip the verified
-      // request first; gateway.yml accepts both gzip and the old plain-base64 format so the
-      // Worker and workflow can be deployed in either order.
-      const requestB64 = await gzipBase64Utf8(rawBody);
-      if (requestB64.length > MAX_WORKFLOW_DISPATCH_INPUT_CHARS) {
-        throw new HttpError(413, "Compressed dispatch payload is still too large for workflow_dispatch");
-      }
-
-      const apiResponse = await fetch(
-        `https://api.github.com/repos/${CENTRAL_REPOSITORY}/actions/workflows/${GATEWAY_WORKFLOW}/dispatches`,
-        {
-          method: "POST",
-          headers: {
-            "Accept": "application/vnd.github+json",
-            "Authorization": `Bearer ${env.DISPATCH_TOKEN}`,
-            "Content-Type": "application/json",
-            "User-Agent": "HereLiesAz-workflows-cloudflare-gateway",
-            "X-GitHub-Api-Version": API_VERSION,
-          },
-          body: JSON.stringify({
-            ref: "main",
-            inputs: {
-              repository: body.repository,
-              repository_id: String(body.repository_id),
-              request_b64: requestB64,
-            },
-          }),
-        },
-      );
-
-      if (!apiResponse.ok) {
-        const detail = await apiResponse.text();
-        throw new HttpError(502, `GitHub dispatch failed (${apiResponse.status}): ${detail}`);
-      }
-
-      return json({
-        ok: true,
-        repository: body.repository,
-        repository_id: String(body.repository_id),
-        source_workflow_path: body.source_workflow_path,
-      }, 202);
+      return new Response("Not found", { status: 404 });
     } catch (error) {
       if (error instanceof HttpError) {
         return json({ ok: false, error: error.message }, error.status);
@@ -102,7 +41,266 @@ export default {
   },
 };
 
-function validateDispatch(body, claims) {
+async function registerRepositoryWebhook(request, env, url) {
+  requireDispatchToken(env);
+
+  const bearer = request.headers.get("Authorization") || "";
+  const match = bearer.match(/^Bearer\s+(.+)$/i);
+  if (!match) throw new HttpError(401, "Missing central Actions OIDC bearer token");
+
+  const claims = await verifyGitHubOidc(match[1]);
+  if (String(claims.repository || "").toLowerCase() !== CENTRAL_REPOSITORY.toLowerCase()) {
+    throw new HttpError(403, "Only HereLiesAz/workflows may register repository webhooks");
+  }
+  if (String(claims.repository_owner_id || "") !== OWNER_ID) {
+    throw new HttpError(403, "Central workflow owner mismatch");
+  }
+
+  const body = await readJsonBody(request);
+  const repository = String(body.repository || "");
+  const repositoryId = String(body.repository_id || "");
+  if (!/^HereLiesAz\/[A-Za-z0-9_.-]+$/.test(repository) || !repositoryId) {
+    throw new HttpError(400, "repository and repository_id are required");
+  }
+
+  const repo = await githubApi(env, `/repos/${repository}`);
+  if (String(repo.id) !== repositoryId) throw new HttpError(409, "Repository ID mismatch");
+  if (String(repo.owner?.id) !== OWNER_ID ||
+      String(repo.owner?.login || "").toLowerCase() !== OWNER_LOGIN.toLowerCase()) {
+    throw new HttpError(403, "Repository is not owned by HereLiesAz");
+  }
+
+  const webhookUrl = `${url.origin}/webhook`;
+  const secret = await derivedWebhookSecret(env);
+  const hooks = await githubApi(env, `/repos/${repository}/hooks?per_page=100`);
+  const existing = Array.isArray(hooks)
+    ? hooks.find((hook) => String(hook?.config?.url || "") === webhookUrl)
+    : undefined;
+
+  const payload = {
+    name: "web",
+    active: true,
+    events: ["*"],
+    config: {
+      url: webhookUrl,
+      content_type: "json",
+      insecure_ssl: "0",
+      secret,
+    },
+  };
+
+  let hook;
+  if (existing?.id) {
+    hook = await githubApi(env, `/repos/${repository}/hooks/${existing.id}`, "PATCH", payload);
+  } else {
+    hook = await githubApi(env, `/repos/${repository}/hooks`, "POST", payload);
+  }
+
+  return json({
+    ok: true,
+    repository,
+    hook_id: hook?.id,
+    webhook_url: webhookUrl,
+    events: ["*"],
+  }, existing ? 200 : 201);
+}
+
+async function receiveRepositoryWebhook(request, env) {
+  requireDispatchToken(env);
+  const rawBody = await readRawBody(request);
+  const signature = request.headers.get("X-Hub-Signature-256") || "";
+  if (!signature.startsWith("sha256=")) throw new HttpError(401, "Missing GitHub webhook signature");
+
+  const valid = await verifyWebhookSignature(env, rawBody, signature.slice("sha256=".length));
+  if (!valid) throw new HttpError(401, "Invalid GitHub webhook signature");
+
+  const eventName = request.headers.get("X-GitHub-Event") || "";
+  const delivery = request.headers.get("X-GitHub-Delivery") || crypto.randomUUID();
+  if (!eventName) throw new HttpError(400, "Missing X-GitHub-Event");
+
+  let event;
+  try {
+    event = JSON.parse(rawBody);
+  } catch {
+    throw new HttpError(400, "Webhook body is not valid JSON");
+  }
+
+  if (eventName === "ping") {
+    return json({ ok: true, pong: true, zen: event.zen || "" });
+  }
+
+  const repository = event.repository;
+  if (!repository?.full_name || repository?.id === undefined) {
+    return json({ ok: true, ignored: true, reason: "Webhook event has no repository" }, 202);
+  }
+  if (String(repository.owner?.id) !== OWNER_ID ||
+      String(repository.owner?.login || "").toLowerCase() !== OWNER_LOGIN.toLowerCase()) {
+    throw new HttpError(403, "Webhook repository is not owned by HereLiesAz");
+  }
+
+  const context = await normalizeWebhookContext(env, eventName, event);
+  const sender = event.sender || {};
+  const body = {
+    repository: repository.full_name,
+    repository_id: String(repository.id),
+    repository_owner: repository.owner.login,
+    repository_owner_id: String(repository.owner.id),
+    sha: context.sha,
+    check_sha: context.checkSha,
+    ref: context.ref,
+    ref_name: context.refName,
+    ref_type: context.refType,
+    head_ref: context.headRef,
+    base_ref: context.baseRef,
+    actor: String(sender.login || "github"),
+    actor_id: sender.id === undefined ? "" : String(sender.id),
+    event_name: eventName,
+    event,
+    inputs: {},
+    vars: {},
+    run_id: `webhook-${delivery}`,
+    run_number: "",
+    run_attempt: "1",
+    workflow_ref: "",
+    workflow_name: "",
+    source_workflow_path: "",
+    source_sha256: "",
+    webhook_delivery: delivery,
+  };
+
+  await dispatchGateway(env, body);
+  return json({
+    ok: true,
+    repository: body.repository,
+    event_name: eventName,
+    delivery,
+  }, 202);
+}
+
+async function normalizeWebhookContext(env, eventName, event) {
+  const repository = event.repository;
+  const defaultBranch = String(repository.default_branch || "main");
+
+  if (eventName === "push") {
+    const ref = String(event.ref || "");
+    const sha = String(event.after || event.head_commit?.id || event.before || "");
+    const zero = /^0{40}$/.test(sha);
+    const resolvedSha = zero ? await defaultBranchSha(env, repository.full_name, defaultBranch) : sha;
+    const refName = ref.replace(/^refs\/(heads|tags)\//, "");
+    const refType = ref.startsWith("refs/tags/") ? "tag" : "branch";
+    return {
+      sha: resolvedSha,
+      checkSha: resolvedSha,
+      ref,
+      refName,
+      refType,
+      headRef: "",
+      baseRef: "",
+    };
+  }
+
+  if (event.pull_request) {
+    const pr = event.pull_request;
+    const sha = String(pr.head?.sha || "");
+    const headRef = String(pr.head?.ref || "");
+    const baseRef = String(pr.base?.ref || "");
+    return {
+      sha,
+      checkSha: sha,
+      ref: headRef ? `refs/heads/${headRef}` : `refs/pull/${pr.number || event.number || ""}/head`,
+      refName: headRef,
+      refType: "branch",
+      headRef,
+      baseRef,
+    };
+  }
+
+  if (eventName === "create" || eventName === "delete") {
+    const refType = String(event.ref_type || "branch");
+    const refName = String(event.ref || defaultBranch);
+    const sha = await defaultBranchSha(env, repository.full_name, defaultBranch);
+    return {
+      sha,
+      checkSha: sha,
+      ref: `refs/${refType === "tag" ? "tags" : "heads"}/${refName}`,
+      refName,
+      refType,
+      headRef: "",
+      baseRef: "",
+    };
+  }
+
+  const sha = await defaultBranchSha(env, repository.full_name, defaultBranch);
+  return {
+    sha,
+    checkSha: sha,
+    ref: `refs/heads/${defaultBranch}`,
+    refName: defaultBranch,
+    refType: "branch",
+    headRef: "",
+    baseRef: "",
+  };
+}
+
+async function defaultBranchSha(env, repository, branch) {
+  const commit = await githubApi(env, `/repos/${repository}/commits/${encodeURIComponent(branch)}`);
+  const sha = String(commit?.sha || "");
+  if (!sha) throw new HttpError(502, `Could not resolve ${repository}:${branch}`);
+  return sha;
+}
+
+async function receiveLegacyOidcDispatch(request, env) {
+  requireDispatchToken(env);
+
+  const bearer = request.headers.get("Authorization") || "";
+  const match = bearer.match(/^Bearer\s+(.+)$/i);
+  if (!match) throw new HttpError(401, "Missing OIDC bearer token");
+
+  const claims = await verifyGitHubOidc(match[1]);
+  const rawBody = await readRawBody(request);
+
+  let body;
+  try {
+    body = JSON.parse(rawBody);
+  } catch {
+    throw new HttpError(400, "Request body is not valid JSON");
+  }
+
+  validateLegacyDispatch(body, claims);
+  await dispatchGateway(env, body);
+  return json({
+    ok: true,
+    repository: body.repository,
+    repository_id: String(body.repository_id),
+    source_workflow_path: body.source_workflow_path,
+    legacy_proxy: true,
+  }, 202);
+}
+
+async function dispatchGateway(env, body) {
+  const requestB64 = await gzipBase64Utf8(JSON.stringify(body));
+  if (requestB64.length > MAX_WORKFLOW_DISPATCH_INPUT_CHARS) {
+    throw new HttpError(413, "Compressed dispatch payload is too large for workflow_dispatch");
+  }
+
+  const response = await githubApi(
+    env,
+    `/repos/${CENTRAL_REPOSITORY}/actions/workflows/${GATEWAY_WORKFLOW}/dispatches`,
+    "POST",
+    {
+      ref: "main",
+      inputs: {
+        repository: body.repository,
+        repository_id: String(body.repository_id),
+        request_b64: requestB64,
+      },
+    },
+    true,
+  );
+  return response;
+}
+
+function validateLegacyDispatch(body, claims) {
   const required = [
     "repository", "repository_id", "repository_owner", "repository_owner_id",
     "sha", "check_sha", "ref", "actor", "event_name", "run_id",
@@ -151,6 +349,95 @@ function exactClaim(body, claims, key) {
   if (claims[key] === undefined || String(body[key]) !== String(claims[key])) {
     throw new HttpError(403, `OIDC ${key} does not match request body`);
   }
+}
+
+async function readRawBody(request) {
+  const rawBody = await request.text();
+  if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_JSON_BYTES) {
+    throw new HttpError(413, "Request payload is too large");
+  }
+  return rawBody;
+}
+
+async function readJsonBody(request) {
+  const raw = await readRawBody(request);
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new HttpError(400, "Request body is not valid JSON");
+  }
+}
+
+function requireDispatchToken(env) {
+  if (!env.DISPATCH_TOKEN) {
+    throw new HttpError(500, "Worker DISPATCH_TOKEN is not configured");
+  }
+}
+
+async function githubApi(env, path, method = "GET", body = undefined, allowEmpty = false) {
+  const response = await fetch(`https://api.github.com${path}`, {
+    method,
+    headers: {
+      "Accept": "application/vnd.github+json",
+      "Authorization": `Bearer ${env.DISPATCH_TOKEN}`,
+      "Content-Type": "application/json",
+      "User-Agent": "HereLiesAz-workflows-cloudflare-gateway",
+      "X-GitHub-Api-Version": API_VERSION,
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new HttpError(502, `GitHub API failed (${response.status}): ${detail}`);
+  }
+  if (response.status === 204 || allowEmpty) return null;
+  return response.json();
+}
+
+async function derivedWebhookSecret(env) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(env.DISPATCH_TOKEN),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode("HereLiesAz/workflows:webhook-signing:v1"),
+  );
+  return bytesToHex(new Uint8Array(signature));
+}
+
+async function verifyWebhookSignature(env, rawBody, suppliedHex) {
+  if (!/^[0-9a-f]{64}$/i.test(suppliedHex)) return false;
+  const secret = await derivedWebhookSecret(env);
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["verify"],
+  );
+  const supplied = hexToBytes(suppliedHex);
+  return crypto.subtle.verify(
+    "HMAC",
+    key,
+    supplied,
+    new TextEncoder().encode(rawBody),
+  );
+}
+
+function bytesToHex(bytes) {
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function hexToBytes(hex) {
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i += 1) out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  return out;
 }
 
 async function verifyGitHubOidc(token) {

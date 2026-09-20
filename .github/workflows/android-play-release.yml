@@ -446,9 +446,13 @@ jobs:
           fi
           test -n "$package" || { echo "::error::Could not determine Android applicationId" >&2; exit 1; }
           echo "package_name=$package" >> "$GITHUB_OUTPUT"
-          test "$ANDROID_VERSION_CODE" -ge 0 || { echo "::error::Canonical version cannot be encoded as Android versionCode: $VERSION" >&2; exit 1; }
-          args="-P${VERSION_ARG}=${ANDROID_VERSION_CODE} -PversionCodeOverride=${ANDROID_VERSION_CODE} -PversionNameOverride=${VERSION} -PreleaseVersionCode=${ANDROID_VERSION_CODE} -PreleaseVersionName=${VERSION} -PversionBuild=${VERSION_BUILD} -PversionName=${VERSION}"
+          release_version_code="${RELEASE_VERSION_CODE:-$ANDROID_VERSION_CODE}"
+          release_version_name="${RELEASE_VERSION_NAME:-$VERSION}"
+          test "$release_version_code" -ge 0 || { echo "::error::Release version cannot be encoded as Android versionCode: $release_version_name" >&2; exit 1; }
+          args="-P${VERSION_ARG}=${release_version_code} -PversionCodeOverride=${release_version_code} -PversionNameOverride=${release_version_name} -PreleaseVersionCode=${release_version_code} -PreleaseVersionName=${release_version_name} -PversionBuild=${VERSION_BUILD} -PversionName=${release_version_name}"
           echo "VERSION_ARGS=$args" >> "$GITHUB_ENV"
+          echo "EFFECTIVE_RELEASE_VERSION_CODE=$release_version_code" >> "$GITHUB_ENV"
+          echo "EFFECTIVE_RELEASE_VERSION_NAME=$release_version_name" >> "$GITHUB_ENV"
 
       - name: Build signed AAB
         env:

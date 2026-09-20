@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -54,6 +55,7 @@ target_sha = os.environ.get("TARGET_SHA", "").strip().lower()
 build_version = os.environ.get("BUILD_VERSION", "").strip()
 asset_glob = os.environ.get("ASSET_GLOB", "").strip()
 title_prefix = os.environ.get("TITLE_PREFIX", "").strip()
+asset_name_mode = os.environ.get("ASSET_NAME_MODE", "inject-version").strip()
 notes_file = os.environ.get("NOTES_FILE", "").strip()
 tag_prefix = os.environ.get("TAG_PREFIX", "v")
 prerelease = env_bool("PRERELEASE")
@@ -73,21 +75,48 @@ if not asset_glob:
     fail("assets glob is required")
 if not title_prefix:
     fail("title-prefix is required")
+if asset_name_mode not in {"inject-version", "require-version"}:
+    fail("asset-name-mode must be inject-version or require-version")
 
 patch_version = ".".join(match.groups()[:3])
 build_tag = f"{tag_prefix}{build_version}"
 patch_tag = f"{tag_prefix}{patch_version}"
 patch_title = f"{title_prefix} {patch_version}"
 
-assets = [Path(item) for item in sorted(glob.glob(asset_glob, recursive=True)) if Path(item).is_file()]
-if not assets:
+raw_assets = [Path(item) for item in sorted(glob.glob(asset_glob, recursive=True)) if Path(item).is_file()]
+if not raw_assets:
     fail(f"No release assets matched: {asset_glob}")
-for asset in assets:
-    if build_version not in asset.name:
+
+
+def name_with_version(name: str, version: str) -> str:
+    if version in name:
+        return name
+    for suffix in (".tar.gz", ".tar.xz", ".tar.bz2"):
+        if name.endswith(suffix):
+            return f"{name[:-len(suffix)]}-{version}{suffix}"
+    path = Path(name)
+    if path.suffix:
+        return f"{path.stem}-{version}{path.suffix}"
+    return f"{name}-{version}"
+
+
+asset_stage = Path(os.environ.get("RUNNER_TEMP", tempfile.gettempdir())) / "patch-grouped-assets"
+if asset_stage.exists():
+    shutil.rmtree(asset_stage)
+asset_stage.mkdir(parents=True, exist_ok=True)
+assets: list[Path] = []
+for asset in raw_assets:
+    if build_version in asset.name:
+        assets.append(asset)
+        continue
+    if asset_name_mode == "require-version":
         fail(
             f"Asset {asset.name!r} does not contain exact build version {build_version}; "
             "refusing a collision-prone grouped release"
         )
+    staged = asset_stage / name_with_version(asset.name, build_version)
+    shutil.copy2(asset, staged)
+    assets.append(staged)
 
 git("config", "user.name", "github-actions[bot]")
 git("config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com")
@@ -263,9 +292,15 @@ def migrate_release(tag: str) -> None:
     with tempfile.TemporaryDirectory(prefix="legacy-build-release-") as directory:
         if release.get("assets"):
             gh("release", "download", tag, "--repo", repo, "--dir", directory)
+            legacy_version = tag[len(tag_prefix):] if tag.startswith(tag_prefix) else tag
             for file in sorted(Path(directory).iterdir()):
-                if file.is_file():
-                    upload_idempotently(patch_tag, file)
+                if not file.is_file():
+                    continue
+                if legacy_version not in file.name:
+                    renamed = Path(directory) / name_with_version(file.name, legacy_version)
+                    file.rename(renamed)
+                    file = renamed
+                upload_idempotently(patch_tag, file)
     # Deliberately omit --cleanup-tag. Exact build tags remain immutable and discoverable.
     gh("release", "delete", tag, "--repo", repo, "--yes")
 

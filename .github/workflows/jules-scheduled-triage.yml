@@ -1,82 +1,294 @@
+# Purpose-level central workflow: Jules Scheduled Issue Triage.
+# Multiple repositories bind here only after their source behavior has been reviewed as equivalent.
+# workflow-policy: generalized-v1
+# workflow-purpose: Triage unlabeled issues with Jules on the target repository while preserving repository-specific schedules.
+# required-secret: GH_TOKEN | Accesses target-repository issues and reports the central workflow status.
+# required-secret: JULES_API_KEY | Authenticates Jules sessions that triage issues in the target repository.
 name: Jules Scheduled Issue Triage
+run-name: ${{ inputs.target_repository_name }} · Jules Scheduled Issue Triage
 
 on:
-  workflow_call:
-    secrets:
-      JULES_API_KEY:
+  workflow_dispatch:
+    inputs:
+      target_repository:
         required: true
-      GH_TOKEN:
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
         required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_ref:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+      target_repository_name:
+        required: true
+        type: string
 
-permissions:
-  contents: read
-  issues: write
+concurrency:
+  group: jules-scheduled-triage-${{ inputs.target_repository }}
+  cancel-in-progress: true
 
 jobs:
-  find-issues:
+  policy_secret_preflight:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target_repository_name }}
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+    steps:
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "Missing required secret GH_TOKEN: Accesses target-repository issues and reports the central workflow status." >&2
+            exit 1
+          fi
+          if [[ -z "${JULES_API_KEY:-}" ]]; then
+            echo "Missing required secret JULES_API_KEY: Authenticates Jules sessions that triage issues in the target repository." >&2
+            exit 1
+          fi
+
+  central_check_start:
+    needs: policy_secret_preflight
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+    steps:
+      - name: Validate immutable target identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo_json="$(gh api "repos/${TARGET_REPOSITORY}")"
+          actual_repo_id="$(jq -r '.id' <<<"$repo_json")"
+          actual_owner_id="$(jq -r '.owner.id' <<<"$repo_json")"
+          actual_owner="$(jq -r '.owner.login' <<<"$repo_json")"
+          [[ "$actual_repo_id" == "$TARGET_REPOSITORY_ID" ]] || { echo "Repository ID mismatch" >&2; exit 1; }
+          [[ "$actual_owner_id" == "103241502" ]] || { echo "Repository is not owned by HereLiesAz" >&2; exit 1; }
+          [[ "${actual_owner,,}" == "hereliesaz" ]] || { echo "Repository owner mismatch" >&2; exit 1; }
+          [[ "$TARGET_REPOSITORY_OWNER_ID" == "103241502" ]] || { echo "OIDC owner ID mismatch" >&2; exit 1; }
+
+      - name: Set target status pending
+        env:
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload="$(jq -n \
+            --arg state "pending" \
+            --arg context "$STATUS_CONTEXT" \
+            --arg description "Running centralized Jules issue triage." \
+            --arg target_url "$DETAILS_URL" \
+            '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+          gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload"
+
+  find_issues:
+    needs: central_check_start
     runs-on: ubuntu-latest
     timeout-minutes: 7
     outputs:
       available_labels: ${{ steps.get_labels.outputs.available_labels }}
       issues_to_triage: ${{ steps.find_issues.outputs.issues_to_triage }}
       has_issues: ${{ steps.find_issues.outputs.has_issues }}
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
     steps:
       - name: Get repository labels
         id: get_labels
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const labels = [];
-            for await (const response of github.paginate.iterator(github.rest.issues.listLabelsForRepo, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              per_page: 100,
-            })) {
-              labels.push(...response.data);
-            }
-            if (labels.length === 0) {
-              core.setFailed('No issue labels found in this repository.');
-              return;
-            }
-            core.setOutput('available_labels', labels.map(label => label.name).sort().join(','));
-
-      - name: Find untriaged issues
-        id: find_issues
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
         shell: bash
         run: |
           set -euo pipefail
-          issues="$(gh issue list --state open --search 'no:label' --json number,title,body --limit 20 --repo "$GITHUB_REPOSITORY")"
+          labels="$(gh api --paginate "repos/${TARGET_REPOSITORY}/labels?per_page=100" --jq '.[].name' | sort)"
+          if [[ -z "$labels" ]]; then
+            echo "No issue labels found in ${TARGET_REPOSITORY}." >&2
+            exit 1
+          fi
+          {
+            printf 'available_labels<<EOF\n'
+            printf '%s\n' "$labels" | paste -sd, -
+            printf '\nEOF\n'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Find untriaged issues
+        id: find_issues
+        shell: bash
+        run: |
+          set -euo pipefail
+          issues="$(gh issue list \
+            --state open \
+            --search 'no:label' \
+            --json number,title,body \
+            --limit 20 \
+            --repo "$TARGET_REPOSITORY")"
           count="$(jq 'length' <<<"$issues")"
           {
             echo "issues_to_triage=$issues"
-            if [ "$count" -gt 0 ]; then echo "has_issues=true"; else echo "has_issues=false"; fi
+            if [[ "$count" -gt 0 ]]; then
+              echo "has_issues=true"
+            else
+              echo "has_issues=false"
+            fi
           } >> "$GITHUB_OUTPUT"
 
   triage:
-    needs: find-issues
-    if: ${{ needs.find-issues.outputs.has_issues == 'true' }}
+    needs:
+      - central_check_start
+      - find_issues
+    if: ${{ needs.find_issues.outputs.has_issues == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment: ${{ inputs.target_repository_name }}
     strategy:
       max-parallel: 3
       matrix:
-        issue: ${{ fromJson(needs.find-issues.outputs.issues_to_triage) }}
+        issue: ${{ fromJSON(needs.find_issues.outputs.issues_to_triage) }}
+    env:
+      JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      AVAILABLE_LABELS: ${{ needs.find_issues.outputs.available_labels }}
+      ISSUE_NUMBER: ${{ matrix.issue.number }}
+      ISSUE_TITLE: ${{ matrix.issue.title }}
+      ISSUE_BODY: ${{ matrix.issue.body }}
     steps:
-      - name: Invoke Jules on issue #${{ matrix.issue.number }}
-        uses: google-labs-code/jules-invoke@v1.0.0
-        with:
-          prompt: |
-            Triage this unlabeled GitHub issue and apply appropriate labels.
+      - name: Invoke Jules on issue
+        shell: bash
+        run: |
+          set -euo pipefail
+          starting_branch="${TARGET_REF_NAME:-main}"
+          prompt="$(cat <<EOF
+          Triage this unlabeled GitHub issue and apply appropriate labels.
 
-            **Issue #${{ matrix.issue.number }}: ${{ matrix.issue.title }}**
+          **Issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}**
 
-            ${{ matrix.issue.body }}
+          ${ISSUE_BODY}
 
-            **Available labels (comma-separated):**
-            ${{ needs.find-issues.outputs.available_labels }}
+          **Available labels (comma-separated):**
+          ${AVAILABLE_LABELS}
 
-            Apply labels to issue #${{ matrix.issue.number }} in ${{ github.repository }} using only labels from the available set. Do not invent new labels. If the issue is ambiguous, apply "status/needs-triage" if it exists, otherwise leave it unlabeled.
-          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          Apply labels to issue #${ISSUE_NUMBER} in ${TARGET_REPOSITORY} using only labels from the available set. Do not invent new labels. If the issue is ambiguous, apply "status/needs-triage" if it exists, otherwise leave it unlabeled.
+          EOF
+          )"
+          payload="$(jq -n \
+            --arg jules_prompt "$prompt" \
+            --arg starting_branch "$starting_branch" \
+            --arg repo_full_name "$TARGET_REPOSITORY" \
+            '{
+              prompt: $jules_prompt,
+              sourceContext: {
+                source: ("sources/github/" + $repo_full_name),
+                githubRepoContext: {startingBranch: $starting_branch}
+              },
+              requirePlanApproval: false,
+              automationMode: "AUTO_CREATE_PR"
+            }')"
+          curl --fail-with-body --silent --show-error \
+            --retry 4 --retry-all-errors --retry-delay 2 \
+            -X POST 'https://jules.googleapis.com/v1alpha/sessions' \
+            -H 'Content-Type: application/json' \
+            -H "X-Goog-Api-Key: ${JULES_API_KEY}" \
+            -d "$payload"
+
+  central_check_finish:
+    if: ${{ always() }}
+    needs:
+      - policy_secret_preflight
+      - central_check_start
+      - find_issues
+      - triage
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+    steps:
+      - name: Complete target status
+        env:
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$FAILED" == "true" ]]; then
+            state="failure"
+            description="Central Jules triage failed."
+          else
+            state="success"
+            description="Central Jules triage completed successfully."
+          fi
+          payload="$(jq -n \
+            --arg state "$state" \
+            --arg context "$STATUS_CONTEXT" \
+            --arg description "$description" \
+            --arg target_url "$DETAILS_URL" \
+            '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+          gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload"

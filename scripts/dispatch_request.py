@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import os
 import re
@@ -101,8 +102,293 @@ def slug(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", value.casefold()).strip("-") or "workflow"
 
 
+def _patterns(value: object) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    return []
+
+
+def _ordered_match(value: str, patterns: list[str]) -> bool:
+    positives = [p for p in patterns if p and not p.startswith("!")]
+    matched = not positives
+    for raw in patterns:
+        if not raw:
+            continue
+        negate = raw.startswith("!")
+        pattern = raw[1:] if negate else raw
+        if fnmatch.fnmatchcase(value, pattern):
+            matched = not negate
+    return matched
+
+
+def _any_match(value: str, patterns: list[str]) -> bool:
+    return any(fnmatch.fnmatchcase(value, p) for p in patterns if p)
+
+
+def _changed_files(gh: GitHub, repository: str, event_name: str, event: dict) -> list[str]:
+    if event_name == "push":
+        files: set[str] = set()
+        for commit in event.get("commits") or []:
+            if not isinstance(commit, dict):
+                continue
+            for key in ("added", "modified", "removed"):
+                for path in commit.get(key) or []:
+                    files.add(str(path))
+        head = event.get("head_commit") or {}
+        if isinstance(head, dict):
+            for key in ("added", "modified", "removed"):
+                for path in head.get(key) or []:
+                    files.add(str(path))
+        return sorted(files)
+
+    if event_name == "pull_request":
+        number = event.get("number") or (event.get("pull_request") or {}).get("number")
+        if not number:
+            return []
+        files: list[str] = []
+        page = 1
+        while True:
+            batch = gh.json(
+                "GET",
+                f"/repos/{repository}/pulls/{int(number)}/files?per_page=100&page={page}",
+            )
+            if not isinstance(batch, list):
+                break
+            files.extend(str(item.get("filename") or "") for item in batch if item.get("filename"))
+            if len(batch) < 100:
+                break
+            page += 1
+        return sorted(set(files))
+
+    return []
+
+
+def _event_trigger(
+    source_doc: dict,
+    event_name: str,
+    event: dict,
+    changed_files: list[str],
+) -> str | None:
+    on_value = source_doc.get("on")
+    if isinstance(on_value, str):
+        return event_name if on_value == event_name else None
+    if isinstance(on_value, list):
+        return event_name if event_name in [str(item) for item in on_value] else None
+    if not isinstance(on_value, dict):
+        return None
+
+    trigger_name = event_name
+    if trigger_name not in on_value and event_name == "pull_request" and "pull_request_target" in on_value:
+        trigger_name = "pull_request_target"
+    if trigger_name not in on_value:
+        return None
+
+    spec = on_value.get(trigger_name)
+    if spec is None or spec == {}:
+        return trigger_name
+    if not isinstance(spec, dict):
+        return trigger_name
+
+    action_types = _patterns(spec.get("types"))
+    if action_types and str(event.get("action") or "") not in action_types:
+        return None
+
+    if event_name == "push":
+        ref = str(event.get("ref") or "")
+        is_tag = ref.startswith("refs/tags/")
+        ref_name = ref.replace("refs/heads/", "", 1).replace("refs/tags/", "", 1)
+        branches = _patterns(spec.get("branches"))
+        branch_ignores = _patterns(spec.get("branches-ignore"))
+        tags = _patterns(spec.get("tags"))
+        tag_ignores = _patterns(spec.get("tags-ignore"))
+
+        if is_tag:
+            if branches and not tags:
+                return None
+            if tags and not _ordered_match(ref_name, tags):
+                return None
+            if tag_ignores and _any_match(ref_name, tag_ignores):
+                return None
+        else:
+            if tags and not branches:
+                return None
+            if branches and not _ordered_match(ref_name, branches):
+                return None
+            if branch_ignores and _any_match(ref_name, branch_ignores):
+                return None
+
+    if event_name == "pull_request":
+        base_ref = str(((event.get("pull_request") or {}).get("base") or {}).get("ref") or "")
+        branches = _patterns(spec.get("branches"))
+        branch_ignores = _patterns(spec.get("branches-ignore"))
+        if branches and not _ordered_match(base_ref, branches):
+            return None
+        if branch_ignores and _any_match(base_ref, branch_ignores):
+            return None
+
+    paths = _patterns(spec.get("paths"))
+    paths_ignore = _patterns(spec.get("paths-ignore"))
+    if paths:
+        if not changed_files or not any(_ordered_match(path, paths) for path in changed_files):
+            return None
+    if paths_ignore and changed_files and all(_any_match(path, paths_ignore) for path in changed_files):
+        return None
+
+    return trigger_name
+
+
+def _source_document(gh: GitHub, entry: dict) -> tuple[str, dict]:
+    registry_source = str(entry.get("registry_source") or "")
+    if not registry_source:
+        raise RuntimeError("Registered workflow has no registry_source")
+    source_text, _ = gh.get_file(CENTRAL_REPOSITORY, registry_source, ref="main")
+    doc = YAML(typ="safe").load(source_text) or {}
+    if not isinstance(doc, dict):
+        raise RuntimeError(f"Registered workflow source is invalid YAML: {registry_source}")
+    return source_text, doc
+
+
+def _repository_vars(gh: GitHub, repository: str) -> dict[str, str]:
+    try:
+        data = gh.json("GET", f"/repos/{repository}/actions/variables?per_page=100")
+    except ApiError:
+        return {}
+    variables = data.get("variables") if isinstance(data, dict) else None
+    if not isinstance(variables, list):
+        return {}
+    return {
+        str(item.get("name")): str(item.get("value") or "")
+        for item in variables
+        if item.get("name")
+    }
+
+
+def _dispatch_entry(
+    gh: GitHub,
+    request: dict,
+    repository: str,
+    repository_id: str,
+    source_path: str,
+    entry: dict,
+    effective_event_name: str,
+) -> dict:
+    event = request.get("event") or {}
+    source_sha256 = require(str(entry.get("source_sha256") or ""), "source_sha256")
+
+    if source_path == ".github/workflows/jules-glee.yml":
+        pull_request = event.get("pull_request") or {}
+        pr_number = pull_request.get("number") or event.get("number")
+        if effective_event_name != "pull_request_target" or event.get("action") != "opened" or not pr_number:
+            return {
+                "status": "ignored",
+                "reason": "Glee only audits an existing pull request when it is opened",
+                "source_workflow": source_path,
+            }
+
+    if source_path == ".github/workflows/jules-dispatch.yml" and effective_event_name == "pull_request":
+        return {
+            "status": "ignored",
+            "reason": "automatic pull-request auditing belongs to the comment-only Glee workflow",
+            "source_workflow": source_path,
+        }
+
+    if effective_event_name in {"pull_request", "pull_request_target"}:
+        head_repo = (((event.get("pull_request") or {}).get("head") or {}).get("repo") or {})
+        if head_repo.get("fork") is True:
+            return {
+                "status": "ignored",
+                "reason": "fork pull requests cannot enter the central secret-bearing executor",
+                "source_workflow": source_path,
+            }
+
+    central_workflow = require(str(entry.get("central_workflow", "")), "central_workflow")
+    policy_errors = validation_errors_for_workflow(central_workflow)
+    if policy_errors:
+        raise RuntimeError(
+            "Central workflow violates generalized workflow policy and cannot execute:\n"
+            + "\n".join(f"  - {item}" for item in policy_errors)
+        )
+
+    binding = str(entry.get("binding") or "")
+    if binding == "repository":
+        repo_slug = slug(repository.rsplit("/", 1)[-1])
+        expected_prefix = f".github/workflows/{repo_slug}-"
+        if not central_workflow.startswith(expected_prefix):
+            raise RuntimeError(f"Repository binding points outside its namespace: {central_workflow}")
+    elif binding != "curated":
+        raise RuntimeError(f"Unsupported workflow binding: {binding!r}")
+
+    workflow_id = urllib.parse.quote(central_workflow.rsplit("/", 1)[-1], safe="")
+    actor = str(request.get("actor") or "github")
+    run_id = str(request.get("run_id") or request.get("webhook_delivery") or f"webhook-{int(time.time())}")
+    workflow_name = str(entry.get("name") or source_path)
+    workflow_ref = str(request.get("workflow_ref") or f"{repository}/{source_path}@{request.get('sha', '')}")
+
+    dispatch_inputs = {
+        "target_repository": repository,
+        "target_repository_id": repository_id,
+        "target_repository_owner": require(str(request.get("repository_owner", "")), "repository_owner"),
+        "target_repository_owner_id": require(str(request.get("repository_owner_id", "")), "repository_owner_id"),
+        "target_sha": require(str(request.get("sha", "")), "sha"),
+        "target_check_sha": require(str(request.get("check_sha", "")), "check_sha"),
+        "target_ref": require(str(request.get("ref", "")), "ref"),
+        "target_ref_name": str(request.get("ref_name", "")),
+        "target_ref_type": str(request.get("ref_type", "")),
+        "target_head_ref": str(request.get("head_ref", "")),
+        "target_base_ref": str(request.get("base_ref", "")),
+        "target_actor": actor,
+        "target_actor_id": str(request.get("actor_id", "")),
+        "target_event_name": effective_event_name,
+        "target_event_json": json.dumps(event, separators=(",", ":")),
+        "target_inputs_json": json.dumps(request.get("inputs") or {}, separators=(",", ":")),
+        "target_vars_json": json.dumps(request.get("vars") or {}, separators=(",", ":")),
+        "target_run_id": run_id,
+        "target_run_number": str(request.get("run_number", "")),
+        "target_run_attempt": str(request.get("run_attempt", "1")),
+        "target_workflow_ref": workflow_ref,
+        "target_workflow_name": workflow_name,
+        "source_workflow_path": source_path,
+        "source_sha256": source_sha256,
+    }
+
+    if uses_target_repository_name(central_workflow):
+        dispatch_inputs["target_repository_name"] = repository.rsplit("/", 1)[-1]
+
+    if uses_purpose_profile(central_workflow):
+        dispatch_inputs["purpose_profile_json"] = json.dumps(
+            purpose_profile_for_source(source_sha256) or {},
+            separators=(",", ":"),
+        )
+
+    dispatch_inputs = conform_dispatch_inputs(central_workflow, dispatch_inputs)
+    body = {"ref": "main", "inputs": dispatch_inputs}
+    endpoint = f"/repos/{CENTRAL_REPOSITORY}/actions/workflows/{workflow_id}/dispatches"
+    last_error: Exception | None = None
+    for delay in (0, 1, 2, 4):
+        if delay:
+            time.sleep(delay)
+        try:
+            response = gh.json("POST", endpoint, body)
+            return {
+                "status": "dispatched",
+                "repository": repository,
+                "source_workflow": source_path,
+                "central_workflow": central_workflow,
+                "dispatch_response": response,
+            }
+        except ApiError as exc:
+            last_error = exc
+            if "-> 404:" not in str(exc):
+                raise
+    raise RuntimeError(f"Central workflow did not become dispatchable: {last_error}")
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Validate and dispatch a central repository workflow.")
+    parser = argparse.ArgumentParser(description="Route a verified repository event to centralized workflows.")
     parser.add_argument("--request", required=True, help="JSON request file")
     args = parser.parse_args()
 
@@ -112,27 +398,8 @@ def main() -> int:
     gh = GitHub(os.environ.get("GH_TOKEN", ""))
     repository = require(str(request.get("repository", "")), "repository")
     repository_id = require(str(request.get("repository_id", "")), "repository_id")
-    source_path = require(str(request.get("source_workflow_path", "")), "source_workflow_path")
-    source_sha256 = require(str(request.get("source_sha256", "")), "source_sha256")
     event_name = require(str(request.get("event_name", "")), "event_name")
     event = request.get("event") or {}
-
-    if source_path == ".github/workflows/jules-glee.yml":
-        pull_request = event.get("pull_request") or {}
-        pr_number = pull_request.get("number") or event.get("number")
-        if event_name != "pull_request_target" or event.get("action") != "opened" or not pr_number:
-            print(json.dumps({"status": "ignored", "reason": "Glee only audits an existing pull request when it is opened", "repository": repository, "source_workflow": source_path}, indent=2, sort_keys=True))
-            return 0
-
-    if source_path == ".github/workflows/jules-dispatch.yml" and event_name == "pull_request":
-        print(json.dumps({"status": "ignored", "reason": "automatic pull-request auditing belongs to the comment-only Glee workflow", "repository": repository, "source_workflow": source_path}, indent=2, sort_keys=True))
-        return 0
-
-    if event_name in {"pull_request", "pull_request_target"}:
-        head_repo = (((event.get("pull_request") or {}).get("head") or {}).get("repo") or {})
-        if head_repo.get("fork") is True:
-            print(json.dumps({"status": "ignored", "reason": "fork pull requests cannot enter the central secret-bearing executor", "repository": repository, "source_workflow": source_path}, indent=2, sort_keys=True))
-            return 0
 
     repo = gh.repo(repository)
     if str(repo["id"]) != repository_id:
@@ -147,91 +414,68 @@ def main() -> int:
     if str(manifest_repo.get("owner_id")) != str(OWNER_ID):
         raise RuntimeError("Registry owner ID mismatch")
 
-    entry = (manifest.get("workflows") or {}).get(source_path)
-    if not entry:
-        raise RuntimeError(f"Workflow is not registered: {source_path}")
-    if entry.get("status") != "active":
-        raise RuntimeError(f"Workflow is not active: {source_path} ({entry.get('status')})")
-    if entry.get("source_sha256") != source_sha256:
-        raise RuntimeError("Proxy source hash does not match the central registry")
-    if entry.get("binding") == "shared-variant" or entry.get("shared_variant"):
-        raise RuntimeError("Obsolete shared-variant registry binding is not dispatchable")
+    if not request.get("vars"):
+        request["vars"] = _repository_vars(gh, repository)
 
-    central_workflow = require(str(entry.get("central_workflow", "")), "central_workflow")
-    policy_errors = validation_errors_for_workflow(central_workflow)
-    if policy_errors:
-        raise RuntimeError(
-            "Central workflow violates generalized workflow policy and cannot execute:\n"
-            + "\n".join(f"  - {item}" for item in policy_errors)
+    workflows = manifest.get("workflows") or {}
+    requested_source = str(request.get("source_workflow_path") or "")
+    dispatches: list[dict] = []
+
+    if requested_source:
+        entry = workflows.get(requested_source)
+        if not entry:
+            raise RuntimeError(f"Workflow is not registered: {requested_source}")
+        if entry.get("status") != "active":
+            raise RuntimeError(f"Workflow is not active: {requested_source} ({entry.get('status')})")
+        supplied_hash = str(request.get("source_sha256") or "")
+        if supplied_hash and entry.get("source_sha256") != supplied_hash:
+            raise RuntimeError("Source hash does not match the central registry")
+        dispatches.append(
+            _dispatch_entry(
+                gh,
+                request,
+                repository,
+                repository_id,
+                requested_source,
+                entry,
+                event_name,
+            )
         )
-    binding = str(entry.get("binding") or "")
-    if binding == "repository":
-        repo_slug = slug(repository.rsplit("/", 1)[-1])
-        expected_prefix = f".github/workflows/{repo_slug}-"
-        if not central_workflow.startswith(expected_prefix):
-            raise RuntimeError(f"Repository binding points outside its namespace: {central_workflow}")
-    elif binding != "curated":
-        raise RuntimeError(f"Unsupported workflow binding: {binding!r}")
+    else:
+        changed_files = _changed_files(gh, repository, event_name, event)
+        for source_path, entry in sorted(workflows.items()):
+            if not isinstance(entry, dict) or entry.get("status") != "active":
+                continue
+            _, source_doc = _source_document(gh, entry)
+            effective_event = _event_trigger(source_doc, event_name, event, changed_files)
+            if not effective_event:
+                continue
+            dispatches.append(
+                _dispatch_entry(
+                    gh,
+                    request,
+                    repository,
+                    repository_id,
+                    source_path,
+                    entry,
+                    effective_event,
+                )
+            )
 
-    workflow_id = urllib.parse.quote(central_workflow.rsplit("/", 1)[-1], safe="")
-    dispatch_inputs = {
-        "target_repository": repository,
-        "target_repository_id": repository_id,
-        "target_repository_owner": require(str(request.get("repository_owner", "")), "repository_owner"),
-        "target_repository_owner_id": require(str(request.get("repository_owner_id", "")), "repository_owner_id"),
-        "target_sha": require(str(request.get("sha", "")), "sha"),
-        "target_check_sha": require(str(request.get("check_sha", "")), "check_sha"),
-        "target_ref": require(str(request.get("ref", "")), "ref"),
-        "target_ref_name": str(request.get("ref_name", "")),
-        "target_ref_type": str(request.get("ref_type", "")),
-        "target_head_ref": str(request.get("head_ref", "")),
-        "target_base_ref": str(request.get("base_ref", "")),
-        "target_actor": require(str(request.get("actor", "")), "target_actor"),
-        "target_actor_id": str(request.get("actor_id", "")),
-        "target_event_name": event_name,
-        "target_event_json": json.dumps(event, separators=(",", ":")),
-        "target_inputs_json": json.dumps(request.get("inputs") or {}, separators=(",", ":")),
-        "target_vars_json": json.dumps(request.get("vars") or {}, separators=(",", ":")),
-        "target_run_id": require(str(request.get("run_id", "")), "run_id"),
-        "target_run_number": str(request.get("run_number", "")),
-        "target_run_attempt": str(request.get("run_attempt", "")),
-        "target_workflow_ref": str(request.get("workflow_ref", "")),
-        "target_workflow_name": require(str(request.get("workflow_name", "")), "workflow_name"),
-        "source_workflow_path": source_path,
-        "source_sha256": source_sha256,
-    }
-
-    if uses_target_repository_name(central_workflow):
-        dispatch_inputs["target_repository_name"] = repository.rsplit("/", 1)[-1]
-
-    if uses_purpose_profile(central_workflow):
-        dispatch_inputs["purpose_profile_json"] = json.dumps(
-            purpose_profile_for_source(source_sha256) or {},
-            separators=(",", ":"),
+    print(
+        json.dumps(
+            {
+                "status": "routed",
+                "repository": repository,
+                "event_name": event_name,
+                "dispatch_count": sum(1 for item in dispatches if item.get("status") == "dispatched"),
+                "results": dispatches,
+            },
+            indent=2,
+            sort_keys=True,
         )
-
-    # GitHub rejects workflow_dispatch when the request includes even one undeclared property.
-    # Build the candidate metadata once, then conform it to the destination workflow's actual
-    # contract. This makes generalized workflows safe at the 25-input ceiling and prevents future
-    # schema changes from silently turning into HTTP 422 failures.
-    dispatch_inputs = conform_dispatch_inputs(central_workflow, dispatch_inputs)
-
-    body = {"ref": "main", "inputs": dispatch_inputs}
-    endpoint = f"/repos/{CENTRAL_REPOSITORY}/actions/workflows/{workflow_id}/dispatches"
-    last_error: Exception | None = None
-    for delay in (0, 1, 2, 4):
-        if delay:
-            time.sleep(delay)
-        try:
-            response = gh.json("POST", endpoint, body)
-            print(json.dumps({"status": "dispatched", "repository": repository, "source_workflow": source_path, "central_workflow": central_workflow, "dispatch_response": response}, indent=2, sort_keys=True))
-            return 0
-        except ApiError as exc:
-            last_error = exc
-            if "-> 404:" not in str(exc):
-                raise
-
-    raise RuntimeError(f"Central workflow did not become dispatchable: {last_error}")
+    )
+    return 0
 
 
 if __name__ == "__main__":

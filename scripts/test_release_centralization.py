@@ -78,6 +78,8 @@ multi_platform_release = Path(
 assert 'workflow_call:' in multi_platform_release
 assert 'reuse_existing_tag="$(jq -r \'.reuse_existing_tag // false\'' in multi_platform_release
 assert 'Keeping stable grouped-release tag $TAG' in multi_platform_release
+assert "migrate_build_releases" in multi_platform_release
+assert 'gh release delete "$legacy_tag" --repo "$TARGET_REPOSITORY" --yes' in multi_platform_release
 assert 'git tag -fa "$TAG"' in multi_platform_release  # retained only for explicit force_tag profiles
 
 aive_release_source = Path(
@@ -88,6 +90,8 @@ assert (
     in aive_release_source
 )
 assert 'reuse_existing_tag' in aive_release_source
+assert '"migrate_build_releases": true' in aive_release_source
+assert '"serialize": false' in aive_release_source
 assert '"tag_mode": "prepare-output"' in aive_release_source
 assert 'version="${PATCH_VERSION}.${TARGET_RUN_NUMBER}"' in aive_release_source
 assert 'tag="v${PATCH_VERSION}"' in aive_release_source

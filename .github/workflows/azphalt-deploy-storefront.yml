@@ -1,7 +1,7 @@
 # Generated for HereLiesAz/azphalt:.github/workflows/deploy-storefront.yml.
 # Edit the registered source or synchronizer, not this compiled workflow.
 # Generated shared catalog workflow. Do not edit by hand.
-# catalog-source: shared/dd8e935370026040425f7c1712db04c9babac35cfa62c9dac49c728bc02f179f
+# catalog-source: shared/6775abbb54188b0061f65288ec94e85c5ea3dc888f58aded7fd1317d7be5eb61
 name: azphalt · Build & Deploy Storefront to Cloudflare
 on:
   workflow_dispatch:
@@ -147,6 +147,9 @@ jobs:
         run: pnpm --filter @azphalt/storefront build-catalog --check
       - name: Build static React storefront
         run: pnpm --filter @azphalt/storefront-react build
+      - name: Verify exported Aive workflow and role catalog
+        shell: bash
+        run: "set -euo pipefail\ncatalog=\"apps/storefront-react/dist/catalog.json\"\ntest -s \"$catalog\" || {\n  echo \"::error::Storefront build did not emit catalog.json\"\n  exit 1\n}\njq -e '\n  any(.[]; .id == \"com.hereliesaz.haive.feature-delivery\" and .kind == \"workflow\")\n  and\n  any(.[]; .id == \"com.hereliesaz.haive.role.ux-researcher\" and .kind == \"role\")\n' \"$catalog\" >/dev/null || {\n  echo \"::error::Exported storefront catalog is missing the Aive workflow/role lane\"\n  exit 1\n}\n"
       - name: Bundle Worker without deploying
         run: npx --yes wrangler@4 deploy --dry-run --config apps/storefront-worker/wrangler.jsonc
       - name: Deploy Worker and static assets to Cloudflare
@@ -156,6 +159,10 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy --config apps/storefront-worker/wrangler.jsonc
+      - name: Verify live Aive workflow and role catalog
+        if: inputs.target_event_name != 'pull_request'
+        shell: bash
+        run: "set -euo pipefail\n\nverify_package() {\n  local query=\"$1\"\n  local expected_id=\"$2\"\n  local expected_kind=\"$3\"\n  local response=\"$RUNNER_TEMP/azphalt-live-${expected_kind}.json\"\n\n  for attempt in $(seq 1 30); do\n    if curl --fail --silent --show-error --retry 2                 \"https://azphalt.store/packages?app=com.hereliesaz.aive&kind=${expected_kind}&q=${query}&page=1&sort=name\"                 -o \"$response\" &&\n      jq -e --arg id \"$expected_id\" --arg kind \"$expected_kind\" '\n        (.total // 0) > 0 and\n        any(.packages[]?; .id == $id and .kind == $kind)\n      ' \"$response\" >/dev/null; then\n      return 0\n    fi\n    echo \"Live catalog has not converged yet (attempt $attempt/30 for $expected_id)\"\n    sleep 10\n  done\n\n  echo \"::error::Live azphalt.store catalog is missing $expected_id for Aive\"\n  cat \"$response\" 2>/dev/null || true\n  return 1\n}\n\nverify_package \"feature-delivery\" \"com.hereliesaz.haive.feature-delivery\" \"workflow\"\nverify_package \"ux-researcher\" \"com.hereliesaz.haive.role.ux-researcher\" \"role\"\n"
     needs: central_check_start
     if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
     permissions:

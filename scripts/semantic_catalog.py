@@ -121,6 +121,15 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "8b42bbc29b2f1b8ab416a72cd6b2ed04c37811d4ec358ea24c5a4640773474fc",
         },
     },
+    ".github/workflows/jules-scheduled-triage.yml": {
+        "name": "Jules Scheduled Issue Triage",
+        "canonical_hash": "c5795302751261681062afb2384c0a30807517ee87a9246fcc46f874d0b0f7f1",
+        "source_hashes": {
+            "c5795302751261681062afb2384c0a30807517ee87a9246fcc46f874d0b0f7f1",
+            "417422c330b5c2c0b37ef35eb18ec3c5424671bffa96288d868e69202fef8327",
+            "fa0ee2978160f94d866bd050b5767781c50ea823bba21275e02e08d066ef650c",
+        },
+    },
     ".github/workflows/jules-auto-assign.yml": {
         "name": "Jules Auto-Assign",
         "canonical_hash": "fda0a6aea5ac252f58143d670f738385e7a3579048921db468cca6b4c673ea2f",

@@ -120,6 +120,12 @@ for asset in raw_assets:
 
 git("config", "user.name", "github-actions[bot]")
 git("config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com")
+git(
+    "remote",
+    "set-url",
+    "origin",
+    f"https://x-access-token:{os.environ['GH_TOKEN']}@github.com/{repo}.git",
+)
 git("fetch", "--force", "--tags", "origin")
 
 

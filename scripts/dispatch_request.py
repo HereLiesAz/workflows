@@ -92,6 +92,33 @@ def conform_dispatch_inputs(
         )
     return filtered
 
+def validate_central_workflow_binding(
+    repository: str,
+    binding: str,
+    central_workflow: str,
+) -> None:
+    """Validate that a registered executor matches its catalog binding mode."""
+    if binding == "repository":
+        repo_name = repository.rsplit("/", 1)[-1]
+        namespace = f".github/workflows/{slug(repo_name)}-"
+        if not central_workflow.startswith(namespace):
+            raise RuntimeError(
+                f"Repository-bound central workflow {central_workflow} is outside its namespace {namespace}"
+            )
+        return
+
+    if binding == "curated":
+        policy_errors = validation_errors_for_workflow(central_workflow)
+        if policy_errors:
+            raise RuntimeError(
+                "Central workflow violates generalized workflow policy and cannot execute:\n"
+                + "\n".join(f"  - {item}" for item in policy_errors)
+            )
+        return
+
+    raise RuntimeError(f"Unknown central workflow binding {binding!r} for {repository}")
+
+
 def require(value: str, name: str) -> str:
     if value is None or value == "":
         raise RuntimeError(f"Missing required dispatch field: {name}")
@@ -306,13 +333,6 @@ def _dispatch_entry(
             }
 
     central_workflow = require(str(entry.get("central_workflow", "")), "central_workflow")
-    policy_errors = validation_errors_for_workflow(central_workflow)
-    if policy_errors:
-        raise RuntimeError(
-            "Central workflow violates generalized workflow policy and cannot execute:\n"
-            + "\n".join(f"  - {item}" for item in policy_errors)
-        )
-
     binding = str(entry.get("binding") or "")
     validate_central_workflow_binding(
         repository=repository,

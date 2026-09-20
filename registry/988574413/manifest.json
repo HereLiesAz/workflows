@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-09-15T03:03:34+00:00",
+  "last_sync_at": "2026-09-20T00:02:12+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/CueDetat",
@@ -18,33 +18,32 @@
       "registry_source": "registry/988574413/android-ci-3798bddf.source.yml",
       "source_sha256": "f648cd6f5789f3e09cacb9ff9a1f8dd1132f7ac3223f14587757ae9f3474302e",
       "status": "local",
-      "updated_at": "2026-09-15T03:03:14+00:00"
+      "updated_at": "2026-09-20T00:01:45+00:00"
     },
     ".github/workflows/android-release-aab.yml": {
       "name": "Build & Publish AAB (Play)",
+      "reason": "superseded by the converged Android Play Release action",
       "registry_source": "registry/988574413/android-release-aab-c7afaeed.source.yml",
       "source_sha256": "c7e435bc33db1508560b4f5e700570d3f9544ce3d2efa16b4b7df2a60ee3c1f4",
       "status": "obsolete",
-      "updated_at": "2026-09-15T03:03:16+00:00",
-      "reason": "superseded by the converged Android Play Release action"
+      "updated_at": "2026-09-15T03:03:16+00:00"
     },
     ".github/workflows/android-release-apk.yml": {
       "name": "Compile and Release APK",
+      "reason": "superseded by release.yml, which handles both push and manual signed Foss releases for this repository",
       "registry_source": "registry/988574413/android-release-apk-f927747f.source.yml",
       "source_sha256": "41ccb8c30d393fdc42a44d3b208b179f948ebc44e1c316c4e78b76f627f3bb3c",
       "status": "obsolete",
-      "updated_at": "2026-09-15T03:03:17+00:00",
-      "reason": "superseded by release.yml, which handles both push and manual signed Foss releases for this repository"
+      "updated_at": "2026-09-15T03:03:17+00:00"
     },
     ".github/workflows/android-update-libs.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/android-dependency-update.yml",
       "name": "Update Dependencies",
       "registry_source": "registry/988574413/android-update-libs-46df0ebe.source.yml",
-      "semantic_purpose": "Android Dependency Update",
       "source_sha256": "05e2b3435ae6c44dfac330372257beb8ccd0b4046cd7fb66bff57fabefb799e3",
       "status": "active",
-      "updated_at": "2026-09-15T03:03:18+00:00"
+      "updated_at": "2026-09-20T00:01:46+00:00"
     },
     ".github/workflows/android_debug_apk_release.yml": {
       "blockers": [
@@ -52,9 +51,9 @@
       ],
       "name": "Merged Build & Release",
       "registry_source": "registry/988574413/android_debug_apk_release-be731378.source.yml",
-      "source_sha256": "a900a0765a8706f00d7a80e9c8b7d164f7f9b2d05562943ffc10dd8c59cf5796",
+      "source_sha256": "fefd9aab6b97e1a006980eff40738174bdc747afce764ca726fa03cfd47703a1",
       "status": "local",
-      "updated_at": "2026-09-15T03:03:19+00:00"
+      "updated_at": "2026-09-20T00:01:47+00:00"
     },
     ".github/workflows/android_release.yml": {
       "blockers": [
@@ -62,9 +61,9 @@
       ],
       "name": "Android Release Build",
       "registry_source": "registry/988574413/android_release-ec538631.source.yml",
-      "source_sha256": "4424048d8c7ddd36a8683fc4bbbbe5f5045feb6e799bc160bf5217f3c3883e2b",
+      "source_sha256": "b65076e3f6d5b76919506036c81eb64468e1f2ef6cd9f365786284464f1b8375",
       "status": "local",
-      "updated_at": "2026-09-15T03:03:19+00:00"
+      "updated_at": "2026-09-20T00:01:48+00:00"
     },
     ".github/workflows/backup.yml": {
       "binding": "curated",
@@ -73,7 +72,7 @@
       "registry_source": "registry/988574413/backup-d598524a.source.yml",
       "source_sha256": "3a4f16e99f43e7ff92c92791ff368bc12e612766d692ac424a0c843deea01c71",
       "status": "active",
-      "updated_at": "2026-09-15T03:03:20+00:00"
+      "updated_at": "2026-09-20T00:01:50+00:00"
     },
     ".github/workflows/clear_cache.yml": {
       "binding": "curated",
@@ -82,7 +81,7 @@
       "registry_source": "registry/988574413/clear_cache-7bd18479.source.yml",
       "source_sha256": "5d40dac9f75a6e3e651ff6a4b1c8e7bf52b09178d0aa30c586d3fbef46694fca",
       "status": "active",
-      "updated_at": "2026-09-15T03:03:20+00:00"
+      "updated_at": "2026-09-20T00:01:51+00:00"
     },
     ".github/workflows/core-tests.yml": {
       "binding": "curated",
@@ -91,38 +90,38 @@
       "registry_source": "registry/988574413/core-tests-f593ee8a.source.yml",
       "source_sha256": "efd2a9e25587d0b98bfac920bbece460f9391789dddc7b2f49d20a318b2a1826",
       "status": "active",
-      "updated_at": "2026-09-15T03:03:21+00:00",
-      "semantic_purpose": "CI Validation"
+      "updated_at": "2026-09-20T00:01:53+00:00"
     },
     ".github/workflows/deploy-docs-sftp.yml": {
-      "binding": "repository",
+      "binding": "shared-variant",
       "central_workflow": ".github/workflows/cuedetat-deploy-docs-sftp.yml",
       "implementation_sha256": "c016f66e397615265dd1caed4ab00c73937c2699025dca872566a4f6dfa9a171",
       "name": "Deploy Docs over FTP",
       "registry_source": "registry/988574413/deploy-docs-sftp-a6438737.source.yml",
+      "shared_variant": "c016f66e39761526",
       "source_sha256": "ddb507625f0b6de19a7ba69269db2471c0a620eb0276ffd74f1c15196fd3ff0c",
       "status": "active",
-      "updated_at": "2026-09-15T03:03:22+00:00"
+      "updated_at": "2026-09-20T00:01:54+00:00"
     },
     ".github/workflows/deploy-sftp.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/website-sftp-deploy.yml",
       "name": "Deploy over FTP",
       "registry_source": "registry/988574413/deploy-sftp-1401405c.source.yml",
-      "semantic_purpose": "Website SFTP Deploy",
       "source_sha256": "b0ef23a564e122b032f710d57a50a0d08fa49b142386df869c99f960f4e5be8b",
       "status": "active",
-      "updated_at": "2026-09-15T03:03:23+00:00"
+      "updated_at": "2026-09-20T00:01:57+00:00"
     },
     ".github/workflows/gitlab.yml": {
-      "binding": "repository",
+      "binding": "shared-variant",
       "central_workflow": ".github/workflows/cuedetat-gitlab.yml",
       "implementation_sha256": "11646aa9660695bac6ac569da11f4d82e99b4d3e42dbf0bc49d288edc9856afd",
       "name": "Sync to GitLab",
       "registry_source": "registry/988574413/gitlab-87240c25.source.yml",
+      "shared_variant": "11646aa9660695ba",
       "source_sha256": "f031bb3249f3ca370d47b1fc36610027b679d84a5a62366a7f87209f6bb0badc",
       "status": "active",
-      "updated_at": "2026-09-15T03:03:24+00:00"
+      "updated_at": "2026-09-20T00:01:58+00:00"
     },
     ".github/workflows/jekyll-gh-pages.yml": {
       "blockers": [
@@ -133,32 +132,32 @@
       "registry_source": "registry/988574413/jekyll-gh-pages-5de61e74.source.yml",
       "source_sha256": "bc38315952dc5a20fa874a45475051dd81a7cdde23084779920690407903ba63",
       "status": "local",
-      "updated_at": "2026-09-15T03:03:24+00:00"
+      "updated_at": "2026-09-20T00:02:00+00:00"
     },
     ".github/workflows/jules-dispatch.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-dispatch.yml",
-      "name": "🔀 Jules Dispatch",
+      "name": "\ud83d\udd00 Jules Dispatch",
       "registry_source": "registry/988574413/jules-dispatch-800d0b01.source.yml",
       "source_sha256": "17c13d04cfa6d1e55af692790eaab5608a1b4b511a1f66e56ec133a8803eb5da",
       "status": "active",
-      "updated_at": "2026-09-15T03:03:25+00:00"
+      "updated_at": "2026-09-20T00:02:01+00:00"
     },
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "😈 Glee Audit",
+      "name": "\ud83d\ude08 Glee Audit",
       "registry_source": "registry/988574413/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",
-      "updated_at": "2026-09-15T03:03:26+00:00"
+      "updated_at": "2026-09-20T00:02:02+00:00"
     },
     ".github/workflows/jules-invoke.yml": {
-      "name": "▶️ Jules Invoke",
+      "name": "\u25b6\ufe0f Jules Invoke",
       "registry_source": "registry/988574413/jules-invoke-b23fc002.source.yml",
       "source_sha256": "cb2a978450da9b6dc82f8527a4ff2dbcde9af37e4e88d99e4409f217826572f0",
       "status": "library",
-      "updated_at": "2026-09-15T03:03:27+00:00"
+      "updated_at": "2026-09-20T00:02:03+00:00"
     },
     ".github/workflows/jules-issue-handler.yml": {
       "blockers": [
@@ -168,25 +167,25 @@
       "registry_source": "registry/988574413/jules-issue-handler-f9e1d4df.source.yml",
       "source_sha256": "50426fc4f0128ad1e06d8ac9a863712a5b27a49036e43becf4bda5ad99524693",
       "status": "local",
-      "updated_at": "2026-09-15T03:03:27+00:00"
+      "updated_at": "2026-09-20T00:02:04+00:00"
     },
     ".github/workflows/jules-review.yml": {
-      "name": "🔎 Jules Review",
+      "name": "\ud83d\udd0e Jules Review",
       "registry_source": "registry/988574413/jules-review-9f7b6ce5.source.yml",
       "source_sha256": "b170093ab22ff75431fb6ea62d3e4ff1a254c5ba7352ee150e59e8dfa4b6f416",
       "status": "library",
-      "updated_at": "2026-09-15T03:03:27+00:00"
+      "updated_at": "2026-09-20T00:02:04+00:00"
     },
     ".github/workflows/jules-scheduled-triage.yml": {
       "blockers": [
         "job 'find-issues' step 1 uses actions/github-script with runner-repository context",
         "job 'triage' step 1 uses repository-bound action 'google-labs-code/jules-invoke@v1.0.0'"
       ],
-      "name": "📋 Jules Scheduled Issue Triage",
+      "name": "\ud83d\udccb Jules Scheduled Issue Triage",
       "registry_source": "registry/988574413/jules-scheduled-triage-7b36475f.source.yml",
       "source_sha256": "c5795302751261681062afb2384c0a30807517ee87a9246fcc46f874d0b0f7f1",
       "status": "local",
-      "updated_at": "2026-09-15T03:03:27+00:00"
+      "updated_at": "2026-09-20T00:02:04+00:00"
     },
     ".github/workflows/jules-security-fixer.yml": {
       "blockers": [
@@ -196,62 +195,63 @@
       "registry_source": "registry/988574413/jules-security-fixer-b6efeb4d.source.yml",
       "source_sha256": "8b7156955b7f5b47019130cb255d22228944d32c9b533fb14dc61181a993b89b",
       "status": "local",
-      "updated_at": "2026-09-15T03:03:28+00:00"
+      "updated_at": "2026-09-20T00:02:05+00:00"
     },
     ".github/workflows/jules-triage.yml": {
-      "name": "🔀 Jules Triage",
+      "name": "\ud83d\udd00 Jules Triage",
       "registry_source": "registry/988574413/jules-triage-5c552504.source.yml",
       "source_sha256": "dd3c04d1b62501e2260474da42dff9fb083431b27c1b21c47b20a0dc8cb8a09c",
       "status": "library",
-      "updated_at": "2026-09-15T03:03:28+00:00"
+      "updated_at": "2026-09-20T00:02:05+00:00"
     },
     ".github/workflows/label.yml": {
       "blockers": [
-        "caller-context reusable action: implementation is centralized in HereLiesAz/workflows/.github/workflows/pr-labeler.yml"
+        "job 'label__label' step 1 uses repository-bound action 'actions/labeler@v7'"
       ],
       "name": "Labeler",
       "registry_source": "registry/988574413/label-04cea97c.source.yml",
       "source_sha256": "9e4ca08e0ce167c9f1ee6c3add108323047fe6af5cecbde30037314360a8c7da",
       "status": "local",
-      "updated_at": "2026-09-19T19:55:00+00:00"
+      "updated_at": "2026-09-20T00:02:06+00:00"
     },
     ".github/workflows/play_publish.yml": {
-      "binding": "curated",
-      "central_workflow": ".github/workflows/android-play-release.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/cuedetat-play-publish.yml",
+      "implementation_sha256": "f602f3603d9e01945a706c108db012e422a3361270c07b2af89d68aef0135718",
       "name": "Play Publish (AAB)",
       "registry_source": "registry/988574413/play_publish-153f786b.source.yml",
+      "shared_variant": "f602f3603d9e0194",
       "source_sha256": "c99c3eed02d6deb557eaba891c904d3fcdabde1c27a518dee8c7e8e422b92b98",
       "status": "active",
-      "updated_at": "2026-09-15T03:03:30+00:00",
-      "semantic_purpose": "Android Play Release"
+      "updated_at": "2026-09-20T00:02:06+00:00"
     },
     ".github/workflows/release.yml": {
-      "binding": "curated",
-      "central_workflow": ".github/workflows/android-github-release.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/cuedetat-release.yml",
+      "implementation_sha256": "ac88567d008a3563fcbc2e926a5c14f5f12666e6eaf640aa718c7389a968896f",
       "name": "Android Release Build",
       "registry_source": "registry/988574413/release-16911b98.source.yml",
+      "shared_variant": "ac88567d008a3563",
       "source_sha256": "e9283d745ed6350a22feee09c1d3c1e59f63c1a284fb889d28e735671eb865b5",
       "status": "active",
-      "updated_at": "2026-09-15T03:03:32+00:00",
-      "semantic_purpose": "Android GitHub Release"
+      "updated_at": "2026-09-20T00:02:09+00:00"
     },
     ".github/workflows/static.yml": {
       "name": "Deploy static content to Pages",
+      "reason": "duplicate GitHub Pages deployment; .github/workflows/jekyll-gh-pages.yml is the canonical deployment workflow",
       "registry_source": "registry/988574413/static-876bb641.source.yml",
       "source_sha256": "8d2cf0a167b2b2b5c1ac7ed44dcf5aafb16c96bfbcddcb93b0e295ae359ee8ea",
       "status": "obsolete",
-      "updated_at": "2026-09-15T03:03:33+00:00",
-      "reason": "duplicate GitHub Pages deployment; .github/workflows/jekyll-gh-pages.yml is the canonical deployment workflow"
+      "updated_at": "2026-09-15T03:03:33+00:00"
     },
     ".github/workflows/summary.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/issue-summary.yml",
       "name": "Summarize new issues",
       "registry_source": "registry/988574413/summary-bc1f0d2a.source.yml",
-      "semantic_purpose": "Issue Summary",
       "source_sha256": "9158d4587eeca12602514ad7da12f02c600029539ba1567bf63b405d972b65ff",
       "status": "active",
-      "updated_at": "2026-09-15T03:03:34+00:00"
+      "updated_at": "2026-09-20T00:02:11+00:00"
     }
   }
 }

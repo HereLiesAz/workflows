@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-09-20T00:23:02+00:00",
+  "last_sync_at": "2026-09-20T23:09:37+00:00",
   "repository": {
     "default_branch": "master",
     "full_name": "HereLiesAz/LeFauxPass",
@@ -8,17 +8,18 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
+  "worker_url_configured": false,
   "workflows": {
     ".github/workflows/azure-staticwebapp.yml": {
-      "binding": "repository",
+      "binding": "shared-variant",
       "central_workflow": ".github/workflows/lefauxpass-azure-staticwebapp.yml",
       "implementation_sha256": "d695038f760d035dfa3151919e6efaad11bd62a778d80e7d976eceb1015f6554",
       "name": "Deploy web app to Azure Static Web Apps",
       "registry_source": "registry/1036746177/azure-staticwebapp-245c8f98.source.yml",
+      "shared_variant": "d695038f760d035d",
       "source_sha256": "f9b6bc7ca2bc7e0b78e334897b345607c0d94867164ee02a40179a1e9c278af9",
       "status": "active",
-      "updated_at": "2026-09-20T00:22:59+00:00"
+      "updated_at": "2026-09-20T23:09:35+00:00"
     },
     ".github/workflows/build-apk.yml": {
       "blockers": [
@@ -26,9 +27,9 @@
       ],
       "name": "Merged Build & Release",
       "registry_source": "registry/1036746177/build-apk-41b848bf.source.yml",
-      "source_sha256": "dddc73f97d176706607be52642247cd13348b4e4c14a58c2073174dfa8d4686f",
+      "source_sha256": "fb434ed1f7547160a9bd1a5e20749654dd18beeea4bec8784a33878056c23633",
       "status": "local",
-      "updated_at": "2026-09-20T00:23:01+00:00"
+      "updated_at": "2026-09-20T23:09:36+00:00"
     },
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
@@ -37,7 +38,7 @@
       "registry_source": "registry/1036746177/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",
-      "updated_at": "2026-09-20T00:23:01+00:00"
+      "updated_at": "2026-09-20T23:09:37+00:00"
     }
   }
 }

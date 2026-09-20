@@ -1,0 +1,256 @@
+# Generated for HereLiesAz/HG2Gui:.github/workflows/android-ci.yml.
+# Edit the registered source or synchronizer, not this compiled workflow.
+# Generated shared catalog workflow. Do not edit by hand.
+# catalog-source: shared/972f7688243f2f08aa995dc75cf06c853c19c8993b602ec64f7f1d01f3beba70
+name: HG2Gui · Android CI
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_ref:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+permissions:
+  contents: read
+env:
+  TARGET_REPOSITORY: ${{ inputs.target_repository }}
+  TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+  TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+  TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+  TARGET_SHA: ${{ inputs.target_sha }}
+  TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+  TARGET_REF: ${{ inputs.target_ref }}
+  TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+  TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+  TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+  TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+  TARGET_ACTOR: ${{ inputs.target_actor }}
+  TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+  TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+  TARGET_RUN_ID: ${{ inputs.target_run_id }}
+  TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+  TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+  TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+  TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+concurrency:
+  group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-HG2Gui
+  cancel-in-progress: true
+jobs:
+  central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from HereLiesAz/workflows.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+  unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+      - name: Inject Google Services
+        env:
+          GOOGLE_SERVICES_API_KEY: ${{ secrets.GOOGLE_SERVICES_API_KEY }}
+          PROJECT_ID: ${{ secrets.PROJECT_ID }}
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          CUSTOM_API_KEY: ${{ secrets.CUSTOM_API_KEY }}
+        run: "if [ -f \"app/google-services.json.template\" ]; then\n  sed -e 's/{{\\([^}]*\\)}}/${\\1}/g' app/google-services.json.template | envsubst > app/google-services.json\nfi\n# Add any extra local.properties keys below:\n# echo \"CUSTOM_API_KEY=$CUSTOM_API_KEY\" >> local.properties\n"
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          java-version: '21'
+          distribution: temurin
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: false
+          dependency-graph: generate-submit-and-upload
+      - name: Run unit tests
+        run: "chmod +x gradlew\n./gradlew test --continue --build-cache --no-daemon --stacktrace\n"
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: unit-test-reports
+          path: '**/build/reports/tests/'
+    needs: central_check_start
+    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
+    permissions:
+      contents: write
+    environment: HG2Gui
+  build-and-release:
+    needs:
+      - central_check_start
+      - unit-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      checks: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: true
+      - name: Inject Google Services
+        env:
+          GOOGLE_SERVICES_API_KEY: ${{ secrets.GOOGLE_SERVICES_API_KEY }}
+          PROJECT_ID: ${{ secrets.PROJECT_ID }}
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          CUSTOM_API_KEY: ${{ secrets.CUSTOM_API_KEY }}
+        run: "if [ -f \"app/google-services.json.template\" ]; then\n  echo \"Template found. Injecting secrets...\"\n  sed -e 's/{{\\([^}]*\\)}}/${\\1}/g' app/google-services.json.template | envsubst > app/google-services.json\nelse\n  echo \"Warning: google-services.json.template not found. Skipping injection.\"\nfi\n# echo \"CUSTOM_API_KEY=$CUSTOM_API_KEY\" >> local.properties\n"
+      - name: Decode signing keystore
+        env:
+          KEYSTORE_RAW: ${{ secrets.KEYSTORE_RAW }}
+        run: "if [ -z \"$KEYSTORE_RAW\" ]; then\n  echo \"::warning::KEYSTORE_RAW secret is empty — building with the default debug key.\"\n  exit 0\nfi\necho \"$KEYSTORE_RAW\" | base64 -d > app/keystore.jks\nif [ ! -s app/keystore.jks ]; then\n  echo \"::error::Decoded keystore is empty — KEYSTORE_RAW is not valid base64.\"\n  exit 1\nfi\necho \"Keystore decoded to app/keystore.jks ($(stat -c%s app/keystore.jks) bytes)\"\n"
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          java-version: '21'
+          distribution: temurin
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        with:
+          cache-read-only: false
+          dependency-graph: disabled
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Build with Gradle
+        id: gradle-build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          KEYSTORE_FILE: ${{ github.workspace }}/app/keystore.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: "set +e\n./gradlew assembleDebug --build-cache --no-daemon > build.log 2>&1\nEXIT_CODE=$?\necho \"exit_code=$EXIT_CODE\" >> $GITHUB_OUTPUT\ncat build.log\nexit $EXIT_CODE\n"
+      - name: Report Failure to Jules
+        if: failure() && steps.gradle-build.outcome == 'failure'
+        uses: actions/github-script@v9
+        env:
+          TARGET_REPOSITORY: ${{ inputs.target_repository }}
+          TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+          TARGET_REF: ${{ inputs.target_ref }}
+          TARGET_PR_NUMBER: ${{ fromJSON(inputs.target_event_json).pull_request.number || '' }}
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          script: "const fs = require('fs');\nlet logTail = 'Log file not found.';\ntry { logTail = fs.readFileSync('build.log', 'utf8').slice(-4000); } catch (e) {}\nconst [owner, repo] = process.env.TARGET_REPOSITORY.split('/');\nconst where = process.env.TARGET_EVENT_NAME === 'pull_request'\n  ? `PR #${process.env.TARGET_PR_NUMBER}`\n  : process.env.TARGET_REF;\nawait github.rest.issues.create({\n  owner,\n  repo,\n  title: `Build Failure on ${where}`,\n  body: `/jules debug this build error\\n\\n**Log:**\\n\\`\\`\\`\\n${logTail}\\n\\`\\`\\``,\n  labels: ['jules', 'bug']\n});\n"
+      - name: Prepare Release Variables
+        if: success() && inputs.target_event_name == 'push'
+        id: release_vars
+        run: "MAJOR=$(grep '^versionMajor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nMINOR=$(grep '^versionMinor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nPATCH=$(grep '^versionPatch=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nBUILD_NUMBER=$(grep '^versionBuild=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nVERSION_NAME=\"$MAJOR.$MINOR.$PATCH.$BUILD_NUMBER\"\nTAG_NAME=\"latest-debug-v${MAJOR}.${MINOR}\"\nif [ -f \"settings.gradle.kts\" ]; then\n  APP_NAME=$(grep 'rootProject.name' settings.gradle.kts | sed -E \"s/.*=.*[\\\"'](.*)[\\\"']/\\1/\")\nelif [ -f \"settings.gradle\" ]; then\n  APP_NAME=$(grep 'rootProject.name' settings.gradle | sed -E \"s/.*=.*[\\\"'](.*)[\\\"']/\\1/\")\nelse\n  APP_NAME=\"App\"\nfi\nAPK_ORIGINAL=$(find app/build/outputs/apk/debug -name \"*.apk\" | head -n 1)\nif [ -z \"$APK_ORIGINAL\" ]; then\n  echo \"Error: No APK found to release!\"\n  exit 1\nfi\nTARGET_NAME=\"${APP_NAME}-${VERSION_NAME}-debug.apk\"\nmv \"$APK_ORIGINAL\" \"$TARGET_NAME\"\necho \"TAG_NAME=$TAG_NAME\" >> $GITHUB_ENV\necho \"APK_FILE=$TARGET_NAME\" >> $GITHUB_ENV\nmkdir -p build_tools_package/tools build_tools_package/native\n[ -d \"app/src/main/assets/tools\" ] && cp -r app/src/main/assets/tools/* build_tools_package/tools/ || true\n[ -d \"app/src/main/jniLibs/arm64-v8a\" ] && cp -r app/src/main/jniLibs/arm64-v8a/* build_tools_package/native/ || true\ncd build_tools_package && zip -r ../build-tools.zip . && cd ..\n"
+      - name: Publish Release
+        if: success() && inputs.target_event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: "git config user.name \"github-actions[bot]\"\ngit config user.email \"41898282+github-actions[bot]@users.noreply.github.com\"\ngit tag -fa $TAG_NAME -m \"Latest Debug Build\"\ngit push origin $TAG_NAME --force\nBUILD_TOOLS=\"build-tools.zip\"\nif gh release view $TAG_NAME > /dev/null 2>&1; then\n  echo \"Updating existing release...\"\n  gh release delete-asset \"$TAG_NAME\" \"$BUILD_TOOLS\" -y || true\n  gh release edit $TAG_NAME --prerelease \\\n    --title \"Latest Debug Build ($TAG_NAME)\" \\\n    --notes \"Auto-build from commit $TARGET_SHA\" \\\n    --target $TARGET_SHA\n  gh release upload $TAG_NAME \"$APK_FILE\" --clobber\n  [ -f \"$BUILD_TOOLS\" ] && gh release upload $TAG_NAME \"$BUILD_TOOLS\" --clobber\nelse\n  echo \"Creating new release...\"\n  gh release create $TAG_NAME \"$APK_FILE\" --prerelease \\\n    --title \"Latest Debug Build ($TAG_NAME)\" \\\n    --notes \"Auto-build from commit $TARGET_SHA\" \\\n    --target $TARGET_SHA\n  [ -f \"$BUILD_TOOLS\" ] && gh release upload $TAG_NAME \"$BUILD_TOOLS\" --clobber\nfi\n"
+    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
+    environment: HG2Gui
+  central_check_finish:
+    if: ${{ always() }}
+    needs:
+      - central_check_start
+      - unit-tests
+      - build-and-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Central workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Central workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+run-name: HG2Gui · Android CI

@@ -148,20 +148,69 @@ jobs:
           test -n "$build_cmd" || { echo "::error::Release profile has no build command" >&2; exit 1; }
           bash -eo pipefail -c "$build_cmd"
 
-      - name: Publish GitHub release
+      - name: Stage release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf release-assets
+          mkdir -p release-assets
+          mapfile -t patterns < <(jq -r '.files[]' <<<"$PROFILE_JSON")
+          count=0
+          for pattern in "${patterns[@]}"; do
+            while IFS= read -r file; do
+              [ -n "$file" ] || continue
+              cp "$file" "release-assets/$(basename "$file")"
+              count=$((count + 1))
+            done < <(compgen -G "$pattern" || true)
+          done
+          test "$count" -gt 0 || { echo "::error::No release assets matched the configured patterns" >&2; exit 1; }
+
+      - name: Select release grouping policy
+        id: grouping
+        env:
+          REPOSITORY_NAME: ${{ inputs.target_repository_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          grouped=false
+          if [[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            grouped=true
+          fi
+          prefix="$(jq -r '.release_name_prefix // empty' <<<"$PROFILE_JSON")"
+          [ -n "$prefix" ] || prefix="$REPOSITORY_NAME"
+          prerelease="$(jq -r '.prerelease // false' <<<"$PROFILE_JSON")"
+          tag_prefix="$(jq -r '.tag_prefix // "v"' <<<"$PROFILE_JSON")"
+          printf 'Built from %s.\n' "$TARGET_SHA" > grouped-release-notes.md
+          echo "grouped=$grouped" >> "$GITHUB_OUTPUT"
+          echo "title-prefix=$prefix" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "tag-prefix=$tag_prefix" >> "$GITHUB_OUTPUT"
+
+      - name: Publish patch-grouped release
+        if: ${{ steps.grouping.outputs.grouped == 'true' }}
+        uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@main
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          target-repository: ${{ inputs.target_repository }}
+          target-sha: ${{ inputs.target_sha }}
+          build-version: ${{ env.RELEASE_VERSION }}
+          assets: release-assets/**/*
+          title-prefix: ${{ steps.grouping.outputs.title-prefix }}
+          notes-file: grouped-release-notes.md
+          tag-prefix: ${{ steps.grouping.outputs.tag-prefix }}
+          prerelease: ${{ steps.grouping.outputs.prerelease }}
+          make-latest: "true"
+          migrate-legacy-build-releases: "true"
+
+      - name: Publish legacy release structure
+        if: ${{ steps.grouping.outputs.grouped != 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t patterns < <(jq -r '.files[]' <<<"$PROFILE_JSON")
-          assets=()
-          for pattern in "${patterns[@]}"; do
-            while IFS= read -r file; do
-              [ -n "$file" ] && assets+=("$file")
-            done < <(compgen -G "$pattern" || true)
-          done
-          test "${#assets[@]}" -gt 0 || { echo "::error::No release assets matched the configured patterns" >&2; exit 1; }
+          mapfile -t assets < <(find release-assets -type f -print | sort)
+          test "${#assets[@]}" -gt 0 || { echo "::error::No release assets were staged" >&2; exit 1; }
 
           prefix="$(jq -r '.release_name_prefix // empty' <<<"$PROFILE_JSON")"
           include_sha="$(jq -r '.title_include_sha // false' <<<"$PROFILE_JSON")"

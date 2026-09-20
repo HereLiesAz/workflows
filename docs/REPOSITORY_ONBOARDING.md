@@ -50,7 +50,21 @@ A workflow that combines `workflow_call` with real triggers such as `push` is no
 7. Original workflow sources are stored in the central registry and implementations are compiled/bound centrally.
 8. Controller-generated proxy files are removed in one target commit. Any truly local blocker is preserved as its original workflow, never as a proxy.
 9. Exercise a low-risk repository event and verify central dispatch plus the target commit status.
-10. Only then remove duplicated target secrets that no remaining local workflow uses.
+10. If the repository publishes releases, move shared version/tag/release semantics into the central release family/actions and verify the first grouped release.
+11. Only then remove duplicated target secrets that no remaining local workflow uses.
+
+## Release migration
+
+For repositories using four-part versions, onboarding includes release-history normalization.
+
+The target keeps its exact `MAJOR.MINOR.PATCH.BUILD` Git tags. The centralized publisher groups
+artifacts under `MAJOR.MINOR.PATCH` GitHub Releases and can migrate legacy four-part Release objects
+without deleting their tags. Before enabling migration, confirm artifact filenames are unique per
+build or allow the centralized action to inject the exact version.
+
+Do not delete old exact-build tags as a cleanup step. They are the durable build identity.
+
+See [Central release and version policy](RELEASE_VERSIONING.md).
 
 ## Repository webhook registration
 
@@ -105,7 +119,8 @@ Centralization is **not** global serialization.
 - original source snapshots and a manifest exist for the target repository ID;
 - every active entry resolves to a central executor;
 - repository-specific executors exist only when behavior is genuinely unique and are expected to converge toward generalized workflows;
-- dispatch results are reported back to the triggering target SHA.
+- dispatch results are reported back to the triggering target SHA;
+- release-capable bindings use centralized release/version primitives instead of project-local copies of the same policy.
 
 ## Rollback
 

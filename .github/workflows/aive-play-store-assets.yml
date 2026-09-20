@@ -1,0 +1,186 @@
+# Generated for HereLiesAz/aive:.github/workflows/play-store-assets.yml.
+# Edit the registered source or synchronizer, not this compiled workflow.
+# Generated shared catalog workflow. Do not edit by hand.
+# catalog-source: shared/aeba63858bda1fa9ee3b78597b6358509e3b5cf955f0096f992108a15ffa1157
+name: aive · Play Store Assets
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_ref:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+permissions:
+  contents: read
+env:
+  TARGET_REPOSITORY: ${{ inputs.target_repository }}
+  TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+  TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+  TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+  TARGET_SHA: ${{ inputs.target_sha }}
+  TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+  TARGET_REF: ${{ inputs.target_ref }}
+  TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+  TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+  TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+  TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+  TARGET_ACTOR: ${{ inputs.target_actor }}
+  TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+  TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+  TARGET_RUN_ID: ${{ inputs.target_run_id }}
+  TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+  TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+  TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+  TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+concurrency:
+  group: play-store-assets-${{ inputs.target_ref }}-aive
+  cancel-in-progress: true
+jobs:
+  central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from HereLiesAz/workflows.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up Rust renderer toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+      - name: Publish pinned Conveyance for isolated Wasm build
+        run: "./gradlew -p vendor/conveyance-h2g2/vendor/Conveyance \\\n  :conveyance-core:publishToMavenLocal \\\n  :conveyance-compose:publishToMavenLocal\n"
+      - name: Publish pinned H2G2 for isolated Wasm build
+        run: ./gradlew -p vendor/conveyance-h2g2 publishToMavenLocal
+      - name: Build production JS and Wasm apps
+        run: "./gradlew -Phaive.useLocalH2g2=false -Phaive.useMavenLocalH2g2=true \\\n  :webApp:jsBrowserProductionWebpack \\\n  :webApp:wasmJsBrowserProductionWebpack\n"
+      - name: Stage production app
+        shell: bash
+        run: "set -euo pipefail\nWASM_BUNDLE=\"$(find webApp/build -type f -path '*/wasmJs/productionExecutable/haive.js' -print -quit)\"\ntest -n \"$WASM_BUNDLE\"\nWASM_DIR=\"$(dirname \"$WASM_BUNDLE\")\"\nJS_BUNDLE=\"$(find webApp/build -type f -path '*/js/productionExecutable/haive.js' -print -quit)\"\ntest -n \"$JS_BUNDLE\"\nJS_DIR=\"$(dirname \"$JS_BUNDLE\")\"\nrm -rf build/play-store-site build/play-store-js-site build/play-store-captures build/play-store-assets\nmkdir -p build/play-store-site build/play-store-js-site build/play-store-captures\ncp -R \"$WASM_DIR\"/. build/play-store-site/\ncp -R webApp/src/webMain/resources/. build/play-store-site/\ncp -R \"$JS_DIR\"/. build/play-store-js-site/\ncp -R webApp/src/webMain/resources/. build/play-store-js-site/\ntest -f build/play-store-site/index.html\ntest -f build/play-store-site/haive.js\ntest -f build/play-store-site/haive_node_creatures.wasm\ntest -f build/play-store-js-site/index.html\ntest -f build/play-store-js-site/haive.js\n"
+      - name: Install Chromium and Pillow
+        run: "npm install --no-save --package-lock=false playwright@1.55.0\nnpx playwright install --with-deps chromium\npython3 -m pip install --quiet pillow\n"
+      - name: Capture real production UI
+        shell: bash
+        run: "set -euo pipefail\npython3 -m http.server 8080 --directory build/play-store-site > /tmp/aive-store-assets-wasm-http.log 2>&1 &\nWASM_SERVER_PID=$!\npython3 -m http.server 8081 --directory build/play-store-js-site > /tmp/aive-store-assets-js-http.log 2>&1 &\nJS_SERVER_PID=$!\ntrap 'kill \"$WASM_SERVER_PID\" \"$JS_SERVER_PID\" 2>/dev/null || true' EXIT\n\nfor port in 8080 8081; do\n  for attempt in $(seq 1 30); do\n    if curl --fail --silent \"http://127.0.0.1:$port/\" >/dev/null; then\n      break\n    fi\n    sleep 1\n  done\n  curl --fail --silent \"http://127.0.0.1:$port/\" >/dev/null\ndone\n\ncat > build/capture-store-assets.mjs <<'JS'\nimport { chromium } from 'playwright';\n\nconst browser = await chromium.launch({\n  headless: true,\n  args: ['--enable-unsafe-swiftshader'],\n});\n\nasync function capture(name, url, width, height, terrarium = false) {\n  const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });\n  const diagnostics = [];\n  page.on('console', message => diagnostics.push(`[console:${message.type()}] ${message.text()}`));\n  page.on('pageerror', error => diagnostics.push(`[pageerror] ${error.stack || error.message}`));\n  try {\n    await page.goto(url, { waitUntil: 'domcontentloaded' });\n    if (terrarium) {\n      await page.waitForFunction(() => {\n        if (globalThis.__haiveStartupError) throw new Error(globalThis.__haiveStartupError);\n        return globalThis.__haiveNodeCreaturesReady === true &&\n          globalThis.__haiveAppScriptLoaded === true;\n      }, null, { timeout: 15000 });\n    }\n    await page.waitForSelector('#webApp > *', { timeout: 15000 });\n    await page.waitForTimeout(1800);\n    await page.screenshot({\n      path: `build/play-store-captures/${name}.png`,\n      fullPage: false,\n    });\n  } catch (error) {\n    console.error(`${name}: ${error.stack || error}`);\n    diagnostics.forEach(entry => console.error(entry));\n    throw error;\n  } finally {\n    await page.close();\n  }\n}\n\nasync function smoke(url) {\n  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });\n  try {\n    await page.goto(url, { waitUntil: 'domcontentloaded' });\n    await page.waitForSelector('#webApp > *', { timeout: 15000 });\n    await page.waitForTimeout(500);\n  } finally {\n    await page.close();\n  }\n}\n\ntry {\n  await smoke('http://127.0.0.1:8081/');\n  await capture('overview-portrait', 'http://127.0.0.1:8080/', 1080, 1920, false);\n  await capture('terrarium-portrait', 'http://127.0.0.1:8080/?terrariumPreview=1', 1080, 1920, true);\n  await capture('overview-landscape', 'http://127.0.0.1:8080/', 1920, 1080, false);\n  await capture('terrarium-landscape', 'http://127.0.0.1:8080/?terrariumPreview=1', 1920, 1080, true);\n} finally {\n  await browser.close();\n}\nJS\n\nnode build/capture-store-assets.mjs\n"
+      - name: Generate and validate listing graphics
+        run: "python3 tools/play_store_assets.py \\\n  --repo . \\\n  --output-dir build/play-store-assets \\\n  --screenshot build/play-store-captures/overview-portrait.png \\\n  --screenshot build/play-store-captures/terrarium-portrait.png \\\n  --screenshot build/play-store-captures/overview-landscape.png \\\n  --screenshot build/play-store-captures/terrarium-landscape.png\n"
+      - name: Upload final Google Play asset set
+        uses: actions/upload-artifact@v7
+        with:
+          name: google-play-store-assets
+          path: build/play-store-assets/
+          if-no-files-found: error
+    needs: central_check_start
+    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
+    permissions:
+      contents: read
+    environment: aive
+  central_check_finish:
+    if: ${{ always() }}
+    needs:
+      - central_check_start
+      - generate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Central workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Central workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+run-name: aive · Play Store Assets

@@ -16,6 +16,7 @@ source_file = os.environ.get("SOURCE_VERSION_FILE", "").strip()
 source_key = os.environ.get("SOURCE_VERSION_KEY", "").strip()
 build_number = os.environ.get("BUILD_NUMBER", "").strip()
 prerelease_major_max = os.environ.get("PRERELEASE_MAJOR_MAX", "0").strip()
+environment_variable = os.environ.get("ENVIRONMENT_VARIABLE", "").strip()
 
 if not source:
     if not source_file or not source_key:
@@ -42,6 +43,8 @@ if not re.fullmatch(r"\d+", build_number):
     fail("build-number must be a non-negative integer")
 if not re.fullmatch(r"\d+", prerelease_major_max):
     fail("prerelease-major-max must be a non-negative integer")
+if environment_variable and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", environment_variable):
+    fail("environment-variable must be a valid environment variable name")
 
 major, minor, patch, _ = (int(item) for item in match.groups())
 version = f"{major}.{minor}.{patch}.{int(build_number)}"
@@ -53,3 +56,8 @@ with output.open("a", encoding="utf-8") as handle:
     handle.write(f"version={version}\n")
     handle.write(f"patch-version={patch_version}\n")
     handle.write(f"prerelease={'true' if prerelease else 'false'}\n")
+
+if environment_variable:
+    env_file = Path(os.environ["GITHUB_ENV"])
+    with env_file.open("a", encoding="utf-8") as handle:
+        handle.write(f"{environment_variable}={version}\n")

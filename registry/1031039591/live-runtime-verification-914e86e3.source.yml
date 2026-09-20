@@ -2,6 +2,11 @@ name: Live Runtime Verification
 
 on:
   workflow_dispatch:
+    inputs:
+      provider:
+        description: "Provider to verify (openai, anthropic, gemini, xai); blank selects the first configured credential"
+        required: false
+        type: string
 
 concurrency:
   group: live-runtime-verification-${{ github.ref }}
@@ -17,7 +22,11 @@ jobs:
     timeout-minutes: 20
     env:
       AIVE_LIVE_RUNTIME_VERIFICATION: "1"
-      JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+      AIVE_LIVE_PROVIDER: ${{ inputs.provider }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
 
     steps:
       - name: Check out repository
@@ -37,12 +46,12 @@ jobs:
           ref: b3e13674df9dfbcc0b35f800b57d78a305d07b03
           path: vendor/conveyance-h2g2/vendor/Conveyance
 
-      - name: Require live Jules credential
+      - name: Require a live provider credential
         shell: bash
         run: |
           set -euo pipefail
-          if [ -z "${JULES_API_KEY:-}" ]; then
-            echo "::error::JULES_API_KEY is required for live runtime verification"
+          if [ -z "${OPENAI_API_KEY:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${GEMINI_API_KEY:-}" ] && [ -z "${XAI_API_KEY:-}" ]; then
+            echo "::error::Configure at least one of OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, or XAI_API_KEY"
             exit 1
           fi
 
@@ -58,8 +67,8 @@ jobs:
       - name: Run live runtime lifecycle verification
         run: |
           ./gradlew \
-            :providers:jules:desktopTest \
-            --tests com.hereliesaz.geministrator.providers.jules.JulesLiveRuntimeVerificationTest \
+            :providers:llm:desktopTest \
+            --tests com.hereliesaz.geministrator.providers.llm.ProviderNeutralLiveRuntimeVerificationTest \
             --no-daemon \
             --stacktrace
 
@@ -67,4 +76,4 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          find providers/jules/build/test-results -type f -name '*.xml' -print -exec cat {} \; || true
+          find providers/llm/build/test-results -type f -name '*.xml' -print -exec cat {} \; || true

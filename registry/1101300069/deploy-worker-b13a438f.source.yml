@@ -1,0 +1,36 @@
+name: Deploy Worker
+
+# Manually deploys the Cloudflare Worker backend in worker/ (the free-tier
+# replacement for Cloud Functions). Non-secret config lives in worker/wrangler.toml;
+# all secrets are configured once with `wrangler secret put` (see worker/README.md)
+# and persist in Cloudflare, so they don't need to be in CI.
+#
+# Required GitHub secrets:
+#   CLOUDFLARE_API_TOKEN — a Cloudflare API token with the "Edit Cloudflare
+#       Workers" template permissions.
+#   CLOUDFLARE_ACCOUNT_ID — your Cloudflare account id.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Deploy with Wrangler
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker

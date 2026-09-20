@@ -2,7 +2,7 @@
 
 Central shared workflow catalog and secure execution gateway for repositories owned by `HereLiesAz`.
 
-This repository exists to reuse **workflow implementations as well as credentials**. Target repositories keep lightweight trigger/proxy workflows for centrally executed automation. Canonical implementations live here and can be reused by multiple repositories. Workflows that are genuinely repository-bound remain local.
+This repository exists to reuse **workflow implementations as well as credentials**. Centrally managed target repositories do not need controller-generated workflow files. Repository events arrive through one signed GitHub webhook, the gateway matches those events against the registered original `on:` contracts, and canonical implementations execute here. Workflows that are not yet safe to centralize remain local only until their blocker is resolved.
 
 ## Architecture
 
@@ -10,22 +10,24 @@ This repository exists to reuse **workflow implementations as well as credential
 Target repository event
         │
         ▼
-secretless OIDC proxy
+GitHub repository webhook (HMAC signed)
         │
         ▼
 Cloudflare Worker · workflows.hereliesaz.workers.dev
         │
         ▼
 central gateway
-        │
+        │ matches the event against registered original on: rules
         ▼
-shared catalog workflow
+shared/catalog workflow
         │
         ▼
 target operation + commit status
 ```
 
-The Worker verifies GitHub OIDC identity and immutable repository ownership before dispatching the central gateway. The gateway validates the registered workflow binding and source hash. Shared workflows re-validate the target repository before privileged execution.
+The central sync registers one repository webhook through the Worker. The Worker verifies GitHub's webhook signature and immutable repository ownership before dispatching the central gateway. The gateway validates registry bindings and routes only workflows whose original trigger, branch/action filters, and path filters match the delivered event. Shared workflows re-validate the target repository before privileged execution.
+
+The legacy OIDC `/dispatch` endpoint is retained only while old proxies are being removed; it is not the steady-state trigger transport.
 
 Runtime results are reported back to the target SHA using **commit statuses**, not Check Runs.
 
@@ -55,15 +57,11 @@ The normal migration flow is:
 4. review every workflow classification and identify obsolete automation;
 5. add repository policy for workflows that should be removed rather than migrated;
 6. run the sync with `dry_run: false`;
-7. inspect the target proxies/local workflows and central registry bindings;
-8. exercise at least one centralized workflow end to end;
+7. verify the target has no controller-generated proxy workflows and inspect any intentionally local blockers;
+8. exercise at least one centralized workflow end to end through the repository webhook;
 9. remove duplicated target credentials only after runtime verification succeeds.
 
-The real sync automatically creates or updates the target repository variable `WORKFLOWS_GATEWAY_URL` with:
-
-```text
-https://workflows.hereliesaz.workers.dev
-```
+The real sync registers or refreshes the target repository webhook at `https://workflows.hereliesaz.workers.dev/webhook` before removing any old proxy, so a failed gateway registration leaves the target untouched.
 
 ## Workflow catalog model
 

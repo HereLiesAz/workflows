@@ -82,6 +82,7 @@ jobs:
   central_check_start:
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       statuses: write
     steps:
@@ -95,6 +96,14 @@ jobs:
           [[ "$(jq -r '.id' <<<"$repo_json")" == "$TARGET_REPOSITORY_ID" ]] || { echo "Repository ID mismatch" >&2; exit 1; }
           [[ "$(jq -r '.owner.id' <<<"$repo_json")" == "103241502" ]] || { echo "Repository is not owned by HereLiesAz" >&2; exit 1; }
           [[ "$TARGET_REPOSITORY_OWNER_ID" == "103241502" ]] || { echo "OIDC owner ID mismatch" >&2; exit 1; }
+
+          if [ -n "${TARGET_RUN_ID:-}" ]; then
+            run_json="$(gh api "repos/$TARGET_REPOSITORY/actions/runs/$TARGET_RUN_ID")"
+            run_sha="$(jq -r '.head_sha // empty' <<<"$run_json")"
+            run_repo="$(jq -r '.repository.full_name // empty' <<<"$run_json")"
+            [[ "${run_repo,,}" == "${TARGET_REPOSITORY,,}" ]] || { echo "Source run repository mismatch" >&2; exit 1; }
+            [[ "$run_sha" == "$TARGET_SHA" ]] || { echo "Source run SHA $run_sha does not match target SHA $TARGET_SHA" >&2; exit 1; }
+          fi
       - name: Set target status pending
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -373,7 +382,7 @@ jobs:
           flags=()
           [ "$prerelease" = true ] && flags+=(--prerelease)
           if gh release view "$TAG" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then
-            gh release edit "$TAG" --repo "$TARGET_REPOSITORY" --title "$TITLE" --notes "$body" "${flags[@]}"
+            gh release edit "$TAG" --repo "$TARGET_REPOSITORY" --title "$TITLE" --notes "$body" --prerelease="$prerelease"
             gh release upload "$TAG" "${assets[@]}" --repo "$TARGET_REPOSITORY" --clobber
           else
             args=(release create "$TAG" "${assets[@]}" --repo "$TARGET_REPOSITORY" --target "${{ needs.prepare.outputs.build_sha }}" --title "$TITLE" --notes "$body" "${flags[@]}")
@@ -392,11 +401,19 @@ jobs:
               [ "$legacy_tag" != "$TAG" ] || continue
               echo "Migrating legacy build release $legacy_tag into grouped release $TAG"
               legacy_dir="$(mktemp -d)"
-              gh release download "$legacy_tag" --repo "$TARGET_REPOSITORY" --dir "$legacy_dir" || true
-              while IFS= read -r legacy_asset; do
-                [ -f "$legacy_asset" ] || continue
-                gh release upload "$TAG" "$legacy_asset" --repo "$TARGET_REPOSITORY" --clobber
-              done < <(find "$legacy_dir" -type f -print | sort)
+              legacy_asset_count="$(gh release view "$legacy_tag" --repo "$TARGET_REPOSITORY" --json assets --jq '.assets | length')"
+              if [ "$legacy_asset_count" -gt 0 ]; then
+                gh release download "$legacy_tag" --repo "$TARGET_REPOSITORY" --dir "$legacy_dir"
+                downloaded_count="$(find "$legacy_dir" -type f | wc -l | tr -d ' ')"
+                [ "$downloaded_count" -eq "$legacy_asset_count" ] || {
+                  echo "::error::Downloaded $downloaded_count of $legacy_asset_count assets from $legacy_tag; refusing to delete the source release." >&2
+                  exit 1
+                }
+                while IFS= read -r legacy_asset; do
+                  [ -f "$legacy_asset" ] || continue
+                  gh release upload "$TAG" "$legacy_asset" --repo "$TARGET_REPOSITORY" --clobber
+                done < <(find "$legacy_dir" -type f -print | sort)
+              fi
               rm -rf "$legacy_dir"
               # Delete only the redundant release object; its exact-build tag remains immutable.
               gh release delete "$legacy_tag" --repo "$TARGET_REPOSITORY" --yes

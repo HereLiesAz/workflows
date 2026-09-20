@@ -1,7 +1,7 @@
 # Generated for HereLiesAz/aive:.github/workflows/live-runtime-verification.yml.
 # Edit the registered source or synchronizer, not this compiled workflow.
 # Generated shared catalog workflow. Do not edit by hand.
-# catalog-source: shared/a363b3cbff57322e418e26c59955ad52393e9c3b46ea6f80ef8058573cc45a20
+# catalog-source: shared/edffb6677b3b1fa962397fb9cc5dd6dbb364e33289515695af142311d021a4ba
 name: aive · Live Runtime Verification
 on:
   workflow_dispatch:
@@ -125,7 +125,11 @@ jobs:
     timeout-minutes: 20
     env:
       AIVE_LIVE_RUNTIME_VERIFICATION: '1'
-      JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+      AIVE_LIVE_PROVIDER: ${{ fromJSON(inputs.target_inputs_json).provider }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -150,9 +154,9 @@ jobs:
           path: vendor/conveyance-h2g2/vendor/Conveyance
           token: ${{ secrets.GH_TOKEN }}
           persist-credentials: false
-      - name: Require live Jules credential
+      - name: Require a live provider credential
         shell: bash
-        run: "set -euo pipefail\nif [ -z \"${JULES_API_KEY:-}\" ]; then\n  echo \"::error::JULES_API_KEY is required for live runtime verification\"\n  exit 1\nfi\n"
+        run: "set -euo pipefail\nif [ -z \"${OPENAI_API_KEY:-}\" ] && [ -z \"${ANTHROPIC_API_KEY:-}\" ] && [ -z \"${GEMINI_API_KEY:-}\" ] && [ -z \"${XAI_API_KEY:-}\" ]; then\n  echo \"::error::Configure at least one of OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, or XAI_API_KEY\"\n  exit 1\nfi\n"
       - name: Set up JDK 21
         uses: actions/setup-java@v5
         with:
@@ -161,11 +165,11 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
       - name: Run live runtime lifecycle verification
-        run: "./gradlew \\\n  :providers:jules:desktopTest \\\n  --tests com.hereliesaz.geministrator.providers.jules.JulesLiveRuntimeVerificationTest \\\n  --no-daemon \\\n  --stacktrace\n"
+        run: "./gradlew \\\n  :providers:llm:desktopTest \\\n  --tests com.hereliesaz.geministrator.providers.llm.ProviderNeutralLiveRuntimeVerificationTest \\\n  --no-daemon \\\n  --stacktrace\n"
       - name: Print live verification report on failure
         if: failure()
         shell: bash
-        run: "find providers/jules/build/test-results -type f -name '*.xml' -print -exec cat {} \\; || true\n"
+        run: "find providers/llm/build/test-results -type f -name '*.xml' -print -exec cat {} \\; || true\n"
     needs: central_check_start
     permissions:
       contents: read

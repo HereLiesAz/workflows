@@ -1,0 +1,48 @@
+name: Deploy Worker
+
+# Deploys the Cloudflare Worker straight from `main`, in one step, whenever the
+# Worker code changes. `wrangler deploy` publishes AND activates (unlike
+# `wrangler versions upload`, which only stages a version at 0% traffic), so a
+# successful run is live immediately — no dashboard promotion needed.
+#
+# Path filter: only Worker code triggers a deploy. The app's runtime commits to
+# pending/ and licenses/ (and the render-id workflow) do not republish the
+# Worker, because they don't change its behavior.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "wrangler.toml"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Deploy with Wrangler
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

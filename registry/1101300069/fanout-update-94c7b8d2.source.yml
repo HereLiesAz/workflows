@@ -1,0 +1,73 @@
+name: Fan-out Referral Builds
+
+# Keeps every attributed build (com.<username>.nolawallet) on the current version.
+# Runs after the canonical "Merged Build & Release" succeeds on main, reads the
+# registered usernames from Firestore, and dispatches build-referral-apk for each.
+#
+# Owner secrets required:
+#   FIREBASE_APP_DIST_ADMIN_JSON — JSON for a service account that can read
+#                              Firestore (the `usernames` collection). Falls back
+#                              to FIREBASE_SERVICE_ACCOUNT if the former is unset.
+#   GH_PAT                   — a PAT with `repo` scope. (A repository_dispatch made
+#                              with the default GITHUB_TOKEN does NOT trigger another
+#                              workflow, so a PAT is required to fire the builds.)
+on:
+  workflow_run:
+    workflows: ["Merged Build & Release"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  fanout:
+    # Only after a successful canonical build.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: List usernames + dispatch builds
+        env:
+          # Prefer the App Distribution admin key; fall back to the legacy name so
+          # an existing FIREBASE_SERVICE_ACCOUNT secret keeps working. Either must
+          # carry Firestore read access to list the `usernames` collection.
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_APP_DIST_ADMIN_JSON || secrets.FIREBASE_SERVICE_ACCOUNT }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ] || [ -z "$GH_PAT" ]; then
+            echo "::warning::Firebase service account (FIREBASE_APP_DIST_ADMIN_JSON / FIREBASE_SERVICE_ACCOUNT) or GH_PAT not set; nothing to fan out."
+            exit 0
+          fi
+          npm i firebase-admin@^12 >/dev/null 2>&1
+          node <<'EOF'
+          const admin = require("firebase-admin");
+          admin.initializeApp({
+            credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
+          });
+          (async () => {
+            const snap = await admin.firestore().collection("usernames").get();
+            const names = snap.docs.map((d) => d.id);
+            console.log(`Fanning out ${names.length} referral build(s).`);
+            for (const username of names) {
+              const res = await fetch(`https://api.github.com/repos/${process.env.REPO}/dispatches`, {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${process.env.GH_PAT}`,
+                  Accept: "application/vnd.github+json",
+                  "User-Agent": "nolawallet-fanout",
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ event_type: "build-referral-apk", client_payload: { username } }),
+              });
+              if (!res.ok) {
+                console.error(`dispatch failed for ${username}: ${res.status} ${await res.text()}`);
+              } else {
+                console.log(`dispatched ${username}`);
+              }
+            }
+          })().catch((e) => { console.error(e); process.exit(1); });
+          EOF

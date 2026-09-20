@@ -170,6 +170,41 @@ def purpose_for(effects: set[str], name: str, path: str) -> str:
     # while accomplishing different things. Keep those semantic distinctions explicit so the
     # audit never calls them duplicates merely because the transport is the same.
     hint = f"{name} {path}".casefold()
+
+    # Manually reviewed repository-bound and agent workflows. These labels record
+    # semantic intent even when execution must remain local because an action is
+    # coupled to the runner repository or the workflow is genuinely project-specific.
+    reviewed_hints = (
+        ("jules scheduled issue triage", "jules-issue-triage"),
+        ("jules invoke", "jules-task-dispatch"),
+        ("jules security fixer", "jules-security-remediation"),
+        ("assign jules to issues", "jules-issue-automation"),
+        ("jules issue handler", "jules-issue-automation"),
+        ("jules branch pr handler", "jules-branch-automation"),
+        ("jules branch handler", "jules-branch-automation"),
+        ("antigravity scheduled issue triage", "antigravity-issue-triage"),
+        ("antigravity dispatch", "antigravity-task-dispatch"),
+        ("gemini scheduled issue triage", "gemini-issue-triage"),
+        ("gemini dispatch", "gemini-task-dispatch"),
+        ("enforce contribution guidelines", "contribution-guideline-review"),
+        ("dependency submission", "dependency-graph-submission"),
+        ("dependency graph", "dependency-graph-submission"),
+        ("java ci with gradle", "java-gradle-ci-and-dependency-submission"),
+        ("distributed compute", "distributed-compute-ci"),
+        ("inspect epoch-8 memory artifacts", "model-artifact-inspection"),
+        ("live runtime verification", "live-runtime-verification"),
+        ("deduplicate data", "data-deduplication"),
+        ("enrich bar data", "data-enrichment"),
+        ("the nag bot", "issue-reminder-automation"),
+        ("materialize animation boundaries", "animation-boundary-materialization"),
+        ("render prop id", "prop-id-rendering"),
+        ("verify real storefront checkout", "storefront-integration-verification"),
+        ("terrarium ci", "terrarium-ci"),
+        ("legacy glee pr review", "legacy-pull-request-audit"),
+    )
+    for reviewed_hint, purpose in reviewed_hints:
+        if reviewed_hint in hint:
+            return purpose
     if "registry-sync" in hint or "sync registry from extension repos" in hint:
         return "registry-catalog-sync"
     if "vercel-logs" in hint or "vercel build logs" in hint:

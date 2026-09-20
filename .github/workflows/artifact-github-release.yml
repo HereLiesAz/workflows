@@ -86,6 +86,7 @@ jobs:
           persist-credentials: false
 
       - name: Resolve release metadata
+        id: release_metadata
         shell: bash
         run: |
           set -euo pipefail
@@ -115,6 +116,7 @@ jobs:
           fi
           echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
           echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Set up Java
         if: ${{ fromJSON(inputs.purpose_profile_json).tool == 'maven' || fromJSON(inputs.purpose_profile_json).tool == 'gradle' }}

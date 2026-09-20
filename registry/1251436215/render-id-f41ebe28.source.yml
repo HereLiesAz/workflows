@@ -1,0 +1,65 @@
+# Renders a submitted prop ID from LA-ID.psd using the Python psd-tools
+# pipeline (psd_render.py). Fired by the Worker's repository_dispatch in THIS
+# (private renderer) repo. This replaces the headless-Photopea/Puppeteer
+# renderer, which crashed deterministically (Target closed) loading the 90 MB
+# PSD on the runner; the Python path is browserless and reproducible.
+name: Render prop ID
+
+on:
+  repository_dispatch:
+    types: [render-id]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: render-${{ github.event.client_payload.uid }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # aggdraw lets psd-tools composite the PSD's vector shape layers; numpy is
+      # used directly by psd_render.py for the green-frame crop (and pulled in by
+      # psd-tools anyway).
+      - run: pip install Pillow psd-tools aggdraw numpy
+
+      - name: Install bundled fonts (so psd-tools resolves them by name)
+        run: |
+          mkdir -p ~/.local/share/fonts
+          cp fonts/*.ttf ~/.local/share/fonts/
+          fc-cache -f
+
+      - name: Render the prop card from the PSD
+        env:
+          UID: ${{ github.event.client_payload.uid }}
+        run: |
+          mkdir -p licenses
+          python psd_render.py LA-ID.psd \
+            "pending/$UID/data.json" \
+            "pending/$UID/source.jpg" \
+            "pending/$UID/sig.png" \
+            "licenses/$UID.png"
+
+      - name: Commit result, keep the field data, drop raw inputs
+        env:
+          UID: ${{ github.event.client_payload.uid }}
+        run: |
+          git config user.name "id-renderer[bot]"
+          git config user.email "id-renderer@users.noreply.github.com"
+          # Persist the submitted fields next to the PNG so a device that
+          # restores/downloads the card (and has no local profile) can repopulate
+          # it. The photo/signature are NOT kept (they're baked into the PNG and
+          # are the sensitive raw inputs); only the text fields survive.
+          cp "pending/$UID/data.json" "licenses/$UID.json"
+          git rm -r --quiet "pending/$UID" || true
+          git add "licenses/$UID.png" "licenses/$UID.json"
+          git commit -m "Render prop ID for $UID" || { echo "nothing to commit"; exit 0; }
+          git push

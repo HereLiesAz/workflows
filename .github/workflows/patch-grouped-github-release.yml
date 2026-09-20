@@ -175,12 +175,18 @@ jobs:
           persist-credentials: false
 
       - name: Download prepared release artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: release-bundle
+          repository: ${{ inputs.target_repository }}
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ secrets.GH_TOKEN }}
+
+      - name: Verify prepared release artifact
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf release-bundle
-          mkdir -p release-bundle
-          gh run download "$SOURCE_RUN_ID"             --repo "$TARGET_REPOSITORY"             --name "$ARTIFACT_NAME"             --dir release-bundle
           find release-bundle -type f -print
           test "$(find release-bundle -type f | wc -l | tr -d ' ')" -gt 0 || {
             echo "::error::Artifact $ARTIFACT_NAME from run $SOURCE_RUN_ID was empty"
@@ -233,8 +239,8 @@ jobs:
             echo
             echo "All builds in the **$PATCH_VERSION** patch line are grouped in this release."
             echo
-            echo "The patch tag `$PATCH_TAG` anchors the first published build and never moves."
-            echo "Every exact build keeps its own immutable tag, such as `$BUILD_TAG`."
+            echo "The patch tag \`$PATCH_TAG\` anchors the first published build and never moves."
+            echo "Every exact build keeps its own immutable tag, such as \`$BUILD_TAG\`."
           } > "$initial_body"
 
           release_flags=()
@@ -254,7 +260,9 @@ jobs:
             name="$(basename "$source")"
             local existing_id
             existing_id="$(
-              gh api "repos/$TARGET_REPOSITORY/releases/tags/$PATCH_TAG"                 --jq ".assets[] | select(.name == \"$name\") | .id"                 | head -n 1
+              gh api "repos/$TARGET_REPOSITORY/releases/tags/$PATCH_TAG" \
+                | jq -r --arg name "$name" '.assets[] | select(.name == $name) | .id' \
+                | head -n 1
             )"
 
             if [ -z "$existing_id" ]; then
@@ -299,11 +307,11 @@ jobs:
               echo
               echo "---"
               echo
-              echo "## Build `$version`"
+              echo "## Build \`$version\`"
               echo "$marker"
               if [ -n "$sha" ]; then
                 echo
-                echo "Commit: `$sha`"
+                echo "Commit: \`$sha\`"
               fi
               if [ -n "$notes_file" ] && [ -s "$notes_file" ]; then
                 echo

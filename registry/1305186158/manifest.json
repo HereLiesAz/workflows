@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-09-20T00:07:13+00:00",
+  "last_sync_at": "2026-09-20T23:07:35+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/Graffux",
@@ -8,7 +8,7 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
+  "worker_url_configured": false,
   "workflows": {
     ".github/workflows/backup.yml": {
       "binding": "curated",
@@ -17,7 +17,7 @@
       "registry_source": "registry/1305186158/backup-d598524a.source.yml",
       "source_sha256": "3a4f16e99f43e7ff92c92791ff368bc12e612766d692ac424a0c843deea01c71",
       "status": "active",
-      "updated_at": "2026-09-20T00:06:54+00:00"
+      "updated_at": "2026-09-20T23:07:25+00:00"
     },
     ".github/workflows/clear_cache.yml": {
       "binding": "curated",
@@ -26,17 +26,18 @@
       "registry_source": "registry/1305186158/clear_cache-7bd18479.source.yml",
       "source_sha256": "5d40dac9f75a6e3e651ff6a4b1c8e7bf52b09178d0aa30c586d3fbef46694fca",
       "status": "active",
-      "updated_at": "2026-09-20T00:06:56+00:00"
+      "updated_at": "2026-09-20T23:07:26+00:00"
     },
     ".github/workflows/cloudflare-deploy.yml": {
-      "binding": "repository",
+      "binding": "shared-variant",
       "central_workflow": ".github/workflows/graffux-cloudflare-deploy.yml",
       "implementation_sha256": "2e40d251360ca9814b953fd486fe5e58a30b47fda29df9c6ceed88c3f4aba8bd",
       "name": "Deploy Cloudflare Worker",
       "registry_source": "registry/1305186158/cloudflare-deploy-30b8c36a.source.yml",
+      "shared_variant": "2e40d251360ca981",
       "source_sha256": "cf0148379d447e9ff488047c467c0728dd9a8ce9d3b61a952c6900c2447cd63b",
       "status": "active",
-      "updated_at": "2026-09-20T00:06:57+00:00"
+      "updated_at": "2026-09-20T23:07:27+00:00"
     },
     ".github/workflows/deploy-sftp.yml": {
       "binding": "curated",
@@ -45,7 +46,7 @@
       "registry_source": "registry/1305186158/deploy-sftp-1401405c.source.yml",
       "source_sha256": "aab5ef3d85c2ac59d48c828207dbb273c22eacfc9d84e3f28faa96e44eb78a05",
       "status": "active",
-      "updated_at": "2026-09-20T00:07:00+00:00"
+      "updated_at": "2026-09-20T23:07:28+00:00"
     },
     ".github/workflows/jules-dispatch.yml": {
       "binding": "curated",
@@ -54,7 +55,7 @@
       "registry_source": "registry/1305186158/jules-dispatch-800d0b01.source.yml",
       "source_sha256": "5e44e83d0f7b62dbc022594786af4b240682af2c714ed09b02b33992932efd00",
       "status": "active",
-      "updated_at": "2026-09-20T00:07:01+00:00"
+      "updated_at": "2026-09-20T23:07:28+00:00"
     },
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
@@ -63,39 +64,39 @@
       "registry_source": "registry/1305186158/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",
-      "updated_at": "2026-09-20T00:07:03+00:00"
+      "updated_at": "2026-09-20T23:07:29+00:00"
     },
     ".github/workflows/jules-invoke.yml": {
+      "binding": "curated",
+      "central_workflow": ".github/workflows/jules-dispatch.yml",
       "name": "\u25b6\ufe0f Jules Invoke",
       "registry_source": "registry/1305186158/jules-invoke-b23fc002.source.yml",
       "source_sha256": "cb2a978450da9b6dc82f8527a4ff2dbcde9af37e4e88d99e4409f217826572f0",
-      "status": "library",
-      "updated_at": "2026-09-20T00:07:04+00:00"
+      "status": "active",
+      "updated_at": "2026-09-20T23:07:30+00:00"
     },
     ".github/workflows/jules-review.yml": {
       "name": "\ud83d\udd0e Jules Review",
       "registry_source": "registry/1305186158/jules-review-9f7b6ce5.source.yml",
       "source_sha256": "b170093ab22ff75431fb6ea62d3e4ff1a254c5ba7352ee150e59e8dfa4b6f416",
       "status": "library",
-      "updated_at": "2026-09-20T00:07:04+00:00"
+      "updated_at": "2026-09-20T23:07:30+00:00"
     },
     ".github/workflows/jules-scheduled-triage.yml": {
-      "blockers": [
-        "job 'find-issues' step 1 uses actions/github-script with runner-repository context",
-        "job 'triage' step 1 uses repository-bound action 'google-labs-code/jules-invoke@v1.0.0'"
-      ],
+      "binding": "curated",
+      "central_workflow": ".github/workflows/jules-scheduled-triage.yml",
       "name": "\ud83d\udccb Jules Scheduled Issue Triage",
       "registry_source": "registry/1305186158/jules-scheduled-triage-7b36475f.source.yml",
       "source_sha256": "fa0ee2978160f94d866bd050b5767781c50ea823bba21275e02e08d066ef650c",
-      "status": "local",
-      "updated_at": "2026-09-20T00:07:05+00:00"
+      "status": "active",
+      "updated_at": "2026-09-20T23:07:31+00:00"
     },
     ".github/workflows/jules-triage.yml": {
       "name": "\ud83d\udd00 Jules Triage",
       "registry_source": "registry/1305186158/jules-triage-5c552504.source.yml",
       "source_sha256": "bb9bbb7f43322a405c7b6b9e69af715543747de6c6584641fb977f42f139611c",
       "status": "library",
-      "updated_at": "2026-09-20T00:07:05+00:00"
+      "updated_at": "2026-09-20T23:07:31+00:00"
     },
     ".github/workflows/label.yml": {
       "blockers": [
@@ -105,17 +106,18 @@
       "registry_source": "registry/1305186158/label-04cea97c.source.yml",
       "source_sha256": "9e4ca08e0ce167c9f1ee6c3add108323047fe6af5cecbde30037314360a8c7da",
       "status": "local",
-      "updated_at": "2026-09-20T00:07:06+00:00"
+      "updated_at": "2026-09-20T23:07:31+00:00"
     },
     ".github/workflows/m2-physical-population-alt-validation.yml": {
-      "binding": "repository",
+      "binding": "shared-variant",
       "central_workflow": ".github/workflows/graffux-m2-physical-population-alt-validation.yml",
       "implementation_sha256": "b39c4bff6472f72aa5c69b74a697fb257c2a9468ce47614616f7dd36f183aa57",
       "name": "M2 Physical Population Alt Validation",
       "registry_source": "registry/1305186158/m2-physical-population-alt-validation-69ec0d52.source.yml",
+      "shared_variant": "b39c4bff6472f72a",
       "source_sha256": "917250a6ae7fe1a7ec67e5da08f64f6451558517538fc5ab7962f99638fe6ba5",
       "status": "active",
-      "updated_at": "2026-09-20T00:07:06+00:00"
+      "updated_at": "2026-09-20T23:07:32+00:00"
     },
     ".github/workflows/merged-build.yml": {
       "blockers": [
@@ -125,7 +127,7 @@
       "registry_source": "registry/1305186158/merged-build-7328551a.source.yml",
       "source_sha256": "2978791372ebb23ec1e86594e4bb59509d84889d1b2511c9ed03dcb7cccd0f1e",
       "status": "local",
-      "updated_at": "2026-09-20T00:07:09+00:00"
+      "updated_at": "2026-09-20T23:07:33+00:00"
     },
     ".github/workflows/release-aab.yml": {
       "binding": "curated",
@@ -134,7 +136,7 @@
       "registry_source": "registry/1305186158/release-aab-b108bf8f.source.yml",
       "source_sha256": "f0b5d5091bb2d2372b65116ee9d154f0fe03ed641d3693436525ff618f47f22a",
       "status": "active",
-      "updated_at": "2026-09-20T00:07:10+00:00"
+      "updated_at": "2026-09-20T23:07:34+00:00"
     },
     ".github/workflows/release-apk.yml": {
       "binding": "curated",
@@ -143,7 +145,7 @@
       "registry_source": "registry/1305186158/release-apk-da6a1dd6.source.yml",
       "source_sha256": "91d73e21d7385b0155e9193b8d718f1e9d3ecb5fce92401f0fc06d9bd41aadb8",
       "status": "active",
-      "updated_at": "2026-09-20T00:07:12+00:00"
+      "updated_at": "2026-09-20T23:07:35+00:00"
     },
     ".github/workflows/static.yml": {
       "blockers": [
@@ -154,7 +156,7 @@
       "registry_source": "registry/1305186158/static-876bb641.source.yml",
       "source_sha256": "4fc1a09a3b422a96fded6acddfe9b9e21cbae7f70e5ede6ba0f2968778e46d30",
       "status": "local",
-      "updated_at": "2026-09-20T00:07:13+00:00"
+      "updated_at": "2026-09-20T23:07:35+00:00"
     }
   }
 }

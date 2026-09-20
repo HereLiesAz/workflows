@@ -543,7 +543,6 @@ jobs:
           HTTP_TIMEOUT_SECONDS=180
           REQUEST_RETRIES=5
           EDIT_ATTEMPTS=6
-          UPLOAD_CHUNK_BYTES=8 * 1024 * 1024
 
           info=json.loads(os.environ['PLAY_SERVICE_ACCOUNT_JSON'])
           creds=service_account.Credentials.from_service_account_info(
@@ -560,22 +559,21 @@ jobs:
               return request.execute(num_retries=retries)
 
           def upload_bundle(edit_id):
+              # Android Publisher's resumable upload uses HTTP 308 responses without
+              # a Location header. httplib2 treats those as broken redirects before
+              # googleapiclient can process the upload range, raising
+              # RedirectMissingLocation. Use a single multipart upload here instead;
+              # the outer edit retry loop still retries transient transport failures.
               request=svc.edits().bundles().upload(
                   packageName=package,
                   editId=edit_id,
                   media_body=MediaFileUpload(
                       aab,
                       mimetype='application/octet-stream',
-                      chunksize=UPLOAD_CHUNK_BYTES,
-                      resumable=True,
+                      resumable=False,
                   ),
               )
-              response=None
-              while response is None:
-                  status,response=request.next_chunk(num_retries=REQUEST_RETRIES)
-                  if status is not None:
-                      print(f'Play bundle upload: {status.progress() * 100:.0f}%', flush=True)
-              return response
+              return execute(request)
 
           transient=(HttpError, TimeoutError, ConnectionError, httplib2.HttpLib2Error)
 

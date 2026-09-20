@@ -284,6 +284,16 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "title=$title" >> "$GITHUB_OUTPUT"
 
+      - name: Check out target release commit
+        if: ${{ steps.policy.outputs.publish == 'true' }}
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ needs.prepare.outputs.build_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          fetch-depth: 0
+          persist-credentials: false
+
       - name: Download release artifacts
         if: ${{ steps.policy.outputs.publish == 'true' }}
         uses: actions/download-artifact@v4
@@ -291,8 +301,50 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: Publish versioned release
+      - name: Select release grouping policy
+        id: grouping
         if: ${{ steps.policy.outputs.publish == 'true' }}
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          REPOSITORY_NAME: ${{ inputs.target_repository_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          grouped=false
+          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            grouped=true
+          fi
+          title_prefix="$(jq -r '.release_name_prefix // empty' <<<"$PROFILE_JSON")"
+          [ -n "$title_prefix" ] || title_prefix="$REPOSITORY_NAME"
+          prerelease="$(jq -r '.prerelease // false' <<<"$PROFILE_JSON")"
+          tag_prefix="$(jq -r '.tag_prefix // "v"' <<<"$PROFILE_JSON")"
+          body_template="$(jq -r '.body_template // "Built from $BUILD_SHA."' <<<"$PROFILE_JSON")"
+          export BUILD_SHA="${{ needs.prepare.outputs.build_sha }}" REPO="$REPOSITORY_NAME"
+          body="$(envsubst <<<"$body_template")"
+          printf '%s\n' "$body" > grouped-release-notes.md
+          echo "grouped=$grouped" >> "$GITHUB_OUTPUT"
+          echo "title-prefix=$title_prefix" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "tag-prefix=$tag_prefix" >> "$GITHUB_OUTPUT"
+
+      - name: Publish patch-grouped release
+        if: ${{ steps.policy.outputs.publish == 'true' && steps.grouping.outputs.grouped == 'true' }}
+        uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@main
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          target-repository: ${{ inputs.target_repository }}
+          target-sha: ${{ needs.prepare.outputs.build_sha }}
+          build-version: ${{ needs.prepare.outputs.version }}
+          assets: artifacts/**/*
+          title-prefix: ${{ steps.grouping.outputs.title-prefix }}
+          notes-file: grouped-release-notes.md
+          tag-prefix: ${{ steps.grouping.outputs.tag-prefix }}
+          prerelease: ${{ steps.grouping.outputs.prerelease }}
+          make-latest: "true"
+          migrate-legacy-build-releases: "true"
+
+      - name: Publish legacy release structure
+        if: ${{ steps.policy.outputs.publish == 'true' && steps.grouping.outputs.grouped != 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           TAG: ${{ steps.policy.outputs.tag }}
@@ -340,19 +392,32 @@ jobs:
             gh "${args[@]}"
           fi
 
+      - name: Update rolling release alias
+        if: ${{ steps.policy.outputs.publish == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
           rolling="$(jq -r '.rolling_tag // empty' <<<"$PROFILE_JSON")"
-          if [ -n "$rolling" ]; then
-            git -C release-repo tag -fa "$rolling" "${{ needs.prepare.outputs.build_sha }}" -m "Latest release"
-            git -C release-repo push origin "$rolling" --force
-            rolling_title="$(jq -r '.rolling_title // "$REPO (Latest)"' <<<"$PROFILE_JSON")"
-            export REPO="${{ inputs.target_repository_name }}"
-            rolling_title="$(envsubst <<<"$rolling_title")"
-            if gh release view "$rolling" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then
-              gh release edit "$rolling" --repo "$TARGET_REPOSITORY" --title "$rolling_title" --notes "$body" --latest
-              gh release upload "$rolling" "${assets[@]}" --repo "$TARGET_REPOSITORY" --clobber
-            else
-              gh release create "$rolling" "${assets[@]}" --repo "$TARGET_REPOSITORY" --target "${{ needs.prepare.outputs.build_sha }}" --title "$rolling_title" --notes "$body" --latest
-            fi
+          [ -n "$rolling" ] || exit 0
+          mapfile -t assets < <(find artifacts -type f -print | sort)
+          test "${#assets[@]}" -gt 0 || { echo "::error::No rolling release artifacts were produced." >&2; exit 1; }
+          body_template="$(jq -r '.body_template // "Built from $BUILD_SHA."' <<<"$PROFILE_JSON")"
+          export BUILD_SHA="${{ needs.prepare.outputs.build_sha }}" REPO="${{ inputs.target_repository_name }}"
+          body="$(envsubst <<<"$body_template")"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:$GH_TOKEN@github.com/$TARGET_REPOSITORY.git"
+          git tag -fa "$rolling" "${{ needs.prepare.outputs.build_sha }}" -m "Latest release"
+          git push origin "$rolling" --force
+          rolling_title="$(jq -r '.rolling_title // "$REPO (Latest)"' <<<"$PROFILE_JSON")"
+          rolling_title="$(envsubst <<<"$rolling_title")"
+          if gh release view "$rolling" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$rolling" --repo "$TARGET_REPOSITORY" --title "$rolling_title" --notes "$body" --latest
+            gh release upload "$rolling" "${assets[@]}" --repo "$TARGET_REPOSITORY" --clobber
+          else
+            gh release create "$rolling" "${assets[@]}" --repo "$TARGET_REPOSITORY" --target "${{ needs.prepare.outputs.build_sha }}" --title "$rolling_title" --notes "$body" --latest
           fi
 
   central_check_finish:

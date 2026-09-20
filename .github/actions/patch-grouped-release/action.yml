@@ -19,6 +19,10 @@ inputs:
   title-prefix:
     description: Human-readable product name used in the patch release title.
     required: true
+  asset-name-mode:
+    description: inject-version adds BUILD_VERSION to asset names that do not already contain it; require-version rejects them.
+    required: false
+    default: "inject-version"
   notes-file:
     description: Optional Markdown file containing changes for this build.
     required: false
@@ -51,6 +55,7 @@ runs:
         BUILD_VERSION: ${{ inputs.build-version }}
         ASSET_GLOB: ${{ inputs.assets }}
         TITLE_PREFIX: ${{ inputs.title-prefix }}
+        ASSET_NAME_MODE: ${{ inputs.asset-name-mode }}
         NOTES_FILE: ${{ inputs.notes-file }}
         TAG_PREFIX: ${{ inputs.tag-prefix }}
         PRERELEASE: ${{ inputs.prerelease }}

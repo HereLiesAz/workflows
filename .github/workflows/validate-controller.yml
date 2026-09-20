@@ -27,6 +27,13 @@ on:
 permissions:
   contents: read
 
+# Keep validation meaningful without letting machine-generated controller commits
+# consume every runner slot. Different branches/PRs still validate concurrently;
+# within one ref, only the newest validation matters.
+concurrency:
+  group: validate-controller-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest

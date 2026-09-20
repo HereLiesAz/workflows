@@ -443,6 +443,7 @@ GENERAL_CURATED_NAMES: Final[dict[str, str]] = {
 # repository-specific executor.
 CURATED_SOURCE_OVERRIDES: Final[dict[str, str]] = {
     "511f95a3edaf45d4d2f50b83a2e345eda49ef43d4ad4e9194f60af7cf7591d9a": ".github/workflows/clear-cache.yml",
+    "cb2a978450da9b6dc82f8527a4ff2dbcde9af37e4e88d99e4409f217826572f0": ".github/workflows/jules-dispatch.yml",
 }
 
 # These were inspected individually. They are not alternate implementations of

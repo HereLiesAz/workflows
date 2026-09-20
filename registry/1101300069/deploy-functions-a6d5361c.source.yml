@@ -1,0 +1,74 @@
+name: Deploy Functions
+
+# Manually deploys the Cloud Functions in functions/ from CI, so the project can
+# be managed without a local Firebase CLI. The GitHub REST token the functions
+# use (release reads, signed asset URLs, repository_dispatch) is injected as a
+# runtime env var from a GitHub secret via functions/.env — no functions.config()
+# (which is deprecated/decommissioned).
+#
+# Required GitHub secrets:
+#   FIREBASE_APP_DIST_ADMIN_JSON — service-account JSON used to authenticate the
+#       deploy. The account needs (at least) Cloud Functions Admin, Service
+#       Account User, and Firebase Admin on the project. The project id is read
+#       from this JSON, so nothing else identifies the project.
+#   FUNCTIONS_GITHUB_TOKEN (or GH_PAT) — a classic GitHub PAT with `repo` scope,
+#       stored as the functions' GH_API_TOKEN at runtime.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-functions
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Firebase CLI
+        run: npm i -g firebase-tools
+
+      - name: Authenticate to Google Cloud
+        env:
+          SA_JSON: ${{ secrets.FIREBASE_APP_DIST_ADMIN_JSON }}
+        run: |
+          if [ -z "$SA_JSON" ]; then
+            echo "::error::FIREBASE_APP_DIST_ADMIN_JSON is not set."
+            exit 1
+          fi
+          printf '%s' "$SA_JSON" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+          # The deploy target project id comes straight from the service account.
+          PROJECT_ID=$(node -e "process.stdout.write(String(require('$RUNNER_TEMP/sa.json').project_id || ''))")
+          if [ -z "$PROJECT_ID" ]; then
+            echo "::error::Could not read project_id from the service account JSON."
+            exit 1
+          fi
+          echo "PROJECT_ID=$PROJECT_ID" >> "$GITHUB_ENV"
+          echo "Deploy target project: $PROJECT_ID"
+
+      - name: Write functions runtime env
+        env:
+          GH_API_TOKEN: ${{ secrets.FUNCTIONS_GITHUB_TOKEN || secrets.GH_PAT }}
+        run: |
+          if [ -z "$GH_API_TOKEN" ]; then
+            echo "::error::Set FUNCTIONS_GITHUB_TOKEN (or GH_PAT) to a classic GitHub PAT with repo scope."
+            exit 1
+          fi
+          # Firebase loads functions/.env at deploy and exposes these as
+          # process.env in the running functions. .env is gitignored.
+          {
+            echo "GH_API_REPO=${GITHUB_REPOSITORY}"
+            echo "GH_API_TOKEN=${GH_API_TOKEN}"
+          } > functions/.env
+          echo "Wrote functions/.env (GH_API_REPO=${GITHUB_REPOSITORY}, token hidden)."
+
+      - name: Deploy functions
+        run: firebase deploy --only functions --project "$PROJECT_ID" --non-interactive

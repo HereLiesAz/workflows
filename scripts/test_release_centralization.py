@@ -71,4 +71,19 @@ assert "except transient as exc:" in play_workflow
 assert "return request.execute(num_retries=retries)" in play_workflow
 assert "MediaFileUpload(aab,mimetype='application/octet-stream')).execute()" not in play_workflow
 
+
+multi_platform_release = Path(
+    '.github/workflows/multi-platform-app-release.yml'
+).read_text(encoding='utf-8')
+assert 'workflow_call:' in multi_platform_release
+assert 'reuse_existing_tag="$(jq -r \'.reuse_existing_tag // false\'' in multi_platform_release
+assert 'Keeping stable grouped-release tag $TAG' in multi_platform_release
+assert "migrate_build_releases" in multi_platform_release
+assert 'gh release delete "$legacy_tag" --repo "$TARGET_REPOSITORY" --yes' in multi_platform_release
+assert 'legacy_asset_count=' in multi_platform_release
+assert 'Downloaded $downloaded_count of $legacy_asset_count assets' in multi_platform_release
+assert 'Source run SHA $run_sha does not match target SHA $TARGET_SHA' in multi_platform_release
+assert '--prerelease="$prerelease"' in multi_platform_release
+assert 'git tag -fa "$TAG"' in multi_platform_release  # retained only for explicit force_tag profiles
+
 print('release centralization regression test passed')

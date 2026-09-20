@@ -1,0 +1,250 @@
+# Generated for HereLiesAz/HG2Gui:.github/workflows/release-play.yml.
+# Edit the registered source or synchronizer, not this compiled workflow.
+# Generated shared catalog workflow. Do not edit by hand.
+# catalog-source: shared/54a5db9145456032e4e0edf36059c527b5cf458d4b9152731958f4e260235bc6
+name: HG2Gui · Release to Play
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_ref:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+permissions:
+  contents: read
+env:
+  TARGET_REPOSITORY: ${{ inputs.target_repository }}
+  TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+  TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+  TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+  TARGET_SHA: ${{ inputs.target_sha }}
+  TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+  TARGET_REF: ${{ inputs.target_ref }}
+  TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+  TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+  TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+  TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+  TARGET_ACTOR: ${{ inputs.target_actor }}
+  TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+  TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+  TARGET_RUN_ID: ${{ inputs.target_run_id }}
+  TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+  TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+  TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+  TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+concurrency:
+  group: release-play-${{ inputs.target_ref }}-HG2Gui
+  cancel-in-progress: false
+jobs:
+  central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from HereLiesAz/workflows.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+  build-publish:
+    name: Build signed AAB${{ (fromJSON(inputs.target_inputs_json).publish || inputs.target_event_name == 'push') && ' + publish' || '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      DO_PUBLISH: ${{ fromJSON(inputs.target_inputs_json).publish || inputs.target_event_name == 'push' }}
+      COMPLETED_TRACK: ${{ fromJSON(inputs.target_inputs_json).completed_track || 'internal' }}
+      DRAFT_TRACKS: ${{ fromJSON(inputs.target_inputs_json).draft_tracks || 'alpha' }}
+      RELEASE_NOTES: ${{ fromJSON(inputs.target_inputs_json).release_notes || '' }}
+      VERSION_CODE_MODE: ${{ fromJSON(inputs.target_inputs_json).version_code_mode || 'auto' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+      - name: Set up JDK 21
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: gradle
+      - name: Grant execute permission to Gradle wrapper
+        run: chmod +x gradlew
+      - name: Prepare signing keystore
+        id: keystore
+        uses: ./.github/actions/android-keystore
+        with:
+          keystore-private: ${{ secrets.KEYSTORE_PRIVATE }}
+          keystore-rsa: ${{ secrets.KEYSTORE_RSA }}
+          keystore-public: ${{ secrets.KEYSTORE_PUBLIC }}
+          keystore-chain: ${{ secrets.KEYSTORE_CHAIN }}
+          keystore-password: ${{ secrets.KEYSTORE_PASSWORD }}
+          key-alias: ${{ secrets.KEY_ALIAS }}
+          key-password: ${{ secrets.KEY_PASSWORD }}
+          expected-sha256: ${{ secrets.KEYSTORE_SHA256 }}
+          expected-sha1: ${{ secrets.KEYSTORE_SHA1 }}
+          expected-owner: ${{ secrets.KEYSTORE_OWNER }}
+      - name: Read application id
+        run: "set -euo pipefail\napp_id=$(./gradlew -q :composeApp:printApplicationId | grep '^APPLICATION_ID=' | tail -n1 | cut -d= -f2-)\n[ -n \"$app_id\" ] || { echo \"::error::printApplicationId produced no APPLICATION_ID= line.\"; exit 1; }\necho \"APP_ID=$app_id\" >> \"$GITHUB_ENV\"\n"
+      - name: Mint a Play API token (preflight)
+        id: preflight-token
+        if: ${{ env.DO_PUBLISH == 'true' }}
+        uses: ./.github/actions/play-api-token
+        with:
+          service-account-json: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+      - name: Preflight Google Play API access
+        if: ${{ env.DO_PUBLISH == 'true' }}
+        run: "set -euo pipefail\ntoken=$(cat \"${{ steps.preflight-token.outputs.token-file }}\")\napi=\"https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${APP_ID}\"\necho \"Package: $APP_ID\"\n\nresp=\"$RUNNER_TEMP/edit.json\"\nhttp=$(curl -sS -o \"$resp\" -w \"%{http_code}\" -X POST -H \"Authorization: Bearer $token\" \"$api/edits\")\necho \"Play API edits.insert -> HTTP $http\"\necho \"Response body:\"; cat \"$resp\"; echo\nif [ \"$http\" != \"200\" ] && [ \"$http\" != \"201\" ]; then\n  echo \"::error::Play Developer API rejected the request (HTTP $http). See the response body above for the exact cause (403=permission/API not enabled, 404=app or first release missing, 401=bad credentials).\"\n  exit 1\nfi\nedit_id=$(jq -r '.id // empty' \"$resp\")\n\n# While the edit is open, ask Play what it already holds. A versionCode\n# at or below the highest existing one uploads fine and then fails at\n# rollout with \"does not allow any existing users to upgrade\" — an\n# error that says nothing about version codes and is easy to misread.\n# Better to know the number now than to find out in the console.\nplay_max=0\nfor kind in bundles apks; do\n  list=\"$RUNNER_TEMP/$kind.json\"\n  lh=$(curl -sS -o \"$list\" -w \"%{http_code}\" \\\n    -H \"Authorization: Bearer $token\" \"$api/edits/${edit_id}/${kind}\")\n  if [ \"$lh\" = \"200\" ]; then\n    m=$(jq -r \"[.${kind}[]?.versionCode // 0] | max // 0\" \"$list\")\n    [ \"$m\" -gt \"$play_max\" ] && play_max=$m\n  else\n    echo \"::warning::Could not list $kind (HTTP $lh) — that source won't be considered.\"\n  fi\ndone\n\nif [ -n \"$edit_id\" ]; then\n  curl -sS -o /dev/null -X DELETE \\\n    -H \"Authorization: Bearer $token\" \"$api/edits/${edit_id}\" || true\nfi\necho \"Highest versionCode already on Play: $play_max\"\necho \"PLAY_MAX_VERSION_CODE=$play_max\" >> \"$GITHUB_ENV\"\necho \"Play API access OK — proceeding to build.\"\n"
+      - name: Prepare release version
+        shell: bash
+        run: "set -euo pipefail\npython - <<'PY'\nimport os\nfrom pathlib import Path\n\npath = Path(\"version.properties\")\nlines = path.read_text(encoding=\"utf-8\").splitlines()\nprops = {}\nfor line in lines:\n    if \"=\" in line and not line.lstrip().startswith(\"#\"):\n        key, value = line.split(\"=\", 1)\n        props[key.strip()] = value.strip()\n\nmajor = int(props.get(\"versionMajor\", \"0\"))\nminor = int(props.get(\"versionMinor\", \"0\"))\npatch = int(props.get(\"versionPatch\", \"0\")) + 1\ncurrent_build = int(props.get(\"versionBuild\", \"0\"))\nlegacy = int(props.get(\"legacyVersionCode\", \"205\"))\nplay_max = int(os.environ.get(\"PLAY_MAX_VERSION_CODE\", \"0\") or \"0\")\nmode = os.environ.get(\"VERSION_CODE_MODE\", \"auto\")\n\ncandidate = max(current_build + 1, legacy + 1)\nif mode == \"auto\":\n    candidate = max(candidate, play_max + 1)\nelif mode == \"strict\":\n    if candidate <= play_max:\n        raise SystemExit(\n            f\"Strict version mode: next local versionCode {candidate} \"\n            f\"does not clear Play's current maximum {play_max}.\"\n        )\nelse:\n    raise SystemExit(f\"Unknown VERSION_CODE_MODE: {mode}\")\n\nversion_name = f\"{major}.{minor}.{patch}.{candidate}\"\nreplacements = {\n    \"versionPatch\": str(patch),\n    \"versionBuild\": str(candidate),\n}\nupdated = []\nseen = set()\nfor line in lines:\n    if \"=\" in line:\n        key = line.split(\"=\", 1)[0].strip()\n        if key in replacements:\n            updated.append(f\"{key}={replacements[key]}\")\n            seen.add(key)\n            continue\n    updated.append(line)\nfor key, value in replacements.items():\n    if key not in seen:\n        updated.append(f\"{key}={value}\")\n\nprepared = Path(os.environ[\"RUNNER_TEMP\"]) / \"release-version.properties\"\nprepared.write_text(\"\\n\".join(updated) + \"\\n\", encoding=\"utf-8\")\nwith open(os.environ[\"GITHUB_ENV\"], \"a\", encoding=\"utf-8\") as env:\n    env.write(f\"VERSION_MAJOR={major}\\n\")\n    env.write(f\"VERSION_MINOR={minor}\\n\")\n    env.write(f\"VERSION_PATCH={patch}\\n\")\n    env.write(f\"VERSION_BUILD={candidate}\\n\")\n    env.write(f\"VERSION_NAME={version_name}\\n\")\n    env.write(f\"VERSION_CODE={candidate}\\n\")\nprint(f\"Prepared {version_name}; Play max={play_max}; repository remains unchanged until publish succeeds.\")\nPY\n"
+      - name: Build signed release bundle
+        env:
+          KEYSTORE_FILE: ${{ steps.keystore.outputs.keystore-path }}
+          KEYSTORE_TYPE: ${{ steps.keystore.outputs.store-type }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          REQUIRE_SIGNING: 'true'
+        run: ./gradlew bundleRelease -PskipAutoIncrementVersion=true -PversionBuild="$VERSION_BUILD" -PversionName="$VERSION_NAME"
+      - name: Verify the bundle is signed by the expected key
+        run: "set -euo pipefail\naab=$(find composeApp/build/outputs/bundle/playstoreRelease -name \"*.aab\" | head -n1)\n[ -n \"$aab\" ] || { echo \"::error::No .aab was produced.\"; exit 1; }\necho \"AAB_PATH=$aab\" >> \"$GITHUB_ENV\"\n"
+      - name: Check bundle signature
+        uses: ./.github/actions/verify-android-signature
+        with:
+          artifact: ${{ env.AAB_PATH }}
+          expected-sha256: ${{ steps.keystore.outputs.sha256 }}
+      - name: Confirm the built versionCode clears Play
+        if: ${{ env.DO_PUBLISH == 'true' }}
+        run: "set -euo pipefail\nplay_max=${PLAY_MAX_VERSION_CODE:-0}\necho \"Built versionCode $VERSION_CODE; Play's highest is $play_max.\"\nif [ \"$VERSION_CODE\" -le \"$play_max\" ]; then\n  echo \"::error::The built bundle is versionCode $VERSION_CODE but Play already has $play_max. Refusing to upload — it could not be rolled out to any existing user. Set versionBuild=$play_max in version.properties and commit.\"\n  exit 1\nfi\n"
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: hg2gui-release-aab-${{ env.VERSION_NAME }}
+          path: "composeApp/build/outputs/bundle/playstoreRelease/*.aab\n${{ runner.temp }}/release-version.properties\n"
+          if-no-files-found: error
+      - name: Mint a Play API token (publish)
+        id: publish-token
+        if: ${{ env.DO_PUBLISH == 'true' }}
+        uses: ./.github/actions/play-api-token
+        with:
+          service-account-json: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+      - name: Publish to Google Play
+        id: play
+        if: ${{ env.DO_PUBLISH == 'true' }}
+        uses: ./.github/actions/play-publish
+        with:
+          package-name: ${{ env.APP_ID }}
+          aab: ${{ env.AAB_PATH }}
+          token-file: ${{ steps.publish-token.outputs.token-file }}
+          completed-track: ${{ env.COMPLETED_TRACK }}
+          draft-tracks: ${{ env.DRAFT_TRACKS }}
+          release-name: ${{ env.VERSION_NAME }}
+          release-notes: ${{ env.RELEASE_NOTES }}
+      - name: Persist successful Play version
+        if: ${{ env.DO_PUBLISH == 'true' && success() }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GH_TOKEN }}
+          TARGET_REPOSITORY: ${{ inputs.target_repository }}
+          TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+        shell: bash
+        run: "set -euo pipefail\nprepared=\"$RUNNER_TEMP/release-version.properties\"\n[[ -s \"$prepared\" ]] || { echo \"::error::Prepared release version file is missing.\"; exit 1; }\nsha=\"$(gh api \"repos/$TARGET_REPOSITORY/contents/version.properties?ref=$TARGET_REF_NAME\" --jq '.sha')\"\ncontent=\"$(base64 -w0 \"$prepared\")\"\npayload=\"$(jq -nc \\\n  --arg message \"chore: record Play release $VERSION_NAME [skip ci]\" \\\n  --arg content \"$content\" \\\n  --arg sha \"$sha\" \\\n  --arg branch \"$TARGET_REF_NAME\" \\\n  '{message:$message,content:$content,sha:$sha,branch:$branch}')\"\ngh api --method PUT \"repos/$TARGET_REPOSITORY/contents/version.properties\" --input - <<<\"$payload\"\necho \"Persisted version.properties only after Play accepted versionCode $VERSION_CODE.\"\n"
+      - name: Say what landed where
+        if: ${{ env.DO_PUBLISH == 'true' }}
+        run: "echo \"versionCode ${{ steps.play.outputs.version-code }} is live on the ${{ steps.play.outputs.rolled-out }} track.\"\ndrafted=\"${{ steps.play.outputs.drafted }}\"\nif [ -n \"$drafted\" ]; then\n  echo \"Drafts staged (same bundle) on: $drafted\"\n  echo \"Promote one in the console when you're ready — no rebuild needed.\"\nelse\n  echo \"::warning::No draft tracks were set. Check the warnings above for which ones Play refused.\"\nfi\n"
+    needs: central_check_start
+    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
+    environment: HG2Gui
+  central_check_finish:
+    if: ${{ always() }}
+    needs:
+      - central_check_start
+      - build-publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Central workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Central workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+run-name: HG2Gui · Release to Play

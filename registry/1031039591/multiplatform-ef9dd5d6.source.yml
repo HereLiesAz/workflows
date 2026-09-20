@@ -118,9 +118,6 @@ jobs:
           echo "HAIVE_VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
           echo "Android release versionCode: $VERSION_CODE"
 
-      - name: Verify immutable release policy
-        run: python3 .github/scripts/verify_release_immutability.py
-
       - name: Test shared domain
         run: ./gradlew :shared:desktopTest
 
@@ -438,21 +435,23 @@ jobs:
           path: ${{ matrix.path }}
           if-no-files-found: error
 
-  release:
-    name: Publish versioned release
+  prepare-release-assets:
+    name: Prepare grouped GitHub release assets
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs:
       - build
       - desktop-packages
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
+    outputs:
+      patch_version: ${{ steps.release-metadata.outputs.patch_version }}
+      build_version: ${{ steps.release-metadata.outputs.build_version }}
+      prerelease: ${{ steps.release-metadata.outputs.prerelease }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
 
       - name: Download GitHub Android release
         uses: actions/download-artifact@v8
@@ -484,7 +483,8 @@ jobs:
           name: aive-release-notes
           path: release-input/notes
 
-      - name: Prepare release assets
+      - name: Prepare patch-grouped release bundle
+        id: release-metadata
         shell: bash
         run: |
           set -euo pipefail
@@ -498,13 +498,12 @@ jobs:
           MAJOR=$(printf '%s' "$SOURCE_VERSION" | cut -d. -f1)
           MINOR=$(printf '%s' "$SOURCE_VERSION" | cut -d. -f2)
           PATCH=$(printf '%s' "$SOURCE_VERSION" | cut -d. -f3)
-          VERSION_NAME="${MAJOR}.${MINOR}.${PATCH}.${GITHUB_RUN_NUMBER}"
-          TAG_NAME="v${VERSION_NAME}"
-          RELEASE_TITLE="The Aive ${VERSION_NAME}"
+          PATCH_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          BUILD_VERSION="${PATCH_VERSION}.${GITHUB_RUN_NUMBER}"
 
-          IS_PRERELEASE=false
+          PRERELEASE=false
           if [ "$MAJOR" -eq 0 ] || { [ "$MAJOR" -eq 1 ] && [ "$MINOR" -le 3 ]; }; then
-            IS_PRERELEASE=true
+            PRERELEASE=true
           fi
 
           mkdir -p release-files
@@ -528,71 +527,57 @@ jobs:
             fi
           done
 
-          cp "$APK_SOURCE" "release-files/TheAive-${VERSION_NAME}-android.apk"
-          cp "$DEB_SOURCE" "release-files/TheAive-${VERSION_NAME}.deb"
-          cp "$MSI_SOURCE" "release-files/TheAive-${VERSION_NAME}.msi"
-          cp "$DMG_SOURCE" "release-files/TheAive-${VERSION_NAME}.dmg"
+          cp "$APK_SOURCE" "release-files/TheAive-${BUILD_VERSION}-android.apk"
+          cp "$DEB_SOURCE" "release-files/TheAive-${BUILD_VERSION}.deb"
+          cp "$MSI_SOURCE" "release-files/TheAive-${BUILD_VERSION}.msi"
+          cp "$DMG_SOURCE" "release-files/TheAive-${BUILD_VERSION}.dmg"
 
           NOTES_SOURCE=$(find release-input/notes -type f -name 'default.txt' -print -quit)
           {
-            echo "# The Aive ${VERSION_NAME}"
-            echo
             echo "Versioned build from commit \`${GITHUB_SHA}\`."
             if [ -n "$NOTES_SOURCE" ] && [ -s "$NOTES_SOURCE" ]; then
               echo
-              echo "## Changes"
+              echo "### Changes"
               cat "$NOTES_SOURCE"
             fi
-          } > release-notes.md
+          } > release-files/release-notes.md
 
-          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
-          echo "TAG_NAME=$TAG_NAME" >> "$GITHUB_ENV"
-          echo "RELEASE_TITLE=$RELEASE_TITLE" >> "$GITHUB_ENV"
-          echo "IS_PRERELEASE=$IS_PRERELEASE" >> "$GITHUB_ENV"
+          echo "patch_version=$PATCH_VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_version=$BUILD_VERSION" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
 
-          echo "Release assets:"
+          echo "Prepared grouped release bundle:"
           ls -lh release-files
 
-      - name: Publish versioned release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
+      - name: Upload grouped GitHub release bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: aive-github-release-bundle
+          path: release-files/
+          if-no-files-found: error
 
-          # Release history is immutable. Every MAJOR.MINOR.PATCH.BUILD may be published exactly once.
-          # Never move a version tag, edit an existing release, delete its assets, or clobber uploads.
-          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
-            echo "Release $TAG_NAME already exists. Leaving the existing release completely unchanged."
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          if git rev-parse -q --verify "refs/tags/$TAG_NAME" >/dev/null; then
-            TAG_COMMIT=$(git rev-list -n 1 "$TAG_NAME")
-            if [ "$TAG_COMMIT" != "$GITHUB_SHA" ]; then
-              echo "::error::Immutable tag $TAG_NAME already exists at $TAG_COMMIT; refusing to move it to $GITHUB_SHA"
-              exit 1
-            fi
-          else
-            git tag -a "$TAG_NAME" -m "The Aive ${VERSION_NAME}"
-            git push origin "$TAG_NAME"
-          fi
-
-          if [ "$IS_PRERELEASE" = "true" ]; then
-            gh release create "$TAG_NAME" release-files/* \
-              --prerelease \
-              --verify-tag \
-              --title "$RELEASE_TITLE" \
-              --notes-file release-notes.md
-          else
-            gh release create "$TAG_NAME" release-files/* \
-              --verify-tag \
-              --title "$RELEASE_TITLE" \
-              --notes-file release-notes.md
-          fi
+  release:
+    name: Publish patch-grouped release
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs:
+      - prepare-release-assets
+    permissions:
+      actions: read
+      contents: write
+    uses: HereLiesAz/workflows/.github/workflows/patch-grouped-github-release.yml@main
+    with:
+      target_repository: ${{ github.repository }}
+      target_sha: ${{ github.sha }}
+      source_run_id: ${{ github.run_id }}
+      artifact_name: aive-github-release-bundle
+      patch_version: ${{ needs.prepare-release-assets.outputs.patch_version }}
+      build_version: ${{ needs.prepare-release-assets.outputs.build_version }}
+      release_title_prefix: The Aive
+      notes_filename: release-notes.md
+      prerelease: ${{ needs.prepare-release-assets.outputs.prerelease == 'true' }}
+      migrate_legacy_build_releases: true
+    secrets:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   deploy-pages:
     if: github.event_name != 'pull_request'

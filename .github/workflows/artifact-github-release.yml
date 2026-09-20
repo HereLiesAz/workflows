@@ -195,7 +195,7 @@ jobs:
           github-token: ${{ secrets.GH_TOKEN }}
           target-repository: ${{ inputs.target_repository }}
           target-sha: ${{ inputs.target_sha }}
-          build-version: ${{ env.RELEASE_VERSION }}
+          build-version: ${{ steps.release_metadata.outputs.version }}
           assets: release-assets/**/*
           title-prefix: ${{ steps.grouping.outputs.title-prefix }}
           notes-file: grouped-release-notes.md

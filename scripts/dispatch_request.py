@@ -401,6 +401,37 @@ def main() -> int:
     event_name = require(str(request.get("event_name", "")), "event_name")
     event = request.get("event") or {}
 
+    # Match GitHub Actions' intentional skip semantics for controller-generated
+    # maintenance commits. The webhook transport sees every push, including the
+    # controller's own version/proxy-migration commits, so suppress them here
+    # before they can fan out into normal application CI.
+    if event_name == "push":
+        head_commit = event.get("head_commit") or {}
+        head_message = str(head_commit.get("message") or "")
+        commit_messages = [
+            str(item.get("message") or "")
+            for item in (event.get("commits") or [])
+            if isinstance(item, dict)
+        ]
+        skip_tokens = ("[skip ci]", "[ci skip]", "[no ci]", "[skip actions]", "[actions skip]")
+        if any(token in head_message.casefold() for token in skip_tokens) or (
+            commit_messages
+            and all(any(token in message.casefold() for token in skip_tokens) for message in commit_messages)
+        ):
+            print(
+                json.dumps(
+                    {
+                        "status": "ignored",
+                        "repository": repository,
+                        "event_name": event_name,
+                        "reason": "push contains an explicit CI-skip token",
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+            )
+            return 0
+
     repo = gh.repo(repository)
     if str(repo["id"]) != repository_id:
         raise RuntimeError("Repository ID mismatch")

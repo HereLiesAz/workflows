@@ -151,7 +151,7 @@ def effects_for(text: str, uses: list[str], name: str, path: str) -> set[str]:
     if has("wasmjsbrowserdistribution", "wasm distribution"):
         effects.add("wasm-build")
 
-    # Jules/Glee are separate behaviors even though several use the same APIs.
+    # Glee is the Codex-backed PR audit; Jules workflows remain separate behaviors.
     if has("glee audit", "jules-glee"):
         effects.add("glee-audit")
     if has("jules auto-merge", "jules-auto-merge"):

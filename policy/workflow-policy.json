@@ -167,6 +167,12 @@
     "JULES_API_KEY": {
       "purpose": "Authenticates Jules API requests for code and repository automation."
     },
+    "KEY_ALIAS": {
+      "purpose": "Selects the signing key entry inside an Android keystore."
+    },
+    "KEY_PASSWORD": {
+      "purpose": "Unlocks the selected Android signing key entry."
+    },
     "KEYSTORE_CHAIN": {
       "purpose": "Certificate chain paired with the Android signing private key."
     },
@@ -185,14 +191,11 @@
     "KEYSTORE_RSA": {
       "purpose": "RSA key material used by Android signing workflows."
     },
-    "KEY_ALIAS": {
-      "purpose": "Selects the signing key entry inside an Android keystore."
-    },
-    "KEY_PASSWORD": {
-      "purpose": "Unlocks the selected Android signing key entry."
-    },
     "NPM_AUTH_TOKEN": {
       "purpose": "Authenticates package publication to the configured npm registry."
+    },
+    "OPENAI_API_KEY": {
+      "purpose": "Authenticates the OpenAI Codex GitHub Action used by the centralized Glee pull-request audit."
     },
     "OSSRH_TOKEN": {
       "purpose": "Authenticates Maven Central/Sonatype publishing."

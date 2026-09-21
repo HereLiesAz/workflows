@@ -1024,7 +1024,7 @@ def sync_repository(gh: GitHub, full_name: str, worker_url: str, dry_run: bool =
 
         if "glee" in workflow_name.casefold() and path != ".github/workflows/jules-glee.yml":
             blockers = [
-                "legacy Glee workflow disabled: Glee may only use the canonical repoless Jules API audit and one PR comment"
+                "legacy Glee workflow disabled: Glee may only use the canonical repoless Codex audit and one PR comment"
             ]
             workflows_manifest[path] = {
                 "status": "blocked",

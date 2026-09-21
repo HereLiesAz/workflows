@@ -771,8 +771,33 @@ actual_owner="$(jq -r '.owner.login' <<<"$repo_json")"
                 },
                 "shell": "bash",
                 "run": '''set -euo pipefail
+gh_api_json_with_retry() {
+  local method="$1" endpoint="$2" payload="$3"
+  local attempt=1 max_attempts=14 delay=10 output rc
+  while true; do
+    set +e
+    output="$(gh api --method "$method" "$endpoint" --input - <<<"$payload" 2>&1)"
+    rc=$?
+    set -e
+    if [[ $rc -eq 0 ]]; then
+      printf '%s' "$output"
+      return 0
+    fi
+    if [[ $attempt -ge $max_attempts ]] || ! grep -Eqi 'rate limit|HTTP 403|HTTP 429|secondary rate' <<<"$output"; then
+      printf '%s\n' "$output" >&2
+      return "$rc"
+    fi
+    printf 'GitHub API quota unavailable while posting target check; retry %d/%d in %ds.\n' "$attempt" "$max_attempts" "$delay" >&2
+    sleep "$delay"
+    attempt=$((attempt + 1))
+    if [[ $delay -lt 300 ]]; then
+      delay=$((delay * 2))
+      [[ $delay -le 300 ]] || delay=300
+    fi
+  done
+}
 payload="$(jq -n --arg name "$CHECK_NAME" --arg sha "$TARGET_CHECK_SHA" --arg details "$DETAILS_URL" '{name:$name,head_sha:$sha,status:"in_progress",details_url:$details,output:{title:$name,summary:"Running from the shared workflow catalog."}}')"
-response="$(gh api --method POST "repos/${TARGET_REPOSITORY}/check-runs" --input - <<<"$payload")"
+response="$(gh_api_json_with_retry POST "repos/${TARGET_REPOSITORY}/check-runs" "$payload")"
 echo "check_id=$(jq -r '.id' <<<"$response")" >> "$GITHUB_OUTPUT"''',
             },
         ],
@@ -801,8 +826,33 @@ echo "check_id=$(jq -r '.id' <<<"$response")" >> "$GITHUB_OUTPUT"''',
             "run": '''set -euo pipefail
 [[ -n "${CHECK_ID:-}" ]] || exit 0
 if [[ "$FAILED" == "true" ]]; then conclusion="failure"; summary="Shared catalog workflow failed. Open the linked run for details."; else conclusion="success"; summary="Shared catalog workflow completed successfully."; fi
+gh_api_json_with_retry() {
+  local method="$1" endpoint="$2" payload="$3"
+  local attempt=1 max_attempts=14 delay=10 output rc
+  while true; do
+    set +e
+    output="$(gh api --method "$method" "$endpoint" --input - <<<"$payload" 2>&1)"
+    rc=$?
+    set -e
+    if [[ $rc -eq 0 ]]; then
+      printf '%s' "$output"
+      return 0
+    fi
+    if [[ $attempt -ge $max_attempts ]] || ! grep -Eqi 'rate limit|HTTP 403|HTTP 429|secondary rate' <<<"$output"; then
+      printf '%s\n' "$output" >&2
+      return "$rc"
+    fi
+    printf 'GitHub API quota unavailable while posting target check; retry %d/%d in %ds.\n' "$attempt" "$max_attempts" "$delay" >&2
+    sleep "$delay"
+    attempt=$((attempt + 1))
+    if [[ $delay -lt 300 ]]; then
+      delay=$((delay * 2))
+      [[ $delay -le 300 ]] || delay=300
+    fi
+  done
+}
 payload="$(jq -n --arg conclusion "$conclusion" --arg title "$CHECK_NAME" --arg summary "$summary" --arg details "$DETAILS_URL" '{status:"completed",conclusion:$conclusion,details_url:$details,output:{title:$title,summary:$summary}}')"
-gh api --method PATCH "repos/${TARGET_REPOSITORY}/check-runs/${CHECK_ID}" --input - <<<"$payload"''',
+gh_api_json_with_retry PATCH "repos/${TARGET_REPOSITORY}/check-runs/${CHECK_ID}" "$payload" >/dev/null''',
         }],
     })
     doc["jobs"] = jobs

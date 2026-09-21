@@ -1,3 +1,5 @@
+# Glee is implemented by Codex. The historical filename is retained for proxy compatibility.
+# required-secret: OPENAI_API_KEY | Authenticates the OpenAI Codex GitHub Action.
 name: Glee Audit
 
 on:
@@ -229,123 +231,22 @@ jobs:
           GLEE_END
           } > glee-prompt.md
 
-      - name: Start analysis-only repoless Jules audit
-        id: start
-        env:
-          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
-          PR_NUMBER: ${{ steps.meta.outputs.pr_number }}
+      - name: Run analysis-only repoless Codex audit
+        id: codex
+        uses: openai/codex-action@5c3f4ccdb2b8790f73d6b21751ac00e602aa0c02 # v1.7
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ":read-only"
+          safety-strategy: drop-sudo
+          prompt-file: glee-prompt.md
+          output-file: glee-audit.md
+          effort: high
+
+      - name: Validate Codex audit output
         shell: bash
         run: |
           set -euo pipefail
-          [[ -n "$JULES_API_KEY" ]] || { echo "JULES_API_KEY is not configured" >&2; exit 1; }
-          jq -n \
-            --rawfile prompt glee-prompt.md \
-            --arg title "Glee audit PR #$PR_NUMBER" \
-            '{prompt:$prompt,title:$title,requirePlanApproval:false,automationMode:"AUTOMATION_MODE_UNSPECIFIED"}' \
-            > jules-payload.json
-
-          jq -e '
-            .automationMode == "AUTOMATION_MODE_UNSPECIFIED"
-            and (has("sourceContext") | not)
-          ' jules-payload.json >/dev/null || {
-            echo "Refusing Glee Jules request: it must be repoless and no-automation." >&2
-            cat jules-payload.json >&2
-            exit 1
-          }
-
-          curl --fail-with-body --silent --show-error \
-            -X POST \
-            -H 'Content-Type: application/json' \
-            -H "X-Goog-Api-Key: $JULES_API_KEY" \
-            --data @jules-payload.json \
-            'https://jules.googleapis.com/v1alpha/sessions' \
-            > jules-session.json
-
-          if jq -e '.sourceContext != null' jules-session.json >/dev/null; then
-            echo "Jules API returned a source-connected Glee session; refusing to continue." >&2
-            jq '{name,sourceContext,outputs}' jules-session.json >&2
-            exit 1
-          fi
-          if jq -e 'any(.outputs[]?; .pullRequest? != null)' jules-session.json >/dev/null; then
-            echo "Jules API returned a PR-producing Glee session; refusing to continue." >&2
-            jq '{name,outputs}' jules-session.json >&2
-            exit 1
-          fi
-
-          session_name="$(jq -r '.name // empty' jules-session.json)"
-          [[ -n "$session_name" ]] || { cat jules-session.json; exit 1; }
-          echo "session_name=$session_name" >> "$GITHUB_OUTPUT"
-
-      - name: Wait for Jules and collect final audit
-        env:
-          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
-          SESSION_NAME: ${{ steps.start.outputs.session_name }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          completed=false
-          last_state="STATE_UNSPECIFIED"
-          for _ in $(seq 1 90); do
-            curl --fail-with-body --silent --show-error \
-              -H "X-Goog-Api-Key: $JULES_API_KEY" \
-              "https://jules.googleapis.com/v1alpha/${SESSION_NAME}" \
-              > jules-status.json
-
-            if jq -e '.sourceContext != null' jules-status.json >/dev/null; then
-              echo "Jules API attached repository source context to a Glee session; aborting." >&2
-              jq '{name,state,sourceContext,outputs}' jules-status.json >&2
-              exit 1
-            fi
-            if jq -e 'any(.outputs[]?; .pullRequest? != null)' jules-status.json >/dev/null; then
-              echo "Jules API reports a pull request output for Glee; aborting." >&2
-              jq '{name,state,outputs}' jules-status.json >&2
-              exit 1
-            fi
-
-            state="$(jq -r '.state // "STATE_UNSPECIFIED"' jules-status.json)"
-            last_state="$state"
-            case "$state" in
-              COMPLETED) completed=true; break ;;
-              FAILED|AWAITING_USER_FEEDBACK|AWAITING_PLAN_APPROVAL|PAUSED)
-                echo "Jules audit entered terminal/non-autonomous state: $state" >&2
-                jq '{name,state,createTime,updateTime}' jules-status.json >&2
-                exit 1
-                ;;
-            esac
-            sleep 10
-          done
-          if [[ "$completed" != true ]]; then
-            echo "Jules audit timed out in state: $last_state" >&2
-            jq '{name,state,createTime,updateTime}' jules-status.json >&2
-            exit 1
-          fi
-
-          # Final Jules API invariant: a Glee session must have no PR output.
-          if jq -e 'any(.outputs[]?; .pullRequest? != null)' jules-status.json >/dev/null; then
-            echo "Completed Glee session contains a pull request output; refusing to post audit." >&2
-            jq '{name,outputs}' jules-status.json >&2
-            exit 1
-          fi
-
-          : > glee-audit.md
-          page_token=''
-          while :; do
-            args=(--fail-with-body --silent --show-error --get -H "X-Goog-Api-Key: $JULES_API_KEY" --data-urlencode 'pageSize=100')
-            if [[ -n "$page_token" ]]; then args+=(--data-urlencode "pageToken=$page_token"); fi
-            curl "${args[@]}" "https://jules.googleapis.com/v1alpha/${SESSION_NAME}/activities" > jules-activities.json
-
-            if jq -e 'any(.activities[]?.artifacts[]?; .changeSet? != null)' jules-activities.json >/dev/null; then
-              echo "Glee Jules session produced a code change artifact; refusing to post audit." >&2
-              jq '[.activities[]?.artifacts[]? | select(.changeSet? != null) | .changeSet]' jules-activities.json >&2
-              exit 1
-            fi
-
-            latest="$(jq -r '[.activities[]? | select(.agentMessaged.agentMessage != null) | .agentMessaged.agentMessage] | last // empty' jules-activities.json)"
-            [[ -z "$latest" ]] || printf '%s\n' "$latest" > glee-audit.md
-            page_token="$(jq -r '.nextPageToken // empty' jules-activities.json)"
-            [[ -n "$page_token" ]] || break
-          done
-          [[ -s glee-audit.md ]] || { echo "Jules completed without a final audit" >&2; exit 1; }
+          [[ -s glee-audit.md ]] || { echo "Codex completed without a final Glee audit" >&2; exit 1; }
 
       - name: Post one Glee audit comment
         env:

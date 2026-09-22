@@ -1,0 +1,191 @@
+# Generated for HereLiesAz/hereliesaz.github.io:.github/workflows/remove_painting.yml.
+# Edit the registered source or synchronizer, not this compiled workflow.
+# Generated shared catalog workflow. Do not edit by hand.
+# catalog-source: shared/ad845586ff327e183ae8d36e195eee8647bfe81e60bc49ec79a08df55223bb55
+name: hereliesaz.github.io · Remove Painting
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_ref:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+permissions:
+  contents: read
+env:
+  TARGET_REPOSITORY: ${{ inputs.target_repository }}
+  TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+  TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+  TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+  TARGET_SHA: ${{ inputs.target_sha }}
+  TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+  TARGET_REF: ${{ inputs.target_ref }}
+  TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+  TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+  TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+  TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+  TARGET_ACTOR: ${{ inputs.target_actor }}
+  TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+  TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+  TARGET_RUN_ID: ${{ inputs.target_run_id }}
+  TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+  TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+  TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+  TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+concurrency:
+  group: remove-painting-hereliesaz.github.io
+  cancel-in-progress: false
+jobs:
+  central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_owner=\"${TARGET_REPOSITORY%%/*}\"\n[[ -n \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Missing repository ID\" >&2; exit 1; }\n[[ \"${repo_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"${TARGET_REPOSITORY_OWNER,,}\" == \"hereliesaz\" ]] || { echo \"OIDC owner login mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from HereLiesAz/workflows.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\nif ! output=\"$(gh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\" 2>&1)\"; then\n  echo \"::warning::Could not post target status: $output\"\nfi"
+  remove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: art-data-publish-hereliesaz.github.io
+      cancel-in-progress: false
+    steps:
+      - name: Checkout source (for scripts/)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+      - name: Checkout art-data
+        uses: actions/checkout@v4
+        with:
+          ref: art-data
+          path: _artdata
+          persist-credentials: false
+          repository: ${{ inputs.target_repository }}
+          token: ${{ secrets.GH_TOKEN }}
+      - name: Mirror art-data into public/data
+        run: "mkdir -p public/data\nrsync -a --exclude='.git' _artdata/ public/data/\n"
+      - name: Delete baked artifacts for these ids
+        env:
+          IDS_INPUT: ${{ fromJSON(inputs.target_event_json).inputs.ids }}
+        run: "if [ -z \"$IDS_INPUT\" ]; then echo \"::error::ids input is required\"; exit 1; fi\nDIR=\"public/data/theater\"\nIFS=',' read -ra IDS <<< \"$IDS_INPUT\"\nfor ID in \"${IDS[@]}\"; do\n  if [ -z \"$ID\" ]; then continue; fi\n  case \"$ID\" in\n    */*|*..*) echo \"::error::id '$ID' must not contain path separators or '..'\"; exit 1 ;;\n  esac\n  FOUND=0\n  for suffix in painting.webp depth.png theater.json; do\n    f=\"$DIR/$ID.$suffix\"\n    if [ -f \"$f\" ]; then rm -f \"$f\"; FOUND=1; fi\n  done\n  if [ \"$FOUND\" -eq 0 ]; then\n    echo \"::warning::no baked files found for id '$ID' — it may already be removed, or never finished baking. Continuing so the manifest/graph still get rebuilt clean.\"\n  fi\ndone\n"
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+      - name: Rebuild manifest
+        run: "python -c \"\nimport sys; sys.path.insert(0, 'scripts')\nfrom pathlib import Path\nfrom theater_baker import write_manifest\nwrite_manifest(Path('public/data/theater'))\n\"\n"
+      - name: Rebuild hinge graph (no dangling edges into the removed id)
+        run: python scripts/pareidolia_index.py --data public/data/theater/
+      - name: Validate output
+        run: python scripts/validate_output.py --dir public/data/theater
+      - name: Deploy to art-data
+        uses: peaceiris/actions-gh-pages@373f7f263a76c20808c831209c920827a82a2847
+        with:
+          github_token: ${{ secrets.GH_TOKEN }}
+          publish_dir: ./public/data
+          publish_branch: art-data
+          keep_files: false
+          commit_message: 'Remove painting(s): ${{ fromJSON(inputs.target_event_json).inputs.ids }}'
+    needs: central_check_start
+    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
+    permissions:
+      contents: write
+    environment: hereliesaz.github.io
+  central_check_finish:
+    if: ${{ always() }}
+    needs:
+      - central_check_start
+      - remove
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Central workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Central workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+run-name: hereliesaz.github.io · Remove Painting

@@ -91,7 +91,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         shell: bash
-        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[\"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
       - name: Set target status pending
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -268,7 +268,7 @@ jobs:
           elif [ "$(jq -r '.tracks_from_csv_input // false' <<<"$PROFILE_JSON")" = true ]; then
             csv="$(jq -r '.tracks // "internal"' <<<"$TARGET_INPUTS_JSON")"
             status="$(jq -r '.status // "draft"' <<<"$TARGET_INPUTS_JSON")"
-            tracks="$(jq -nc --arg csv "$csv" --arg status "$status" '$csv | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length>0)) | map({track:.,status:$status})')"
+            tracks="$(jq -nc --arg csv "$csv" --arg status "$status" '$csv | split(",") | map(gsub("^\\\\s+|\\\\s+$"; "")) | map(select(length>0)) | map({track:.,status:$status})')"
           fi
           if [ "$TARGET_EVENT_NAME" = push ]; then
             publish="$publish_on_push"
@@ -367,7 +367,7 @@ jobs:
               ;;
             template)
               template="$(find . -name google-services.json.template -print -quit)"
-              if [ -n "$template" ]; then sed -e 's/{{\([^}]*\)}}/${\1}/g' "$template" | envsubst > "${template%.template}"; fi
+              if [ -n "$template" ]; then sed -e 's/{{\([^}]*\)}}/${'\''\1}'/g' "$template" | envsubst > "${template%.template}"; fi
               ;;
             none) ;;
             *) echo "::error::Unknown Google services mode: $GOOGLE_SERVICES_MODE" >&2; exit 1 ;;
@@ -591,7 +591,6 @@ jobs:
       - name: Publish bundle to configured Play tracks
         id: play
         if: ${{ env.PUBLISH_PLAY == 'true' }}
-        timeout-minutes: 15
         env:
           PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           PACKAGE_NAME: ${{ steps.meta.outputs.package_name }}
@@ -600,8 +599,9 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --quiet google-api-python-client google-auth google-auth-httplib2
-          python - <<'PY'
-          import json, os, time
+          # Hard cap: kill the publisher after 30 minutes regardless of API hang.
+          timeout 1800 python - <<'PY'
+          import json, os, signal, time
           import httplib2
           from google.oauth2 import service_account
           from google_auth_httplib2 import AuthorizedHttp
@@ -609,9 +609,12 @@ jobs:
           from googleapiclient.http import MediaFileUpload
           from googleapiclient.errors import HttpError
 
-          HTTP_TIMEOUT_SECONDS=180
-          REQUEST_RETRIES=5
-          EDIT_ATTEMPTS=6
+          # Per-socket-operation timeout. Does not guard against servers that
+          # accept the connection and then stall mid-stream; the outer bash
+          # timeout 1800 is the hard wall-clock cap for the whole publish step.
+          HTTP_TIMEOUT_SECONDS=120
+          REQUEST_RETRIES=3
+          EDIT_ATTEMPTS=4
 
           info=json.loads(os.environ['PLAY_SERVICE_ACCOUNT_JSON'])
           creds=service_account.Credentials.from_service_account_info(
@@ -800,7 +803,8 @@ jobs:
             curl -fsSL -o bundletool.jar "https://github.com/google/bundletool/releases/download/${BT_VERSION}/bundletool-all-${BT_VERSION}.jar"
           fi
           key_password="${KEY_PASSWORD:-$KEYSTORE_PASSWORD}"
-          java -jar bundletool.jar build-apks --bundle="$AAB_PATH" --output=universal.apks --mode=universal --overwrite             --ks=app/keystore.jks --ks-pass=pass:"$KEYSTORE_PASSWORD" --ks-key-alias="$KEY_ALIAS" --key-pass=pass:"$key_password"
+          java -jar bundletool.jar build-apks --bundle="$AAB_PATH" --output=universal.apks --mode=universal --overwrite \
+            --ks=app/keystore.jks --ks-pass=pass:"$KEYSTORE_PASSWORD" --ks-key-alias="$KEY_ALIAS" --key-pass=pass:"$key_password"
           unzip -o -p universal.apks universal.apk > app-universal.apk
           test -s app-universal.apk || { echo "::error::Universal APK extraction failed" >&2; exit 1; }
           echo "UNIVERSAL_APK=$PWD/app-universal.apk" >> "$GITHUB_ENV"
@@ -814,10 +818,10 @@ jobs:
           version="$VERSION"
           app_name="$RELEASE_APP_NAME"
           if [ -z "$app_name" ] && [ -f settings.gradle.kts ]; then
-            app_name="$(sed -nE "s/.*rootProject\\.name[[:space:]]*=[[:space:]]*['\\\"]([^'\\\"]+)['\\\"].*/\\1/p" settings.gradle.kts | head -1)"
+            app_name="$(sed -nE "s/.*rootProject\.name[[:space:]]*=[[:space:]]*['\"]([^'\"]+)['\"].*/\\1/p" settings.gradle.kts | head -1)"
           fi
           if [ -z "$app_name" ] && [ -f settings.gradle ]; then
-            app_name="$(sed -nE "s/.*rootProject\\.name[[:space:]]*=[[:space:]]*['\\\"]([^'\\\"]+)['\\\"].*/\\1/p" settings.gradle | head -1)"
+            app_name="$(sed -nE "s/.*rootProject\.name[[:space:]]*=[[:space:]]*['\"]([^'\"]+)['\"].*/\\1/p" settings.gradle | head -1)"
           fi
           app_name="${app_name:-${{ inputs.target_repository_name }}}"
           asset="$app_name-$version.apk"
@@ -866,7 +870,7 @@ jobs:
           FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
           DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         shell: bash
-        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+        run: "set -euo pipefail\nif [[\"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
     permissions:
       contents: read
     env:

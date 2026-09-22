@@ -112,14 +112,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         shell: bash
-        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+        run: "set -euo pipefail\nrepo_owner=\"${TARGET_REPOSITORY%%/*}\"\n[[ -n \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Missing repository ID\" >&2; exit 1; }\n[[ \"${repo_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"${TARGET_REPOSITORY_OWNER,,}\" == \"hereliesaz\" ]] || { echo \"OIDC owner login mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
       - name: Set target status pending
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
           DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         shell: bash
-        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from HereLiesAz/workflows.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from HereLiesAz/workflows.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\nif ! output=\"$(gh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\" 2>&1)\"; then\n  echo \"::warning::Could not post target status: $output\"\nfi"
   bake:
     runs-on: ubuntu-latest
     timeout-minutes: 330

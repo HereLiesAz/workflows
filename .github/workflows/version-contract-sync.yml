@@ -33,7 +33,10 @@ jobs:
         run: |
           set -euo pipefail
           repos="$(
-            gh api --paginate 'user/repos?affiliation=owner&per_page=100'               --jq '.[] | select(.owner.login == "HereLiesAz") | .full_name'               | sort -u               | jq -Rsc 'split("\n") | map(select(length > 0))'
+            gh api --paginate 'user/repos?affiliation=owner&per_page=100' \
+              --jq '.[] | select(.owner.login == "HereLiesAz" and (.archived|not) and (.private|not) and .full_name != "HereLiesAz/workflows") | .full_name' \
+              | sort -u \
+              | jq -Rsc 'split("\n") | map(select(length > 0))'
           )"
           count="$(jq 'length' <<<"$repos")"
           test "$count" -gt 0

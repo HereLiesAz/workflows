@@ -394,27 +394,23 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
           echo "asset=$ASSET" >> "$GITHUB_OUTPUT"
-          if [ -n "$MAPPING_FILE" ] && [ -f "$MAPPING_FILE" ]; then
-            MAPPING_ASSET="${APP_NAME}-${VERSION}-mapping.txt"
-            cp "$MAPPING_FILE" "$MAPPING_ASSET"
-            echo "mapping_asset=$MAPPING_ASSET" >> "$GITHUB_OUTPUT"
-          else
-            echo "mapping_asset=" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Upload mapping.txt as workflow artifact
+        if: ${{ env.MAPPING_FILE != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.target_repository_name }}-${{ steps.release.outputs.version }}-mapping
+          path: ${{ env.MAPPING_FILE }}
+          if-no-files-found: error
 
       - name: Stage grouped release assets
         env:
           ASSET: ${{ steps.release.outputs.asset }}
-          MAPPING_ASSET: ${{ steps.release.outputs.mapping_asset }}
         shell: bash
         run: |
           set -euo pipefail
           rm -rf release-files
           mkdir -p release-files
           cp "$ASSET" "release-files/$(basename "$ASSET")"
-          if [ -n "$MAPPING_ASSET" ] && [ -f "$MAPPING_ASSET" ]; then
-            cp "$MAPPING_ASSET" "release-files/$(basename "$MAPPING_ASSET")"
-          fi
 
       - name: Prepare release notes
         shell: bash

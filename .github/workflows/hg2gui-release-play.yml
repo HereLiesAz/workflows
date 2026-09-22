@@ -194,6 +194,30 @@ jobs:
       - name: Confirm the built versionCode clears Play
         if: ${{ env.DO_PUBLISH == 'true' }}
         run: "set -euo pipefail\nplay_max=${PLAY_MAX_VERSION_CODE:-0}\necho \"Built versionCode $VERSION_CODE; Play's highest is $play_max.\"\nif [ \"$VERSION_CODE\" -le \"$play_max\" ]; then\n  echo \"::error::The built bundle is versionCode $VERSION_CODE but Play already has $play_max. Refusing to upload — it could not be rolled out to any existing user. Set versionBuild=$play_max in version.properties and commit.\"\n  exit 1\nfi\n"
+      - name: Resolve required mapping.txt
+        id: mapping
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapping="composeApp/build/outputs/mapping/playstoreRelease/mapping.txt"
+          if [ ! -s "$mapping" ]; then
+            mapping="$(find composeApp/build/outputs/mapping -type f -name mapping.txt -size +0c | sort | head -1 || true)"
+          fi
+          test -n "$mapping" && test -s "$mapping" || {
+            echo "::error::Google Play publishing requires a nonempty mapping.txt for the Play bundle" >&2
+            exit 1
+          }
+          cp "$mapping" "$RUNNER_TEMP/mapping.txt"
+          echo "MAPPING_PATH=$RUNNER_TEMP/mapping.txt" >> "$GITHUB_ENV"
+          echo "path=$RUNNER_TEMP/mapping.txt" >> "$GITHUB_OUTPUT"
+
+      - name: Upload mapping.txt artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: hg2gui-release-mapping-${{ env.VERSION_NAME }}
+          path: ${{ steps.mapping.outputs.path }}
+          if-no-files-found: error
+
       - name: Upload AAB artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
@@ -213,6 +237,7 @@ jobs:
         with:
           package-name: ${{ env.APP_ID }}
           aab: ${{ env.AAB_PATH }}
+          mapping: ${{ steps.mapping.outputs.path }}
           token-file: ${{ steps.publish-token.outputs.token-file }}
           completed-track: ${{ env.COMPLETED_TRACK }}
           draft-tracks: ${{ env.DRAFT_TRACKS }}

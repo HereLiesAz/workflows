@@ -12,14 +12,10 @@
   "worker_url_configured": false,
   "workflows": {
     ".github/workflows/build-referral-apk.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/nolawallet-build-referral-apk.yml",
-      "implementation_sha256": "39fc1b8c7db91f7adf89a3f56f5a1c0267c6f3cfe7909bec12a87b1594d4b551",
       "name": "Build Referral APK",
       "registry_source": "registry/1101300069/build-referral-apk-a58ac84a.source.yml",
-      "shared_variant": "39fc1b8c7db91f7a",
       "source_sha256": "94e10d0f54fee5c183d11b7d82e30d8eeb5684713c9a1b1dadaf944ab9188bee",
-      "status": "active",
+      "status": "local",
       "updated_at": "2026-09-22T07:25:28+00:00"
     },
     ".github/workflows/build_and_release.yml": {
@@ -33,42 +29,30 @@
       "updated_at": "2026-09-22T07:25:28+00:00"
     },
     ".github/workflows/deploy-functions.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/nolawallet-deploy-functions.yml",
-      "implementation_sha256": "250a4a34aeafaeea307daececd1d0c5d9bd2a1cb813feca4a2742bdc98662686",
       "name": "Deploy Functions",
       "registry_source": "registry/1101300069/deploy-functions-a6d5361c.source.yml",
-      "shared_variant": "250a4a34aeafaeea",
       "source_sha256": "d4035bdfa5747f5d43363060227627faee76a07a7ade53015d790b7e6425065d",
-      "status": "active",
+      "status": "local",
       "updated_at": "2026-09-22T07:25:29+00:00"
     },
     ".github/workflows/deploy-worker.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/nolawallet-deploy-worker.yml",
-      "implementation_sha256": "239e1f2d4c817683e95495638aba40724cae5d97db09eb8cb85fedcd8308e805",
       "name": "Deploy Worker",
       "registry_source": "registry/1101300069/deploy-worker-b13a438f.source.yml",
-      "shared_variant": "239e1f2d4c817683",
       "source_sha256": "72ef02ac7d671d0100dcf03997a7a19a536b539d2ef22769ece68b75d98e7b58",
-      "status": "active",
+      "status": "local",
       "updated_at": "2026-09-22T07:25:30+00:00"
     },
     ".github/workflows/fanout-update.yml": {
-      "binding": "shared-variant",
-      "central_workflow": ".github/workflows/nolawallet-fanout-update.yml",
-      "implementation_sha256": "fd7881403dfc734aeceaa1b20974648754dd5e61dd295140e87bd4445b696a9f",
       "name": "Fan-out Referral Builds",
       "registry_source": "registry/1101300069/fanout-update-94c7b8d2.source.yml",
-      "shared_variant": "fd7881403dfc734a",
       "source_sha256": "87a074179b8fe18bde9265ade6f70f352f8125c53f8519d4faed164631ac3471",
-      "status": "active",
+      "status": "local",
       "updated_at": "2026-09-22T07:25:30+00:00"
     },
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "\ud83d\ude08 Glee Audit",
+      "name": "😈 Glee Audit",
       "registry_source": "registry/1101300069/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",

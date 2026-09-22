@@ -851,6 +851,10 @@ def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
     # Repository mode is mandatory. The legacy core is retained only as a compiler
     # engine; it is never allowed to publish shared_variant families.
     repo_info = gh.repo(repository)
+    if repo_info.get("private"):
+        raise RuntimeError(
+            f"Refusing to sync {repository}: private repositories are excluded from central sync."
+        )
     repository_id = int(repo_info["id"])
     default_branch = str(repo_info["default_branch"])
     before_manifest = copy.deepcopy(core.load_manifest(gh, repository_id))

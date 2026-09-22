@@ -34,6 +34,7 @@ jobs:
       repositories: ${{ steps.repos.outputs.repositories }}
       count: ${{ steps.repos.outputs.count }}
       archived: ${{ steps.repos.outputs.archived }}
+      private: ${{ steps.repos.outputs.private }}
     steps:
       - name: Enumerate every owned repository
         id: repos
@@ -42,10 +43,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          all="$(gh api --paginate 'user/repos?affiliation=owner&per_page=100' --jq '.[] | select(.owner.login == "HereLiesAz") | [.full_name, (.archived|tostring)] | @tsv')"
+          all="$(gh api --paginate 'user/repos?affiliation=owner&per_page=100' --jq '.[] | select(.owner.login == "HereLiesAz") | [.full_name, (.archived|tostring), (.private|tostring)] | @tsv')"
 
           repositories="$(
-            awk -F '\t' '$1 != "HereLiesAz/workflows" && $2 == "false" {print $1}' <<<"$all" \
+            awk -F '\t' '$1 != "HereLiesAz/workflows" && $2 == "false" && $3 == "false" {print $1}' <<<"$all" \
               | sort -u \
               | jq -Rsc 'split("\n") | map(select(length > 0))'
           )"
@@ -54,22 +55,33 @@ jobs:
               | sort -u \
               | jq -Rsc 'split("\n") | map(select(length > 0))'
           )"
+          private="$(
+            awk -F '\t' '$1 != "HereLiesAz/workflows" && $2 == "false" && $3 == "true" {print $1}' <<<"$all" \
+              | sort -u \
+              | jq -Rsc 'split("\n") | map(select(length > 0))'
+          )"
 
           count="$(jq 'length' <<<"$repositories")"
           archived_count="$(jq 'length' <<<"$archived")"
+          private_count="$(jq 'length' <<<"$private")"
 
           echo "repositories=$repositories" >> "$GITHUB_OUTPUT"
           echo "count=$count" >> "$GITHUB_OUTPUT"
           echo "archived=$archived" >> "$GITHUB_OUTPUT"
+          echo "private=$private" >> "$GITHUB_OUTPUT"
 
           {
             echo "## Live repository inventory"
             echo
-            echo "- Writable non-controller repositories: **$count**"
+            echo "- Writable non-controller, public repositories: **$count**"
             echo "- Controller repository: **HereLiesAz/workflows** (versioned locally; never self-centralized)"
             echo "- Archived repositories skipped from workflow mutation: **$archived_count**"
             if [ "$archived_count" -gt 0 ]; then
               jq -r '.[] | "- `" + . + "`"' <<<"$archived"
+            fi
+            echo "- Private repositories excluded from central sync: **$private_count**"
+            if [ "$private_count" -gt 0 ]; then
+              jq -r '.[] | "- `" + . + "`"' <<<"$private"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 

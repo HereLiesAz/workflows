@@ -2,6 +2,13 @@
 
 New GitHub Actions implementations for repositories owned by HereLiesAz are centralized in this repository.
 
+## Scope
+
+Only **public** repositories owned by HereLiesAz are registered, synced, and served by the gateway.
+`sync-all-repositories.yml` excludes private repositories from discovery, and `sync_repository.py`
+refuses to sync one directly even when targeted by hand. A private repository stays entirely off the
+shared catalog; make it public first if it needs centralized workflows.
+
 ## Admission rules
 
 A new target-repository workflow file is rejected by repository synchronization unless that workflow path is already registered. New capabilities must be submitted here first.
@@ -39,9 +46,9 @@ Release workflows are subject to the same centralization rule as build/test work
 When a project uses `MAJOR.MINOR.PATCH.BUILD` versions:
 
 - use `.github/actions/four-part-version` for BUILD derivation;
-- use `.github/actions/patch-grouped-release` for Git tags and GitHub Release publication;
+- use `.github/actions/minor-grouped-release` for Git tags and GitHub Release publication;
 - keep exact four-part tags immutable;
-- group build artifacts under the three-part patch Release;
+- group build artifacts under the two-part minor Release, across every patch in that minor;
 - keep the full four-part version in asset names;
 - never use clobber semantics to replace different bytes under an existing grouped asset name; and
 - preserve exact-build tags when legacy one-build-per-Release objects are migrated.

@@ -24,53 +24,59 @@ It can return the derived version as outputs and optionally export it into the c
 A project should keep BUILD at `0` in source when BUILD is supplied by CI. A workflow run changes
 only BUILD.
 
-## Patch-grouped GitHub Releases
+## Minor-grouped GitHub Releases
 
 For a four-part build such as `0.9.6.412`:
 
 - immutable exact-build tag: `v0.9.6.412`
-- grouped GitHub Release/tag: `v0.9.6`
-- all later `0.9.6.x` build assets are added to that same `v0.9.6` Release
+- grouped GitHub Release/tag: `v0.9`
+- every later `0.9.x.y` build, across every patch under minor `9`, is added to that same `v0.9` Release
 
 The reusable action:
 
-`.github/actions/patch-grouped-release`
+`.github/actions/minor-grouped-release`
 
 owns this behavior.
 
-Exact build tags are never moved. The patch tag is created when the patch line is first published and
-is not moved later. The GitHub Release attached to the patch tag is an **accumulating release
+Exact build tags are never moved. The minor tag is created when the minor line is first published and
+is not moved later. The GitHub Release attached to the minor tag is an **accumulating release
 container**: it may receive additional uniquely named build artifacts and updated notes as new builds
-in that patch line ship.
+anywhere in that minor line ship, regardless of patch.
 
 Artifact filenames must be collision-safe. The action either requires the four-part version in the
 name or injects it before upload. An existing release asset is never replaced by different bytes.
 
 ## Legacy release migration
 
-Older repositories may already have one GitHub Release object per exact build. During a grouped
-publication, the centralized action can migrate those Release objects:
+Older repositories may already have one GitHub Release object per exact build, or one per patch line
+from before minor-level grouping. During a grouped publication, the centralized action can migrate
+those Release objects:
 
-1. download each legacy four-part Release's assets;
-2. ensure each asset name contains the exact legacy build version;
-3. upload the asset to the patch-grouped Release idempotently;
-4. delete the obsolete four-part **Release object**; and
-5. preserve its exact four-part Git tag.
+1. download each legacy Release's assets;
+2. ensure each asset name contains its exact legacy version;
+3. upload the asset to the minor-grouped Release idempotently;
+4. delete the obsolete legacy **Release object**; and
+5. preserve its exact Git tag.
 
 Migration therefore reduces release-list noise without destroying exact-build provenance.
 
 ## Shared workflow families
 
-The following generalized release families automatically apply patch grouping when their resolved
+The following generalized release families automatically apply minor grouping when their resolved
 version is four-part:
 
 - **Android GitHub Release**
+- **Android Play Release** (its built-APK and Play-build GitHub releases)
 - **Multi-Platform App Release**
 - **Artifact GitHub Release**
 
+Desktop and web builds released through **Multi-Platform App Release** and **Artifact GitHub Release**
+share this same four-part contract and minor-grouping behavior with Android, so a product's releases
+line up across every platform it ships on.
+
 Profiles that do not resolve to `MAJOR.MINOR.PATCH.BUILD` retain their existing release behavior.
 Rolling/latest aliases may still exist when a profile explicitly requires them; they are separate from
-the immutable exact-build tag and patch-grouped historical release.
+the immutable exact-build tag and minor-grouped historical release.
 
 ## Project responsibilities
 

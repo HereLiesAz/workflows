@@ -658,28 +658,44 @@ jobs:
                   ))
                   print(f'Uploaded mapping.txt for versionCode {code}')
                   for spec in tracks:
-                      release={'versionCodes':[code],'status':spec['status']}
-                      if spec.get('name'):
-                          release['name']=os.path.expandvars(str(spec['name']))
-                      releases=[release]
-                      if spec.get('preserve_existing'):
-                          current=execute(svc.edits().tracks().get(
+                      # Opening a draft on beta/production commonly fails on projects that have
+                      # never promoted a release to that track yet (Play requires prior track
+                      # history). That is expected, not a publish failure: skip the track instead
+                      # of failing the whole run. internal/alpha and any non-draft release still
+                      # fail hard, since those are the actual publish action.
+                      optional_track=spec.get('status') == 'draft' and spec.get('track') in ('beta', 'production')
+                      try:
+                          release={'versionCodes':[code],'status':spec['status']}
+                          if spec.get('name'):
+                              release['name']=os.path.expandvars(str(spec['name']))
+                          releases=[release]
+                          if spec.get('preserve_existing'):
+                              current=execute(svc.edits().tracks().get(
+                                  packageName=package,
+                                  editId=edit,
+                                  track=spec['track'],
+                              ))
+                              releases=[
+                                  item for item in current.get('releases', [])
+                                  if item.get('status') != 'draft'
+                                  and code not in [str(value) for value in item.get('versionCodes', [])]
+                              ] + [release]
+                          body={'track':spec['track'],'releases':releases}
+                          execute(svc.edits().tracks().update(
                               packageName=package,
                               editId=edit,
                               track=spec['track'],
+                              body=body,
                           ))
-                          releases=[
-                              item for item in current.get('releases', [])
-                              if item.get('status') != 'draft'
-                              and code not in [str(value) for value in item.get('versionCodes', [])]
-                          ] + [release]
-                      body={'track':spec['track'],'releases':releases}
-                      execute(svc.edits().tracks().update(
-                          packageName=package,
-                          editId=edit,
-                          track=spec['track'],
-                          body=body,
-                      ))
+                      except Exception as exc:
+                          if optional_track:
+                              print(
+                                  f'Warning: could not open a draft on track {spec["track"]!r}; '
+                                  f'skipping without failing the release: {exc}',
+                                  flush=True,
+                              )
+                              continue
+                          raise
                   execute(svc.edits().commit(packageName=package,editId=edit))
                   print(f'Published versionCode {code} to {tracks}')
                   break
@@ -771,10 +787,9 @@ jobs:
           test -s app-universal.apk || { echo "::error::Universal APK extraction failed" >&2; exit 1; }
           echo "UNIVERSAL_APK=$PWD/app-universal.apk" >> "$GITHUB_ENV"
 
-      - name: Publish immutable GitHub release for Play build
+      - name: Stage immutable release for Play build
+        id: play_release
         if: ${{ env.PUBLISH_GITHUB_RELEASE == 'true' }}
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
@@ -787,25 +802,33 @@ jobs:
             app_name="$(sed -nE "s/.*rootProject\\.name[[:space:]]*=[[:space:]]*['\\\"]([^'\\\"]+)['\\\"].*/\\1/p" settings.gradle | head -1)"
           fi
           app_name="${app_name:-${{ inputs.target_repository_name }}}"
-          tag="v$version"
           asset="$app_name-$version.apk"
-          cp "$UNIVERSAL_APK" "$asset"
-          prerelease=--prerelease
+          rm -rf play-release-files
+          mkdir -p play-release-files
+          cp "$UNIVERSAL_APK" "play-release-files/$asset"
+          prerelease=true
           if [ "$(jq 'length' <<<"$TRACKS_JSON")" -eq 1 ] && [ "$(jq -r '.[0].track' <<<"$TRACKS_JSON")" = production ] && [ "$(jq -r '.[0].status' <<<"$TRACKS_JSON")" = completed ]; then
-            prerelease=
+            prerelease=false
           fi
-          gh auth setup-git
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -fa "$tag" "$TARGET_SHA" -m "Play release $version"
-          git push origin "$tag" --force
-          notes="Signed APK for the build published to Google Play. Tracks: $TRACKS_JSON. Built from commit $TARGET_SHA."
-          if gh release view "$tag" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then
-            gh release edit "$tag" --repo "$TARGET_REPOSITORY" $prerelease --title "$app_name $version" --notes "$notes" --target "$TARGET_SHA"
-            gh release upload "$tag" "$asset" --repo "$TARGET_REPOSITORY" --clobber
-          else
-            gh release create "$tag" "$asset" --repo "$TARGET_REPOSITORY" $prerelease --title "$app_name $version" --notes "$notes" --target "$TARGET_SHA"
-          fi
+          printf 'Signed APK for the build published to Google Play. Tracks: %s\n' "$TRACKS_JSON" > play-release-notes.md
+          echo "app_name=$app_name" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+
+      - name: Publish minor-grouped GitHub release for Play build
+        if: ${{ env.PUBLISH_GITHUB_RELEASE == 'true' }}
+        uses: HereLiesAz/workflows/.github/actions/minor-grouped-release@main
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          target-repository: ${{ env.TARGET_REPOSITORY }}
+          target-sha: ${{ env.TARGET_SHA }}
+          build-version: ${{ env.VERSION }}
+          assets: play-release-files/**/*
+          title-prefix: ${{ steps.play_release.outputs.app_name }}
+          notes-file: play-release-notes.md
+          tag-prefix: "v"
+          prerelease: ${{ steps.play_release.outputs.prerelease }}
+          make-latest: "true"
+          migrate-legacy-build-releases: "true"
 
       - name: Cleanup signing material
         if: ${{ always() }}

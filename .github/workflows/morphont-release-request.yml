@@ -47,7 +47,7 @@ jobs:
             exit 1
           }
 
-          tag="v$version"
+          tag="$version"
           source_path=".github/workflows/morphont-publish.yml"
           source_hash="$(jq -r --arg path "$source_path" '.workflows[$path].source_sha256 // empty' registry/1356357185/manifest.json)"
           central_workflow="$(jq -r --arg path "$source_path" '.workflows[$path].central_workflow // empty' registry/1356357185/manifest.json)"

@@ -726,7 +726,7 @@ jobs:
           if [ -n "$BUILT_RELEASE_TAG_ENV" ]; then
             version="${!BUILT_RELEASE_TAG_ENV:-}"
             test -n "$version" || { echo "::error::$BUILT_RELEASE_TAG_ENV is empty" >&2; exit 1; }
-            tag="v$version"
+            tag="$version"
           else
             test "$TARGET_REF_TYPE" = tag || { echo "::error::Built release requires either a tag trigger or github_built_release_tag_env" >&2; exit 1; }
             tag="$TARGET_REF_NAME"
@@ -825,7 +825,7 @@ jobs:
           assets: play-release-files/**/*
           title-prefix: ${{ steps.play_release.outputs.app_name }}
           notes-file: play-release-notes.md
-          tag-prefix: "v"
+          tag-prefix: ""
           prerelease: ${{ steps.play_release.outputs.prerelease }}
           make-latest: "true"
           migrate-legacy-build-releases: "true"

@@ -362,7 +362,7 @@ jobs:
           title_prefix="$(jq -r '.release_name_prefix // empty' <<<"$PROFILE_JSON")"
           [ -n "$title_prefix" ] || title_prefix="$REPOSITORY_NAME"
           prerelease="$(jq -r '.prerelease // false' <<<"$PROFILE_JSON")"
-          tag_prefix="$(jq -r '.tag_prefix // "v"' <<<"$PROFILE_JSON")"
+          tag_prefix="$(jq -r '.tag_prefix // ""' <<<"$PROFILE_JSON")"
           body_template="$(jq -r '.body_template // "Built from $BUILD_SHA."' <<<"$PROFILE_JSON")"
           export BUILD_SHA="${{ needs.prepare.outputs.build_sha }}" REPO="$REPOSITORY_NAME"
           body="$(envsubst <<<"$body_template")"

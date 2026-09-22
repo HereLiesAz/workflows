@@ -32,9 +32,9 @@ inputs:
     required: false
     default: ""
   tag-prefix:
-    description: Prefix for exact-build and grouped tags.
+    description: Prefix for exact-build and grouped tags. Defaults to none — tags are bare version numbers.
     required: false
-    default: "v"
+    default: ""
   prerelease:
     description: Whether the grouped release is a prerelease.
     required: false

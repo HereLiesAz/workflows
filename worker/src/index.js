@@ -51,10 +51,11 @@ async function scrapePublicRepositories(url) {
   const stop = String(url.searchParams.get("stop") || "").trim();
   const stopFullName = stop && stop.includes("/") ? stop : (stop ? `${OWNER_LOGIN}/${stop}` : "");
   let stopFound = false;
-  let page = 1;
+  let pageUrl = `https://github.com/${OWNER_LOGIN}?tab=repositories&q=&type=public&language=&sort=`;
+  let pagesScanned = 0;
 
-  while (page <= 20 && !stopFound) {
-    const pageUrl = `https://github.com/${OWNER_LOGIN}?tab=repositories&q=&type=public&language=&sort=created&direction=desc&page=${page}`;
+  while (pageUrl && pagesScanned < 20 && !stopFound) {
+    pagesScanned += 1;
     const response = await fetch(pageUrl, {
       headers: {
         "Accept": "text/html,application/xhtml+xml",
@@ -67,10 +68,22 @@ async function scrapePublicRepositories(url) {
     }
 
     let foundOnPage = 0;
+    let nextHref = "";
+    const currentPage = pagesScanned;
     const rewriter = new HTMLRewriter().on("a[href]", {
       element(element) {
-        if (stopFound) return;
         const href = element.getAttribute("href") || "";
+
+        // Preserve GitHub's own pagination URL instead of reconstructing it.
+        if (href.includes("tab=repositories") && href.includes("type=public") && /[?&]page=\d+/.test(href)) {
+          try {
+            const candidate = new URL(href, "https://github.com");
+            const candidatePage = Number(candidate.searchParams.get("page") || "0");
+            if (candidatePage === currentPage + 1) nextHref = candidate.toString();
+          } catch {}
+        }
+
+        if (stopFound) return;
         const match = href.match(/^\/HereLiesAz\/([A-Za-z0-9_.-]+)$/i);
         if (!match) return;
         const name = match[1];
@@ -91,7 +104,7 @@ async function scrapePublicRepositories(url) {
     await rewriter.transform(response).text();
 
     if (stopFound || foundOnPage === 0) break;
-    page += 1;
+    pageUrl = nextHref;
   }
 
   if (stopFullName && !stopFound) {
@@ -105,8 +118,8 @@ async function scrapePublicRepositories(url) {
     count: repositories.length,
     stop_repository: stopFullName || null,
     stop_found: stopFound,
-    pages_scanned: page,
-    source: "github-public-html-newest-first",
+    pages_scanned: pagesScanned,
+    source: "github-public-html",
   });
 }
 

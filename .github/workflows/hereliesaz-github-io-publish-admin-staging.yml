@@ -1,0 +1,181 @@
+# Generated for HereLiesAz/hereliesaz.github.io:.github/workflows/publish_admin_staging.yml.
+# Edit the registered source or synchronizer, not this compiled workflow.
+# Generated shared catalog workflow. Do not edit by hand.
+# catalog-source: shared/f10c1f2765a785bfbe3aa86974320d00ddbaeacfa92cff188ae9631f1dcfc57a
+name: hereliesaz.github.io · Publish Admin Staging
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_ref:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+permissions:
+  contents: read
+env:
+  TARGET_REPOSITORY: ${{ inputs.target_repository }}
+  TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+  TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+  TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+  TARGET_SHA: ${{ inputs.target_sha }}
+  TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+  TARGET_REF: ${{ inputs.target_ref }}
+  TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+  TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+  TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+  TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+  TARGET_ACTOR: ${{ inputs.target_actor }}
+  TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+  TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+  TARGET_RUN_ID: ${{ inputs.target_run_id }}
+  TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+  TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+  TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+  TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+concurrency:
+  group: publish-admin-staging-hereliesaz.github.io
+  cancel-in-progress: false
+jobs:
+  central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_owner=\"${TARGET_REPOSITORY%%/*}\"\n[[ -n \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Missing repository ID\" >&2; exit 1; }\n[[ \"${repo_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"${TARGET_REPOSITORY_OWNER,,}\" == \"hereliesaz\" ]] || { echo \"OIDC owner login mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from HereLiesAz/workflows.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\nif ! output=\"$(gh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\" 2>&1)\"; then\n  echo \"::warning::Could not post target status: $output\"\nfi"
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_TOKEN }}
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          persist-credentials: false
+      - name: Fetch admin staging
+        run: "set -euo pipefail\ngit fetch origin admin-staging:refs/remotes/origin/admin-staging\n"
+      - name: Find lineup changes
+        id: diff
+        shell: bash
+        run: "set -euo pipefail\npython - <<'PY' >> \"$GITHUB_OUTPUT\"\nimport subprocess\nfrom pathlib import Path\n\nexts={\".jpg\",\".jpeg\",\".png\",\".webp\",\".bmp\",\".tif\",\".tiff\",\".heic\",\".heif\",\".avif\"}\nraw=subprocess.check_output(\n    [\"git\",\"diff\",\"--name-status\",\"-z\",\"origin/main\",\"origin/admin-staging\",\"--\",\"public/assets/\"]\n)\nparts=raw.decode(\"utf-8\",\"surrogateescape\").split(\"\\0\")\nbake=[]; remove=[]\ni=0\nwhile i < len(parts)-1:\n    status=parts[i]; i+=1\n    if not status: continue\n    if status.startswith(\"R\") or status.startswith(\"C\"):\n        old=parts[i]; new=parts[i+1]; i+=2\n        items=[(\"D\",old),(\"A\",new)]\n    else:\n        path=parts[i]; i+=1\n        items=[(status[:1],path)]\n    for kind,path in items:\n        rel=path.removeprefix(\"public/assets/\")\n        if \"/\" in rel or Path(rel).suffix.lower() not in exts:\n            continue\n        image_id=Path(rel).stem\n        if kind==\"D\":\n            remove.append(image_id)\n        elif kind in {\"A\",\"M\"}:\n            bake.append(image_id)\nbake=sorted(set(bake)-set(remove))\nremove=sorted(set(remove)-set(bake))\nprint(\"bake_ids=\"+\",\".join(bake))\nprint(\"remove_ids=\"+\",\".join(remove))\nPY\n"
+      - name: Process new or changed photos
+        if: steps.diff.outputs.bake_ids != ''
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          IDS: ${{ steps.diff.outputs.bake_ids }}
+        run: "set -euo pipefail\nSHA=\"$(git rev-parse origin/admin-staging)\"\nBEFORE=\"$(gh api \"repos/$TARGET_REPOSITORY/commits/$SHA/statuses?per_page=100\" --jq '[.[]|select(.context==\".github/workflows/theater_bake.yml\")|.id]|max//0')\"\ngh workflow run theater_bake.yml --ref admin-staging -f ids=\"$IDS\"\ndeadline=$((SECONDS+19800))\nstate=\"\"\nwhile (( SECONDS < deadline )); do\n  row=\"$(gh api \"repos/$TARGET_REPOSITORY/commits/$SHA/statuses?per_page=100\" --jq '[.[]|select(.context==\".github/workflows/theater_bake.yml\" and .id > '\"$BEFORE\"')]|max_by(.id)//{}')\"\n  state=\"$(jq -r '.state//empty' <<<\"$row\")\"\n  case \"$state\" in\n    success) break ;;\n    failure|error) echo \"::error::Theater bake failed.\"; exit 1 ;;\n  esac\n  sleep 20\ndone\n[[ \"$state\" == success ]] || { echo \"::error::Theater bake timed out.\"; exit 1; }\n"
+      - name: Process removals
+        if: steps.diff.outputs.remove_ids != ''
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          IDS: ${{ steps.diff.outputs.remove_ids }}
+        run: "set -euo pipefail\nSHA=\"$(git rev-parse origin/admin-staging)\"\nBEFORE=\"$(gh api \"repos/$TARGET_REPOSITORY/commits/$SHA/statuses?per_page=100\" --jq '[.[]|select(.context==\".github/workflows/remove_painting.yml\")|.id]|max//0')\"\ngh workflow run remove_painting.yml --ref admin-staging -f ids=\"$IDS\"\ndeadline=$((SECONDS+1800))\nstate=\"\"\nwhile (( SECONDS < deadline )); do\n  row=\"$(gh api \"repos/$TARGET_REPOSITORY/commits/$SHA/statuses?per_page=100\" --jq '[.[]|select(.context==\".github/workflows/remove_painting.yml\" and .id > '\"$BEFORE\"')]|max_by(.id)//{}')\"\n  state=\"$(jq -r '.state//empty' <<<\"$row\")\"\n  case \"$state\" in\n    success) break ;;\n    failure|error) echo \"::error::Removal processing failed.\"; exit 1 ;;\n  esac\n  sleep 20\ndone\n[[ \"$state\" == success ]] || { echo \"::error::Removal processing timed out.\"; exit 1; }\n"
+      - name: Merge staged changes into main
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: "set -euo pipefail\ngh api --method POST \"repos/$TARGET_REPOSITORY/merges\" \\\n  -f base=main \\\n  -f head=admin-staging \\\n  -f commit_message=\"Publish staged admin changes\"\n"
+      - name: Reset staging to published main
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: "set -euo pipefail\nMAIN_SHA=\"$(gh api \"repos/$TARGET_REPOSITORY/git/ref/heads/main\" --jq .object.sha)\"\ngh api --method PATCH \"repos/$TARGET_REPOSITORY/git/refs/heads/admin-staging\" \\\n  -f sha=\"$MAIN_SHA\" -F force=true\n"
+    needs: central_check_start
+    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
+    permissions:
+      contents: write
+      actions: write
+    environment: hereliesaz.github.io
+  central_check_finish:
+    if: ${{ always() }}
+    needs:
+      - central_check_start
+      - publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Central workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Central workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+run-name: hereliesaz.github.io · Publish Admin Staging

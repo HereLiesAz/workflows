@@ -11,6 +11,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+import socket
 from datetime import datetime, timezone
 from pathlib import PurePosixPath
 from typing import Any
@@ -97,8 +98,12 @@ class GitHub:
                 },
             )
             try:
-                with urllib.request.urlopen(req) as response:
+                with urllib.request.urlopen(req, timeout=30) as response:
                     return response.status, dict(response.headers), response.read()
+            except (urllib.error.URLError, TimeoutError, socket.timeout) as exc:
+                if attempt >= 3:
+                    raise ApiError(f"{method} {url} -> network timeout/error: {exc}") from exc
+                time.sleep(min(2 ** attempt, 8))
             except urllib.error.HTTPError as exc:
                 payload = exc.read().decode(errors="replace")
                 headers = dict(exc.headers)

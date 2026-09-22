@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-09-22T17:14:14+00:00",
+  "last_sync_at": "2026-09-22T18:07:15+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/conveyance-h2g2",
@@ -51,14 +51,15 @@
       "updated_at": "2026-09-22T12:23:25+00:00"
     },
     ".github/workflows/build.yml": {
-      "binding": "curated",
-      "central_workflow": ".github/workflows/ci-validation.yml",
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/conveyance-h2g2-build.yml",
+      "implementation_sha256": "4d5a42bc46b37a646f36838cff6abfff7afb7951e98559349db71890fed737aa",
       "name": "Build",
-      "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/1345202913/build-fe77d5d1.source.yml",
-      "source_sha256": "9f8a0b11a0bcc7c92f361efebd7d443dfdcb9e92516378b9d689eee0a10222bd",
-      "status": "obsolete",
-      "updated_at": "2026-09-22T12:23:25+00:00"
+      "shared_variant": "4d5a42bc46b37a64",
+      "source_sha256": "b662b29aa007235e906bac5ae76e05b1f0573f4599f76125dfbeda4acfd89864",
+      "status": "active",
+      "updated_at": "2026-09-22T18:07:12+00:00"
     },
     ".github/workflows/clear_cache.yml": {
       "binding": "curated",
@@ -126,7 +127,7 @@
       "registry_source": "registry/1345202913/jules-review-9f7b6ce5.source.yml",
       "source_sha256": "b170093ab22ff75431fb6ea62d3e4ff1a254c5ba7352ee150e59e8dfa4b6f416",
       "status": "library",
-      "updated_at": "2026-09-22T17:14:13+00:00"
+      "updated_at": "2026-09-22T18:07:14+00:00"
     },
     ".github/workflows/jules-scheduled-triage.yml": {
       "binding": "curated",
@@ -143,7 +144,7 @@
       "registry_source": "registry/1345202913/jules-triage-5c552504.source.yml",
       "source_sha256": "dd3c04d1b62501e2260474da42dff9fb083431b27c1b21c47b20a0dc8cb8a09c",
       "status": "library",
-      "updated_at": "2026-09-22T17:14:14+00:00"
+      "updated_at": "2026-09-22T18:07:14+00:00"
     },
     ".github/workflows/label.yml": {
       "blockers": [
@@ -153,7 +154,7 @@
       "registry_source": "registry/1345202913/label-04cea97c.source.yml",
       "source_sha256": "9e4ca08e0ce167c9f1ee6c3add108323047fe6af5cecbde30037314360a8c7da",
       "status": "local",
-      "updated_at": "2026-09-22T17:14:14+00:00"
+      "updated_at": "2026-09-22T18:07:15+00:00"
     },
     ".github/workflows/static.yml": {
       "name": "Deploy static content to Pages",

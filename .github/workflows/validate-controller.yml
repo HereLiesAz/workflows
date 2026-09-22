@@ -169,6 +169,31 @@ jobs:
               ['src/App.kt'],
           ) is None
 
+          pr_source = load_yaml('''
+          name: PR fixture
+          on:
+            pull_request:
+          jobs:
+            test:
+              runs-on: ubuntu-latest
+              steps:
+                - run: echo ok
+          ''')
+          for action in ('opened', 'synchronize', 'reopened'):
+              assert _event_trigger(
+                  pr_source,
+                  'pull_request',
+                  {'action': action, 'pull_request': {'base': {'ref': 'main'}}},
+                  [],
+              ) == 'pull_request'
+          for action in ('edited', 'labeled', 'assigned'):
+              assert _event_trigger(
+                  pr_source,
+                  'pull_request',
+                  {'action': action, 'pull_request': {'base': {'ref': 'main'}}},
+                  [],
+              ) is None
+
           central = compile_central(source, {'full_name': 'HereLiesAz/fixture', 'private': False}, '.github/workflows/fixture.yml', 'Fixture')
           activate(core, 'HereLiesAz/fixture')
           path = core.shared_workflow_path('Fixture', '.github/workflows/fixture.yml', central)

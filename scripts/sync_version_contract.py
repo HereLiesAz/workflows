@@ -20,6 +20,9 @@ def main() -> int:
 
     gh = GitHub(os.environ.get("GH_TOKEN", ""))
     repo = gh.repo(args.repository)
+    if bool(repo.get("private")):
+        print(json.dumps({"repository": args.repository, "status": "private-excluded", "changed": False}))
+        return 0
     if bool(repo.get("archived")):
         print(json.dumps({"repository": args.repository, "status": "archived", "changed": False}))
         return 0

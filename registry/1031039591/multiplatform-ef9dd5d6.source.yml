@@ -35,6 +35,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Resolve four-part build version
+        # TODO: pin HereLiesAz/workflows to a specific commit SHA instead of @main
         uses: HereLiesAz/workflows/.github/actions/four-part-version@main
         with:
           source-version-file: gradle.properties
@@ -64,10 +65,11 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Set up Rust renderer toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - name: Set up Rust native toolchain
+        uses: dtolnay/rust-toolchain@v1
         with:
-          targets: wasm32-unknown-unknown,aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+          toolchain: stable
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
 
       - name: Install cargo-ndk
         uses: taiki-e/install-action@v2
@@ -113,6 +115,9 @@ jobs:
           echo "HAIVE_VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
           echo "Android release versionCode: $VERSION_CODE"
 
+      - name: Verify release immutability policy
+        run: python3 .github/scripts/verify_release_immutability.py
+
       - name: Test shared domain
         run: ./gradlew :shared:desktopTest
 
@@ -155,7 +160,6 @@ jobs:
         run: |
           set -euo pipefail
           for abi in arm64-v8a armeabi-v7a x86_64; do
-            test -f "androidApp/build/generated/node-creatures/jniLibs/${abi}/libhaive_node_creatures.so"
             test -f "androidApp/build/generated/bitcos/jniLibs/${abi}/libhaive_bitcos.so"
           done
 
@@ -200,12 +204,8 @@ jobs:
           cp -R webApp/src/webMain/resources/. webApp/build/pages/wasm/
           test -f webApp/build/pages/index.html
           test -f webApp/build/pages/haive.js
-          test -f webApp/build/pages/node-creatures.js
-          test -f webApp/build/pages/haive_node_creatures.wasm
           test -f webApp/build/pages/wasm/index.html
           test -f webApp/build/pages/wasm/haive.js
-          test -f webApp/build/pages/wasm/node-creatures.js
-          test -f webApp/build/pages/wasm/haive_node_creatures.wasm
 
       - name: Generate release notes
         if: github.event_name != 'pull_request'
@@ -310,7 +310,7 @@ jobs:
 
   desktop-packages:
     name: Desktop installer (${{ matrix.platform }})
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -370,8 +370,10 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Set up Rust renderer toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - name: Set up Rust native toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
@@ -419,9 +421,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          find desktopApp/build/generated/node-creatures/desktop/node-creatures -type f -maxdepth 1 -print
           find desktopApp/build/generated/bitcos/desktop/bitcos -type f -maxdepth 1 -print
-          test "$(find desktopApp/build/generated/node-creatures/desktop/node-creatures -type f -maxdepth 1 | wc -l | tr -d ' ')" -ge 1
           test "$(find desktopApp/build/generated/bitcos/desktop/bitcos -type f -maxdepth 1 | wc -l | tr -d ' ')" -ge 1
 
       - name: Upload native installer
@@ -479,6 +479,7 @@ jobs:
 
       - name: Derive four-part release version
         id: version
+        # TODO: pin HereLiesAz/workflows to a specific commit SHA instead of @main
         uses: HereLiesAz/workflows/.github/actions/four-part-version@main
         with:
           source-version-file: gradle.properties
@@ -531,6 +532,7 @@ jobs:
           } > release-notes.md
 
       - name: Publish grouped patch release
+        # TODO: pin HereLiesAz/workflows to a specific commit SHA instead of @main
         uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

@@ -241,6 +241,16 @@ jobs:
           prompt-file: glee-prompt.md
           output-file: glee-audit.md
           effort: high
+          # Every dispatch of this workflow is triggered by the gateway as
+          # github-actions[bot] — never a human — and codex-action's default
+          # (allow-bots: false) rejects bot actors outright with "Actor
+          # 'github-actions[bot]' is not permitted to run this action".
+          # That made every single automated Glee run fail unconditionally,
+          # surfacing only as the generic "audit unavailable" message below.
+          # The identity/ownership of the target repo and PR is already
+          # validated in central_check_start before this job ever runs, so
+          # trusting our own dispatching bot here is safe.
+          allow-bots: true
 
       - name: Record unavailable Codex audit
         if: ${{ steps.codex.outcome != 'success' }}

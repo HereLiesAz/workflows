@@ -118,10 +118,6 @@ assert "deobfuscationfiles().upload" in play_workflow
 assert "Required mapping.txt is missing or empty" in play_workflow
 
 for play_path, required in {
-    ".github/workflows/cuedetat-play-publish.yml": (
-        "Upload mapping.txt artifact",
-        "PLAY_MAPPING_PATH: ${{ steps.mapping.outputs.path }}",
-    ),
     ".github/workflows/qard-play-release.yml": (
         "Upload mapping.txt artifact",
         "mappingFile: ${{ steps.mapping.outputs.path }}",

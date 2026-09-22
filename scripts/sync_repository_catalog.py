@@ -997,6 +997,25 @@ def sync_repository(gh: GitHub, full_name: str, worker_url: str, dry_run: bool =
     if worker_url and not dry_run:
         gh.upsert_variable(repo["full_name"], WORKER_VARIABLE, worker_url.rstrip("/"))
 
+    live_paths = {
+        item.get("path", "")
+        for item in listing
+        if item.get("type") == "file" and item.get("path", "").endswith((".yml", ".yaml"))
+    }
+    # A workflow the target repository deleted stops appearing in `listing`, so the loop
+    # below never revisits its manifest entry. Left untouched, a stale "active" entry
+    # permanently blocks _prune_rebound_repository_workflows from ever recognizing the
+    # central compiled duplicate (if any) as unreachable and deleting it. Mark it obsolete
+    # here, from the live listing alone, before anything else can rely on its old status.
+    for stale_path, stale_entry in workflows_manifest.items():
+        if stale_path in live_paths or not isinstance(stale_entry, dict):
+            continue
+        if stale_entry.get("status") != "active":
+            continue
+        stale_entry["status"] = "obsolete"
+        stale_entry["reason"] = "workflow file no longer exists in the target repository"
+        stale_entry["updated_at"] = now_iso()
+
     for item in listing:
         path = item.get("path", "")
         if item.get("type") != "file" or not path.endswith((".yml", ".yaml")):

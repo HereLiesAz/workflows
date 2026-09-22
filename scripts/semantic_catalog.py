@@ -183,6 +183,7 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "6ab641050248a526163bd43e627e6bf32c80a618fa1b0bfb4dbf3d24e1e8c697",
             "57f245d8d8504ca1ef5146ccc3533aecc5d08c45ab5aa9416b3b619ba3c385a9",
             "60c8cb4ab8364f08369e2fae3b9a8322825d0a596405966da26a7889e98501a8",
+            "b662b29aa007235e906bac5ae76e05b1f0573f4599f76125dfbeda4acfd89864",
         },
     },
     ".github/workflows/multi-platform-app-release.yml": {
@@ -270,6 +271,15 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
         "java_version": "17",
         "version_frozen": "1",
         "command": "corepack enable\npnpm install --frozen-lockfile\npnpm build\npnpm test\npnpm fixtures\ngit add -N conformance/fixtures\ngit diff --exit-code -- conformance/fixtures\nnode .github/scripts/write-google-services.mjs\n( cd apps/storefront-cmp && chmod +x gradlew && ./gradlew wasmJsBrowserDistribution --no-daemon --stacktrace && ./gradlew assembleDebug --no-daemon --stacktrace && ./gradlew desktopTest --no-daemon --stacktrace && ./gradlew :azp:test --no-daemon --stacktrace )",
+    },
+    "b662b29aa007235e906bac5ae76e05b1f0573f4599f76125dfbeda4acfd89864": {
+        "kind": "gradle",
+        "java_version": "21",
+        "timeout_minutes": 45,
+        "command": "./gradlew desktopTest --stacktrace\n./gradlew compileKotlinJs compileKotlinWasmJs assembleAndroidMain --stacktrace",
+        "report_path": "build/reports/tests/",
+        "report_when": "always",
+        "retention_days": 7,
     },
     "60c8cb4ab8364f08369e2fae3b9a8322825d0a596405966da26a7889e98501a8": {
         "kind": "gradle",

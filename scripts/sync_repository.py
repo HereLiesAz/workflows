@@ -669,6 +669,12 @@ def _enforce_new_workflow_submission_policy(
         except core.ApiError:
             unsubmitted.append(path)
             continue
+        # Controller-generated proxies are migration residue, not new target
+        # workflow implementations. Let the synchronizer recover their registered
+        # source and remove/replace the proxy normally.
+        if source_text.startswith(core.PROXY_MARKER):
+            continue
+
         source_hash = core.sha256_text(source_text)
         if core.reviewed_override_for_source(source_hash):
             continue

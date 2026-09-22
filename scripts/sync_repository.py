@@ -633,6 +633,12 @@ REPOSITORY_REVIEWED_WORKFLOW_BLOBS = {
         ".github/workflows/dedup_scan.yml": "dbe5a3f49d07e0404c8e679134286235adbcdb17",
         ".github/workflows/publish_admin_staging.yml": "8b54f6169299ab1964797d8442bb1e3681113424",
     },
+    "hereliesaz/conveyance-expressive": {
+        ".github/workflows/ci.yml": "68a7427c07a2499950a8647f05e832dadb517e59",
+    },
+    "hereliesaz/conveyance-liquid": {
+        ".github/workflows/ci.yml": "1445c059bfcdffbfd19c8c267c3e02baca34e8bd",
+    },
 }
 
 def _enforce_new_workflow_submission_policy(

@@ -1,0 +1,294 @@
+# Generated for HereLiesAz/hereliesaz.github.io:.github/workflows/android-release-aab.yml.
+# Edit the registered source or synchronizer, not this compiled workflow.
+# Generated shared catalog workflow. Do not edit by hand.
+# catalog-source: shared/941bd16203d82af05615ac8c0da416392d554bebee8855147e6bcb5e49dad1b9
+name: hereliesaz.github.io · Build & Publish AAB (Play)
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_ref:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+permissions:
+  contents: read
+env:
+  TARGET_REPOSITORY: ${{ inputs.target_repository }}
+  TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+  TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+  TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+  TARGET_SHA: ${{ inputs.target_sha }}
+  TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+  TARGET_REF: ${{ inputs.target_ref }}
+  TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+  TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+  TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+  TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+  TARGET_ACTOR: ${{ inputs.target_actor }}
+  TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+  TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+  TARGET_RUN_ID: ${{ inputs.target_run_id }}
+  TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+  TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+  TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+  TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+jobs:
+  central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from HereLiesAz/workflows.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+  build-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: true
+      - name: Verify native Android project exists
+        shell: bash
+        run: "set -euo pipefail\nmissing=0\nfor path in gradlew app; do\n  if [[ ! -e \"$path\" ]]; then\n    echo \"::error file=$path::Required Android project path '$path' is not present.\"\n    missing=1\n  fi\ndone\nif [[ ! -f settings.gradle && ! -f settings.gradle.kts ]]; then\n  echo \"::error::Neither settings.gradle nor settings.gradle.kts is present.\"\n  missing=1\nfi\nif [[ \"$missing\" -ne 0 ]]; then\n  echo \"AAB publishing is unavailable until the native project is checked in or generated reproducibly.\"\n  exit 1\nfi\n"
+      - name: Inject Google Services
+        env:
+          GOOGLE_SERVICES_API_KEY: ${{ secrets.GOOGLE_SERVICES_API_KEY }}
+          PROJECT_ID: ${{ secrets.PROJECT_ID }}
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          CUSTOM_API_KEY: ${{ secrets.CUSTOM_API_KEY }}
+        run: "if [ -f \"app/google-services.json.template\" ]; then\n  echo \"Template found. Injecting secrets...\"\n  sed -e 's/{{\\([^}]*\\)}}/${\\1}/g' app/google-services.json.template | envsubst > app/google-services.json\nelse\n  echo \"Warning: google-services.json.template not found. Skipping injection.\"\nfi\n# Add any extra local.properties keys below:\n# echo \"CUSTOM_API_KEY=$CUSTOM_API_KEY\" >> local.properties\n"
+      - name: Decode signing keystore
+        env:
+          KEYSTORE_RAW: ${{ secrets.KEYSTORE_RAW }}
+        run: "if [ -z \"$KEYSTORE_RAW\" ]; then\n  echo \"::error::KEYSTORE_RAW secret is empty — cannot produce a signed bundle.\"\n  exit 1\nfi\necho \"$KEYSTORE_RAW\" | base64 -d > app/keystore.jks\nif [ ! -s app/keystore.jks ]; then\n  echo \"::error::Decoded keystore is empty — KEYSTORE_RAW is not valid base64.\"\n  exit 1\nfi\necho \"Keystore decoded to app/keystore.jks ($(stat -c%s app/keystore.jks) bytes)\"\n"
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        with:
+          cache-read-only: false
+          dependency-graph: disabled
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Resolve package name
+        id: meta
+        run: "PKG=$(grep -E 'applicationId\\s*=' app/build.gradle.kts | head -n1 | sed -E 's/.*\"([^\"]+)\".*/\\1/')\necho \"package_name=$PKG\" >> \"$GITHUB_OUTPUT\"\n\nif [ -f \"settings.gradle.kts\" ]; then\n  APP_NAME=$(grep 'rootProject.name' settings.gradle.kts | sed -E \"s/.*=.*[\\\"'](.*)[\\\"']/\\1/\")\nelif [ -f \"settings.gradle\" ]; then\n  APP_NAME=$(grep 'rootProject.name' settings.gradle | sed -E \"s/.*=.*[\\\"'](.*)[\\\"']/\\1/\")\nelse\n  APP_NAME=\"app\"\nfi\necho \"app_name=${APP_NAME,,}\" >> \"$GITHUB_OUTPUT\"\n"
+      - name: Build Release AAB (signed)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          KEYSTORE_FILE: ${{ github.workspace }}/app/keystore.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew bundleRelease
+      - name: Resolve required mapping.txt
+        id: mapping
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapping="app/build/outputs/mapping/release/mapping.txt"
+          if [ ! -s "$mapping" ]; then
+            mapping="$(find app/build/outputs/mapping -type f -name mapping.txt -size +0c | sort | head -1 || true)"
+          fi
+          test -n "$mapping" && test -s "$mapping" || {
+            echo "::error::Google Play publishing requires a nonempty mapping.txt for the release bundle" >&2
+            exit 1
+          }
+          cp "$mapping" "$RUNNER_TEMP/mapping.txt"
+          echo "path=$RUNNER_TEMP/mapping.txt" >> "$GITHUB_OUTPUT"
+
+      - name: Upload mapping.txt artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.app_name }}-release-mapping
+          path: ${{ steps.mapping.outputs.path }}
+          if-no-files-found: error
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.app_name }}-release-aab
+          path: app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+      - name: Publish to Google Play (internal completed + alpha/beta/prod draft)
+        id: play-upload
+        if: ${{ fromJSON(inputs.target_inputs_json).publish }}
+        env:
+          PACKAGE_NAME: ${{ steps.meta.outputs.package_name }}
+          AAB_GLOB: app/build/outputs/bundle/release/*.aab
+          MAPPING_FILE: ${{ steps.mapping.outputs.path }}
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet google-api-python-client google-auth google-auth-httplib2
+          python - <<'PY'
+          import glob, json, os
+          from google.oauth2 import service_account
+          from googleapiclient.discovery import build
+          from googleapiclient.http import MediaFileUpload
+
+          package = os.environ["PACKAGE_NAME"]
+          matches = glob.glob(os.environ["AAB_GLOB"])
+          if not matches:
+              raise SystemExit("No AAB matched AAB_GLOB")
+          aab = matches[0]
+          mapping = os.environ["MAPPING_FILE"]
+          if not os.path.isfile(mapping) or os.path.getsize(mapping) == 0:
+              raise SystemExit(f"Required mapping.txt is missing or empty: {mapping}")
+
+          credentials = service_account.Credentials.from_service_account_info(
+              json.loads(os.environ["PLAY_SERVICE_ACCOUNT_JSON"]),
+              scopes=["https://www.googleapis.com/auth/androidpublisher"],
+          )
+          service = build("androidpublisher", "v3", credentials=credentials, cache_discovery=False)
+          edits = service.edits()
+          edit_id = edits.insert(packageName=package, body={}).execute()["id"]
+          try:
+              bundle = edits.bundles().upload(
+                  packageName=package,
+                  editId=edit_id,
+                  media_body=MediaFileUpload(aab, mimetype="application/octet-stream", resumable=False),
+              ).execute()
+              version_code = str(bundle["versionCode"])
+              edits.deobfuscationfiles().upload(
+                  packageName=package,
+                  editId=edit_id,
+                  apkVersionCode=version_code,
+                  deobfuscationFileType="proguard",
+                  media_body=MediaFileUpload(mapping, mimetype="text/plain"),
+              ).execute()
+              for track, status in [
+                  ("internal", "completed"),
+                  ("alpha", "draft"),
+                  ("beta", "draft"),
+                  ("production", "draft"),
+              ]:
+                  edits.tracks().update(
+                      packageName=package,
+                      editId=edit_id,
+                      track=track,
+                      body={"releases": [{"versionCodes": [version_code], "status": status}]},
+                  ).execute()
+              edits.commit(packageName=package, editId=edit_id).execute()
+              print(f"Published versionCode {version_code} with mapping.txt")
+          except Exception:
+              try:
+                  edits.delete(packageName=package, editId=edit_id).execute()
+              except Exception:
+                  pass
+              raise
+          PY
+      - name: Persist auto-incremented versionCode without clobbering newer versions
+        if: ${{ always() && fromJSON(inputs.target_inputs_json).publish }}
+        run: "set -euo pipefail\ngit config user.name \"github-actions[bot]\"\ngit config user.email \"41898282+github-actions[bot]@users.noreply.github.com\"\n\nif git diff --quiet -- version.properties; then\n  echo \"version.properties unchanged — nothing to persist\"\n  exit 0\nfi\n\nNEW_BUILD=$(grep -E '^versionBuild=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nNEW_MAJOR=$(grep -E '^versionMajor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nNEW_MINOR=$(grep -E '^versionMinor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nNEW_MINOR_LAST=$(grep -E '^versionMinorLast=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nNEW_PATCH=$(grep -E '^versionPatch=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nBRANCH=\"${{ inputs.target_ref_name }}\"\n\nfor attempt in 1 2 3 4 5; do\n  git fetch origin \"${BRANCH}\"\n  REMOTE_BUILD=$(git show \"origin/${BRANCH}:version.properties\" 2>/dev/null | grep -E '^versionBuild=' | cut -d'=' -f2 | tr -d '\\r ' || echo 0)\n\n  if [ \"$REMOTE_BUILD\" -ge \"$NEW_BUILD\" ]; then\n    echo \"Remote versionBuild=${REMOTE_BUILD} is already >= this build's ${NEW_BUILD}; refusing to overwrite it.\"\n    exit 0\n  fi\n\n  git reset --hard \"origin/${BRANCH}\"\n  cat > version.properties <<EOF\n# Version source of truth\nversionBuild=${NEW_BUILD}\nversionMajor=${NEW_MAJOR}\nversionMinor=${NEW_MINOR}\nversionMinorLast=${NEW_MINOR_LAST}\nversionPatch=${NEW_PATCH}\nEOF\n  git add version.properties\n  git commit -m \"ci: versionBuild=${NEW_BUILD} [skip ci]\"\n\n  if git push origin \"HEAD:${BRANCH}\"; then\n    echo \"Pushed versionBuild=${NEW_BUILD} on attempt ${attempt}\"\n    exit 0\n  fi\n  echo \"::warning::Push raced with a newer main commit; checking the remote version again\"\ndone\n\necho \"::error::Could not safely persist versionBuild=${NEW_BUILD} after 5 attempts\"\nexit 1\n"
+      - name: Fail loudly if Play upload didn't succeed
+        if: ${{ always() && steps.play-upload.outcome != 'success' && steps.play-upload.outcome != 'skipped' }}
+        run: "echo \"::error title=Play upload failed::AAB did not land on all target tracks. Workflow is FAILED.\" >&2\nexit 1\n"
+    needs: central_check_start
+    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
+    environment: hereliesaz.github.io
+  central_check_finish:
+    if: ${{ always() }}
+    needs:
+      - central_check_start
+      - build-and-publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Central workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Central workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+run-name: hereliesaz.github.io · Build & Publish AAB (Play)

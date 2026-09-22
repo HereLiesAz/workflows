@@ -20,6 +20,9 @@ export default {
     if (request.method === "GET" && url.pathname === "/health") {
       return json({ ok: true, service: "HereLiesAz/workflows gateway", mode: "webhook-central" });
     }
+    if (request.method === "GET" && url.pathname === "/repositories") {
+      return await scrapePublicRepositories();
+    }
 
     try {
       if (request.method === "POST" && url.pathname === "/register") {
@@ -42,6 +45,54 @@ export default {
   },
 };
 
+async function scrapePublicRepositories() {
+  const repositories = new Set();
+  let page = 1;
+
+  while (page <= 20) {
+    const pageUrl = `https://github.com/${OWNER_LOGIN}?tab=repositories&page=${page}`;
+    const response = await fetch(pageUrl, {
+      headers: {
+        "Accept": "text/html,application/xhtml+xml",
+        "User-Agent": "HereLiesAz-workflows-public-repository-discovery",
+      },
+      cf: { cacheTtl: 300, cacheEverything: true },
+    });
+    if (!response.ok) {
+      throw new HttpError(502, `GitHub public repository page failed (${response.status})`);
+    }
+
+    let foundOnPage = 0;
+    const rewriter = new HTMLRewriter().on("a[href]", {
+      element(element) {
+        const href = element.getAttribute("href") || "";
+        const match = href.match(/^\/HereLiesAz\/([A-Za-z0-9_.-]+)$/i);
+        if (!match) return;
+        const name = match[1];
+        if (name.toLowerCase() === "workflows") return;
+        const fullName = `${OWNER_LOGIN}/${name}`;
+        if (!repositories.has(fullName)) {
+          repositories.add(fullName);
+          foundOnPage += 1;
+        }
+      },
+    });
+    await rewriter.transform(response).text();
+
+    if (foundOnPage === 0) break;
+    page += 1;
+  }
+
+  const result = [...repositories].sort((a, b) => a.localeCompare(b));
+  return json({
+    ok: true,
+    owner: OWNER_LOGIN,
+    repositories: result,
+    count: result.length,
+    source: "github-public-html",
+  });
+}
+
 async function registerRepositoryWebhook(request, env, url) {
   requireDispatchToken(env);
 
@@ -60,12 +111,12 @@ async function registerRepositoryWebhook(request, env, url) {
   const body = await readJsonBody(request);
   const repository = String(body.repository || "");
   const repositoryId = String(body.repository_id || "");
-  if (!/^HereLiesAz\/[A-Za-z0-9_.-]+$/.test(repository) || !repositoryId) {
-    throw new HttpError(400, "repository and repository_id are required");
+  if (!/^HereLiesAz\/[A-Za-z0-9_.-]+$/.test(repository)) {
+    throw new HttpError(400, "repository is required");
   }
 
   const repo = await githubApi(env, `/repos/${repository}`);
-  if (String(repo.id) !== repositoryId) throw new HttpError(409, "Repository ID mismatch");
+  if (repositoryId && String(repo.id) !== repositoryId) throw new HttpError(409, "Repository ID mismatch");
   if (String(repo.owner?.id) !== OWNER_ID ||
       String(repo.owner?.login || "").toLowerCase() !== OWNER_LOGIN.toLowerCase()) {
     throw new HttpError(403, "Repository is not owned by HereLiesAz");
@@ -100,6 +151,7 @@ async function registerRepositoryWebhook(request, env, url) {
   return json({
     ok: true,
     repository,
+    repository_id: String(repo.id),
     hook_id: hook?.id,
     webhook_url: webhookUrl,
     events: ["*"],

@@ -646,6 +646,18 @@ jobs:
 
           transient=(HttpError, TimeoutError, ConnectionError, httplib2.HttpLib2Error)
 
+          def is_retriable(exc):
+              # A 4xx HttpError (bad request, bad mimetype, permission denied, ...) is
+              # never transient: the exact same request fails the exact same way every
+              # time. Retrying it just re-uploads the whole AAB from scratch on each
+              # attempt for no benefit, turning an instant, deterministic failure into
+              # a many-minutes-long one. Only 429/5xx responses, and non-HTTP transport
+              # failures (timeouts, connection resets), are worth a retry.
+              if isinstance(exc, HttpError):
+                  status=getattr(getattr(exc, 'resp', None), 'status', None)
+                  return status == 429 or (status is not None and 500 <= status < 600)
+              return True
+
           for attempt in range(1,EDIT_ATTEMPTS + 1):
               edit=None
               try:
@@ -660,7 +672,7 @@ jobs:
                       editId=edit,
                       apkVersionCode=code,
                       deobfuscationFileType='proguard',
-                      media_body=MediaFileUpload(mapping,mimetype='text/plain'),
+                      media_body=MediaFileUpload(mapping,mimetype='application/octet-stream'),
                   ))
                   print(f'Uploaded mapping.txt for versionCode {code}')
                   for spec in tracks:
@@ -711,7 +723,7 @@ jobs:
                           execute(svc.edits().delete(packageName=package,editId=edit), retries=2)
                       except Exception as cleanup_exc:
                           print(f'Warning: could not discard failed Play edit {edit}: {cleanup_exc}', flush=True)
-                  if attempt == EDIT_ATTEMPTS:
+                  if attempt == EDIT_ATTEMPTS or not is_retriable(exc):
                       raise
                   wait=min(60, 5 * 2 ** (attempt-1))
                   print(

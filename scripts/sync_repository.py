@@ -627,6 +627,14 @@ def _prune_rebound_repository_workflows(
 
 
 
+
+REPOSITORY_REVIEWED_WORKFLOW_BLOBS = {
+    "hereliesaz/hereliesaz.github.io": {
+        ".github/workflows/dedup_scan.yml": "dbe5a3f49d07e0404c8e679134286235adbcdb17",
+        ".github/workflows/publish_admin_staging.yml": "8b54f6169299ab1964797d8442bb1e3681113424",
+    },
+}
+
 def _enforce_new_workflow_submission_policy(
     gh,
     repository: str,
@@ -656,6 +664,11 @@ def _enforce_new_workflow_submission_policy(
         if item.get("type") != "file" or not path.endswith((".yml", ".yaml")):
             continue
         if path in registered:
+            continue
+
+        reviewed_blobs = REPOSITORY_REVIEWED_WORKFLOW_BLOBS.get(repository.casefold(), {})
+        expected_blob = reviewed_blobs.get(path)
+        if expected_blob and str(item.get("sha") or "") == expected_blob:
             continue
 
         # A newly seen path is allowed when its implementation has already been

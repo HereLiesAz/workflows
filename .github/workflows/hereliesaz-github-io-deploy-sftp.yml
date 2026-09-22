@@ -1,0 +1,191 @@
+# Generated for HereLiesAz/hereliesaz.github.io:.github/workflows/deploy-sftp.yml.
+# Edit the registered source or synchronizer, not this compiled workflow.
+# Generated shared catalog workflow. Do not edit by hand.
+# catalog-source: shared/d1f086f76cedf600b6393c591ffd0a5ce2c2c66b074c948c302042284e9d0adf
+name: hereliesaz.github.io · Deploy over SFTP
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_ref:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+permissions:
+  contents: read
+env:
+  TARGET_REPOSITORY: ${{ inputs.target_repository }}
+  TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+  TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+  TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+  TARGET_SHA: ${{ inputs.target_sha }}
+  TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+  TARGET_REF: ${{ inputs.target_ref }}
+  TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+  TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+  TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+  TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+  TARGET_ACTOR: ${{ inputs.target_actor }}
+  TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+  TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+  TARGET_RUN_ID: ${{ inputs.target_run_id }}
+  TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+  TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+  TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
+  TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+concurrency:
+  group: sftp-deploy-hereliesaz-site-hereliesaz.github.io
+  cancel-in-progress: true
+jobs:
+  central_check_start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_owner=\"${TARGET_REPOSITORY%%/*}\"\n[[ -n \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Missing repository ID\" >&2; exit 1; }\n[[ \"${repo_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"${TARGET_REPOSITORY_OWNER,,}\" == \"hereliesaz\" ]] || { echo \"OIDC owner login mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from HereLiesAz/workflows.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\nif ! output=\"$(gh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\" 2>&1)\"; then\n  echo \"::warning::Could not post target status: $output\"\nfi"
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+      - name: Check for Art Data Branch
+        id: check-branch
+        run: "if git ls-remote --exit-code --heads origin art-data; then\n  echo \"exists=true\" >> \"$GITHUB_OUTPUT\"\nelse\n  echo \"exists=false\" >> \"$GITHUB_OUTPUT\"\nfi\n"
+      - name: Checkout Art Data
+        if: steps.check-branch.outputs.exists == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: refs/heads/art-data
+          path: public/data
+          fetch-tags: false
+          repository: ${{ inputs.target_repository }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+      - name: Verify art data is usable
+        run: "if [ ! -s public/data/theater/_manifest.json ]; then\n  echo \"::error::public/data/theater/_manifest.json is missing or empty after the art-data checkout — refusing to deploy hereliesaz.com without theater data.\"\n  exit 1\nfi\necho \"art-data verified: $(find public/data -type f | wc -l) files staged\"\n"
+      - name: Rebuild integrated painting records from scratch
+        run: "rm -rf public/data/integrated\npython3 scripts/integrate_painting_bakes.py --public-root public --strict\n"
+      - name: Install verification dependencies
+        run: python3 -m pip install --disable-pip-version-check -r scripts/verification-requirements.txt
+      - name: Validate canonical painting records
+        run: python3 scripts/validate_integrated_records.py --public-root public
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify repository and build Vite site
+        run: npm run verify
+      - name: Deploy dist via lftp (SFTP)
+        env:
+          HOST: ${{ secrets.FTP_SERVER }}
+          USERNAME: ${{ secrets.FTP_USERNAME }}
+          PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          PORT: ${{ fromJSON(inputs.target_vars_json).SFTP_PORT || '22' }}
+          REMOTE_DIR: ${{ fromJSON(inputs.target_vars_json).FTP_SERVER_DIR || '/app' }}
+        run: "set -euo pipefail\nsudo apt-get update\nsudo apt-get install -y lftp\n\nUSER_TRIMMED=$(printf '%s' \"$USERNAME\" | tr -d ' \\t\\r\\n')\nPW_TRIMMED=$(printf '%s' \"$PASSWORD\" | tr -d '\\r\\n')\n\nif [ -z \"$HOST\" ] || [ -z \"$USER_TRIMMED\" ] || [ -z \"$PW_TRIMMED\" ]; then\n  echo \"::error::SFTP deployment credentials are incomplete. Check FTP_SERVER, FTP_USERNAME, and FTP_PASSWORD.\"\n  exit 1\nfi\n\necho \"Testing SFTP connection to $HOST:$PORT ...\"\ntimeout 45s lftp -u \"$USER_TRIMMED\",\"$PW_TRIMMED\" \\\n  -p \"$PORT\" \\\n  -e \"set net:timeout 15; set net:max-retries 2; set net:reconnect-interval-base 2; set net:reconnect-interval-max 5; set sftp:auto-confirm yes; cls -1 $REMOTE_DIR >/dev/null; quit\" \\\n  sftp://\"$HOST\" || {\n    code=$?\n    if [ \"$code\" -eq 124 ]; then\n      echo \"::error::SFTP connection test timed out after 45 seconds.\"\n    else\n      echo \"::error::SFTP connection/authentication test failed with exit code $code.\"\n    fi\n    exit \"$code\"\n  }\n\necho \"Deploying dist/ to $REMOTE_DIR ...\"\ntimeout 15m lftp -u \"$USER_TRIMMED\",\"$PW_TRIMMED\" \\\n  -p \"$PORT\" \\\n  -e \"set net:timeout 20; set net:max-retries 3; set net:reconnect-interval-base 2; set net:reconnect-interval-max 10; set sftp:auto-confirm yes; mirror -R --only-newer --delete --verbose=1 ./dist/ $REMOTE_DIR; quit\" \\\n  sftp://\"$HOST\" || {\n    code=$?\n    if [ \"$code\" -eq 124 ]; then\n      echo \"::error::SFTP upload timed out after 15 minutes.\"\n    else\n      echo \"::error::SFTP upload failed with exit code $code.\"\n    fi\n    exit \"$code\"\n  }\n\necho \"SFTP deployment completed.\"\n"
+    needs: central_check_start
+    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
+    permissions:
+      contents: read
+    environment: hereliesaz.github.io
+  central_check_finish:
+    if: ${{ always() }}
+    needs:
+      - central_check_start
+      - build-and-deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Central workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Central workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+run-name: hereliesaz.github.io · Deploy over SFTP

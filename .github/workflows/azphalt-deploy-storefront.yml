@@ -140,7 +140,7 @@ jobs:
       - name: Install workspace deps
         run: pnpm install --frozen-lockfile
       - name: Build @azphalt/azp and workspace dependencies
-        run: pnpm --filter "@azphalt/azp..." build
+        run: pnpm --filter "@azphalt/azp..." --filter "@azphalt/storefront-react^..." build
       - name: Verify committed registry catalog
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}

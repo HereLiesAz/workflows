@@ -291,18 +291,49 @@ jobs:
 
           git checkout -B main origin/main
 
+          declare -A folded_paths=()
           for branch in "${branches[@]}"; do
             base="$(git merge-base origin/main "origin/$branch")"
-            mapfile -t commits < <(git rev-list --reverse "$base..origin/$branch")
-            if (( ${#commits[@]} == 0 )); then
+            mapfile -d '' changes < <(git diff --name-status -z "$base..origin/$branch")
+            if (( ${#changes[@]} == 0 )); then
               continue
             fi
-            echo "Applying ${#commits[@]} central change commit(s) from $branch"
-            for commit in "${commits[@]}"; do
-              if ! git cherry-pick --no-commit "$commit"; then
-                echo "::error::Central shard conflict while applying $branch commit $commit"
-                git cherry-pick --abort || true
-                exit 1
+
+            echo "Folding final file state from $branch"
+            i=0
+            while (( i < ${#changes[@]} )); do
+              status="${changes[$i]}"
+              i=$((i + 1))
+              path="${changes[$i]}"
+              i=$((i + 1))
+
+              # Rename/copy records contain an additional destination path.
+              if [[ "$status" == R* || "$status" == C* ]]; then
+                source_path="$path"
+                path="${changes[$i]}"
+                i=$((i + 1))
+                if [[ "$status" == R* ]]; then
+                  git rm -f --ignore-unmatch -- "$source_path"
+                fi
+              fi
+
+              if [[ -n "${folded_paths[$path]:-}" ]]; then
+                previous="${folded_paths[$path]}"
+                current_blob="$(git rev-parse "origin/$branch:$path" 2>/dev/null || true)"
+                if [[ "$previous" != "$current_blob" ]]; then
+                  echo "::error::Two shard branches produced different final states for $path"
+                  exit 1
+                fi
+                continue
+              fi
+
+              if [[ "$status" == D* ]]; then
+                git rm -f --ignore-unmatch -- "$path"
+                folded_paths["$path"]="__deleted__"
+              else
+                git checkout "origin/$branch" -- "$path"
+                git add -- "$path"
+                folded_paths["$path"]="$(git rev-parse "origin/$branch:$path")"
               fi
             done
           done
@@ -322,7 +353,7 @@ jobs:
           fi
 
       - name: Remove temporary shard branches
-        if: ${{ always() }}
+        if: ${{ success() }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         shell: bash

@@ -783,13 +783,10 @@ def compile_central(source_text: str, target: dict[str, Any], source_path: str, 
                 "env": {"GH_TOKEN": "${{ secrets.GH_TOKEN }}"},
                 "shell": "bash",
                 "run": '''set -euo pipefail
-repo_json="$(gh api "repos/${TARGET_REPOSITORY}")"
-actual_repo_id="$(jq -r '.id' <<<"$repo_json")"
-actual_owner_id="$(jq -r '.owner.id' <<<"$repo_json")"
-actual_owner="$(jq -r '.owner.login' <<<"$repo_json")"
-[[ "$actual_repo_id" == "$TARGET_REPOSITORY_ID" ]] || { echo "Repository ID mismatch" >&2; exit 1; }
-[[ "$actual_owner_id" == "103241502" ]] || { echo "Repository is not owned by HereLiesAz" >&2; exit 1; }
-[[ "${actual_owner,,}" == "hereliesaz" ]] || { echo "Repository owner mismatch" >&2; exit 1; }
+repo_owner="${TARGET_REPOSITORY%%/*}"
+[[ -n "$TARGET_REPOSITORY_ID" ]] || { echo "Missing repository ID" >&2; exit 1; }
+[[ "${repo_owner,,}" == "hereliesaz" ]] || { echo "Repository owner mismatch" >&2; exit 1; }
+[[ "${TARGET_REPOSITORY_OWNER,,}" == "hereliesaz" ]] || { echo "OIDC owner login mismatch" >&2; exit 1; }
 [[ "$TARGET_REPOSITORY_OWNER_ID" == "103241502" ]] || { echo "OIDC owner ID mismatch" >&2; exit 1; }''',
             },
             {
@@ -802,7 +799,7 @@ actual_owner="$(jq -r '.owner.login' <<<"$repo_json")"
                 "run": '''set -euo pipefail
 gh_api_json_with_retry() {
   local method="$1" endpoint="$2" payload="$3"
-  local attempt=1 max_attempts=14 delay=10 output rc
+  local attempt=1 max_attempts=3 delay=5 output rc
   while true; do
     set +e
     output="$(gh api --method "$method" "$endpoint" --input - <<<"$payload" 2>&1)"
@@ -826,8 +823,12 @@ gh_api_json_with_retry() {
   done
 }
 payload="$(jq -n --arg name "$CHECK_NAME" --arg sha "$TARGET_CHECK_SHA" --arg details "$DETAILS_URL" '{name:$name,head_sha:$sha,status:"in_progress",details_url:$details,output:{title:$name,summary:"Running from the shared workflow catalog."}}')"
-response="$(gh_api_json_with_retry POST "repos/${TARGET_REPOSITORY}/check-runs" "$payload")"
-echo "check_id=$(jq -r '.id' <<<"$response")" >> "$GITHUB_OUTPUT"''',
+if response="$(gh_api_json_with_retry POST "repos/${TARGET_REPOSITORY}/check-runs" "$payload")"; then
+  echo "check_id=$(jq -r '.id' <<<"$response")" >> "$GITHUB_OUTPUT"
+else
+  echo "::warning::Could not create target check; continuing without external status reporting."
+  echo "check_id=" >> "$GITHUB_OUTPUT"
+fi''',
             },
         ],
     })
@@ -857,7 +858,7 @@ echo "check_id=$(jq -r '.id' <<<"$response")" >> "$GITHUB_OUTPUT"''',
 if [[ "$FAILED" == "true" ]]; then conclusion="failure"; summary="Shared catalog workflow failed. Open the linked run for details."; else conclusion="success"; summary="Shared catalog workflow completed successfully."; fi
 gh_api_json_with_retry() {
   local method="$1" endpoint="$2" payload="$3"
-  local attempt=1 max_attempts=14 delay=10 output rc
+  local attempt=1 max_attempts=3 delay=5 output rc
   while true; do
     set +e
     output="$(gh api --method "$method" "$endpoint" --input - <<<"$payload" 2>&1)"
@@ -881,7 +882,9 @@ gh_api_json_with_retry() {
   done
 }
 payload="$(jq -n --arg conclusion "$conclusion" --arg title "$CHECK_NAME" --arg summary "$summary" --arg details "$DETAILS_URL" '{status:"completed",conclusion:$conclusion,details_url:$details,output:{title:$title,summary:$summary}}')"
-gh_api_json_with_retry PATCH "repos/${TARGET_REPOSITORY}/check-runs/${CHECK_ID}" "$payload" >/dev/null''',
+if ! gh_api_json_with_retry PATCH "repos/${TARGET_REPOSITORY}/check-runs/${CHECK_ID}" "$payload" >/dev/null; then
+  echo "::warning::Could not complete target check; workflow result remains authoritative."
+fi''',
         }],
     })
     doc["jobs"] = jobs

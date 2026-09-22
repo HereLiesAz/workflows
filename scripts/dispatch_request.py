@@ -166,7 +166,12 @@ def _any_match(value: str, patterns: list[str]) -> bool:
     return any(fnmatch.fnmatchcase(value, p) for p in patterns if p)
 
 
-def _changed_files(gh: GitHub, repository: str, event_name: str, event: dict) -> list[str]:
+def _is_rate_limit_error(exc: Exception) -> bool:
+    text = str(exc).casefold()
+    return "rate limit" in text or "retry-after" in text
+
+
+def _changed_files(gh: GitHub, repository: str, event_name: str, event: dict) -> list[str] | None:
     if event_name == "push":
         files: set[str] = set()
         for commit in event.get("commits") or []:
@@ -188,27 +193,34 @@ def _changed_files(gh: GitHub, repository: str, event_name: str, event: dict) ->
             return []
         files: list[str] = []
         page = 1
-        while True:
-            batch = gh.json(
-                "GET",
-                f"/repos/{repository}/pulls/{int(number)}/files?per_page=100&page={page}",
-            )
-            if not isinstance(batch, list):
-                break
-            files.extend(str(item.get("filename") or "") for item in batch if item.get("filename"))
-            if len(batch) < 100:
-                break
-            page += 1
+        try:
+            while True:
+                batch = gh.json(
+                    "GET",
+                    f"/repos/{repository}/pulls/{int(number)}/files?per_page=100&page={page}",
+                )
+                if not isinstance(batch, list):
+                    break
+                files.extend(str(item.get("filename") or "") for item in batch if item.get("filename"))
+                if len(batch) < 100:
+                    break
+                page += 1
+        except ApiError as exc:
+            if not _is_rate_limit_error(exc):
+                raise
+            # Path filters are an optimization, not a reason to lose an event.
+            # If GitHub's shared-token quota is exhausted, fail open and run the
+            # matching workflow rather than silently skipping it.
+            return None
         return sorted(set(files))
 
     return []
-
 
 def _event_trigger(
     source_doc: dict,
     event_name: str,
     event: dict,
-    changed_files: list[str],
+    changed_files: list[str] | None,
 ) -> str | None:
     on_value = source_doc.get("on")
     if isinstance(on_value, str):
@@ -269,25 +281,41 @@ def _event_trigger(
 
     paths = _patterns(spec.get("paths"))
     paths_ignore = _patterns(spec.get("paths-ignore"))
-    if paths:
+    if paths and changed_files is not None:
         if not changed_files or not any(_ordered_match(path, paths) for path in changed_files):
             return None
-    if paths_ignore and changed_files and all(_any_match(path, paths_ignore) for path in changed_files):
+    if paths_ignore and changed_files is not None and changed_files and all(_any_match(path, paths_ignore) for path in changed_files):
         return None
 
     return trigger_name
 
 
-def _source_document(gh: GitHub, entry: dict) -> tuple[str, dict]:
+def _local_manifest(repository_id: str) -> dict:
+    path = ROOT / "registry" / repository_id / "manifest.json"
+    if not path.is_file():
+        raise RuntimeError(f"Registry manifest is missing: {path.relative_to(ROOT)}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"Registry manifest is invalid: {path.relative_to(ROOT)}")
+    return payload
+
+
+def _source_document(entry: dict) -> tuple[str, dict]:
     registry_source = str(entry.get("registry_source") or "")
     if not registry_source:
         raise RuntimeError("Registered workflow has no registry_source")
-    source_text, _ = gh.get_file(CENTRAL_REPOSITORY, registry_source, ref="main")
+    path = (ROOT / registry_source).resolve()
+    if ROOT not in path.parents or not path.is_file():
+        raise RuntimeError(f"Registered workflow source is missing: {registry_source}")
+    source_text = path.read_text(encoding="utf-8")
     doc = YAML(typ="safe").load(source_text) or {}
     if not isinstance(doc, dict):
         raise RuntimeError(f"Registered workflow source is invalid YAML: {registry_source}")
     return source_text, doc
 
+
+def _source_uses_repository_vars(source_text: str) -> bool:
+    return "vars." in source_text
 
 def _repository_vars(gh: GitHub, repository: str) -> dict[str, str]:
     try:
@@ -305,7 +333,7 @@ def _repository_vars(gh: GitHub, repository: str) -> dict[str, str]:
 
 
 def _dispatch_entry(
-    gh: GitHub,
+    central_gh: GitHub,
     request: dict,
     repository: str,
     repository_id: str,
@@ -400,7 +428,7 @@ def _dispatch_entry(
         if delay:
             time.sleep(delay)
         try:
-            response = gh.json("POST", endpoint, body)
+            response = central_gh.json("POST", endpoint, body)
             return {
                 "status": "dispatched",
                 "repository": repository,
@@ -424,6 +452,7 @@ def main() -> int:
         request = json.load(handle)
 
     gh = GitHub(os.environ.get("GH_TOKEN", ""))
+    central_gh = GitHub(os.environ.get("CENTRAL_GITHUB_TOKEN") or os.environ.get("GH_TOKEN", ""))
     repository = require(str(request.get("repository", "")), "repository")
     repository_id = require(str(request.get("repository_id", "")), "repository_id")
     event_name = require(str(request.get("event_name", "")), "event_name")
@@ -460,21 +489,19 @@ def main() -> int:
             )
             return 0
 
-    repo = gh.repo(repository)
-    if str(repo["id"]) != repository_id:
-        raise RuntimeError("Repository ID mismatch")
-    if int(repo["owner"]["id"]) != OWNER_ID or repo["owner"]["login"].lower() != OWNER_LOGIN.lower():
-        raise RuntimeError("Repository is not owned by HereLiesAz")
-
-    manifest = load_manifest(gh, int(repository_id))
+    # The Worker has already verified webhook ownership and immutable repository
+    # identity. Cross-check that signed identity against the registry in this
+    # checked-out controller instead of spending shared PAT quota re-fetching it.
+    manifest = _local_manifest(repository_id)
     manifest_repo = manifest.get("repository") or {}
     if str(manifest_repo.get("id")) != repository_id:
         raise RuntimeError("Registry repository ID mismatch")
+    if str(manifest_repo.get("full_name", "")).casefold() != repository.casefold():
+        raise RuntimeError("Registry repository name mismatch")
     if str(manifest_repo.get("owner_id")) != str(OWNER_ID):
         raise RuntimeError("Registry owner ID mismatch")
-
-    if not request.get("vars"):
-        request["vars"] = _repository_vars(gh, repository)
+    if str(manifest_repo.get("owner_login", "")).casefold() != OWNER_LOGIN.casefold():
+        raise RuntimeError("Registry owner login mismatch")
 
     workflows = manifest.get("workflows") or {}
     requested_source = str(request.get("source_workflow_path") or "")
@@ -489,9 +516,12 @@ def main() -> int:
         supplied_hash = str(request.get("source_sha256") or "")
         if supplied_hash and entry.get("source_sha256") != supplied_hash:
             raise RuntimeError("Source hash does not match the central registry")
+        source_text, _ = _source_document(entry)
+        if not request.get("vars") and _source_uses_repository_vars(source_text):
+            request["vars"] = _repository_vars(gh, repository)
         dispatches.append(
             _dispatch_entry(
-                gh,
+                central_gh,
                 request,
                 repository,
                 repository_id,
@@ -505,13 +535,15 @@ def main() -> int:
         for source_path, entry in sorted(workflows.items()):
             if not isinstance(entry, dict) or entry.get("status") != "active":
                 continue
-            _, source_doc = _source_document(gh, entry)
+            source_text, source_doc = _source_document(entry)
             effective_event = _event_trigger(source_doc, event_name, event, changed_files)
             if not effective_event:
                 continue
+            if not request.get("vars") and _source_uses_repository_vars(source_text):
+                request["vars"] = _repository_vars(gh, repository)
             dispatches.append(
                 _dispatch_entry(
-                    gh,
+                    central_gh,
                     request,
                     repository,
                     repository_id,

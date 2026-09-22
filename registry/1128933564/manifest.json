@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-09-20T00:03:52+00:00",
+  "last_sync_at": "2026-09-22T07:27:19+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/Dubious",
@@ -8,7 +8,7 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
+  "worker_url_configured": false,
   "workflows": {
     ".github/workflows/deploy_frontend.yml": {
       "blockers": [
@@ -19,17 +19,18 @@
       "registry_source": "registry/1128933564/deploy_frontend-392e2b88.source.yml",
       "source_sha256": "3b9cad6f7d2bf3c61b1baae9281a7bd9880a183cc63319da2eb7d50da562a05c",
       "status": "local",
-      "updated_at": "2026-09-20T00:03:47+00:00"
+      "updated_at": "2026-09-22T07:27:16+00:00"
     },
     ".github/workflows/dub-job.yml": {
-      "binding": "repository",
+      "binding": "shared-variant",
       "central_workflow": ".github/workflows/dubious-dub-job.yml",
       "implementation_sha256": "607cc5a69a81eee774856f39070dafb7cc816ce7f514b5e524001e2493ecfd50",
       "name": "Dubious Processing Unit",
       "registry_source": "registry/1128933564/dub-job-15082294.source.yml",
+      "shared_variant": "607cc5a69a81eee7",
       "source_sha256": "458e92ebf95bf008014f056913ae47262177bb82c7e103ced19bcc36fec291e0",
       "status": "active",
-      "updated_at": "2026-09-20T00:03:48+00:00"
+      "updated_at": "2026-09-22T07:27:17+00:00"
     },
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
@@ -38,7 +39,7 @@
       "registry_source": "registry/1128933564/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",
-      "updated_at": "2026-09-20T00:03:51+00:00"
+      "updated_at": "2026-09-22T07:27:18+00:00"
     }
   }
 }

@@ -28,7 +28,13 @@ CONTROLLER = {
     ".github/workflows/gateway.yml",
     ".github/workflows/sync-repository.yml",
     ".github/workflows/sync-all-repositories.yml",
+    ".github/workflows/sync-registry-changes.yml",
     ".github/workflows/validate-controller.yml",
+    ".github/workflows/version-contract-sync.yml",
+    # workflow_call helper libraries invoked by other central workflows, not
+    # dispatched directly to a target-repository manifest entry.
+    ".github/workflows/pr-labeler.yml",
+    ".github/workflows/version-contract.yml",
 }
 OBSOLETE_RUNTIME = {
     ".github/workflows/emergency-concurrency-fix.yml",
@@ -248,9 +254,8 @@ def audit() -> tuple[list[str], dict[str, int]]:
     for rel, text in workflow_text.items():
         if rel in referenced or rel in OBSOLETE_RUNTIME:
             continue
-        if text.startswith("# Generated for ") or text.startswith("# Repository-scoped central workflow for "):
-            stats["orphan_generated"] += 1
-            errors.append(f"{rel}: generated repository workflow is not referenced by an active manifest")
+        stats["orphan_generated"] += 1
+        errors.append(f"{rel}: workflow is not referenced by an active manifest, CONTROLLER, or CURATED entry")
     for rel in OBSOLETE_RUNTIME:
         if rel in workflow_text:
             errors.append(f"{rel}: obsolete one-off migration/repair workflow must be removed")

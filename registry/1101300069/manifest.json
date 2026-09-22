@@ -42,13 +42,14 @@
       "updated_at": "2026-09-22T08:30:39+00:00"
     },
     ".github/workflows/deploy-worker.yml": {
-      "binding": "curated",
-      "central_workflow": ".github/workflows/cloudflare-worker-deploy.yml",
+      "binding": "repository",
+      "central_workflow": ".github/workflows/nolawallet-deploy-worker.yml",
       "name": "Deploy Worker",
       "registry_source": "registry/1101300069/deploy-worker-b13a438f.source.yml",
       "source_sha256": "72ef02ac7d671d0100dcf03997a7a19a536b539d2ef22769ece68b75d98e7b58",
       "status": "active",
-      "updated_at": "2026-09-22T08:30:40+00:00"
+      "updated_at": "2026-09-22T08:30:40+00:00",
+      "implementation_sha256": "239e1f2d4c817683e95495638aba40724cae5d97db09eb8cb85fedcd8308e805"
     },
     ".github/workflows/fanout-update.yml": {
       "binding": "repository",

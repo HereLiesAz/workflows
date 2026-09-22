@@ -108,14 +108,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         shell: bash
-        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+        run: "set -euo pipefail\nrepo_owner=\"${TARGET_REPOSITORY%%/*}\"\n[[ -n \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Missing repository ID\" >&2; exit 1; }\n[[ \"${repo_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"${TARGET_REPOSITORY_OWNER,,}\" == \"hereliesaz\" ]] || { echo \"OIDC owner login mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
       - name: Set target status pending
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
           DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         shell: bash
-        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from HereLiesAz/workflows.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from HereLiesAz/workflows.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\nif ! output=\"$(gh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\" 2>&1)\"; then\n  echo \"::warning::Could not post target status: $output\"\nfi"
   build-and-publish:
     runs-on: ubuntu-latest
     permissions:
@@ -169,29 +169,6 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew bundleRelease
-      - name: Resolve required mapping.txt
-        id: mapping
-        shell: bash
-        run: |
-          set -euo pipefail
-          mapping="app/build/outputs/mapping/release/mapping.txt"
-          if [ ! -s "$mapping" ]; then
-            mapping="$(find app/build/outputs/mapping -type f -name mapping.txt -size +0c | sort | head -1 || true)"
-          fi
-          test -n "$mapping" && test -s "$mapping" || {
-            echo "::error::Google Play publishing requires a nonempty mapping.txt for the release bundle" >&2
-            exit 1
-          }
-          cp "$mapping" "$RUNNER_TEMP/mapping.txt"
-          echo "path=$RUNNER_TEMP/mapping.txt" >> "$GITHUB_OUTPUT"
-
-      - name: Upload mapping.txt artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.meta.outputs.app_name }}-release-mapping
-          path: ${{ steps.mapping.outputs.path }}
-          if-no-files-found: error
-
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
@@ -204,69 +181,8 @@ jobs:
         env:
           PACKAGE_NAME: ${{ steps.meta.outputs.package_name }}
           AAB_GLOB: app/build/outputs/bundle/release/*.aab
-          MAPPING_FILE: ${{ steps.mapping.outputs.path }}
           PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pip install --quiet google-api-python-client google-auth google-auth-httplib2
-          python - <<'PY'
-          import glob, json, os
-          from google.oauth2 import service_account
-          from googleapiclient.discovery import build
-          from googleapiclient.http import MediaFileUpload
-
-          package = os.environ["PACKAGE_NAME"]
-          matches = glob.glob(os.environ["AAB_GLOB"])
-          if not matches:
-              raise SystemExit("No AAB matched AAB_GLOB")
-          aab = matches[0]
-          mapping = os.environ["MAPPING_FILE"]
-          if not os.path.isfile(mapping) or os.path.getsize(mapping) == 0:
-              raise SystemExit(f"Required mapping.txt is missing or empty: {mapping}")
-
-          credentials = service_account.Credentials.from_service_account_info(
-              json.loads(os.environ["PLAY_SERVICE_ACCOUNT_JSON"]),
-              scopes=["https://www.googleapis.com/auth/androidpublisher"],
-          )
-          service = build("androidpublisher", "v3", credentials=credentials, cache_discovery=False)
-          edits = service.edits()
-          edit_id = edits.insert(packageName=package, body={}).execute()["id"]
-          try:
-              bundle = edits.bundles().upload(
-                  packageName=package,
-                  editId=edit_id,
-                  media_body=MediaFileUpload(aab, mimetype="application/octet-stream", resumable=False),
-              ).execute()
-              version_code = str(bundle["versionCode"])
-              edits.deobfuscationfiles().upload(
-                  packageName=package,
-                  editId=edit_id,
-                  apkVersionCode=version_code,
-                  deobfuscationFileType="proguard",
-                  media_body=MediaFileUpload(mapping, mimetype="text/plain"),
-              ).execute()
-              for track, status in [
-                  ("internal", "completed"),
-                  ("alpha", "draft"),
-                  ("beta", "draft"),
-                  ("production", "draft"),
-              ]:
-                  edits.tracks().update(
-                      packageName=package,
-                      editId=edit_id,
-                      track=track,
-                      body={"releases": [{"versionCodes": [version_code], "status": status}]},
-                  ).execute()
-              edits.commit(packageName=package, editId=edit_id).execute()
-              print(f"Published versionCode {version_code} with mapping.txt")
-          except Exception:
-              try:
-                  edits.delete(packageName=package, editId=edit_id).execute()
-              except Exception:
-                  pass
-              raise
-          PY
+        run: "pip install --quiet google-api-python-client google-auth google-auth-httplib2 httplib2==0.15.0\npython .github/scripts/play_multitrack_publish.py\n"
       - name: Persist auto-incremented versionCode without clobbering newer versions
         if: ${{ always() && fromJSON(inputs.target_inputs_json).publish }}
         run: "set -euo pipefail\ngit config user.name \"github-actions[bot]\"\ngit config user.email \"41898282+github-actions[bot]@users.noreply.github.com\"\n\nif git diff --quiet -- version.properties; then\n  echo \"version.properties unchanged — nothing to persist\"\n  exit 0\nfi\n\nNEW_BUILD=$(grep -E '^versionBuild=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nNEW_MAJOR=$(grep -E '^versionMajor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nNEW_MINOR=$(grep -E '^versionMinor=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nNEW_MINOR_LAST=$(grep -E '^versionMinorLast=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nNEW_PATCH=$(grep -E '^versionPatch=' version.properties | cut -d'=' -f2 | tr -d '\\r ')\nBRANCH=\"${{ inputs.target_ref_name }}\"\n\nfor attempt in 1 2 3 4 5; do\n  git fetch origin \"${BRANCH}\"\n  REMOTE_BUILD=$(git show \"origin/${BRANCH}:version.properties\" 2>/dev/null | grep -E '^versionBuild=' | cut -d'=' -f2 | tr -d '\\r ' || echo 0)\n\n  if [ \"$REMOTE_BUILD\" -ge \"$NEW_BUILD\" ]; then\n    echo \"Remote versionBuild=${REMOTE_BUILD} is already >= this build's ${NEW_BUILD}; refusing to overwrite it.\"\n    exit 0\n  fi\n\n  git reset --hard \"origin/${BRANCH}\"\n  cat > version.properties <<EOF\n# Version source of truth\nversionBuild=${NEW_BUILD}\nversionMajor=${NEW_MAJOR}\nversionMinor=${NEW_MINOR}\nversionMinorLast=${NEW_MINOR_LAST}\nversionPatch=${NEW_PATCH}\nEOF\n  git add version.properties\n  git commit -m \"ci: versionBuild=${NEW_BUILD} [skip ci]\"\n\n  if git push origin \"HEAD:${BRANCH}\"; then\n    echo \"Pushed versionBuild=${NEW_BUILD} on attempt ${attempt}\"\n    exit 0\n  fi\n  echo \"::warning::Push raced with a newer main commit; checking the remote version again\"\ndone\n\necho \"::error::Could not safely persist versionBuild=${NEW_BUILD} after 5 attempts\"\nexit 1\n"

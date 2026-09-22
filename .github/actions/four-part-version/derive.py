@@ -48,13 +48,13 @@ if environment_variable and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", environm
 
 major, minor, patch, _ = (int(item) for item in match.groups())
 version = f"{major}.{minor}.{patch}.{int(build_number)}"
-patch_version = f"{major}.{minor}.{patch}"
+minor_version = f"{major}.{minor}"
 prerelease = major <= int(prerelease_major_max)
 
 output = Path(os.environ["GITHUB_OUTPUT"])
 with output.open("a", encoding="utf-8") as handle:
     handle.write(f"version={version}\n")
-    handle.write(f"patch-version={patch_version}\n")
+    handle.write(f"minor-version={minor_version}\n")
     handle.write(f"prerelease={'true' if prerelease else 'false'}\n")
 
 if environment_variable:

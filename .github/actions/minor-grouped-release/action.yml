@@ -1,0 +1,64 @@
+name: Minor-grouped GitHub release
+description: Group immutable MAJOR.MINOR.PATCH.BUILD artifacts, across every patch, under one MAJOR.MINOR GitHub Release.
+inputs:
+  github-token:
+    description: Repository-scoped token with contents:write.
+    required: true
+  target-repository:
+    description: owner/repository receiving tags and the grouped release.
+    required: true
+  target-sha:
+    description: Immutable commit SHA for this exact build.
+    required: true
+  build-version:
+    description: Exact MAJOR.MINOR.PATCH.BUILD version.
+    required: true
+  assets:
+    description: Shell-style glob selecting this build's already-versioned release assets.
+    required: true
+  title-prefix:
+    description: Human-readable product name used in the minor release title.
+    required: true
+  asset-name-mode:
+    description: inject-version adds BUILD_VERSION to asset names that do not already contain it; require-version rejects them.
+    required: false
+    default: "inject-version"
+  notes-file:
+    description: Optional Markdown file containing changes for this build.
+    required: false
+    default: ""
+  tag-prefix:
+    description: Prefix for exact-build and patch tags.
+    required: false
+    default: "v"
+  prerelease:
+    description: Whether the grouped minor release is a prerelease.
+    required: false
+    default: "false"
+  make-latest:
+    description: Whether the grouped minor release should be marked latest.
+    required: false
+    default: "true"
+  migrate-legacy-build-releases:
+    description: Move assets from old per-build or old per-patch release objects into the minor release, preserving their tags.
+    required: false
+    default: "true"
+runs:
+  using: composite
+  steps:
+    - name: Publish grouped minor release
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        TARGET_REPOSITORY: ${{ inputs.target-repository }}
+        TARGET_SHA: ${{ inputs.target-sha }}
+        BUILD_VERSION: ${{ inputs.build-version }}
+        ASSET_GLOB: ${{ inputs.assets }}
+        TITLE_PREFIX: ${{ inputs.title-prefix }}
+        ASSET_NAME_MODE: ${{ inputs.asset-name-mode }}
+        NOTES_FILE: ${{ inputs.notes-file }}
+        TAG_PREFIX: ${{ inputs.tag-prefix }}
+        PRERELEASE: ${{ inputs.prerelease }}
+        MAKE_LATEST: ${{ inputs.make-latest }}
+        MIGRATE_LEGACY_BUILD_RELEASES: ${{ inputs.migrate-legacy-build-releases }}
+      run: python3 "$GITHUB_ACTION_PATH/publish.py"

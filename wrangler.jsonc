@@ -2,6 +2,14 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "workflows",
   "main": "worker/src/index.js",
-  "compatibility_date": "2026-09-13",
-  "workers_dev": true
+  "compatibility_date": "2026-09-22",
+  "workers_dev": true,
+  "secrets": {
+    "required": [
+      "DISPATCH_TOKEN",
+      "GH_APP_ID",
+      "GH_PRIVATE_KEY",
+      "GH_PAT"
+    ]
+  }
 }

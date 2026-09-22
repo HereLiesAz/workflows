@@ -125,7 +125,9 @@ jobs:
         run: |
           set -euo pipefail
           payload="$(jq -n --arg state "pending" --arg context "$STATUS_CONTEXT" --arg description "Running from the shared HereLiesAz/workflows catalog." --arg target_url "$DETAILS_URL" '{state:$state,context:$context,description:$description,target_url:$target_url}')"
-          gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload"
+          if ! output="$(gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload" 2>&1)"; then
+            echo "::warning::Could not post target status: $output"
+          fi
 
   glee:
     needs: central_check_start

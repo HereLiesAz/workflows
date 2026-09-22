@@ -296,7 +296,11 @@ jobs:
               test -n "$chain" || { echo "::error::$CHAIN_SECRET is required" >&2; exit 1; }
               printf '%s\n' "$KEYSTORE_PRIVATE" > private-key.pem
               printf '%s\n' "$chain" > certificate-chain.crt
-              openssl pkcs12 -export -in certificate-chain.crt -inkey private-key.pem -out keystore.p12 -name "$KEY_ALIAS" -passout pass:"$KEYSTORE_PASSWORD"
+              # -legacy: the destination is always a legacy JKS keystore (re-imported below via
+              # keytool). Without it, OpenSSL 3.x defaults to AES/PBES2 encryption for the
+              # intermediate PKCS12, which keytool/AGP's bundle signer then fails to parse with
+              # "Tag number over 30 is not supported".
+              openssl pkcs12 -export -in certificate-chain.crt -inkey private-key.pem -out keystore.p12 -name "$KEY_ALIAS" -passout pass:"$KEYSTORE_PASSWORD" -legacy
               keytool -importkeystore -srckeystore keystore.p12 -srcstoretype PKCS12 -srcstorepass "$KEYSTORE_PASSWORD" -destkeystore "$KEYSTORE_OUTPUT" -deststoretype JKS -deststorepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" -noprompt
               rm -f private-key.pem certificate-chain.crt keystore.p12
               ;;

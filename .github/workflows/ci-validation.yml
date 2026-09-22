@@ -259,6 +259,7 @@ jobs:
     needs: central_check_start
     if: ${{ fromJSON(inputs.purpose_profile_json).kind == 'gradle' && (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) }}
     runs-on: ubuntu-latest
+    timeout-minutes: ${{ fromJSON(inputs.purpose_profile_json).timeout_minutes || 45 }}
     permissions:
       contents: read
       packages: read
@@ -271,6 +272,14 @@ jobs:
           ref: ${{ inputs.target_sha }}
           token: ${{ secrets.GH_TOKEN }}
           persist-credentials: false
+
+      - name: Restore validation dependency cache
+        id: validation-cache
+        if: ${{ fromJSON(inputs.purpose_profile_json).cache_path != null && fromJSON(inputs.purpose_profile_json).cache_path != '' && fromJSON(inputs.purpose_profile_json).cache_key != null && fromJSON(inputs.purpose_profile_json).cache_key != '' }}
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ fromJSON(inputs.purpose_profile_json).cache_path }}
+          key: ${{ fromJSON(inputs.purpose_profile_json).cache_key }}
 
       - name: Inject Google Services template
         if: ${{ fromJSON(inputs.purpose_profile_json).inject_google_services == true }}

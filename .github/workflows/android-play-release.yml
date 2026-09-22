@@ -163,6 +163,14 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           persist-credentials: false
 
+      - name: Restore trusted build dependency cache
+        id: profile-cache
+        if: ${{ fromJSON(inputs.purpose_profile_json).shared_cache_path != null && fromJSON(inputs.purpose_profile_json).shared_cache_path != '' && fromJSON(inputs.purpose_profile_json).shared_cache_key != null && fromJSON(inputs.purpose_profile_json).shared_cache_key != '' }}
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ fromJSON(inputs.purpose_profile_json).shared_cache_path }}
+          key: ${{ fromJSON(inputs.purpose_profile_json).shared_cache_key }}
+
       - name: Check out optional build dependency
         if: ${{ fromJSON(inputs.purpose_profile_json).extra_checkout_repository != null && fromJSON(inputs.purpose_profile_json).extra_checkout_repository != '' }}
         uses: actions/checkout@v4
@@ -424,6 +432,13 @@ jobs:
         if: ${{ env.PRE_BUILD_COMMAND != '' }}
         shell: bash
         run: bash -eo pipefail -c "$PRE_BUILD_COMMAND"
+
+      - name: Save trusted build dependency cache
+        if: ${{ fromJSON(inputs.purpose_profile_json).shared_cache_trusted_save == true && steps.profile-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ fromJSON(inputs.purpose_profile_json).shared_cache_path }}
+          key: ${{ fromJSON(inputs.purpose_profile_json).shared_cache_key }}
 
       - name: Run release tests
         if: ${{ env.TEST_COMMAND != '' }}

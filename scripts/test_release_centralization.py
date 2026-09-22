@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sync_repository import compile_central, load_yaml
+from sync_repository import TRACKER_MARKER, _build_target_run_tracker, build_proxy, compile_central, load_yaml
 from shared_workflow_library import semantic_family_slug
 
 def expression(body: str) -> str:
@@ -61,6 +61,44 @@ family = semantic_family_slug(
     compiled,
 )
 assert family == 'node-release', family
+
+tracker_source = '''
+name: Release AAB to Play
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - version.properties
+  workflow_dispatch:
+    inputs:
+      publish:
+        default: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo centralized
+'''
+tracker_proxy = build_proxy(
+    tracker_source,
+    '.github/workflows/release-aab.yml',
+    '09adb91f6846d345ebb261ae428ad9412bfbfac6fe1d1192a726b84546b46928',
+    'Release AAB to Play',
+)
+tracker = _build_target_run_tracker(tracker_proxy, '.github/workflows/release-aab.yml')
+tracker_doc = load_yaml(tracker)
+assert TRACKER_MARKER in tracker
+assert tracker_doc['name'] == 'Release AAB to Play'
+assert 'push' in tracker_doc['on']
+assert 'workflow_dispatch' in tracker_doc['on']
+assert tracker_doc['permissions']['statuses'] == 'read'
+assert tracker_doc['permissions']['actions'] == 'read'
+assert 'central-status' in tracker_doc['jobs']
+assert 'central-dispatch' not in tracker_doc['jobs']
+tracker_run = tracker_doc['jobs']['central-status']['steps'][0]['run']
+assert 'statuses/$TARGET_SHA' in tracker_run
+assert 'Central workflow state:' in tracker_run
+assert 'curl ' not in tracker_run
 
 play_workflow = Path('.github/workflows/android-play-release.yml').read_text(encoding='utf-8')
 assert "HTTP_TIMEOUT_SECONDS=180" in play_workflow

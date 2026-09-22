@@ -175,6 +175,26 @@ jobs:
       - name: Locate AAB
         id: aab
         run: "AAB=$(find app/build/outputs/bundle/release -name \"*.aab\" | head -n 1)\nif [ -z \"$AAB\" ]; then\n  echo \"Error: no release AAB found.\"\n  exit 1\nfi\necho \"Found AAB: $AAB\"\necho \"aab_path=$AAB\" >> \"$GITHUB_OUTPUT\"\n"
+      - name: Resolve required mapping.txt
+        id: mapping
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapping="app/build/outputs/mapping/release/mapping.txt"
+          test -s "$mapping" || {
+            echo "::error::Google Play publishing requires a nonempty mapping.txt at $mapping" >&2
+            exit 1
+          }
+          cp "$mapping" "$RUNNER_TEMP/mapping.txt"
+          echo "path=$RUNNER_TEMP/mapping.txt" >> "$GITHUB_OUTPUT"
+
+      - name: Upload mapping.txt artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cuedetat-${{ steps.build.outputs.version_code }}-mapping
+          path: ${{ steps.mapping.outputs.path }}
+          if-no-files-found: error
+
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
@@ -195,7 +215,7 @@ jobs:
           PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           PLAY_PACKAGE_NAME: ${{ steps.pkg.outputs.package_name }}
           PLAY_AAB_PATH: ${{ steps.aab.outputs.aab_path }}
-          PLAY_MAPPING_PATH: app/build/outputs/mapping/release/mapping.txt
+          PLAY_MAPPING_PATH: ${{ steps.mapping.outputs.path }}
           PLAY_RELEASE_NAME: ${{ steps.build.outputs.version_code }}
         run: python .github/scripts/play_publish.py
     needs: central_check_start

@@ -229,10 +229,51 @@ jobs:
       - name: Autobuild compiled language
         if: ${{ steps.build.outputs.manual != 'true' && contains(fromJSON('["c-cpp","csharp","go","java-kotlin","rust","swift"]'), matrix.language) }}
         uses: github/codeql-action/autobuild@v4
+      # codeql-action/analyze's built-in `upload: always` (the
+      # default) POSTs results using the GITHUB_REPOSITORY/GITHUB_SHA
+      # of the *running* workflow — which for a central-dispatch run is
+      # always this catalog repository, never the checked-out target
+      # repository, and GITHUB_REPOSITORY cannot be overridden via
+      # `env:` (GitHub Actions resets reserved GITHUB_* vars every
+      # step). That mismatch is what produces "commit not found" on
+      # every run: it tries to attach the target repo's commit to a
+      # SARIF upload address for this repo, where that commit doesn't
+      # exist. `upload: never` + `output:` writes the SARIF locally
+      # instead, and the next step uploads it explicitly to the real
+      # target repository/commit via the REST API.
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v4
         with:
           category: /language:${{ matrix.language }}
+          upload: never
+          output: ${{ runner.temp }}/codeql-sarif
+      - name: Upload SARIF results to target repository
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          TARGET_REPOSITORY: ${{ inputs.target_repository }}
+          TARGET_SHA: ${{ inputs.target_sha }}
+          TARGET_REF: ${{ inputs.target_ref }}
+          SARIF_DIR: ${{ runner.temp }}/codeql-sarif
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=("$SARIF_DIR"/*.sarif)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::No SARIF files produced in $SARIF_DIR"
+            exit 1
+          fi
+          for f in "${files[@]}"; do
+            echo "Uploading $f to ${TARGET_REPOSITORY}@${TARGET_SHA} (${TARGET_REF})"
+            sarif_b64="$(gzip -c "$f" | base64 -w0)"
+            payload="$(jq -n \
+              --arg commit_sha "$TARGET_SHA" \
+              --arg ref "$TARGET_REF" \
+              --arg sarif "$sarif_b64" \
+              --arg tool_name "CodeQL" \
+              '{commit_sha:$commit_sha, ref:$ref, sarif:$sarif, tool_name:$tool_name}')"
+            gh api --method POST "repos/${TARGET_REPOSITORY}/code-scanning/sarifs" --input - <<<"$payload"
+          done
   central_check_finish:
     if: ${{ always() }}
     needs:

@@ -2,12 +2,6 @@ name: Sync all owned repositories
 
 on:
   workflow_dispatch:
-    inputs:
-      refresh_repository_inventory:
-        description: Refresh the committed public repository inventory from GitHub before syncing.
-        required: false
-        type: boolean
-        default: false
   push:
     branches: [main]
     paths:

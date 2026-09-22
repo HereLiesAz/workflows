@@ -104,9 +104,17 @@ play_workflow = Path('.github/workflows/android-play-release.yml').read_text(enc
 assert "HTTP_TIMEOUT_SECONDS=120" in play_workflow
 assert "httplib2.Http(timeout=HTTP_TIMEOUT_SECONDS)" in play_workflow
 assert "timeout 1800 python" in play_workflow  # hard wall-clock cap on the whole publish step
+# The AAB upload observably needs more than 120s against Play's upload
+# endpoint (measured: a 445MB bundle timed out three times in a row at
+# 120s while the same file hit GitHub's blob storage in ~14s). It gets its
+# own generous timeout and a single attempt at that layer; the outer
+# edit-retry loop still retries the whole edit (fresh upload included).
+assert "UPLOAD_TIMEOUT_SECONDS=600" in play_workflow
+assert "httplib2.Http(timeout=UPLOAD_TIMEOUT_SECONDS)" in play_workflow
+assert "upload_svc.edits().bundles().upload(" in play_workflow
+assert "return execute(request, retries=1)" in play_workflow
 assert "resumable=False" in play_workflow
 assert "RedirectMissingLocation" in play_workflow
-assert "return execute(request)" in play_workflow
 assert "next_chunk(num_retries=REQUEST_RETRIES)" not in play_workflow
 assert "except transient as exc:" in play_workflow
 assert "return request.execute(num_retries=retries)" in play_workflow

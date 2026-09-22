@@ -247,6 +247,21 @@
     },
     "VITE_ICAL_FEED_BASE_URL": {
       "purpose": "Protected iCalendar feed base URL injected into the Vite application."
+    },
+    "GH_APP_ID": {
+      "purpose": "Identifies the GitHub App used by the Cloudflare gateway for server-to-server authentication."
+    },
+    "GH_PRIVATE_KEY": {
+      "purpose": "PEM private key used by the GitHub App to sign short-lived JWTs for installation-token creation."
+    },
+    "GH_PAT": {
+      "purpose": "Optional emergency fallback GitHub personal access token; not used by the primary Worker authentication path."
+    },
+    "GH_CLIENT_ID": {
+      "purpose": "GitHub App OAuth client identifier reserved for future user-authentication flows."
+    },
+    "GH_CLIENT_SECRET": {
+      "purpose": "GitHub App OAuth client secret reserved for future user-authentication flows."
     }
   }
 }

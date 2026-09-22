@@ -20,7 +20,7 @@ on:
 run-name: "sync · ${{ inputs.repository != '' && inputs.repository || '(auto: unregistered repos)' }}"
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 concurrency:
@@ -118,6 +118,27 @@ jobs:
 
             if python scripts/retry_repository_sync.py "${sync_args[@]}" --json-output "$out"; then
               [[ -f "$out" ]] && cat "$out"
+
+              # The sync script does not set worker_url_configured; stamp it now.
+              if [[ "${{ inputs.dry_run }}" != "true" ]]; then
+                manifest_path="registry/${repository_id}/manifest.json"
+                file_info="$(gh api "repos/HereLiesAz/workflows/contents/${manifest_path}")"
+                current_sha="$(jq -r '.sha' <<<"$file_info")"
+                current_content="$(jq -r '.content' <<<"$file_info" | base64 -d)"
+                updated_content="$(jq '.worker_url_configured = true' <<<"$current_content")"
+                if [[ "$(jq '.worker_url_configured' <<<"$current_content")" != "true" ]]; then
+                  encoded="$(echo -n "$updated_content" | base64 -w0)"
+                  gh api --method PUT "repos/HereLiesAz/workflows/contents/${manifest_path}" \
+                    -f message="Mark worker_url_configured=true for ${repository}" \
+                    -f content="$encoded" \
+                    -f sha="$current_sha" \
+                    --silent
+                  echo "Stamped worker_url_configured=true in ${manifest_path}"
+                else
+                  echo "worker_url_configured already true for ${repository}"
+                fi
+              fi
+
               echo "- ✅ ${repository}" >> "$GITHUB_STEP_SUMMARY"
             else
               status=$?

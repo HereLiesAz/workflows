@@ -639,6 +639,9 @@ REPOSITORY_REVIEWED_WORKFLOW_BLOBS = {
     "hereliesaz/conveyance-liquid": {
         ".github/workflows/ci.yml": "1445c059bfcdffbfd19c8c267c3e02baca34e8bd",
     },
+    "hereliesaz/conveyance-bacterium": {
+        ".github/workflows/ci.yml": "8b32d6357f4b1c826d7f9bcea208df7ea29b7a86",
+    },
 }
 
 def _enforce_new_workflow_submission_policy(

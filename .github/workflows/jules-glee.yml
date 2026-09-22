@@ -233,14 +233,26 @@ jobs:
 
       - name: Run analysis-only repoless Codex audit
         id: codex
+        continue-on-error: true
         uses: openai/codex-action@5c3f4ccdb2b8790f73d6b21751ac00e602aa0c02 # v1.7
         with:
           openai-api-key: ${{ secrets.OPENAI_TOKEN }}
-          permission-profile: ":read-only"
           safety-strategy: drop-sudo
           prompt-file: glee-prompt.md
           output-file: glee-audit.md
           effort: high
+
+      - name: Record unavailable Codex audit
+        if: ${{ steps.codex.outcome != 'success' }}
+        shell: bash
+        run: |
+          cat > glee-audit.md <<'EOF'
+          ⚠️ **Glee audit unavailable**
+
+          The Codex audit service could not complete this run. This is an audit-infrastructure failure,
+          not a target-repository build/test failure. Review the shared workflow run for the provider
+          error and rerun the audit after service/API availability is restored.
+          EOF
 
       - name: Validate Codex audit output
         shell: bash

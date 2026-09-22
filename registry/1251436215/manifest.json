@@ -11,14 +11,13 @@
   "worker_url_configured": false,
   "workflows": {
     ".github/workflows/deploy.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/nolawallet-id-deploy.yml",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/cloudflare-worker-deploy.yml",
       "name": "Deploy Worker",
       "registry_source": "registry/1251436215/deploy-f130ad0d.source.yml",
       "source_sha256": "2a16b3030dd461074313efeba6c364040ccad4f25c8c38a1c37042e64c6ed381",
       "status": "active",
-      "updated_at": "2026-09-22T07:27:09+00:00",
-      "implementation_sha256": "16b35195d79387ea0a7f674d53d534fd20c9b4d06ad2ae8ae6da11c54a28d1db"
+      "updated_at": "2026-09-22T07:27:09+00:00"
     },
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",

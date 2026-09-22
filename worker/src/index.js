@@ -21,7 +21,7 @@ export default {
       return json({ ok: true, service: "HereLiesAz/workflows gateway", mode: "webhook-central" });
     }
     if (request.method === "GET" && url.pathname === "/repositories") {
-      return await scrapePublicRepositories();
+      return await scrapePublicRepositories(url);
     }
 
     try {
@@ -45,12 +45,16 @@ export default {
   },
 };
 
-async function scrapePublicRepositories() {
-  const repositories = new Set();
+async function scrapePublicRepositories(url) {
+  const repositories = [];
+  const seen = new Set();
+  const stop = String(url.searchParams.get("stop") || "").trim();
+  const stopFullName = stop && stop.includes("/") ? stop : (stop ? `${OWNER_LOGIN}/${stop}` : "");
+  let stopFound = false;
   let page = 1;
 
-  while (page <= 20) {
-    const pageUrl = `https://github.com/${OWNER_LOGIN}?tab=repositories&page=${page}`;
+  while (page <= 20 && !stopFound) {
+    const pageUrl = `https://github.com/${OWNER_LOGIN}?tab=repositories&q=&type=public&language=&sort=created&direction=desc&page=${page}`;
     const response = await fetch(pageUrl, {
       headers: {
         "Accept": "text/html,application/xhtml+xml",
@@ -65,31 +69,44 @@ async function scrapePublicRepositories() {
     let foundOnPage = 0;
     const rewriter = new HTMLRewriter().on("a[href]", {
       element(element) {
+        if (stopFound) return;
         const href = element.getAttribute("href") || "";
         const match = href.match(/^\/HereLiesAz\/([A-Za-z0-9_.-]+)$/i);
         if (!match) return;
         const name = match[1];
         if (name.toLowerCase() === "workflows") return;
         const fullName = `${OWNER_LOGIN}/${name}`;
-        if (!repositories.has(fullName)) {
-          repositories.add(fullName);
+
+        if (stopFullName && fullName.toLowerCase() === stopFullName.toLowerCase()) {
+          stopFound = true;
+          return;
+        }
+        if (!seen.has(fullName)) {
+          seen.add(fullName);
+          repositories.push(fullName);
           foundOnPage += 1;
         }
       },
     });
     await rewriter.transform(response).text();
 
-    if (foundOnPage === 0) break;
+    if (stopFound || foundOnPage === 0) break;
     page += 1;
   }
 
-  const result = [...repositories].sort((a, b) => a.localeCompare(b));
+  if (stopFullName && !stopFound) {
+    throw new HttpError(409, `Expected repository cursor not found: ${stopFullName}`);
+  }
+
   return json({
     ok: true,
     owner: OWNER_LOGIN,
-    repositories: result,
-    count: result.length,
-    source: "github-public-html",
+    repositories,
+    count: repositories.length,
+    stop_repository: stopFullName || null,
+    stop_found: stopFound,
+    pages_scanned: page,
+    source: "github-public-html-newest-first",
   });
 }
 

@@ -237,14 +237,23 @@ def _event_trigger(
         return None
 
     spec = on_value.get(trigger_name)
-    if spec is None or spec == {}:
-        return trigger_name
+    if spec is None:
+        spec = {}
     if not isinstance(spec, dict):
         return trigger_name
 
+    action = str(event.get("action") or "")
     action_types = _patterns(spec.get("types"))
-    if action_types and str(event.get("action") or "") not in action_types:
-        return None
+    if action_types:
+        if action not in action_types:
+            return None
+    elif trigger_name in {"pull_request", "pull_request_target"} and action:
+        # GitHub Actions does not run an unqualified pull_request trigger for
+        # every webhook activity. Its default activity set is opened,
+        # synchronize, and reopened; metadata edits, labels, assignments, etc.
+        # must not restart CI unless the source explicitly opted into them.
+        if action not in {"opened", "synchronize", "reopened"}:
+            return None
 
     if event_name == "push":
         ref = str(event.get("ref") or "")

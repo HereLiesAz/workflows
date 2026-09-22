@@ -250,7 +250,7 @@ jobs:
           arcore="$(jq -r '.arcore_local_properties // false' <<<"$PROFILE_JSON")"
           version_arg="$(jq -r '.version_arg // "versionBuild"' <<<"$PROFILE_JSON")"
           inject_signing="$(jq -r '.inject_signing_args // false' <<<"$PROFILE_JSON")"
-          pem_legacy="$(jq -r '.pem_legacy // false' <<<"$PROFILE_JSON")"
+          pem_legacy="$(jq -r '.pem_legacy // true' <<<"$PROFILE_JSON")"
           publish_default="$(jq -r '.publish_default // true' <<<"$PROFILE_JSON")"
           publish_on_push="$(jq -r '.publish_on_push // true' <<<"$PROFILE_JSON")"
           test_command="$(jq -r '.test_command // empty' <<<"$PROFILE_JSON")"
@@ -402,6 +402,11 @@ jobs:
               printf '%s\n' "$KEYSTORE_CHAIN" > certificate-chain.crt
               openssl_args=(-export -in certificate-chain.crt -inkey private-key.pem -out keystore.p12 -name "$KEY_ALIAS" -passout pass:"$KEYSTORE_PASSWORD")
               if [ -n "$KEY_PASSWORD" ]; then openssl_args+=(-passin env:KEY_PASSWORD); fi
+              # pem_legacy defaults true: the destination is always a legacy JKS keystore
+              # (re-imported below via keytool). Without -legacy, OpenSSL 3.x defaults to
+              # AES/PBES2 encryption for the intermediate PKCS12, which keytool/AGP's bundle
+              # signer then fails to parse with "Tag number over 30 is not supported". A
+              # profile can still set pem_legacy: false if it genuinely needs modern PBE.
               if [ "$PEM_LEGACY" = true ]; then openssl_args+=(-legacy); fi
               openssl pkcs12 "${openssl_args[@]}"
               keytool -importkeystore -srckeystore keystore.p12 -srcstoretype PKCS12 -srcstorepass "$KEYSTORE_PASSWORD" -destkeystore app/keystore.jks -deststoretype JKS -deststorepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" -noprompt

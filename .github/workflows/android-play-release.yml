@@ -511,6 +511,50 @@ jobs:
             echo "APK_PATH=" >> "$GITHUB_ENV"
           fi
 
+      - name: Resolve required mapping.txt
+        id: mapping
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapping="${MAPPING_FILE:-}"
+          if [ -n "$mapping" ] && [ ! -s "$mapping" ]; then
+            echo "::error::Configured mapping_file does not exist or is empty: $mapping" >&2
+            exit 1
+          fi
+          if [ -z "$mapping" ]; then
+            module="${AAB_PATH%%/build/outputs/bundle/*}"
+            relative="${AAB_PATH#*/build/outputs/bundle/}"
+            variant="${relative%%/*}"
+            candidate="$module/build/outputs/mapping/$variant/mapping.txt"
+            if [ -s "$candidate" ]; then mapping="$candidate"; fi
+          fi
+          if [ -z "$mapping" ]; then
+            mapping="$(find . -type f -path '*/build/outputs/mapping/*/mapping.txt' -size +0c | sort | head -1 || true)"
+          fi
+          canonical="$RUNNER_TEMP/mapping.txt"
+          if [ -z "$mapping" ]; then
+            embedded='BUNDLE-METADATA/com.android.tools.build.obfuscation/proguard.map'
+            if unzip -Z1 "$AAB_PATH" | grep -Fxq "$embedded"; then
+              unzip -p "$AAB_PATH" "$embedded" > "$canonical"
+              mapping="$canonical"
+            fi
+          fi
+          test -n "$mapping" && test -s "$mapping" || {
+            echo "::error::Play publishing requires a nonempty R8/ProGuard mapping.txt, but none was produced for $AAB_PATH" >&2
+            exit 1
+          }
+          if [ "$mapping" != "$canonical" ]; then cp "$mapping" "$canonical"; fi
+          test -s "$canonical"
+          echo "MAPPING_FILE=$canonical" >> "$GITHUB_ENV"
+          echo "path=$canonical" >> "$GITHUB_OUTPUT"
+
+      - name: Upload mapping.txt artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.target_repository_name }}-${{ env.EFFECTIVE_RELEASE_VERSION_NAME }}-mapping
+          path: ${{ steps.mapping.outputs.path }}
+          if-no-files-found: error
+
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
@@ -602,15 +646,17 @@ jobs:
                   edit=execute(svc.edits().insert(packageName=package,body={}))['id']
                   bundle=upload_bundle(edit)
                   code=str(bundle['versionCode'])
-                  mapping=os.environ.get('MAPPING_FILE','')
-                  if mapping and os.path.isfile(mapping):
-                      execute(svc.edits().deobfuscationfiles().upload(
-                          packageName=package,
-                          editId=edit,
-                          apkVersionCode=code,
-                          deobfuscationFileType='proguard',
-                          media_body=MediaFileUpload(mapping,mimetype='text/plain'),
-                      ))
+                  mapping=os.environ['MAPPING_FILE']
+                  if not os.path.isfile(mapping) or os.path.getsize(mapping) == 0:
+                      raise RuntimeError(f'Required mapping.txt is missing or empty: {mapping}')
+                  execute(svc.edits().deobfuscationfiles().upload(
+                      packageName=package,
+                      editId=edit,
+                      apkVersionCode=code,
+                      deobfuscationFileType='proguard',
+                      media_body=MediaFileUpload(mapping,mimetype='text/plain'),
+                  ))
+                  print(f'Uploaded mapping.txt for versionCode {code}')
                   for spec in tracks:
                       release={'versionCodes':[code],'status':spec['status']}
                       if spec.get('name'):

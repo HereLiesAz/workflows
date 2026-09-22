@@ -63,6 +63,17 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "d469abed7144cbed30feaf51455bdc0bc039b6bb9978968ff5a534d361e31828",
             "825e6e5a5cbc7d80f2854e239557599c354131b24dee94d3c14b806f640ce98b",
             "a95687c1a4f8af0ad53e5d420d557fc7237dd2f97d70d63201ac4cdff6edb6c6",
+            # HereLiesAz/hereliesaz.github.io:.github/workflows/android-release-aab.yml —
+            # structurally identical to the canonical template (same signing, build
+            # command, google-services template injection, and publish condition);
+            # the default profile already matches its behavior.
+            "f2bc9f7489aff3e81a11c68d22f9b82207c599924b65eba988949affce14e2d6",
+            # HereLiesAz/QaRd:.github/workflows/play-release.yml — see PURPOSE_PROFILES
+            # for the pem-chain signing / bundlePlayRelease / tracks-from-inputs profile.
+            "dee6f7b8f329c64093b03787ecab565a92a6eab18a8a14c5d5d49d6815e045d0",
+            # HereLiesAz/CueDetat:.github/workflows/play_publish.yml — see
+            # PURPOSE_PROFILES for its pem-chain / git-commit-count-versioned profile.
+            "c99c3eed02d6deb557eaba891c904d3fcdabde1c27a518dee8c7e8e422b92b98",
         },
     },
     ".github/workflows/android-github-release.yml": {
@@ -266,6 +277,7 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
     "bc33a453efa94395260c9b521a0fc01da92a27a8da0181d2c598770148ee6007": {"signing": "raw-jks", "build_command": "./gradlew bundleRelease", "aab_glob": "app/build/outputs/bundle/release/*.aab", "persist_version": True},
     "f637fcde293eeaaa50671b2f6313751cd044a6419c37ebba3678dd702940d94a": {"signing": "raw-jks", "build_command": "./gradlew bundleRelease", "aab_glob": "app/build/outputs/bundle/release/*.aab", "arcore_local_properties": True, "persist_version": True},
     "c99c3eed02d6deb557eaba891c904d3fcdabde1c27a518dee8c7e8e422b92b98": {"signing": "pem-chain", "build_command": "./gradlew bundleRelease", "aab_glob": "app/build/outputs/bundle/release/*.aab", "version_mode": "git-count", "version_arg": "versionBuild", "inject_signing_args": True, "persist_version": False, "tracks": [{"track": "internal", "status": "completed"}, {"track": "alpha", "status": "completed"}, {"track": "beta", "status": "draft"}, {"track": "production", "status": "draft"}]},
+    "dee6f7b8f329c64093b03787ecab565a92a6eab18a8a14c5d5d49d6815e045d0": {"signing": "pem-chain", "java_version": "17", "build_command": "./gradlew bundlePlayRelease --build-cache", "aab_glob": "app/build/outputs/bundle/playRelease/*.aab", "inject_signing_args": True, "google_services": "raw", "tracks_from_inputs": True, "publish_default": False},
     "d97ccb161c6ef03fda005a7053d4de85c1cd9cf97785ccf7a8e777ca5ef31ee5": {"asset": "style.onnx", "model_url": "https://huggingface.co/onnx-community/fast-neural-style-mosaic/resolve/main/mosaic.onnx"},
     "c43f374050664d850b17bfd5ceb78a1911b3cdf1e306448609944c02949e32aa": {"asset": "gtcrn_simple.onnx", "model_url": "https://huggingface.co/onnx-community/gtcrn/resolve/main/gtcrn_simple.onnx"},
     "d8c762275c29a2b6fd557eca12c44756ec7235d4c7fb03a9a447eecc5838eaa0": {"asset": "lama.onnx", "model_url": "https://huggingface.co/Carve/LaMa-ONNX/resolve/main/lama_fp32.onnx"},

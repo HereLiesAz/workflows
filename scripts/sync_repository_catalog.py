@@ -973,6 +973,8 @@ def sync_repository(gh: GitHub, full_name: str, worker_url: str, dry_run: bool =
     owner = repo["owner"]
     if int(owner["id"]) != OWNER_ID or owner["login"].lower() != OWNER_LOGIN.lower():
         raise RuntimeError(f"Refusing {full_name}: repository is not owned by {OWNER_LOGIN} ({OWNER_ID})")
+    if repo.get("private"):
+        raise RuntimeError(f"Refusing {full_name}: private repositories are excluded from central sync")
     if repo["full_name"].lower() == CENTRAL_REPOSITORY.lower():
         raise RuntimeError("Refusing to centralize the central workflows repository itself")
 

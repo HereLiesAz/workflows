@@ -30,36 +30,53 @@ jobs:
       archived: ${{ steps.repos.outputs.archived }}
       private: ${{ steps.repos.outputs.private }}
     steps:
-      - name: Check out controller inventory
-        uses: actions/checkout@v4
-
-      - name: Load public repository inventory
+      - name: Enumerate every owned repository
         id: repos
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          inventory=".controller/public-repositories.json"
-          [[ -f "$inventory" ]] || { echo "::error::Missing $inventory"; exit 1; }
+          all="$(gh api --paginate 'user/repos?affiliation=owner&per_page=100' --jq '.[] | select(.owner.login == "HereLiesAz") | [.full_name, (.id|tostring), (.archived|tostring), (.private|tostring)] | @tsv')"
 
           repositories="$(
-            jq -c '[.repositories[] | [.full_name, (.id|tostring)] | join("\t")]' "$inventory"
+            awk -F '\t' '$1 != "HereLiesAz/workflows" && $3 == "false" && $4 == "false" {print $1 "\t" $2}' <<<"$all" \
+              | sort -u \
+              | jq -Rsc 'split("\n") | map(select(length > 0))'
           )"
-          count="$(jq '.repositories | length' "$inventory")"
+          archived="$(
+            awk -F '\t' '$3 == "true" {print $1}' <<<"$all" \
+              | sort -u \
+              | jq -Rsc 'split("\n") | map(select(length > 0))'
+          )"
+          private="$(
+            awk -F '\t' '$1 != "HereLiesAz/workflows" && $3 == "false" && $4 == "true" {print $1}' <<<"$all" \
+              | sort -u \
+              | jq -Rsc 'split("\n") | map(select(length > 0))'
+          )"
+
+          count="$(jq 'length' <<<"$repositories")"
+          archived_count="$(jq 'length' <<<"$archived")"
+          private_count="$(jq 'length' <<<"$private")"
 
           echo "repositories=$repositories" >> "$GITHUB_OUTPUT"
           echo "count=$count" >> "$GITHUB_OUTPUT"
-          echo "archived=[]" >> "$GITHUB_OUTPUT"
-          echo "private=[\"HereLiesAz/NoLAWallet\",\"HereLiesAz/NoLAWallet-id\",\"HereLiesAz/new-project\"]" >> "$GITHUB_OUTPUT"
+          echo "archived=$archived" >> "$GITHUB_OUTPUT"
+          echo "private=$private" >> "$GITHUB_OUTPUT"
 
           {
-            echo "## Committed public repository inventory"
+            echo "## Live repository inventory"
             echo
             echo "- Writable non-controller, public repositories: **$count**"
-            echo "- Controller repository: **HereLiesAz/workflows** (never self-centralized)"
-            echo "- Private repositories excluded: **3**"
-            echo "- Discovery source: `$inventory`"
-            echo
-            echo "Normal sync-all runs make **zero account-level repository-list API calls**."
+            echo "- Controller repository: **HereLiesAz/workflows** (versioned locally; never self-centralized)"
+            echo "- Archived repositories skipped from workflow mutation: **$archived_count**"
+            if [ "$archived_count" -gt 0 ]; then
+              jq -r '.[] | "- `" + . + "`"' <<<"$archived"
+            fi
+            echo "- Private repositories excluded from central sync: **$private_count**"
+            if [ "$private_count" -gt 0 ]; then
+              jq -r '.[] | "- `" + . + "`"' <<<"$private"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
   sync:

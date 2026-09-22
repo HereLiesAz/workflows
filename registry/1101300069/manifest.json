@@ -42,9 +42,8 @@
       "updated_at": "2026-09-22T08:30:39+00:00"
     },
     ".github/workflows/deploy-worker.yml": {
-      "binding": "repository",
-      "central_workflow": ".github/workflows/nolawallet-deploy-worker.yml",
-      "implementation_sha256": "239e1f2d4c817683e95495638aba40724cae5d97db09eb8cb85fedcd8308e805",
+      "binding": "curated",
+      "central_workflow": ".github/workflows/cloudflare-worker-deploy.yml",
       "name": "Deploy Worker",
       "registry_source": "registry/1101300069/deploy-worker-b13a438f.source.yml",
       "source_sha256": "72ef02ac7d671d0100dcf03997a7a19a536b539d2ef22769ece68b75d98e7b58",
@@ -64,7 +63,7 @@
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "\ud83d\ude08 Glee Audit",
+      "name": "😈 Glee Audit",
       "registry_source": "registry/1101300069/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
       "status": "active",

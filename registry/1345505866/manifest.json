@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-09-22T10:14:25+00:00",
+  "last_sync_at": "2026-09-22T12:22:10+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/illumera",
@@ -8,34 +8,37 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
+  "worker_url_configured": false,
   "workflows": {
     ".github/workflows/ci.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/ci-validation.yml",
       "name": "CI",
+      "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/1345505866/ci-899ce9c2.source.yml",
       "source_sha256": "6ab641050248a526163bd43e627e6bf32c80a618fa1b0bfb4dbf3d24e1e8c697",
-      "status": "active",
-      "updated_at": "2026-09-20T23:23:04+00:00"
+      "status": "obsolete",
+      "updated_at": "2026-09-22T12:22:10+00:00"
     },
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "😈 Glee Audit",
+      "name": "\ud83d\ude08 Glee Audit",
+      "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/1345505866/jules-glee-0de23ac9.source.yml",
       "source_sha256": "9aa63d02927a5e790e34e579d446800e097a1f756daa8990e3f5dac1c2ff0203",
-      "status": "active",
-      "updated_at": "2026-09-20T23:23:06+00:00"
+      "status": "obsolete",
+      "updated_at": "2026-09-22T12:22:10+00:00"
     },
     ".github/workflows/release.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/android-play-release.yml",
       "name": "Build and Release APK + Play AAB",
+      "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/1345505866/release-16911b98.source.yml",
       "source_sha256": "a95687c1a4f8af0ad53e5d420d557fc7237dd2f97d70d63201ac4cdff6edb6c6",
-      "status": "active",
-      "updated_at": "2026-09-20T23:23:07+00:00"
+      "status": "obsolete",
+      "updated_at": "2026-09-22T12:22:10+00:00"
     }
   }
 }

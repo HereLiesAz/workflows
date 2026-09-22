@@ -12,6 +12,8 @@ const IGNORED_WEBHOOK_EVENTS = new Set(["check_run", "check_suite", "workflow_jo
 
 let jwksCache;
 let jwksCacheExpiresAt = 0;
+let githubInstallationTokenCache = "";
+let githubInstallationTokenExpiresAt = 0;
 
 export default {
   async fetch(request, env) {
@@ -465,11 +467,12 @@ function requireDispatchToken(env) {
 }
 
 async function githubApi(env, path, method = "GET", body = undefined, allowEmpty = false) {
+  const token = await githubInstallationToken(env);
   const response = await fetch(`https://api.github.com${path}`, {
     method,
     headers: {
       "Accept": "application/vnd.github+json",
-      "Authorization": `Bearer ${env.DISPATCH_TOKEN}`,
+      "Authorization": `Bearer ${token}`,
       "Content-Type": "application/json",
       "User-Agent": "HereLiesAz-workflows-cloudflare-gateway",
       "X-GitHub-Api-Version": API_VERSION,
@@ -479,10 +482,194 @@ async function githubApi(env, path, method = "GET", body = undefined, allowEmpty
 
   if (!response.ok) {
     const detail = await response.text();
+    if (response.status === 401) {
+      githubInstallationTokenCache = "";
+      githubInstallationTokenExpiresAt = 0;
+    }
     throw new HttpError(502, `GitHub API failed (${response.status}): ${detail}`);
   }
   if (response.status === 204 || allowEmpty) return null;
   return response.json();
+}
+
+async function githubInstallationToken(env) {
+  requireGitHubAppCredentials(env);
+
+  const now = Math.floor(Date.now() / 1000);
+  if (githubInstallationTokenCache && now < githubInstallationTokenExpiresAt - 120) {
+    return githubInstallationTokenCache;
+  }
+
+  const appJwt = await createGitHubAppJwt(env);
+  const installationsResponse = await fetch("https://api.github.com/app/installations?per_page=100", {
+    headers: {
+      "Accept": "application/vnd.github+json",
+      "Authorization": `Bearer ${appJwt}`,
+      "User-Agent": "HereLiesAz-workflows-cloudflare-gateway",
+      "X-GitHub-Api-Version": API_VERSION,
+    },
+  });
+  if (!installationsResponse.ok) {
+    const detail = await installationsResponse.text();
+    throw new HttpError(502, `GitHub App installation lookup failed (${installationsResponse.status}): ${detail}`);
+  }
+
+  const installations = await installationsResponse.json();
+  const installation = Array.isArray(installations)
+    ? installations.find((item) =>
+        String(item?.account?.id) === OWNER_ID &&
+        String(item?.account?.login || "").toLowerCase() === OWNER_LOGIN.toLowerCase())
+    : undefined;
+  if (!installation?.id) {
+    throw new HttpError(502, `GitHub App is not installed on ${OWNER_LOGIN}`);
+  }
+
+  const tokenResponse = await fetch(
+    `https://api.github.com/app/installations/${installation.id}/access_tokens`,
+    {
+      method: "POST",
+      headers: {
+        "Accept": "application/vnd.github+json",
+        "Authorization": `Bearer ${appJwt}`,
+        "Content-Type": "application/json",
+        "User-Agent": "HereLiesAz-workflows-cloudflare-gateway",
+        "X-GitHub-Api-Version": API_VERSION,
+      },
+      body: "{}",
+    },
+  );
+  if (!tokenResponse.ok) {
+    const detail = await tokenResponse.text();
+    throw new HttpError(502, `GitHub App token creation failed (${tokenResponse.status}): ${detail}`);
+  }
+
+  const payload = await tokenResponse.json();
+  const token = String(payload?.token || "");
+  const expiresAt = Date.parse(String(payload?.expires_at || ""));
+  if (!token || !Number.isFinite(expiresAt)) {
+    throw new HttpError(502, "GitHub App returned an invalid installation token");
+  }
+
+  githubInstallationTokenCache = token;
+  githubInstallationTokenExpiresAt = Math.floor(expiresAt / 1000);
+  return token;
+}
+
+function requireGitHubAppCredentials(env) {
+  if (!env.GH_APP_ID) throw new HttpError(500, "Worker GH_APP_ID is not configured");
+  if (!env.GH_PRIVATE_KEY) throw new HttpError(500, "Worker GH_PRIVATE_KEY is not configured");
+}
+
+async function createGitHubAppJwt(env) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = base64UrlEncodeUtf8(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const payload = base64UrlEncodeUtf8(JSON.stringify({
+    iat: now - 60,
+    exp: now + 9 * 60,
+    iss: String(env.GH_APP_ID),
+  }));
+  const signingInput = `${header}.${payload}`;
+  const key = await importGitHubPrivateKey(String(env.GH_PRIVATE_KEY));
+  const signature = await crypto.subtle.sign(
+    { name: "RSASSA-PKCS1-v1_5" },
+    key,
+    new TextEncoder().encode(signingInput),
+  );
+  return `${signingInput}.${base64UrlEncodeBytes(new Uint8Array(signature))}`;
+}
+
+async function importGitHubPrivateKey(pem) {
+  const normalized = pem.replace(/\\n/g, "\n").trim();
+  let der;
+  if (normalized.includes("-----BEGIN PRIVATE KEY-----")) {
+    der = pemBodyToBytes(normalized, "PRIVATE KEY");
+  } else if (normalized.includes("-----BEGIN RSA PRIVATE KEY-----")) {
+    const pkcs1 = pemBodyToBytes(normalized, "RSA PRIVATE KEY");
+    der = wrapPkcs1RsaPrivateKeyAsPkcs8(pkcs1);
+  } else {
+    throw new HttpError(500, "GH_PRIVATE_KEY must contain a PKCS#8 or RSA private-key PEM");
+  }
+
+  try {
+    return await crypto.subtle.importKey(
+      "pkcs8",
+      der,
+      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+  } catch {
+    throw new HttpError(500, "GH_PRIVATE_KEY could not be imported as an RSA private key");
+  }
+}
+
+function pemBodyToBytes(pem, label) {
+  const body = pem
+    .replace(`-----BEGIN ${label}-----`, "")
+    .replace(`-----END ${label}-----`, "")
+    .replace(/\\s+/g, "");
+  if (!body) throw new HttpError(500, `GH_PRIVATE_KEY ${label} PEM is empty`);
+  const binary = atob(body);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function wrapPkcs1RsaPrivateKeyAsPkcs8(pkcs1) {
+  // PrivateKeyInfo ::= SEQUENCE {
+  //   version INTEGER 0,
+  //   privateKeyAlgorithm rsaEncryption,
+  //   privateKey OCTET STRING (PKCS#1 RSAPrivateKey)
+  // }
+  const version = new Uint8Array([0x02, 0x01, 0x00]);
+  const algorithm = new Uint8Array([
+    0x30, 0x0d,
+    0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01,
+    0x05, 0x00,
+  ]);
+  const privateKey = derEncode(0x04, pkcs1);
+  return derEncode(0x30, concatBytes(version, algorithm, privateKey));
+}
+
+function derEncode(tag, value) {
+  const length = value.length;
+  let lengthBytes;
+  if (length < 0x80) {
+    lengthBytes = new Uint8Array([length]);
+  } else {
+    const parts = [];
+    let remaining = length;
+    while (remaining > 0) {
+      parts.unshift(remaining & 0xff);
+      remaining >>>= 8;
+    }
+    lengthBytes = new Uint8Array([0x80 | parts.length, ...parts]);
+  }
+  return concatBytes(new Uint8Array([tag]), lengthBytes, value);
+}
+
+function concatBytes(...arrays) {
+  const length = arrays.reduce((sum, item) => sum + item.length, 0);
+  const out = new Uint8Array(length);
+  let offset = 0;
+  for (const item of arrays) {
+    out.set(item, offset);
+    offset += item.length;
+  }
+  return out;
+}
+
+function base64UrlEncodeUtf8(value) {
+  return base64UrlEncodeBytes(new TextEncoder().encode(value));
+}
+
+function base64UrlEncodeBytes(bytes) {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + chunkSize, bytes.length)));
+  }
+  return btoa(binary).replace(/=/g, "").replace(/\\+/g, "-").replace(/\\//g, "_");
 }
 
 async function derivedWebhookSecret(env) {

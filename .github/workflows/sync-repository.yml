@@ -120,22 +120,44 @@ jobs:
               [[ -f "$out" ]] && cat "$out"
 
               # The sync script does not set worker_url_configured; stamp it now.
+              #
+              # retry_repository_sync.py's own finalize_manifest() step can commit
+              # to this exact same registry/<id>/manifest.json moments earlier (to
+              # flip a workflow's binding to repository-scoped). This read-modify-
+              # write races that one: observed live as a Contents API 409
+              # ("is at <blob-sha> but expected <stale-blob-sha>") when this stamp
+              # fetched the file just before that other commit landed. Retry with a
+              # fresh GET each attempt instead of failing the whole sync on a
+              # transient, self-inflicted race.
               if [[ "${{ inputs.dry_run }}" != "true" ]]; then
                 manifest_path="registry/${repository_id}/manifest.json"
-                file_info="$(gh api "repos/HereLiesAz/workflows/contents/${manifest_path}")"
-                current_sha="$(jq -r '.sha' <<<"$file_info")"
-                current_content="$(jq -r '.content' <<<"$file_info" | base64 -d)"
-                updated_content="$(jq '.worker_url_configured = true' <<<"$current_content")"
-                if [[ "$(jq '.worker_url_configured' <<<"$current_content")" != "true" ]]; then
+                stamped="false"
+                for stamp_attempt in 1 2 3 4 5; do
+                  file_info="$(gh api "repos/HereLiesAz/workflows/contents/${manifest_path}")"
+                  current_sha="$(jq -r '.sha' <<<"$file_info")"
+                  current_content="$(jq -r '.content' <<<"$file_info" | base64 -d)"
+                  if [[ "$(jq '.worker_url_configured' <<<"$current_content")" == "true" ]]; then
+                    echo "worker_url_configured already true for ${repository}"
+                    stamped="true"
+                    break
+                  fi
+                  updated_content="$(jq '.worker_url_configured = true' <<<"$current_content")"
                   encoded="$(echo -n "$updated_content" | base64 -w0)"
-                  gh api --method PUT "repos/HereLiesAz/workflows/contents/${manifest_path}" \
+                  if gh api --method PUT "repos/HereLiesAz/workflows/contents/${manifest_path}" \
                     -f message="Mark worker_url_configured=true for ${repository}" \
                     -f content="$encoded" \
                     -f sha="$current_sha" \
-                    --silent
-                  echo "Stamped worker_url_configured=true in ${manifest_path}"
-                else
-                  echo "worker_url_configured already true for ${repository}"
+                    --silent; then
+                    echo "Stamped worker_url_configured=true in ${manifest_path}"
+                    stamped="true"
+                    break
+                  fi
+                  echo "::warning::Stamp attempt ${stamp_attempt} for ${repository} hit a conflict; retrying with a fresh sha"
+                  sleep "$stamp_attempt"
+                done
+                if [[ "$stamped" != "true" ]]; then
+                  echo "::error::Could not stamp worker_url_configured=true for ${repository} after 5 attempts"
+                  failures+=("$repository")
                 fi
               fi
 

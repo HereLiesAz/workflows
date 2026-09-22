@@ -224,6 +224,21 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "f085283d13372c3d20dfeb8e47b3fe2541f7c912f15c30547257aa22c11be7c2",
         },
     },
+    # Content-package sibling of azp-model-release. The repository builds many
+    # .azp packages from sources it already owns, so there is no upstream model
+    # to fetch and no single release asset; the only per-repository value is the
+    # glob of built packages, which lives in PURPOSE_PROFILES as packages_glob.
+    ".github/workflows/azp-package-release.yml": {
+        "name": "AZP Package Release",
+        "canonical_hash": "daa7c2c9b42632686d27a6ac2571e5ca36223fceb5a2a8e23d58f3fc2cb76a57",
+        "generalized": True,
+        "source_hashes": {
+            # HereLiesAz/aive:.github/workflows/azp-package-release.yml — packs the
+            # Azphalt Store workflow/role packages under docs/azphalt-packages/
+            # into build/azp/*.azp and publishes them all to the release tag.
+            "daa7c2c9b42632686d27a6ac2571e5ca36223fceb5a2a8e23d58f3fc2cb76a57",
+        },
+    },
 }
 
 PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
@@ -278,6 +293,9 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
     "f637fcde293eeaaa50671b2f6313751cd044a6419c37ebba3678dd702940d94a": {"signing": "raw-jks", "build_command": "./gradlew bundleRelease", "aab_glob": "app/build/outputs/bundle/release/*.aab", "arcore_local_properties": True, "persist_version": True},
     "c99c3eed02d6deb557eaba891c904d3fcdabde1c27a518dee8c7e8e422b92b98": {"signing": "pem-chain", "build_command": "./gradlew bundleRelease", "aab_glob": "app/build/outputs/bundle/release/*.aab", "version_mode": "git-count", "version_arg": "versionBuild", "inject_signing_args": True, "persist_version": False, "tracks": [{"track": "internal", "status": "completed"}, {"track": "alpha", "status": "completed"}, {"track": "beta", "status": "draft"}, {"track": "production", "status": "draft"}]},
     "dee6f7b8f329c64093b03787ecab565a92a6eab18a8a14c5d5d49d6815e045d0": {"signing": "pem-chain", "java_version": "17", "build_command": "./gradlew bundlePlayRelease --build-cache", "aab_glob": "app/build/outputs/bundle/playRelease/*.aab", "inject_signing_args": True, "google_services": "raw", "tracks_from_inputs": True, "publish_default": False},
+    # AZP Package Release — HereLiesAz/aive. No model asset or upstream URL:
+    # `npm run build` writes every package to build/azp/ and all of them ship.
+    "daa7c2c9b42632686d27a6ac2571e5ca36223fceb5a2a8e23d58f3fc2cb76a57": {"packages_glob": "build/azp/*.azp"},
     "d97ccb161c6ef03fda005a7053d4de85c1cd9cf97785ccf7a8e777ca5ef31ee5": {"asset": "style.onnx", "model_url": "https://huggingface.co/onnx-community/fast-neural-style-mosaic/resolve/main/mosaic.onnx"},
     "c43f374050664d850b17bfd5ceb78a1911b3cdf1e306448609944c02949e32aa": {"asset": "gtcrn_simple.onnx", "model_url": "https://huggingface.co/onnx-community/gtcrn/resolve/main/gtcrn_simple.onnx"},
     "d8c762275c29a2b6fd557eca12c44756ec7235d4c7fb03a9a447eecc5838eaa0": {"asset": "lama.onnx", "model_url": "https://huggingface.co/Carve/LaMa-ONNX/resolve/main/lama_fp32.onnx"},

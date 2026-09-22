@@ -72,6 +72,42 @@ assert "next_chunk(num_retries=REQUEST_RETRIES)" not in play_workflow
 assert "except transient as exc:" in play_workflow
 assert "return request.execute(num_retries=retries)" in play_workflow
 assert "MediaFileUpload(aab,mimetype='application/octet-stream')).execute()" not in play_workflow
+assert "Resolve required mapping.txt" in play_workflow
+assert "Upload mapping.txt artifact" in play_workflow
+assert "Play publishing requires a nonempty R8/ProGuard mapping.txt" in play_workflow
+assert "MAPPING_FILE: ${{ env.MAPPING_FILE }}" in play_workflow
+assert "deobfuscationfiles().upload" in play_workflow
+assert "Required mapping.txt is missing or empty" in play_workflow
+
+for play_path, required in {
+    ".github/workflows/cuedetat-play-publish.yml": (
+        "Upload mapping.txt artifact",
+        "PLAY_MAPPING_PATH: ${{ steps.mapping.outputs.path }}",
+    ),
+    ".github/workflows/qard-play-release.yml": (
+        "Upload mapping.txt artifact",
+        "mappingFile: ${{ steps.mapping.outputs.path }}",
+    ),
+    ".github/workflows/hg2gui-release-play.yml": (
+        "Upload mapping.txt artifact",
+        "mapping: ${{ steps.mapping.outputs.path }}",
+    ),
+    ".github/workflows/hereliesaz-github-io-android-release-aab.yml": (
+        "Upload mapping.txt artifact",
+        "deobfuscationfiles().upload",
+    ),
+}.items():
+    text = Path(play_path).read_text(encoding="utf-8")
+    for token in required:
+        assert token in text, f"{play_path} missing required Play mapping contract: {token}"
+
+android_github_release = Path(
+    ".github/workflows/android-github-release.yml"
+).read_text(encoding="utf-8")
+assert "Upload mapping.txt as workflow artifact" in android_github_release
+assert "mapping_asset" not in android_github_release
+assert "MAPPING_ASSET" not in android_github_release
+assert 'release-files/$(basename "$MAPPING' not in android_github_release
 
 
 multi_platform_release = Path(

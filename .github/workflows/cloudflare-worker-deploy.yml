@@ -1,0 +1,246 @@
+# workflow-policy: generalized-v1
+# workflow-purpose: Deploy a target repository's Cloudflare Worker while preserving reviewed repository-specific install and Wrangler invocation behavior.
+# required-secret: GH_TOKEN | Central GitHub token used to validate the target repository and publish commit status.
+# required-secret: CLOUDFLARE_API_TOKEN | Authorizes Cloudflare Worker deployment.
+# required-secret: CLOUDFLARE_ACCOUNT_ID | Identifies the Cloudflare account used for deployment.
+
+name: Cloudflare Worker Deploy
+run-name: ${{ inputs.target_repository_name }} · Cloudflare Worker Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_ref:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+      target_repository_name:
+        required: true
+        type: string
+      purpose_profile_json:
+        required: false
+        type: string
+        default: '{}'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-worker-${{ inputs.target_repository_name }}
+  cancel-in-progress: ${{ fromJSON(inputs.purpose_profile_json).cancel_in_progress == true }}
+
+jobs:
+  policy_secret_preflight:
+    runs-on: ubuntu-latest
+    env:
+      REQUIRED_GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      REQUIRED_CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      REQUIRED_CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${REQUIRED_GH_TOKEN:-}" || { echo "::error::Missing required secret GH_TOKEN"; exit 1; }
+          test -n "${REQUIRED_CLOUDFLARE_API_TOKEN:-}" || { echo "::error::Missing required secret CLOUDFLARE_API_TOKEN"; exit 1; }
+          test -n "${REQUIRED_CLOUDFLARE_ACCOUNT_ID:-}" || { echo "::error::Missing required secret CLOUDFLARE_ACCOUNT_ID"; exit 1; }
+
+  central_check_start:
+    needs: policy_secret_preflight
+    runs-on: ubuntu-latest
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo_json="$(gh api "repos/${TARGET_REPOSITORY}")"
+          actual_repo_id="$(jq -r '.id' <<<"$repo_json")"
+          actual_owner_id="$(jq -r '.owner.id' <<<"$repo_json")"
+          actual_owner="$(jq -r '.owner.login' <<<"$repo_json")"
+          [[ "$actual_repo_id" == "$TARGET_REPOSITORY_ID" ]] || { echo "Repository ID mismatch" >&2; exit 1; }
+          [[ "$actual_owner_id" == "103241502" ]] || { echo "Repository is not owned by HereLiesAz" >&2; exit 1; }
+          [[ "${actual_owner,,}" == "hereliesaz" ]] || { echo "Repository owner mismatch" >&2; exit 1; }
+          [[ "$TARGET_REPOSITORY_OWNER_ID" == "103241502" ]] || { echo "OIDC owner ID mismatch" >&2; exit 1; }
+
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload="$(jq -n --arg state pending --arg context "$STATUS_CONTEXT" --arg description "Running shared Cloudflare deployment." --arg target_url "$DETAILS_URL" '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+          gh api --method POST "repos/$TARGET_REPOSITORY/statuses/$TARGET_CHECK_SHA" --input - <<<"$payload"
+
+  deploy:
+    needs: central_check_start
+    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ fromJSON(inputs.purpose_profile_json).timeout_minutes || 360 }}
+    environment: ${{ inputs.target_repository_name }}
+    steps:
+      - name: Checkout target (v6 profile)
+        if: ${{ fromJSON(inputs.purpose_profile_json).checkout_version == 'v6' }}
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+
+      - name: Checkout target (v4 profile)
+        if: ${{ fromJSON(inputs.purpose_profile_json).checkout_version != 'v6' }}
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+
+      - name: Set up Node with npm cache
+        if: ${{ fromJSON(inputs.purpose_profile_json).cache_npm == true }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ fromJSON(inputs.purpose_profile_json).node_version || '20' }}
+          cache: npm
+
+      - name: Set up Node
+        if: ${{ fromJSON(inputs.purpose_profile_json).cache_npm != true }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ fromJSON(inputs.purpose_profile_json).node_version || '20' }}
+
+      - name: Install dependencies
+        if: ${{ fromJSON(inputs.purpose_profile_json).install_command != null && fromJSON(inputs.purpose_profile_json).install_command != '' }}
+        env:
+          INSTALL_COMMAND: ${{ fromJSON(inputs.purpose_profile_json).install_command }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -eo pipefail -c "$INSTALL_COMMAND"
+
+      - name: Deploy with Wrangler action
+        if: ${{ fromJSON(inputs.purpose_profile_json).deploy_mode == 'wrangler-action' }}
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: ${{ fromJSON(inputs.purpose_profile_json).working_directory }}
+
+      - name: Deploy with Wrangler CLI
+        if: ${{ fromJSON(inputs.purpose_profile_json).deploy_mode == 'wrangler-cli' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WORKING_DIRECTORY: ${{ fromJSON(inputs.purpose_profile_json).working_directory || '.' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$WORKING_DIRECTORY"
+          npx wrangler deploy
+
+  central_check_finish:
+    if: ${{ always() }}
+    needs:
+      - policy_secret_preflight
+      - central_check_start
+      - deploy
+    runs-on: ubuntu-latest
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$FAILED" == "true" ]]; then
+            state=failure
+            description="Shared Cloudflare deployment failed."
+          else
+            state=success
+            description="Shared Cloudflare deployment completed successfully."
+          fi
+          payload="$(jq -n --arg state "$state" --arg context "$STATUS_CONTEXT" --arg description "$description" --arg target_url "$DETAILS_URL" '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+          gh api --method POST "repos/$TARGET_REPOSITORY/statuses/$TARGET_CHECK_SHA" --input - <<<"$payload"

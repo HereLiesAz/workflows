@@ -55,6 +55,24 @@ class ApiError(RuntimeError):
     pass
 
 
+def _rate_limit_delay(headers: dict[str, str], attempt: int) -> int | None:
+    retry_after = headers.get("Retry-After") or headers.get("retry-after")
+    if retry_after:
+        try:
+            return max(1, min(int(retry_after), 120))
+        except ValueError:
+            pass
+    remaining = headers.get("X-RateLimit-Remaining") or headers.get("x-ratelimit-remaining")
+    reset = headers.get("X-RateLimit-Reset") or headers.get("x-ratelimit-reset")
+    if remaining == "0" and reset:
+        try:
+            import time
+            return max(1, min(int(reset) - int(time.time()) + 1, 120))
+        except ValueError:
+            pass
+    return min(2 ** attempt, 30)
+
+
 class GitHub:
     def __init__(self, token: str):
         if not token:
@@ -62,26 +80,37 @@ class GitHub:
         self.token = token
 
     def request(self, method: str, path: str, body: Any | None = None) -> tuple[int, dict[str, str], bytes]:
+        import time
         url = path if path.startswith("https://") else f"https://api.github.com{path}"
         data = None if body is None else json.dumps(body).encode()
-        req = urllib.request.Request(
-            url,
-            data=data,
-            method=method,
-            headers={
-                "Accept": "application/vnd.github+json",
-                "Authorization": f"Bearer {self.token}",
-                "X-GitHub-Api-Version": API_VERSION,
-                "User-Agent": "HereLiesAz-workflows-centralizer",
-                "Content-Type": "application/json",
-            },
-        )
-        try:
-            with urllib.request.urlopen(req) as response:
-                return response.status, dict(response.headers), response.read()
-        except urllib.error.HTTPError as exc:
-            payload = exc.read().decode(errors="replace")
-            raise ApiError(f"{method} {url} -> {exc.code}: {payload}") from exc
+        for attempt in range(4):
+            req = urllib.request.Request(
+                url,
+                data=data,
+                method=method,
+                headers={
+                    "Accept": "application/vnd.github+json",
+                    "Authorization": f"Bearer {self.token}",
+                    "X-GitHub-Api-Version": API_VERSION,
+                    "User-Agent": "HereLiesAz-workflows-centralizer",
+                    "Content-Type": "application/json",
+                },
+            )
+            try:
+                with urllib.request.urlopen(req) as response:
+                    return response.status, dict(response.headers), response.read()
+            except urllib.error.HTTPError as exc:
+                payload = exc.read().decode(errors="replace")
+                headers = dict(exc.headers)
+                rate_limited = exc.code in (403, 429) and (
+                    "rate limit" in payload.casefold()
+                    or headers.get("Retry-After")
+                    or headers.get("X-RateLimit-Remaining") == "0"
+                )
+                if not rate_limited or attempt >= 3:
+                    raise ApiError(f"{method} {url} -> {exc.code}: {payload}") from exc
+                time.sleep(_rate_limit_delay(headers, attempt) or 1)
+        raise AssertionError("unreachable")
 
     def json(self, method: str, path: str, body: Any | None = None) -> Any:
         status, _, raw = self.request(method, path, body)

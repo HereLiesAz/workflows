@@ -324,7 +324,9 @@ def compile_central(source_text: str, target: dict, source_path: str, check_name
             "shell": "bash",
             "run": '''set -euo pipefail
 payload="$(jq -n --arg state "pending" --arg context "$STATUS_CONTEXT" --arg description "Running from HereLiesAz/workflows." --arg target_url "$DETAILS_URL" '{state:$state,context:$context,description:$description,target_url:$target_url}')"
-gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload"''',
+if ! output="$(gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload" 2>&1)"; then
+  echo "::warning::Could not post target status: $output"
+fi''',
         },
     ]
 

@@ -43,6 +43,11 @@ _base_compile_central = core.compile_central
 _base_build_proxy = core.build_proxy
 _base_sync_repository = core.sync_repository
 
+TARGET_RUN_TRACKERS = {
+    ("hereliesaz/guillotine", ".github/workflows/release-aab.yml"),
+}
+TRACKER_MARKER = "# central-run-tracker: HereLiesAz/workflows\n"
+
 
 def _rewrite_expression_string(text: str) -> str:
     # Rewrite standalone workflow inputs/vars, but leave github.event.inputs.* and
@@ -493,6 +498,72 @@ def build_proxy(source_text: str, source_path: str, source_hash: str, workflow_n
     return header + dump_yaml(doc)
 
 
+def _build_target_run_tracker(proxy: str, source_path: str) -> str:
+    """Keep a target-side Actions run visible while execution stays centralized."""
+
+    header, doc = _proxy_doc(proxy)
+    if TRACKER_MARKER not in header:
+        header += TRACKER_MARKER
+
+    doc["permissions"] = {
+        "actions": "read",
+        "contents": "read",
+        "statuses": "read",
+    }
+    doc["jobs"] = {
+        "central-status": {
+            "name": "Track centralized run",
+            "runs-on": "ubuntu-latest",
+            "timeout-minutes": 180,
+            "steps": [
+                {
+                    "name": "Mirror centralized workflow status",
+                    "env": {
+                        "GH_TOKEN": "${{ github.token }}",
+                        "STATUS_CONTEXT": source_path,
+                        "TARGET_SHA": "${{ github.sha }}",
+                    },
+                    "shell": "bash",
+                    "run": r'''set -euo pipefail
+created_at="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .created_at)"
+threshold="$(date -u -d "$created_at - 5 seconds" +%s)"
+last_state=""
+
+for attempt in $(seq 1 720); do
+  statuses="$(gh api "repos/$GITHUB_REPOSITORY/statuses/$TARGET_SHA?per_page=100")"
+  row="$(jq -c     --arg context "$STATUS_CONTEXT"     --argjson threshold "$threshold"     '[.[] | select(.context == $context and ((.updated_at | fromdateiso8601) >= $threshold))][0] // empty'     <<<"$statuses")"
+
+  if [[ -n "$row" ]]; then
+    state="$(jq -r '.state' <<<"$row")"
+    target_url="$(jq -r '.target_url // empty' <<<"$row")"
+    if [[ "$state" != "$last_state" ]]; then
+      echo "Central workflow state: $state"
+      [[ -z "$target_url" ]] || echo "Central run: $target_url"
+      last_state="$state"
+    fi
+    case "$state" in
+      success)
+        exit 0
+        ;;
+      failure|error)
+        exit 1
+        ;;
+    esac
+  fi
+
+  sleep 15
+done
+
+echo "::error::Timed out waiting for centralized workflow status $STATUS_CONTEXT on $TARGET_SHA" >&2
+exit 1
+''',
+                }
+            ],
+        }
+    }
+    return header + dump_yaml(doc)
+
+
 def _prune_rebound_repository_workflows(
     gh,
     repository: str,
@@ -808,7 +879,14 @@ def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
             # into the central controller. The target must not retain the proxy:
             # future triggers arrive through the repository webhook instead.
             if path.startswith(".github/workflows/") and content.startswith(core.PROXY_MARKER):
-                staged_target_files[path] = (None, f"Remove centralized workflow {path}")
+                tracker_key = (repository.casefold(), path)
+                if tracker_key in TARGET_RUN_TRACKERS:
+                    staged_target_files[path] = (
+                        _build_target_run_tracker(content, path),
+                        f"Preserve centralized workflow run visibility for {path}",
+                    )
+                else:
+                    staged_target_files[path] = (None, f"Remove centralized workflow {path}")
             else:
                 staged_target_files[path] = (content, message)
             return
@@ -861,6 +939,11 @@ def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
     result["target_batch"] = target_batch
     result["trigger_transport"] = "repository-webhook"
     result["proxy_files_written"] = 0
+    result["tracking_proxy_files_written"] = sum(
+        1
+        for content, _message in staged_target_files.values()
+        if isinstance(content, str) and TRACKER_MARKER in content
+    )
     if not dry_run:
         try:
             gh.json(

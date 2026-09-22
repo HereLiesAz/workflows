@@ -56,6 +56,7 @@ run-name: gateway · ${{ inputs.repository || github.event.schedule || 'manual' 
 
 permissions:
   contents: read
+  actions: write
 
 # The gateway itself is intentionally unconstrained. It validates/routes events
 # and then exits; resource-specific serialization belongs in the destination
@@ -102,6 +103,7 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.request_b64 != '' }}
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          CENTRAL_GITHUB_TOKEN: ${{ github.token }}
         run: python scripts/dispatch_request.py --request request.json
 
       - name: Route exact registered schedule

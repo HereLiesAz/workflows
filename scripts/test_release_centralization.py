@@ -101,8 +101,9 @@ assert 'Central workflow state:' in tracker_run
 assert 'curl ' not in tracker_run
 
 play_workflow = Path('.github/workflows/android-play-release.yml').read_text(encoding='utf-8')
-assert "HTTP_TIMEOUT_SECONDS=180" in play_workflow
+assert "HTTP_TIMEOUT_SECONDS=120" in play_workflow
 assert "httplib2.Http(timeout=HTTP_TIMEOUT_SECONDS)" in play_workflow
+assert "timeout 1800 python" in play_workflow  # hard wall-clock cap on the whole publish step
 assert "resumable=False" in play_workflow
 assert "RedirectMissingLocation" in play_workflow
 assert "return execute(request)" in play_workflow
@@ -116,6 +117,16 @@ assert "Play publishing requires a nonempty R8/ProGuard mapping.txt" in play_wor
 assert "MAPPING_FILE: ${{ env.MAPPING_FILE }}" in play_workflow
 assert "deobfuscationfiles().upload" in play_workflow
 assert "Required mapping.txt is missing or empty" in play_workflow
+# Play's deobfuscationFiles endpoint rejects text/plain outright (400 "Media type
+# 'text/plain' is not supported."); the mapping.txt upload must use octet-stream,
+# same as the AAB upload, or every publish attempt fails identically and forever.
+assert "media_body=MediaFileUpload(mapping,mimetype='application/octet-stream')" in play_workflow
+assert "media_body=MediaFileUpload(mapping,mimetype='text/plain')" not in play_workflow
+# A 4xx HttpError is deterministic, not transient: retrying it just re-uploads the
+# whole AAB from scratch for a request that can never succeed. Only 429/5xx and
+# real transport failures should trigger a retry.
+assert "def is_retriable(exc):" in play_workflow
+assert "not is_retriable(exc):" in play_workflow
 
 for play_path, required in {
     ".github/workflows/qard-play-release.yml": (

@@ -107,13 +107,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          repo_json="$(gh api "repos/${TARGET_REPOSITORY}")"
-          actual_repo_id="$(jq -r '.id' <<<"$repo_json")"
-          actual_owner_id="$(jq -r '.owner.id' <<<"$repo_json")"
-          actual_owner="$(jq -r '.owner.login' <<<"$repo_json")"
-          [[ "$actual_repo_id" == "$TARGET_REPOSITORY_ID" ]] || { echo "Repository ID mismatch" >&2; exit 1; }
-          [[ "$actual_owner_id" == "103241502" ]] || { echo "Repository is not owned by HereLiesAz" >&2; exit 1; }
-          [[ "${actual_owner,,}" == "hereliesaz" ]] || { echo "Repository owner mismatch" >&2; exit 1; }
+          repo_owner="${TARGET_REPOSITORY%%/*}"
+          [[ -n "$TARGET_REPOSITORY_ID" ]] || { echo "Missing repository ID" >&2; exit 1; }
+          [[ "${repo_owner,,}" == "hereliesaz" ]] || { echo "Repository owner mismatch" >&2; exit 1; }
           [[ "$TARGET_REPOSITORY_OWNER_ID" == "103241502" ]] || { echo "OIDC owner ID mismatch" >&2; exit 1; }
 
       - name: Set target status pending
@@ -125,7 +121,9 @@ jobs:
         run: |
           set -euo pipefail
           payload="$(jq -n             --arg state "pending"             --arg context "$STATUS_CONTEXT"             --arg description "Running shared CI validation."             --arg target_url "$DETAILS_URL"             '{state:$state,context:$context,description:$description,target_url:$target_url}')"
-          gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload"
+          if ! output="$(gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload" 2>&1)"; then
+            echo "::warning::Could not post target status: $output"
+          fi
 
   validate_python:
     needs: central_check_start

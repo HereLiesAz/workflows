@@ -1001,7 +1001,14 @@ def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
                 f"/repos/{repository}/actions/variables/WORKFLOWS_GATEWAY_URL",
             )
         except core.ApiError as exc:
-            if "-> 404:" not in str(exc):
+            message = str(exc)
+            if "-> 404:" in message:
+                pass
+            elif "-> 403:" in message:
+                print(
+                    f"::warning::Could not delete legacy WORKFLOWS_GATEWAY_URL variable for {repository}: {message}"
+                )
+            else:
                 raise
     return result
 

@@ -6,11 +6,6 @@ on:
     branches: [main]
     paths:
       - '.controller/sync-all-epoch'
-  workflow_run:
-    workflows:
-      - Enforce version contract everywhere
-    types:
-      - completed
 
 run-name: sync-all · ${{ github.run_number }}
 
@@ -28,7 +23,6 @@ env:
 
 jobs:
   discover:
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     outputs:
       repositories: ${{ steps.repos.outputs.repositories }}
@@ -43,20 +37,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          all="$(gh api --paginate 'user/repos?affiliation=owner&per_page=100' --jq '.[] | select(.owner.login == "HereLiesAz") | [.full_name, (.archived|tostring), (.private|tostring)] | @tsv')"
+          all="$(gh api --paginate 'user/repos?affiliation=owner&per_page=100' --jq '.[] | select(.owner.login == "HereLiesAz") | [.full_name, (.id|tostring), (.archived|tostring), (.private|tostring)] | @tsv')"
 
           repositories="$(
-            awk -F '\t' '$1 != "HereLiesAz/workflows" && $2 == "false" && $3 == "false" {print $1}' <<<"$all" \
+            awk -F '\t' '$1 != "HereLiesAz/workflows" && $3 == "false" && $4 == "false" {print $1 "\t" $2}' <<<"$all" \
               | sort -u \
               | jq -Rsc 'split("\n") | map(select(length > 0))'
           )"
           archived="$(
-            awk -F '\t' '$2 == "true" {print $1}' <<<"$all" \
+            awk -F '\t' '$3 == "true" {print $1}' <<<"$all" \
               | sort -u \
               | jq -Rsc 'split("\n") | map(select(length > 0))'
           )"
           private="$(
-            awk -F '\t' '$1 != "HereLiesAz/workflows" && $2 == "false" && $3 == "true" {print $1}' <<<"$all" \
+            awk -F '\t' '$1 != "HereLiesAz/workflows" && $3 == "false" && $4 == "true" {print $1}' <<<"$all" \
               | sort -u \
               | jq -Rsc 'split("\n") | map(select(length > 0))'
           )"
@@ -133,15 +127,131 @@ jobs:
               '{repository:$repo,status:$status,detail:$detail}' >> "$REPORT_FILE"
           }
 
-          for repository in "${repositories[@]}"; do
-            echo "::group::Sync ${repository}"
-
-            if ! repository_id="$(gh api "repos/${repository}" --jq '.id')"; then
-              echo "::error::Could not resolve repository ID for ${repository}"
-              record_failure "$repository" "repository lookup"
+          for repository_record in "${repositories[@]}"; do
+            IFS=
+            if ! oidc_response="$(curl --fail-with-body --silent --show-error \
+              -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+              "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=hereliesaz-workflows")"; then
+              echo "::error::Could not obtain OIDC token for ${repository}"
+              record_failure "$repository" "OIDC"
               echo "::endgroup::"
               continue
             fi
+
+            oidc_token="$(jq -r '.value // empty' <<<"$oidc_response")"
+            if [[ -z "$oidc_token" ]]; then
+              echo "::error::GitHub did not issue an OIDC token for ${repository}"
+              record_failure "$repository" "OIDC"
+              echo "::endgroup::"
+              continue
+            fi
+
+            payload="$(jq -nc \
+              --arg repository "$repository" \
+              --arg repository_id "$repository_id" \
+              '{repository:$repository,repository_id:$repository_id}')"
+
+            if ! curl --fail-with-body --silent --show-error \
+              -X POST "${WORKER_URL%/}/register" \
+              -H "Authorization: Bearer $oidc_token" \
+              -H "Content-Type: application/json" \
+              --data "$payload"; then
+              echo "::error::Webhook registration failed for ${repository}"
+              record_failure "$repository" "webhook registration"
+              echo "::endgroup::"
+              continue
+            fi
+
+            out="${RUNNER_TEMP}/sync-result-${SHARD}-${repository##*/}.json"
+            if python scripts/retry_repository_sync.py \
+              --repository "$repository" \
+              --worker-url "$WORKER_URL" \
+              --json-output "$out"; then
+              cat "$out"
+              echo "- ✅ ${repository}" >> "$GITHUB_STEP_SUMMARY"
+              jq -nc --arg repo "$repository" --arg status "success" \
+                '{repository:$repo,status:$status,detail:""}' >> "$REPORT_FILE"
+            else
+              status=$?
+              [[ -f "$out" ]] && cat "$out"
+              echo "::error::Repository sync failed for ${repository} (exit $status)"
+              record_failure "$repository" "sync (exit $status)"
+            fi
+
+            echo "::endgroup::"
+          done
+
+          if (( ${#failures[@]} > 0 )); then
+            printf '::error::Shard %s had %d failure(s): %s\n' \
+              "$SHARD" "${#failures[@]}" "$(IFS=', '; echo "${failures[*]}")"
+            exit 1
+          fi
+
+      - name: Upload shard report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: shard-report-${{ matrix.shard }}
+          path: ${{ runner.temp }}/shard-report-${{ matrix.shard }}.jsonl
+          if-no-files-found: ignore
+          retention-days: 14
+
+  report:
+    needs: sync
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download every shard's report
+        uses: actions/download-artifact@v4
+        with:
+          pattern: shard-report-*
+          path: shard-reports
+          merge-multiple: true
+
+      - name: Publish one account-wide sync summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(shard-reports/*.jsonl)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No shard reports were produced (every shard may have failed before writing one)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          combined="$(cat "${files[@]}" | jq -sc '.')"
+          total="$(jq 'length' <<<"$combined")"
+          succeeded="$(jq '[.[] | select(.status == "success")] | length' <<<"$combined")"
+          failed_entries="$(jq -c '[.[] | select(.status == "failure")] | sort_by(.repository)' <<<"$combined")"
+          failed_count="$(jq 'length' <<<"$failed_entries")"
+
+          {
+            echo "## Account-wide sync summary"
+            echo
+            echo "- Repositories processed: **$total**"
+            echo "- Succeeded: **$succeeded**"
+            echo "- Failed: **$failed_count**"
+            echo
+            if [ "$failed_count" -gt 0 ]; then
+              echo "### Failed — needs attention"
+              echo
+              echo "| Repository | Reason |"
+              echo "| --- | --- |"
+              jq -r '.[] | "| \(.repository) | \(.detail) |"' <<<"$failed_entries"
+              echo
+              echo "Every other repository above synced successfully regardless of these failures —"
+              echo "one repository's failure never blocks or reverts another's sync."
+            else
+              echo "All repositories synced successfully."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$failed_count" -gt 0 ]; then
+            echo "::error::$failed_count of $total repositories failed to sync this run. See the summary for exactly which ones and why."
+            exit 1
+          fi
+\t' read -r repository repository_id <<<"$repository_record"
+            echo "::group::Sync ${repository}"
 
             if ! oidc_response="$(curl --fail-with-body --silent --show-error \
               -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \

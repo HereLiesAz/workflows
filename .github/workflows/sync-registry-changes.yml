@@ -11,10 +11,6 @@ on:
         description: owner/repository to synchronize
         required: true
         type: string
-  push:
-    branches: [main]
-    paths:
-      - 'registry/**/*.source.yml'
 
 run-name: registry-sync · ${{ github.event_name == 'workflow_dispatch' && inputs.target_repository || github.sha }}
 

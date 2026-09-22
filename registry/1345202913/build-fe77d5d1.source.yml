@@ -1,31 +1,70 @@
 name: Build
 
+# The only workflow in this repository that actually builds anything.
+#
+# A previous commit deleted thirteen workflow files in one go, including the sole one that ran a
+# real build, leaving only PR labelling, two `workflow_call`-only files nothing called, and a
+# Jekyll Pages deploy pointed at a `docs/` directory that does not exist. Nothing has compiled
+# this project in CI since.
+#
+# What this runs, and why exactly this:
+#   - `desktopTest` is the only target whose tests run headlessly without extra machinery. The
+#     `js`/`wasmJs` test tasks are `jsBrowserTest`/`wasmJsBrowserTest` -- Karma, needing a real
+#     Chrome/Firefox binary -- and `allTests` pulls those in, so it is deliberately not used here.
+#     `desktopTest` also covers every `commonTest` source, which is where all of this project's
+#     tests live.
+#   - the remaining targets are compiled but not tested, so a change that breaks `js`, `wasmJs` or
+#     the Android variant still fails CI rather than being discovered downstream.
+#
+# This project's `commonMain` depends on `com.github.HereLiesAz.Conveyance:conveyance-core` and
+# `:conveyance-compose` at a pinned commit, resolved through JitPack. A red build whose only error
+# is a JitPack/Maven Central fetch is a resolution problem, not a code problem -- check the
+# dependency pin's comment in `build.gradle.kts` before chasing it as one.
+
 on:
   push:
-    branches: [ main ]
+    branches: [ "**" ]
   pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v5
-      - name: Check out pinned Conveyance
-        uses: actions/checkout@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
         with:
-          repository: HereLiesAz/Conveyance
-          ref: b3e13674df9dfbcc0b35f800b57d78a305d07b03
-          path: vendor/Conveyance
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
           java-version: '21'
-      - uses: gradle/actions/setup-gradle@v5
-      - name: Compile and test all targets
-        run: |
-          ./gradlew \
-            desktopTest \
-            compileKotlinDesktop \
-            compileKotlinJs \
-            compileKotlinWasmJs \
-            compileAndroidMain
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Run commonTest on the desktop target
+        run: ./gradlew desktopTest --stacktrace
+
+      - name: Compile every other target
+        run: ./gradlew compileKotlinJs compileKotlinWasmJs assembleAndroidMain --stacktrace
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: build/reports/tests/
+          if-no-files-found: ignore

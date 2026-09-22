@@ -27,56 +27,54 @@ jobs:
     outputs:
       repositories: ${{ steps.repos.outputs.repositories }}
       count: ${{ steps.repos.outputs.count }}
-      archived: ${{ steps.repos.outputs.archived }}
-      private: ${{ steps.repos.outputs.private }}
     steps:
-      - name: Enumerate every owned repository
+      - name: Check out central controller
+        uses: actions/checkout@v4
+
+      - name: Discover public repositories through Worker scraper
         id: repos
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          all="$(gh api --paginate 'user/repos?affiliation=owner&per_page=100' --jq '.[] | select(.owner.login == "HereLiesAz") | [.full_name, (.id|tostring), (.archived|tostring), (.private|tostring)] | @tsv')"
 
-          repositories="$(
-            awk -F '\t' '$1 != "HereLiesAz/workflows" && $3 == "false" && $4 == "false" {print $1 "\t" $2}' <<<"$all" \
-              | sort -u \
-              | jq -Rsc 'split("\n") | map(select(length > 0))'
-          )"
-          archived="$(
-            awk -F '\t' '$3 == "true" {print $1}' <<<"$all" \
-              | sort -u \
-              | jq -Rsc 'split("\n") | map(select(length > 0))'
-          )"
-          private="$(
-            awk -F '\t' '$1 != "HereLiesAz/workflows" && $3 == "false" && $4 == "true" {print $1}' <<<"$all" \
-              | sort -u \
-              | jq -Rsc 'split("\n") | map(select(length > 0))'
-          )"
+          scraped="$(curl --fail-with-body --silent --show-error \"${WORKER_URL%/}/repositories\")"
+          jq -e '.ok == true and (.repositories | type == "array")' <<<"$scraped" >/dev/null
+
+          declare -A registered_ids=()
+          shopt -s nullglob
+          for manifest in registry/*/manifest.json; do
+            full_name="$(jq -r '.repository.full_name // empty' "$manifest")"
+            repo_id="$(jq -r '.repository.id // empty' "$manifest")"
+            if [[ -n "$full_name" && -n "$repo_id" ]]; then
+              registered_ids["$full_name"]="$repo_id"
+            fi
+          done
+
+          repositories='[]'
+          new_count=0
+          while IFS= read -r repository; do
+            [[ -n "$repository" ]] || continue
+            repo_id="${registered_ids[$repository]:-}"
+            state="registered"
+            if [[ -z "$repo_id" ]]; then
+              state="new"
+              new_count=$((new_count + 1))
+            fi
+            record="${repository}"$'\t'"${repo_id}"$'\t'"${state}"
+            repositories="$(jq -c --arg value "$record" '. + [$value]' <<<"$repositories")"
+          done < <(jq -r '.repositories[]' <<<"$scraped")
 
           count="$(jq 'length' <<<"$repositories")"
-          archived_count="$(jq 'length' <<<"$archived")"
-          private_count="$(jq 'length' <<<"$private")"
-
           echo "repositories=$repositories" >> "$GITHUB_OUTPUT"
           echo "count=$count" >> "$GITHUB_OUTPUT"
-          echo "archived=$archived" >> "$GITHUB_OUTPUT"
-          echo "private=$private" >> "$GITHUB_OUTPUT"
 
           {
-            echo "## Live repository inventory"
+            echo "## Live public repository discovery"
             echo
-            echo "- Writable non-controller, public repositories: **$count**"
-            echo "- Controller repository: **HereLiesAz/workflows** (versioned locally; never self-centralized)"
-            echo "- Archived repositories skipped from workflow mutation: **$archived_count**"
-            if [ "$archived_count" -gt 0 ]; then
-              jq -r '.[] | "- `" + . + "`"' <<<"$archived"
-            fi
-            echo "- Private repositories excluded from central sync: **$private_count**"
-            if [ "$private_count" -gt 0 ]; then
-              jq -r '.[] | "- `" + . + "`"' <<<"$private"
-            fi
+            echo "- Public non-controller repositories discovered from GitHub HTML: **$count**"
+            echo "- Newly discovered / not yet registered: **$new_count**"
+            echo "- Existing registry entries skip webhook reconciliation."
+            echo "- Private repositories are invisible to the unauthenticated scraper and remain excluded."
           } >> "$GITHUB_STEP_SUMMARY"
 
   sync:
@@ -138,40 +136,210 @@ jobs:
           }
 
           for repository_record in "${repositories[@]}"; do
-            IFS=$'\t' read -r repository repository_id <<<"$repository_record"
+            IFS=
+            if python scripts/retry_repository_sync.py \
+              --repository "$repository" \
+              --worker-url "$WORKER_URL" \
+              --json-output "$out"; then
+              cat "$out"
+              echo "- ✅ ${repository}" >> "$GITHUB_STEP_SUMMARY"
+              jq -nc --arg repo "$repository" --arg status "success" \
+                '{repository:$repo,status:$status,detail:""}' >> "$REPORT_FILE"
+            else
+              status=$?
+              [[ -f "$out" ]] && cat "$out"
+              echo "::error::Repository sync failed for ${repository} (exit $status)"
+              record_failure "$repository" "sync (exit $status)"
+            fi
+
+            echo "::endgroup::"
+          done
+
+          if (( ${#failures[@]} > 0 )); then
+            printf '::error::Shard %s had %d failure(s): %s\n' \
+              "$SHARD" "${#failures[@]}" "$(IFS=', '; echo "${failures[*]}")"
+            exit 1
+          fi
+
+      - name: Upload shard report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: shard-report-${{ matrix.shard }}
+          path: ${{ runner.temp }}/shard-report-${{ matrix.shard }}.jsonl
+          if-no-files-found: ignore
+          retention-days: 14
+
+  commit-central:
+    needs: sync
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      BRANCH_PREFIX: sync-all-${{ github.run_id }}-${{ github.run_attempt }}-
+    steps:
+      - name: Check out latest controller main
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+          fetch-depth: 0
+
+      - name: Fold shard branches into one atomic controller commit
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+
+          branches=()
+          for shard in {0..15}; do
+            branch="${BRANCH_PREFIX}${shard}"
+            if git ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null 2>&1; then
+              git fetch origin "refs/heads/$branch:refs/remotes/origin/$branch"
+              branches+=("$branch")
+            fi
+          done
+
+          if (( ${#branches[@]} == 0 )); then
+            echo "No shard branches were produced." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          git checkout -B main origin/main
+
+          for branch in "${branches[@]}"; do
+            base="$(git merge-base origin/main "origin/$branch")"
+            mapfile -t commits < <(git rev-list --reverse "$base..origin/$branch")
+            if (( ${#commits[@]} == 0 )); then
+              continue
+            fi
+            echo "Applying ${#commits[@]} central change commit(s) from $branch"
+            for commit in "${commits[@]}"; do
+              if ! git cherry-pick --no-commit "$commit"; then
+                echo "::error::Central shard conflict while applying $branch commit $commit"
+                git cherry-pick --abort || true
+                exit 1
+              fi
+            done
+          done
+
+          if git diff --cached --quiet; then
+            echo "Shard branches contained no central changes." >> "$GITHUB_STEP_SUMMARY"
+          else
+            changed_count="$(git diff --cached --name-only | wc -l | tr -d ' ')"
+            git commit -m "Apply account-wide workflow sync atomically"
+            git push origin HEAD:main
+            echo "Committed **$changed_count** central file change(s) in one atomic push." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Remove temporary shard branches
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set +e
+          for shard in {0..15}; do
+            branch="${BRANCH_PREFIX}${shard}"
+            if git ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null 2>&1; then
+              git push origin --delete "$branch"
+            fi
+          done
+
+  report:
+    needs: [sync, commit-central]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download every shard's report
+        uses: actions/download-artifact@v4
+        with:
+          pattern: shard-report-*
+          path: shard-reports
+          merge-multiple: true
+
+      - name: Publish one account-wide sync summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(shard-reports/*.jsonl)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No shard reports were produced (every shard may have failed before writing one)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          combined="$(cat "${files[@]}" | jq -sc '.')"
+          total="$(jq 'length' <<<"$combined")"
+          succeeded="$(jq '[.[] | select(.status == "success")] | length' <<<"$combined")"
+          failed_entries="$(jq -c '[.[] | select(.status == "failure")] | sort_by(.repository)' <<<"$combined")"
+          failed_count="$(jq 'length' <<<"$failed_entries")"
+
+          {
+            echo "## Account-wide sync summary"
+            echo
+            echo "- Repositories processed: **$total**"
+            echo "- Succeeded: **$succeeded**"
+            echo "- Failed: **$failed_count**"
+            echo
+            if [ "$failed_count" -gt 0 ]; then
+              echo "### Failed — needs attention"
+              echo
+              echo "| Repository | Reason |"
+              echo "| --- | --- |"
+              jq -r '.[] | "| \(.repository) | \(.detail) |"' <<<"$failed_entries"
+              echo
+              echo "Every other repository above synced successfully regardless of these failures —"
+              echo "one repository's failure never blocks or reverts another's sync."
+            else
+              echo "All repositories synced successfully."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$failed_count" -gt 0 ]; then
+            echo "::error::$failed_count of $total repositories failed to sync this run. See the summary for exactly which ones and why."
+            exit 1
+          fi
+\t' read -r repository repository_id registration_state <<<"$repository_record"
             echo "::group::Sync ${repository}"
 
-            if ! oidc_response="$(curl --fail-with-body --silent --show-error \
-              -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-              "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=hereliesaz-workflows")"; then
-              echo "::error::Could not obtain OIDC token for ${repository}"
-              record_failure "$repository" "OIDC"
-              echo "::endgroup::"
-              continue
-            fi
+            if [[ "$registration_state" == "new" ]]; then
+              if ! oidc_response="$(curl --fail-with-body --silent --show-error \
+                -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+                "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=hereliesaz-workflows")"; then
+                echo "::error::Could not obtain OIDC token for ${repository}"
+                record_failure "$repository" "OIDC"
+                echo "::endgroup::"
+                continue
+              fi
 
-            oidc_token="$(jq -r '.value // empty' <<<"$oidc_response")"
-            if [[ -z "$oidc_token" ]]; then
-              echo "::error::GitHub did not issue an OIDC token for ${repository}"
-              record_failure "$repository" "OIDC"
-              echo "::endgroup::"
-              continue
-            fi
+              oidc_token="$(jq -r '.value // empty' <<<"$oidc_response")"
+              if [[ -z "$oidc_token" ]]; then
+                echo "::error::GitHub did not issue an OIDC token for ${repository}"
+                record_failure "$repository" "OIDC"
+                echo "::endgroup::"
+                continue
+              fi
 
-            payload="$(jq -nc \
-              --arg repository "$repository" \
-              --arg repository_id "$repository_id" \
-              '{repository:$repository,repository_id:$repository_id}')"
-
-            if ! curl --fail-with-body --silent --show-error \
-              -X POST "${WORKER_URL%/}/register" \
-              -H "Authorization: Bearer $oidc_token" \
-              -H "Content-Type: application/json" \
-              --data "$payload"; then
-              echo "::error::Webhook registration failed for ${repository}"
-              record_failure "$repository" "webhook registration"
-              echo "::endgroup::"
-              continue
+              payload="$(jq -nc --arg repository "$repository" '{repository:$repository}')"
+              if ! registration_response="$(curl --fail-with-body --silent --show-error \
+                -X POST "${WORKER_URL%/}/register" \
+                -H "Authorization: Bearer $oidc_token" \
+                -H "Content-Type: application/json" \
+                --data "$payload")"; then
+                echo "::error::Webhook registration failed for ${repository}"
+                record_failure "$repository" "webhook registration"
+                echo "::endgroup::"
+                continue
+              fi
+              repository_id="$(jq -r '.repository_id // empty' <<<"$registration_response")"
+              if [[ -z "$repository_id" ]]; then
+                echo "::error::Webhook registration did not return repository ID for ${repository}"
+                record_failure "$repository" "webhook registration response"
+                echo "::endgroup::"
+                continue
+              fi
             fi
 
             out="${RUNNER_TEMP}/sync-result-${SHARD}-${repository##*/}.json"

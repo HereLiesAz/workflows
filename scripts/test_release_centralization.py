@@ -129,14 +129,6 @@ assert "def is_retriable(exc):" in play_workflow
 assert "not is_retriable(exc):" in play_workflow
 
 for play_path, required in {
-    ".github/workflows/qard-play-release.yml": (
-        "Upload mapping.txt artifact",
-        "mappingFile: ${{ steps.mapping.outputs.path }}",
-    ),
-    ".github/workflows/hg2gui-release-play.yml": (
-        "Upload mapping.txt artifact",
-        "mapping: ${{ steps.mapping.outputs.path }}",
-    ),
     ".github/workflows/hereliesaz-github-io-android-release-aab.yml": (
         "Upload mapping.txt artifact",
         "deobfuscationfiles().upload",

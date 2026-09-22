@@ -14,6 +14,7 @@ let jwksCache;
 let jwksCacheExpiresAt = 0;
 let githubInstallationTokenCache = "";
 let githubInstallationTokenExpiresAt = 0;
+// GitHub API traffic uses short-lived App installation tokens, never DISPATCH_TOKEN.
 
 export default {
   async fetch(request, env) {

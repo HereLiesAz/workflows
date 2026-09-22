@@ -657,6 +657,22 @@ def _enforce_new_workflow_submission_policy(
             continue
         if path in registered:
             continue
+
+        # A newly seen path is allowed when its implementation has already been
+        # reviewed and admitted to the central catalog. This prevents an older
+        # or missing manifest from misclassifying known shared workflows such as
+        # jules-glee.yml or sign-azp.yml as brand-new capabilities.
+        if path in core.CATALOG_PATH_OVERRIDES:
+            continue
+        try:
+            source_text, _ = gh.get_file(repository, path)
+        except core.ApiError:
+            unsubmitted.append(path)
+            continue
+        source_hash = core.sha256_text(source_text)
+        if core.reviewed_override_for_source(source_hash):
+            continue
+
         unsubmitted.append(path)
 
     if unsubmitted:

@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-09-22T17:12:43+00:00",
+  "last_sync_at": "2026-09-22T21:21:37+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/conveyance-expressive",
@@ -59,6 +59,16 @@
       "source_sha256": "3a4f16e99f43e7ff92c92791ff368bc12e612766d692ac424a0c843deea01c71",
       "status": "obsolete",
       "updated_at": "2026-09-22T12:22:44+00:00"
+    },
+    ".github/workflows/ci.yml": {
+      "blockers": [
+        "GET https://api.github.com/repos/HereLiesAz/workflows/contents/.github/workflows/conveyance-expressive-ci.yml?ref=sync-all-35785204838-1-8 -> network timeout/error: HTTP Error 404: Not Found"
+      ],
+      "name": "CI",
+      "registry_source": "registry/1345202069/ci-899ce9c2.source.yml",
+      "source_sha256": "12b4fe1506ff9163393cdc0139c9a46f692f8e565e13fa756e7fb9db7f682a34",
+      "status": "local",
+      "updated_at": "2026-09-22T21:21:36+00:00"
     },
     ".github/workflows/clear_cache.yml": {
       "binding": "curated",
@@ -153,7 +163,7 @@
       "registry_source": "registry/1345202069/label-04cea97c.source.yml",
       "source_sha256": "9e4ca08e0ce167c9f1ee6c3add108323047fe6af5cecbde30037314360a8c7da",
       "status": "local",
-      "updated_at": "2026-09-22T17:12:43+00:00"
+      "updated_at": "2026-09-22T21:21:37+00:00"
     },
     ".github/workflows/static.yml": {
       "name": "Deploy static content to Pages",

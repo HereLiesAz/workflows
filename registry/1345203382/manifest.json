@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-09-22T18:34:10+00:00",
+  "last_sync_at": "2026-09-22T21:23:07+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/conveyance-liquid",
@@ -59,6 +59,16 @@
       "source_sha256": "3a4f16e99f43e7ff92c92791ff368bc12e612766d692ac424a0c843deea01c71",
       "status": "obsolete",
       "updated_at": "2026-09-22T12:23:54+00:00"
+    },
+    ".github/workflows/ci.yml": {
+      "blockers": [
+        "GET https://api.github.com/repos/HereLiesAz/workflows/contents/.github/workflows/conveyance-liquid-ci.yml?ref=sync-all-35785204838-1-10 -> network timeout/error: HTTP Error 404: Not Found"
+      ],
+      "name": "CI",
+      "registry_source": "registry/1345203382/ci-899ce9c2.source.yml",
+      "source_sha256": "c10f63d6604d8cc67a9b1284efd8d2a485ccb1d77ff0e27277bda3f6a7784468",
+      "status": "local",
+      "updated_at": "2026-09-22T21:23:06+00:00"
     },
     ".github/workflows/clear_cache.yml": {
       "binding": "curated",
@@ -126,7 +136,7 @@
       "registry_source": "registry/1345203382/jules-review-9f7b6ce5.source.yml",
       "source_sha256": "b170093ab22ff75431fb6ea62d3e4ff1a254c5ba7352ee150e59e8dfa4b6f416",
       "status": "library",
-      "updated_at": "2026-09-22T18:34:09+00:00"
+      "updated_at": "2026-09-22T21:23:07+00:00"
     },
     ".github/workflows/jules-scheduled-triage.yml": {
       "binding": "curated",
@@ -143,7 +153,7 @@
       "registry_source": "registry/1345203382/jules-triage-5c552504.source.yml",
       "source_sha256": "dd3c04d1b62501e2260474da42dff9fb083431b27c1b21c47b20a0dc8cb8a09c",
       "status": "library",
-      "updated_at": "2026-09-22T18:34:09+00:00"
+      "updated_at": "2026-09-22T21:23:07+00:00"
     },
     ".github/workflows/label.yml": {
       "blockers": [
@@ -153,7 +163,7 @@
       "registry_source": "registry/1345203382/label-04cea97c.source.yml",
       "source_sha256": "9e4ca08e0ce167c9f1ee6c3add108323047fe6af5cecbde30037314360a8c7da",
       "status": "local",
-      "updated_at": "2026-09-22T18:34:10+00:00"
+      "updated_at": "2026-09-22T21:23:07+00:00"
     },
     ".github/workflows/static.yml": {
       "name": "Deploy static content to Pages",

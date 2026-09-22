@@ -585,7 +585,7 @@ def _prune_rebound_repository_workflows(
     removed: list[str] = []
 
     for source_path, old_entry in before_entries.items():
-        if not isinstance(old_entry, dict) or old_entry.get("status") != "active" or old_entry.get("binding") != "repository":
+        if not isinstance(old_entry, dict) or old_entry.get("binding") != "repository":
             continue
         old_path = str(old_entry.get("central_workflow") or "")
         if not old_path.startswith(prefix) or old_path in active_after_paths:

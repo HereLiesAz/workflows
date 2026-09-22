@@ -102,7 +102,7 @@ jobs:
               test -n "$version_cmd" || { echo "::error::Computed release profile has no version command" >&2; exit 1; }
               version="$(bash -eo pipefail -c "$version_cmd" | tail -n 1 | tr -d '\r ')"
               test -n "$version" || { echo "::error::Version command produced no version" >&2; exit 1; }
-              prefix="$(jq -r '.tag_prefix // "v"' <<<"$PROFILE_JSON")"
+              prefix="$(jq -r '.tag_prefix // ""' <<<"$PROFILE_JSON")"
               tag="$prefix$version"
               ;;
             *)
@@ -181,7 +181,7 @@ jobs:
           prefix="$(jq -r '.release_name_prefix // empty' <<<"$PROFILE_JSON")"
           [ -n "$prefix" ] || prefix="$REPOSITORY_NAME"
           prerelease="$(jq -r '.prerelease // false' <<<"$PROFILE_JSON")"
-          tag_prefix="$(jq -r '.tag_prefix // "v"' <<<"$PROFILE_JSON")"
+          tag_prefix="$(jq -r '.tag_prefix // ""' <<<"$PROFILE_JSON")"
           printf 'Built from %s.\n' "$TARGET_SHA" > grouped-release-notes.md
           echo "grouped=$grouped" >> "$GITHUB_OUTPUT"
           echo "title-prefix=$prefix" >> "$GITHUB_OUTPUT"

@@ -26,11 +26,12 @@ only BUILD.
 
 ## Minor-grouped GitHub Releases
 
-For a four-part build such as `0.9.6.412`:
+Tags are bare version numbers: no `v` prefix, no `version` word, no app name. For a four-part build
+such as `0.9.6.412`:
 
-- immutable exact-build tag: `v0.9.6.412`
-- grouped GitHub Release/tag: `v0.9`
-- every later `0.9.x.y` build, across every patch under minor `9`, is added to that same `v0.9` Release
+- immutable exact-build tag: `0.9.6.412`
+- grouped GitHub Release/tag: `0.9`
+- every later `0.9.x.y` build, across every patch under minor `9`, is added to that same `0.9` Release
 
 The reusable action:
 

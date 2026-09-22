@@ -28,9 +28,9 @@ inputs:
     required: false
     default: ""
   tag-prefix:
-    description: Prefix for exact-build and patch tags.
+    description: Prefix for exact-build and grouped tags. Defaults to none — tags are bare version numbers.
     required: false
-    default: "v"
+    default: ""
   prerelease:
     description: Whether the grouped minor release is a prerelease.
     required: false

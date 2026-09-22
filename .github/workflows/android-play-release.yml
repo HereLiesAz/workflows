@@ -651,14 +651,28 @@ jobs:
 
           def is_retriable(exc):
               # A 4xx HttpError (bad request, bad mimetype, permission denied, ...) is
-              # never transient: the exact same request fails the exact same way every
-              # time. Retrying it just re-uploads the whole AAB from scratch on each
-              # attempt for no benefit, turning an instant, deterministic failure into
-              # a many-minutes-long one. Only 429/5xx responses, and non-HTTP transport
-              # failures (timeouts, connection resets), are worth a retry.
+              # normally never transient: the exact same request fails the exact same
+              # way every time, so retrying it just re-uploads the whole AAB from
+              # scratch on each attempt for no benefit. Only 429/5xx responses, and
+              # non-HTTP transport failures (timeouts, connection resets), are worth
+              # a retry — with one deliberate exception below.
               if isinstance(exc, HttpError):
                   status=getattr(getattr(exc, 'resp', None), 'status', None)
-                  return status == 429 or (status is not None and 500 <= status < 600)
+                  if status == 429 or (status is not None and 500 <= status < 600):
+                      return True
+                  if status == 400:
+                      # Play's edits.commit can 400 with "Some of the Android App
+                      # Bundle uploads are not completed yet" immediately after a
+                      # successful bundles().upload() — the backend hasn't finished
+                      # indexing the bundle it just accepted. This is a real,
+                      # observed eventual-consistency race on Google's side, not a
+                      # malformed request; retrying the edit (with backoff) after a
+                      # brief wait resolves it.
+                      content=getattr(exc, 'content', b'') or b''
+                      if isinstance(content, bytes):
+                          content=content.decode('utf-8', 'ignore')
+                      return 'not completed yet' in content
+                  return False
               return True
 
           for attempt in range(1,EDIT_ATTEMPTS + 1):

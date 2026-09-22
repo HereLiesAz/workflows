@@ -122,11 +122,14 @@ assert "Required mapping.txt is missing or empty" in play_workflow
 # same as the AAB upload, or every publish attempt fails identically and forever.
 assert "media_body=MediaFileUpload(mapping,mimetype='application/octet-stream')" in play_workflow
 assert "media_body=MediaFileUpload(mapping,mimetype='text/plain')" not in play_workflow
-# A 4xx HttpError is deterministic, not transient: retrying it just re-uploads the
-# whole AAB from scratch for a request that can never succeed. Only 429/5xx and
-# real transport failures should trigger a retry.
+# A 4xx HttpError is normally deterministic, not transient: retrying it just
+# re-uploads the whole AAB from scratch for a request that can never succeed.
+# Only 429/5xx and real transport failures should trigger a retry — except a
+# 400 "not completed yet" from edits.commit, a real observed eventual-consistency
+# race on Play's backend right after bundles().upload(), which is worth retrying.
 assert "def is_retriable(exc):" in play_workflow
 assert "not is_retriable(exc):" in play_workflow
+assert "'not completed yet' in content" in play_workflow
 
 for play_path, required in {
     ".github/workflows/hereliesaz-github-io-android-release-aab.yml": (

@@ -48,7 +48,36 @@ sync._compact_event_script = _compact_event_script
 
 
 class IdempotentGitHub(core.GitHub):
+    def __init__(self, token: str):
+        super().__init__(token)
+        self.central_sync_branch = os.environ.get("CENTRAL_SYNC_BRANCH", "").strip()
+
+    def _central_ref(self, full_name: str, ref: str | None) -> str | None:
+        if (
+            self.central_sync_branch
+            and full_name.casefold() == core.CENTRAL_REPOSITORY.casefold()
+            and (ref is None or ref == "main")
+        ):
+            return self.central_sync_branch
+        return ref
+
+    def contents(self, full_name: str, path: str, ref: str | None = None):
+        return super().contents(full_name, path, ref=self._central_ref(full_name, ref))
+
+    def json(self, method: str, path: str, body=None):
+        if (
+            self.central_sync_branch
+            and method.upper() == "DELETE"
+            and path.startswith(f"/repos/{core.CENTRAL_REPOSITORY}/contents/")
+            and isinstance(body, dict)
+            and body.get("branch") == "main"
+        ):
+            body = dict(body)
+            body["branch"] = self.central_sync_branch
+        return super().json(method, path, body)
+
     def put_file(self, full_name: str, path: str, content: str, message: str, branch: str | None = None) -> None:
+        branch = self._central_ref(full_name, branch)
         quoted = urllib.parse.quote(path, safe="/")
         existing_sha = None
         try:

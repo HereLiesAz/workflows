@@ -27,56 +27,70 @@ jobs:
     outputs:
       repositories: ${{ steps.repos.outputs.repositories }}
       count: ${{ steps.repos.outputs.count }}
-      archived: ${{ steps.repos.outputs.archived }}
-      private: ${{ steps.repos.outputs.private }}
+      newest_repository: ${{ steps.repos.outputs.newest_repository }}
+      new_count: ${{ steps.repos.outputs.new_count }}
     steps:
-      - name: Enumerate every owned repository
+      - name: Check out central controller
+        uses: actions/checkout@v4
+
+      - name: Discover only repositories newer than the cursor
         id: repos
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          all="$(gh api --paginate 'user/repos?affiliation=owner&per_page=100' --jq '.[] | select(.owner.login == "HereLiesAz") | [.full_name, (.id|tostring), (.archived|tostring), (.private|tostring)] | @tsv')"
 
-          repositories="$(
-            awk -F '\t' '$1 != "HereLiesAz/workflows" && $3 == "false" && $4 == "false" {print $1 "\t" $2}' <<<"$all" \
-              | sort -u \
-              | jq -Rsc 'split("\n") | map(select(length > 0))'
-          )"
-          archived="$(
-            awk -F '\t' '$3 == "true" {print $1}' <<<"$all" \
-              | sort -u \
-              | jq -Rsc 'split("\n") | map(select(length > 0))'
-          )"
-          private="$(
-            awk -F '\t' '$1 != "HereLiesAz/workflows" && $3 == "false" && $4 == "true" {print $1}' <<<"$all" \
-              | sort -u \
-              | jq -Rsc 'split("\n") | map(select(length > 0))'
-          )"
+          cursor="$(tr -d '\r\n' < .controller/repository-scrape-cursor)"
+          [[ -n "$cursor" ]] || { echo "::error::Repository scrape cursor is empty"; exit 1; }
+          cursor_encoded="$(jq -rn --arg value "$cursor" '$value|@uri')"
+          scraped="$(curl --fail-with-body --silent --show-error "${WORKER_URL%/}/repositories?stop=${cursor_encoded}")"
+          jq -e '.ok == true and (.repositories | type == "array") and .stop_found == true' <<<"$scraped" >/dev/null
 
+          declare -A registered_ids=()
+          repositories='[]'
+          shopt -s nullglob
+          for manifest in registry/*/manifest.json; do
+            full_name="$(jq -r '.repository.full_name // empty' "$manifest")"
+            repo_id="$(jq -r '.repository.id // empty' "$manifest")"
+            if [[ -z "$full_name" || -z "$repo_id" || "$full_name" == "HereLiesAz/workflows" ]]; then
+              continue
+            fi
+            registered_ids["$full_name"]="$repo_id"
+            record="${full_name}"$'\t'"${repo_id}"$'\tregistered'
+            repositories="$(jq -c --arg value "$record" '. + [$value]' <<<"$repositories")"
+          done
+
+          new_count=0
+          while IFS= read -r repository; do
+            [[ -n "$repository" ]] || continue
+            if [[ -n "${registered_ids[$repository]:-}" ]]; then
+              continue
+            fi
+            record="${repository}"$'\t\tnew'
+            repositories="$(jq -c --arg value "$record" '. + [$value]' <<<"$repositories")"
+            new_count=$((new_count + 1))
+          done < <(jq -r '.repositories[]' <<<"$scraped")
+
+          repositories="$(jq -c 'unique | sort' <<<"$repositories")"
           count="$(jq 'length' <<<"$repositories")"
-          archived_count="$(jq 'length' <<<"$archived")"
-          private_count="$(jq 'length' <<<"$private")"
+          newest_repository="$(jq -r 'if (.repositories|length) > 0 then .repositories[0] else empty end' <<<"$scraped")"
+          if [[ -z "$newest_repository" ]]; then
+            newest_repository="$cursor"
+          fi
 
           echo "repositories=$repositories" >> "$GITHUB_OUTPUT"
           echo "count=$count" >> "$GITHUB_OUTPUT"
-          echo "archived=$archived" >> "$GITHUB_OUTPUT"
-          echo "private=$private" >> "$GITHUB_OUTPUT"
+          echo "newest_repository=$newest_repository" >> "$GITHUB_OUTPUT"
+          echo "new_count=$new_count" >> "$GITHUB_OUTPUT"
 
           {
-            echo "## Live repository inventory"
+            echo "## Live public repository discovery"
             echo
-            echo "- Writable non-controller, public repositories: **$count**"
-            echo "- Controller repository: **HereLiesAz/workflows** (versioned locally; never self-centralized)"
-            echo "- Archived repositories skipped from workflow mutation: **$archived_count**"
-            if [ "$archived_count" -gt 0 ]; then
-              jq -r '.[] | "- `" + . + "`"' <<<"$archived"
-            fi
-            echo "- Private repositories excluded from central sync: **$private_count**"
-            if [ "$private_count" -gt 0 ]; then
-              jq -r '.[] | "- `" + . + "`"' <<<"$private"
-            fi
+            echo "- Cursor: \`$cursor\`"
+            echo "- HTML pages scanned: **$(jq -r '.pages_scanned' <<<"$scraped")**"
+            echo "- Newly discovered repositories: **$new_count**"
+            echo "- Total registered + newly discovered repositories queued: **$count**"
+            echo "- Existing registered repositories skip webhook reconciliation."
+            echo "- Private repositories are excluded by the public-only GitHub listing."
           } >> "$GITHUB_STEP_SUMMARY"
 
   sync:
@@ -138,40 +152,46 @@ jobs:
           }
 
           for repository_record in "${repositories[@]}"; do
-            IFS=$'\t' read -r repository repository_id <<<"$repository_record"
+            IFS=$'\t' read -r repository repository_id registration_state <<<"$repository_record"
             echo "::group::Sync ${repository}"
 
-            if ! oidc_response="$(curl --fail-with-body --silent --show-error \
-              -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-              "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=hereliesaz-workflows")"; then
-              echo "::error::Could not obtain OIDC token for ${repository}"
-              record_failure "$repository" "OIDC"
-              echo "::endgroup::"
-              continue
-            fi
+            if [[ "$registration_state" == "new" ]]; then
+              if ! oidc_response="$(curl --fail-with-body --silent --show-error \
+                -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+                "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=hereliesaz-workflows")"; then
+                echo "::error::Could not obtain OIDC token for ${repository}"
+                record_failure "$repository" "OIDC"
+                echo "::endgroup::"
+                continue
+              fi
 
-            oidc_token="$(jq -r '.value // empty' <<<"$oidc_response")"
-            if [[ -z "$oidc_token" ]]; then
-              echo "::error::GitHub did not issue an OIDC token for ${repository}"
-              record_failure "$repository" "OIDC"
-              echo "::endgroup::"
-              continue
-            fi
+              oidc_token="$(jq -r '.value // empty' <<<"$oidc_response")"
+              if [[ -z "$oidc_token" ]]; then
+                echo "::error::GitHub did not issue an OIDC token for ${repository}"
+                record_failure "$repository" "OIDC"
+                echo "::endgroup::"
+                continue
+              fi
 
-            payload="$(jq -nc \
-              --arg repository "$repository" \
-              --arg repository_id "$repository_id" \
-              '{repository:$repository,repository_id:$repository_id}')"
+              payload="$(jq -nc --arg repository "$repository" '{repository:$repository}')"
+              if ! registration_response="$(curl --fail-with-body --silent --show-error \
+                -X POST "${WORKER_URL%/}/register" \
+                -H "Authorization: Bearer $oidc_token" \
+                -H "Content-Type: application/json" \
+                --data "$payload")"; then
+                echo "::error::Webhook registration failed for ${repository}"
+                record_failure "$repository" "webhook registration"
+                echo "::endgroup::"
+                continue
+              fi
 
-            if ! curl --fail-with-body --silent --show-error \
-              -X POST "${WORKER_URL%/}/register" \
-              -H "Authorization: Bearer $oidc_token" \
-              -H "Content-Type: application/json" \
-              --data "$payload"; then
-              echo "::error::Webhook registration failed for ${repository}"
-              record_failure "$repository" "webhook registration"
-              echo "::endgroup::"
-              continue
+              repository_id="$(jq -r '.repository_id // empty' <<<"$registration_response")"
+              if [[ -z "$repository_id" ]]; then
+                echo "::error::Webhook registration did not return repository ID for ${repository}"
+                record_failure "$repository" "webhook registration response"
+                echo "::endgroup::"
+                continue
+              fi
             fi
 
             out="${RUNNER_TEMP}/sync-result-${SHARD}-${repository##*/}.json"
@@ -209,13 +229,15 @@ jobs:
           retention-days: 14
 
   commit-central:
-    needs: sync
+    needs: [discover, sync]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
       BRANCH_PREFIX: sync-all-${{ github.run_id }}-${{ github.run_attempt }}-
+      NEWEST_REPOSITORY: ${{ needs.discover.outputs.newest_repository }}
+      SYNC_RESULT: ${{ needs.sync.result }}
     steps:
       - name: Check out latest controller main
         uses: actions/checkout@v4
@@ -263,6 +285,11 @@ jobs:
               fi
             done
           done
+
+          if [[ "$SYNC_RESULT" == "success" && -n "$NEWEST_REPOSITORY" ]]; then
+            printf '%s\n' "$NEWEST_REPOSITORY" > .controller/repository-scrape-cursor
+            git add .controller/repository-scrape-cursor
+          fi
 
           if git diff --cached --quiet; then
             echo "Shard branches contained no central changes." >> "$GITHUB_STEP_SUMMARY"

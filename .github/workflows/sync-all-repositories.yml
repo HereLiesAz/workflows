@@ -122,13 +122,23 @@ jobs:
 
           echo "Shard $SHARD/$SHARD_COUNT contains ${#repositories[@]} repositories."
           failures=()
+          REPORT_FILE="${RUNNER_TEMP}/shard-report-${SHARD}.jsonl"
+          : > "$REPORT_FILE"
+
+          record_failure() {
+            local repo="$1" reason="$2"
+            failures+=("${repo}: ${reason}")
+            echo "- ❌ ${repo} (${reason})" >> "$GITHUB_STEP_SUMMARY"
+            jq -nc --arg repo "$repo" --arg status "failure" --arg detail "$reason" \
+              '{repository:$repo,status:$status,detail:$detail}' >> "$REPORT_FILE"
+          }
 
           for repository in "${repositories[@]}"; do
             echo "::group::Sync ${repository}"
 
             if ! repository_id="$(gh api "repos/${repository}" --jq '.id')"; then
               echo "::error::Could not resolve repository ID for ${repository}"
-              failures+=("${repository}: repository lookup")
+              record_failure "$repository" "repository lookup"
               echo "::endgroup::"
               continue
             fi
@@ -137,7 +147,7 @@ jobs:
               -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
               "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=hereliesaz-workflows")"; then
               echo "::error::Could not obtain OIDC token for ${repository}"
-              failures+=("${repository}: OIDC")
+              record_failure "$repository" "OIDC"
               echo "::endgroup::"
               continue
             fi
@@ -145,7 +155,7 @@ jobs:
             oidc_token="$(jq -r '.value // empty' <<<"$oidc_response")"
             if [[ -z "$oidc_token" ]]; then
               echo "::error::GitHub did not issue an OIDC token for ${repository}"
-              failures+=("${repository}: OIDC")
+              record_failure "$repository" "OIDC"
               echo "::endgroup::"
               continue
             fi
@@ -161,7 +171,7 @@ jobs:
               -H "Content-Type: application/json" \
               --data "$payload"; then
               echo "::error::Webhook registration failed for ${repository}"
-              failures+=("${repository}: webhook registration")
+              record_failure "$repository" "webhook registration"
               echo "::endgroup::"
               continue
             fi
@@ -173,12 +183,13 @@ jobs:
               --json-output "$out"; then
               cat "$out"
               echo "- ✅ ${repository}" >> "$GITHUB_STEP_SUMMARY"
+              jq -nc --arg repo "$repository" --arg status "success" \
+                '{repository:$repo,status:$status,detail:""}' >> "$REPORT_FILE"
             else
               status=$?
               [[ -f "$out" ]] && cat "$out"
               echo "::error::Repository sync failed for ${repository} (exit $status)"
-              failures+=("${repository}: sync")
-              echo "- ❌ ${repository}" >> "$GITHUB_STEP_SUMMARY"
+              record_failure "$repository" "sync (exit $status)"
             fi
 
             echo "::endgroup::"
@@ -187,5 +198,69 @@ jobs:
           if (( ${#failures[@]} > 0 )); then
             printf '::error::Shard %s had %d failure(s): %s\n' \
               "$SHARD" "${#failures[@]}" "$(IFS=', '; echo "${failures[*]}")"
+            exit 1
+          fi
+
+      - name: Upload shard report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: shard-report-${{ matrix.shard }}
+          path: ${{ runner.temp }}/shard-report-${{ matrix.shard }}.jsonl
+          if-no-files-found: ignore
+          retention-days: 14
+
+  report:
+    needs: sync
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download every shard's report
+        uses: actions/download-artifact@v4
+        with:
+          pattern: shard-report-*
+          path: shard-reports
+          merge-multiple: true
+
+      - name: Publish one account-wide sync summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(shard-reports/*.jsonl)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No shard reports were produced (every shard may have failed before writing one)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          combined="$(cat "${files[@]}" | jq -sc '.')"
+          total="$(jq 'length' <<<"$combined")"
+          succeeded="$(jq '[.[] | select(.status == "success")] | length' <<<"$combined")"
+          failed_entries="$(jq -c '[.[] | select(.status == "failure")] | sort_by(.repository)' <<<"$combined")"
+          failed_count="$(jq 'length' <<<"$failed_entries")"
+
+          {
+            echo "## Account-wide sync summary"
+            echo
+            echo "- Repositories processed: **$total**"
+            echo "- Succeeded: **$succeeded**"
+            echo "- Failed: **$failed_count**"
+            echo
+            if [ "$failed_count" -gt 0 ]; then
+              echo "### Failed — needs attention"
+              echo
+              echo "| Repository | Reason |"
+              echo "| --- | --- |"
+              jq -r '.[] | "| \(.repository) | \(.detail) |"' <<<"$failed_entries"
+              echo
+              echo "Every other repository above synced successfully regardless of these failures —"
+              echo "one repository's failure never blocks or reverts another's sync."
+            else
+              echo "All repositories synced successfully."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$failed_count" -gt 0 ]; then
+            echo "::error::$failed_count of $total repositories failed to sync this run. See the summary for exactly which ones and why."
             exit 1
           fi

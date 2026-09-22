@@ -17,7 +17,7 @@ on:
         default: false
         type: boolean
 
-run-name: sync · ${{ inputs.repository || '(auto: unregistered repos)' }}
+run-name: "sync · ${{ inputs.repository != '' && inputs.repository || '(auto: unregistered repos)' }}"
 
 permissions:
   contents: read

@@ -100,10 +100,6 @@ class GitHub:
             try:
                 with urllib.request.urlopen(req, timeout=30) as response:
                     return response.status, dict(response.headers), response.read()
-            except (urllib.error.URLError, TimeoutError, socket.timeout) as exc:
-                if attempt >= 3:
-                    raise ApiError(f"{method} {url} -> network timeout/error: {exc}") from exc
-                time.sleep(min(2 ** attempt, 8))
             except urllib.error.HTTPError as exc:
                 payload = exc.read().decode(errors="replace")
                 headers = dict(exc.headers)
@@ -115,6 +111,10 @@ class GitHub:
                 if not rate_limited or attempt >= 3:
                     raise ApiError(f"{method} {url} -> {exc.code}: {payload}") from exc
                 time.sleep(_rate_limit_delay(headers, attempt) or 1)
+            except (urllib.error.URLError, TimeoutError, socket.timeout) as exc:
+                if attempt >= 3:
+                    raise ApiError(f"{method} {url} -> network timeout/error: {exc}") from exc
+                time.sleep(min(2 ** attempt, 8))
         raise AssertionError("unreachable")
 
     def json(self, method: str, path: str, body: Any | None = None) -> Any:

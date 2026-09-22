@@ -4,8 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       repository:
-        description: Repository to bind to the shared workflow catalog, for example HereLiesAz/haive
-        required: true
+        description: |
+          Repository to register. Accepts: bare name (illumera), owner/repo
+          (HereLiesAz/illumera), or leave empty to auto-register every repo
+          whose manifest has worker_url_configured: false.
+        required: false
+        default: ''
         type: string
       dry_run:
         description: Inspect without changing either repository
@@ -13,14 +17,14 @@ on:
         default: false
         type: boolean
 
-run-name: sync · ${{ inputs.repository }}
+run-name: sync · ${{ inputs.repository || '(auto: unregistered repos)' }}
 
 permissions:
   contents: read
   id-token: write
 
 concurrency:
-  group: workflow-sync-${{ inputs.repository }}
+  group: workflow-sync-${{ inputs.repository || 'auto' }}
   cancel-in-progress: false
 
 env:
@@ -29,7 +33,7 @@ env:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Check out central controller
         uses: actions/checkout@v4
@@ -37,43 +41,96 @@ jobs:
       - name: Install centralizer dependency
         run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
 
-      - name: Register direct repository webhook
+      - name: Resolve target repositories
+        id: targets
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          repository="${{ inputs.repository }}"
-          repository_id="$(gh api "repos/${repository}" --jq '.id')"
-          oidc_response="$(curl --fail-with-body --silent --show-error \
-            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=hereliesaz-workflows")"
-          oidc_token="$(jq -r '.value // empty' <<<"$oidc_response")"
-          [[ -n "$oidc_token" ]] || { echo "::error::GitHub did not issue an OIDC token."; exit 1; }
-          payload="$(jq -nc --arg repository "$repository" --arg repository_id "$repository_id" '{repository:$repository,repository_id:$repository_id}')"
-          curl --fail-with-body --silent --show-error \
-            -X POST "${WORKER_URL%/}/register" \
-            -H "Authorization: Bearer $oidc_token" \
-            -H "Content-Type: application/json" \
-            --data "$payload"
+          input="${{ inputs.repository }}"
 
-      - name: Scan and centralize
+          if [[ -z "$input" ]]; then
+            # Auto-mode: collect every manifest with worker_url_configured=false
+            mapfile -t targets < <(
+              grep -rl '"worker_url_configured": false' registry/ 2>/dev/null \
+                | xargs -r jq -r '.repository.full_name // empty' 2>/dev/null \
+                | sort -u
+            )
+            if [[ ${#targets[@]} -eq 0 ]]; then
+              echo "All registered repositories already have worker_url_configured=true. Nothing to do."
+              echo "targets=[]" >> "$GITHUB_OUTPUT"
+            else
+              echo "Auto-mode: ${#targets[@]} unregistered repo(s) found."
+              printf '  - %s\n' "${targets[@]}"
+              json="$(printf '%s\n' "${targets[@]}" | jq -Rsc 'split("\n") | map(select(length > 0))')"
+              echo "targets=${json}" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            # Normalize: strip owner prefix if bare name supplied, re-attach canonical owner
+            if [[ "$input" != */* ]]; then
+              input="HereLiesAz/${input// /}"
+            fi
+            echo "targets=[\"${input}\"]" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Register webhooks and sync
+        if: ${{ steps.targets.outputs.targets != '[]' && steps.targets.outputs.targets != '' }}
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          TARGETS: ${{ steps.targets.outputs.targets }}
+        shell: bash
         run: |
-          args=(--repository "${{ inputs.repository }}" --worker-url "$WORKER_URL")
-          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
-            args+=(--dry-run)
-          fi
-          python scripts/retry_repository_sync.py "${args[@]}" --json-output sync-result.json
+          set -euo pipefail
+          mapfile -t repositories < <(jq -r '.[]' <<<"$TARGETS")
 
-      - name: Write summary
-        if: ${{ always() && hashFiles('sync-result.json') != '' }}
-        run: |
-          {
-            echo '## Workflow sync'
-            echo
-            echo '```json'
-            cat sync-result.json
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          failures=()
+
+          for repository in "${repositories[@]}"; do
+            echo "::group::Registering ${repository}"
+
+            repository_id="$(gh api "repos/${repository}" --jq '.id')"
+
+            oidc_response="$(curl --fail-with-body --silent --show-error \
+              -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+              "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=hereliesaz-workflows")"
+            oidc_token="$(jq -r '.value // empty' <<<"$oidc_response")"
+            [[ -n "$oidc_token" ]] || { echo "::error::No OIDC token for ${repository}"; failures+=("$repository"); echo "::endgroup::"; continue; }
+
+            payload="$(jq -nc \
+              --arg repository "$repository" \
+              --arg repository_id "$repository_id" \
+              '{repository:$repository,repository_id:$repository_id}')"
+
+            if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+              echo "[dry-run] Would POST to ${WORKER_URL}/register with payload: ${payload}"
+            else
+              curl --fail-with-body --silent --show-error \
+                -X POST "${WORKER_URL%/}/register" \
+                -H "Authorization: Bearer $oidc_token" \
+                -H "Content-Type: application/json" \
+                --data "$payload"
+            fi
+
+            out="${RUNNER_TEMP}/sync-result-${repository##*/}.json"
+            sync_args=(--repository "$repository" --worker-url "$WORKER_URL")
+            [[ "${{ inputs.dry_run }}" == "true" ]] && sync_args+=(--dry-run)
+
+            if python scripts/retry_repository_sync.py "${sync_args[@]}" --json-output "$out"; then
+              [[ -f "$out" ]] && cat "$out"
+              echo "- ✅ ${repository}" >> "$GITHUB_STEP_SUMMARY"
+            else
+              status=$?
+              [[ -f "$out" ]] && cat "$out"
+              echo "::error::Sync failed for ${repository} (exit ${status})"
+              failures+=("$repository")
+              echo "- ❌ ${repository}" >> "$GITHUB_STEP_SUMMARY"
+            fi
+
+            echo "::endgroup::"
+          done
+
+          if (( ${#failures[@]} > 0 )); then
+            printf '::error::Sync failed for: %s\n' "$(IFS=', '; echo "${failures[*]}")"
+            exit 1
+          fi

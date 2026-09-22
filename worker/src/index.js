@@ -8,6 +8,7 @@ const GATEWAY_WORKFLOW = "gateway.yml";
 const API_VERSION = "2026-03-10";
 const MAX_REQUEST_JSON_BYTES = 5 * 1024 * 1024;
 const MAX_WORKFLOW_DISPATCH_INPUT_CHARS = 60000;
+const IGNORED_WEBHOOK_EVENTS = new Set(["check_run", "check_suite", "workflow_job", "status"]);
 
 let jwksCache;
 let jwksCacheExpiresAt = 0;
@@ -127,6 +128,13 @@ async function receiveRepositoryWebhook(request, env) {
 
   if (eventName === "ping") {
     return json({ ok: true, pong: true, zen: event.zen || "" });
+  }
+
+  // These GitHub lifecycle events currently have no registered workflow
+  // consumers. Dropping them here prevents check/job activity from recursively
+  // creating gateway runs that can never dispatch anything.
+  if (IGNORED_WEBHOOK_EVENTS.has(eventName)) {
+    return json({ ok: true, ignored: true, event_name: eventName, reason: "No registered workflow consumes this event" }, 202);
   }
 
   const repository = event.repository;

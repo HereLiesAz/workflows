@@ -84,7 +84,7 @@ jobs:
     if: ${{ needs.discover.outputs.count != '0' }}
     strategy:
       fail-fast: false
-      max-parallel: 1
+      max-parallel: 4
       matrix:
         shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
     runs-on: ubuntu-latest
@@ -94,9 +94,19 @@ jobs:
       REPOSITORIES: ${{ needs.discover.outputs.repositories }}
       SHARD: ${{ matrix.shard }}
       SHARD_COUNT: 16
+      CENTRAL_SYNC_BRANCH: sync-all-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard }}
     steps:
       - name: Check out central controller
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+          fetch-depth: 0
+
+      - name: Create isolated central shard branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin "$GITHUB_SHA:refs/heads/$CENTRAL_SYNC_BRANCH"
 
       - name: Install controller dependency
         run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
@@ -198,8 +208,85 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  report:
+  commit-central:
     needs: sync
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      BRANCH_PREFIX: sync-all-${{ github.run_id }}-${{ github.run_attempt }}-
+    steps:
+      - name: Check out latest controller main
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+          fetch-depth: 0
+
+      - name: Fold shard branches into one atomic controller commit
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+
+          branches=()
+          for shard in {0..15}; do
+            branch="${BRANCH_PREFIX}${shard}"
+            if git ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null 2>&1; then
+              git fetch origin "refs/heads/$branch:refs/remotes/origin/$branch"
+              branches+=("$branch")
+            fi
+          done
+
+          if (( ${#branches[@]} == 0 )); then
+            echo "No shard branches were produced." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          git checkout -B main origin/main
+
+          for branch in "${branches[@]}"; do
+            base="$(git merge-base origin/main "origin/$branch")"
+            mapfile -t commits < <(git rev-list --reverse "$base..origin/$branch")
+            if (( ${#commits[@]} == 0 )); then
+              continue
+            fi
+            echo "Applying ${#commits[@]} central change commit(s) from $branch"
+            for commit in "${commits[@]}"; do
+              if ! git cherry-pick --no-commit "$commit"; then
+                echo "::error::Central shard conflict while applying $branch commit $commit"
+                git cherry-pick --abort || true
+                exit 1
+              fi
+            done
+          done
+
+          if git diff --cached --quiet; then
+            echo "Shard branches contained no central changes." >> "$GITHUB_STEP_SUMMARY"
+          else
+            changed_count="$(git diff --cached --name-only | wc -l | tr -d ' ')"
+            git commit -m "Apply account-wide workflow sync atomically"
+            git push origin HEAD:main
+            echo "Committed **$changed_count** central file change(s) in one atomic push." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Remove temporary shard branches
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set +e
+          for shard in {0..15}; do
+            branch="${BRANCH_PREFIX}${shard}"
+            if git ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null 2>&1; then
+              git push origin --delete "$branch"
+            fi
+          done
+
+  report:
+    needs: [sync, commit-central]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:

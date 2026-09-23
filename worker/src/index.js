@@ -1,3 +1,5 @@
+import { receiveCrashReport } from "./crash-report.js";
+
 const GITHUB_ISSUER = "https://token.actions.githubusercontent.com";
 const GITHUB_JWKS = "https://token.actions.githubusercontent.com/.well-known/jwks";
 const EXPECTED_AUDIENCE = "hereliesaz-workflows";
@@ -33,6 +35,11 @@ export default {
       }
       if (request.method === "POST" && url.pathname === "/webhook") {
         return await receiveRepositoryWebhook(request, env);
+      }
+      const crashRoute = url.pathname.match(/^\/crash-report\/([A-Za-z0-9_.-]{1,100})$/);
+      if (request.method === "POST" && crashRoute) {
+        return await receiveCrashReport(request, crashRoute[1], (path, method, body) =>
+          githubApi(env, path, method, body));
       }
       if (request.method === "POST" && url.pathname === "/dispatch") {
         return await receiveLegacyOidcDispatch(request, env);

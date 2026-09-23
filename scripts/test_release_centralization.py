@@ -140,7 +140,7 @@ assert "not is_retriable(exc):" in play_workflow
 assert "'not completed yet' in content" in play_workflow
 
 for play_path, required in {
-    ".github/workflows/hereliesaz-github-io-android-release-aab.yml": (
+    ".github/workflows/android-play-release.yml": (
         "Upload mapping.txt artifact",
         "deobfuscationfiles().upload",
     ),

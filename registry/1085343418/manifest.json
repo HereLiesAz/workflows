@@ -8,7 +8,7 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": false,
+  "worker_url_configured": true,
   "workflows": {
     ".github/workflows/antigravity-branch-manager.yml": {
       "name": "Antigravity Branch Manager",
@@ -22,14 +22,14 @@
       "blockers": [
         "job 'triage' is depended on downstream and expands to 2 jobs; only single-job dependency aliasing is supported"
       ],
-      "name": "\ud83d\udd00 Antigravity Dispatch",
+      "name": "🔀 Antigravity Dispatch",
       "registry_source": "registry/1085343418/antigravity-dispatch-1d3b5794.source.yml",
       "source_sha256": "164f8ad3192db8b9452ce50fcb3ffb9c526f25991719b9f69fe03a4fa6d3774d",
       "status": "local",
       "updated_at": "2026-09-23T21:45:19+00:00"
     },
     ".github/workflows/antigravity-invoke.yml": {
-      "name": "\u25b6\ufe0f Antigravity Invoke",
+      "name": "▶️ Antigravity Invoke",
       "registry_source": "registry/1085343418/antigravity-invoke-68995e5d.source.yml",
       "source_sha256": "c48ff2e1ed75038cc4adcd27a1b4149c53df56db76f548154d24bdf6f3040c41",
       "status": "library",
@@ -44,7 +44,7 @@
       "updated_at": "2026-09-14T16:03:50+00:00"
     },
     ".github/workflows/antigravity-review.yml": {
-      "name": "\ud83d\udd0e Antigravity Review",
+      "name": "🔎 Antigravity Review",
       "registry_source": "registry/1085343418/antigravity-review-aa31df84.source.yml",
       "source_sha256": "945a3d9936d3d28135cefeb18e43fe94ce3e3faad5ac2ce0afd7569c467c345a",
       "status": "library",
@@ -56,14 +56,14 @@
         "job 'triage' step 3 uses actions/github-script with runner-repository context",
         "job 'triage' step 4 uses actions/github-script with runner-repository context"
       ],
-      "name": "\ud83d\udccb Antigravity Scheduled Issue Triage",
+      "name": "📋 Antigravity Scheduled Issue Triage",
       "registry_source": "registry/1085343418/antigravity-scheduled-triage-a345106b.source.yml",
       "source_sha256": "fb24594c498a0749087b5f9670404ffade14b59af0d9cb412389ae688b4b7d32",
       "status": "local",
       "updated_at": "2026-09-23T21:45:19+00:00"
     },
     ".github/workflows/antigravity-triage.yml": {
-      "name": "\ud83d\udd00 Antigravity Triage",
+      "name": "🔀 Antigravity Triage",
       "registry_source": "registry/1085343418/antigravity-triage-9953fc0b.source.yml",
       "source_sha256": "a69f1cddb64845abbdc9939c053f3c217111952c46013e8fa78022e5a385712f",
       "status": "library",
@@ -133,7 +133,7 @@
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "\ud83d\ude08 Glee Audit",
+      "name": "😈 Glee Audit",
       "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/1085343418/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
@@ -154,7 +154,7 @@
       "blockers": [
         "job 'validate-pr' step 6 uses actions/github-script with runner-repository context"
       ],
-      "name": "\ud83d\udcd0 Enforce Contribution Guidelines",
+      "name": "📐 Enforce Contribution Guidelines",
       "registry_source": "registry/1085343418/pr-contribution-guidelines-review-fc3ba3ac.source.yml",
       "source_sha256": "216bf6129a718aa9b0361d75b38d04c34814adc7ce8dfc49cc4b754054204661",
       "status": "local",

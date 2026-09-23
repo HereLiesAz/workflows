@@ -433,6 +433,51 @@ jobs:
           cache-read-only: false
       - run: chmod +x gradlew
 
+      # Profiles whose build derives versionCode from its own counters (rather than the version
+      # contract) set play_version_floor so the build can be seeded above every versionCode Play
+      # has already accepted. Exposes PLAY_HIGHEST_VERSION_CODE to the pre-build command. Play
+      # rejects a live rollout whose versionCode sits below the one users already have, and
+      # rejects any reuse of an uploaded versionCode, so the floor spans all bundles and tracks.
+      - name: Resolve highest versionCode already in Play
+        if: ${{ fromJSON(inputs.purpose_profile_json).play_version_floor == true }}
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$PLAY_SERVICE_ACCOUNT_JSON" || { echo "::error::PLAY_SERVICE_ACCOUNT_JSON is required for play_version_floor" >&2; exit 1; }
+          package="$(jq -r '.package_name // empty' <<<"$PROFILE_JSON")"
+          test -n "$package" || { echo "::error::play_version_floor requires package_name in the profile" >&2; exit 1; }
+          python -m pip install --quiet google-api-python-client google-auth google-auth-httplib2
+          highest="$(PACKAGE_NAME="$package" timeout 300 python - <<'PY'
+          import json, os
+          import httplib2
+          from google.oauth2 import service_account
+          from google_auth_httplib2 import AuthorizedHttp
+          from googleapiclient.discovery import build
+
+          creds=service_account.Credentials.from_service_account_info(
+              json.loads(os.environ['PLAY_SERVICE_ACCOUNT_JSON']),
+              scopes=['https://www.googleapis.com/auth/androidpublisher'],
+          )
+          svc=build('androidpublisher','v3',http=AuthorizedHttp(creds, http=httplib2.Http(timeout=120)),cache_discovery=False)
+          package=os.environ['PACKAGE_NAME']
+          edit=svc.edits().insert(packageName=package,body={}).execute(num_retries=3)['id']
+          try:
+              codes=[int(item['versionCode']) for item in svc.edits().bundles().list(packageName=package,editId=edit).execute(num_retries=3).get('bundles', [])]
+              codes+=[int(item['versionCode']) for item in svc.edits().apks().list(packageName=package,editId=edit).execute(num_retries=3).get('apks', [])]
+              for track in svc.edits().tracks().list(packageName=package,editId=edit).execute(num_retries=3).get('tracks', []):
+                  for release in track.get('releases', []):
+                      codes+=[int(code) for code in release.get('versionCodes', [])]
+          finally:
+              svc.edits().delete(packageName=package,editId=edit).execute(num_retries=3)
+          print(max(codes, default=0))
+          PY
+          )"
+          [[ "$highest" =~ ^[0-9]+$ ]] || { echo "::error::Could not resolve the highest Play versionCode" >&2; exit 1; }
+          echo "Highest versionCode already in Play: $highest"
+          echo "PLAY_HIGHEST_VERSION_CODE=$highest" >> "$GITHUB_ENV"
+
       - name: Prepare project-specific release inputs
         if: ${{ env.PRE_BUILD_COMMAND != '' }}
         shell: bash
@@ -690,6 +735,25 @@ jobs:
                   return False
               return True
 
+          def is_upgrade_path_error(exc):
+              # Play's live-rollout precondition: every existing user on the track must have an
+              # upgrade path to the new bundle. When device targeting (ABIs, minSdk, densities)
+              # no longer covers someone already installed, edits.commit 403s with "You cannot
+              # rollout this release because it does not allow any existing users to upgrade to
+              # the newly added APKs." Retrying the same live rollout fails identically.
+              content=getattr(exc, 'content', b'') or b''
+              if isinstance(content, bytes):
+                  content=content.decode('utf-8', 'ignore')
+              text=(str(exc) + ' ' + str(content)).lower()
+              return 'existing users' in text and 'upgrade' in text
+
+          # Profiles opting in (live_rollout_draft_fallback) stage the same bundle as a draft when
+          # Play refuses the live rollout, so a targeting regression costs a manual rollout click
+          # in the Play Console instead of failing the whole release. Ported from the target's
+          # original publish_play.py, which carried this fallback before centralization.
+          draft_fallback=json.loads(os.environ.get('PROFILE_JSON') or '{}').get('live_rollout_draft_fallback') is True
+          downgrade_live=False
+
           for attempt in range(1,EDIT_ATTEMPTS + 1):
               edit=None
               try:
@@ -715,7 +779,10 @@ jobs:
                       # fail hard, since those are the actual publish action.
                       optional_track=spec.get('status') == 'draft' and spec.get('track') in ('beta', 'production')
                       try:
-                          release={'versionCodes':[code],'status':spec['status']}
+                          status=spec['status']
+                          if downgrade_live and status == 'completed':
+                              status='draft'
+                          release={'versionCodes':[code],'status':status}
                           if spec.get('name'):
                               release['name']=os.path.expandvars(str(spec['name']))
                           releases=[release]
@@ -747,7 +814,10 @@ jobs:
                               continue
                           raise
                   execute(svc.edits().commit(packageName=package,editId=edit))
-                  print(f'Published versionCode {code} to {tracks}')
+                  if downgrade_live:
+                      print(f'Published versionCode {code} to {tracks} with live rollouts staged as drafts', flush=True)
+                  else:
+                      print(f'Published versionCode {code} to {tracks}')
                   break
               except transient as exc:
                   if edit:
@@ -755,6 +825,14 @@ jobs:
                           execute(svc.edits().delete(packageName=package,editId=edit), retries=2)
                       except Exception as cleanup_exc:
                           print(f'Warning: could not discard failed Play edit {edit}: {cleanup_exc}', flush=True)
+                  if draft_fallback and not downgrade_live and attempt < EDIT_ATTEMPTS and is_upgrade_path_error(exc):
+                      print(
+                          f'::warning::Play refused the live rollout: {exc}. Staging this versionCode as a '
+                          'draft instead; review device targeting and roll it out in the Play Console.',
+                          flush=True,
+                      )
+                      downgrade_live=True
+                      continue
                   if attempt == EDIT_ATTEMPTS or not is_retriable(exc):
                       raise
                   wait=min(60, 5 * 2 ** (attempt-1))

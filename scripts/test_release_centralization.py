@@ -139,6 +139,16 @@ assert "def is_retriable(exc):" in play_workflow
 assert "not is_retriable(exc):" in play_workflow
 assert "'not completed yet' in content" in play_workflow
 
+for play_path, required in {
+    ".github/workflows/android-play-release.yml": (
+        "Upload mapping.txt artifact",
+        "deobfuscationfiles().upload",
+    ),
+}.items():
+    text = Path(play_path).read_text(encoding="utf-8")
+    for token in required:
+        assert token in text, f"{play_path} missing required Play mapping contract: {token}"
+
 android_github_release = Path(
     ".github/workflows/android-github-release.yml"
 ).read_text(encoding="utf-8")

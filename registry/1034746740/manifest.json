@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-09-22T21:16:50+00:00",
+  "last_sync_at": "2026-09-23T14:53:28+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/QaRd",
@@ -8,7 +8,7 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": false,
+  "worker_url_configured": true,
   "workflows": {
     ".github/workflows/android-ci.yml": {
       "binding": "curated",
@@ -22,13 +22,13 @@
     },
     ".github/workflows/build.yml": {
       "blockers": [
-        "GET https://api.github.com/repos/HereLiesAz/QaRd/contents/.github/workflows/play-release.yml?ref=main -> network timeout/error: HTTP Error 404: Not Found"
+        "GET https://api.github.com/repos/HereLiesAz/QaRd/contents/.github/workflows/play-release.yml?ref=main -> 404: {\"message\":\"Not Found\",\"documentation_url\":\"https://docs.github.com/rest/repos/contents#get-repository-content\",\"status\":\"404\"}"
       ],
       "name": "Merged Build & Release",
       "registry_source": "registry/1034746740/build-fe77d5d1.source.yml",
       "source_sha256": "8df27119d1190b6aa37ebd982c8cb790c83a9d2b78870642c8418c735e17a770",
       "status": "local",
-      "updated_at": "2026-09-22T21:16:49+00:00"
+      "updated_at": "2026-09-23T14:53:28+00:00"
     },
     ".github/workflows/deploy-webpage.yml": {
       "binding": "curated",
@@ -59,12 +59,12 @@
       "registry_source": "registry/1034746740/gradle-48190a30.source.yml",
       "source_sha256": "1b2afec813b2bd2b96f8ca606fae5f0b042cc269c2f9201ae6ab16dc49f4ad19",
       "status": "local",
-      "updated_at": "2026-09-22T21:16:49+00:00"
+      "updated_at": "2026-09-23T14:53:28+00:00"
     },
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "\ud83d\ude08 Glee Audit",
+      "name": "😈 Glee Audit",
       "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/1034746740/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",

@@ -500,112 +500,159 @@ def build_proxy(source_text: str, source_path: str, source_hash: str, workflow_n
     return header + dump_yaml(doc)
 
 
-def _build_target_run_tracker(proxy: str, source_path: str) -> str:
-    """Keep a target-side Actions run visible while execution stays centralized."""
+_TRACKER_BOOKKEEPING_JOBS = {"central_check_start", "central_check_finish"}
+
+_LOCATE_SCRIPT = r'''set -euo pipefail
+created_at="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .created_at)"
+threshold="$(date -u -d "$created_at - 5 seconds" +%s)"
+# The gateway skips some events a tracker still sees (unmatched filters, forks, manual
+# runs, CI-skip pushes). No central status within 20 minutes means no central run.
+for _ in $(seq 1 80); do
+  url="$(gh api "repos/$GITHUB_REPOSITORY/statuses/$TARGET_SHA?per_page=100" --jq \
+    "[.[] | select(.context == \"$STATUS_CONTEXT\" and ((.updated_at | fromdateiso8601) >= $threshold))][0].target_url // empty")"
+  run_id="$(sed -nE 's#.*/HereLiesAz/workflows/actions/runs/([0-9]+).*#\1#p' <<<"$url")"
+  if [[ -n "$run_id" ]]; then
+    echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+    echo "Run: $url"
+    exit 0
+  fi
+  sleep 15
+done
+echo "::notice::No run of this workflow was started for this event."
+'''
+
+_FOLLOW_SCRIPT = r'''set -euo pipefail
+api="repos/HereLiesAz/workflows/actions/runs/$RUN_ID"
+seen=""
+job=""
+for _ in $(seq 1 1440); do
+  job="$(gh api "$api/jobs?per_page=100" --jq "[.jobs[] | select(.name == \"$JOB_NAME\" or (.name | startswith(\"$JOB_NAME \")) or (.name | startswith(\"$JOB_NAME / \")))][0] // empty")"
+  if [[ -z "$job" ]]; then
+    [[ "$(gh api "$api" --jq .status)" == completed ]] && { echo "Skipped."; exit 0; }
+    sleep 10
+    continue
+  fi
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    grep -qxF "$line" <<<"$seen" || { echo "$line"; seen+="$line"$'\n'; }
+  done < <(jq -r '.steps[]? | select(.status == "completed" and .conclusion != "skipped")
+    | "\(if .conclusion == "success" then "✓" else "✗" end) \(.name)"' <<<"$job")
+  [[ "$(jq -r .status <<<"$job")" == completed ]] && break
+  sleep 10
+done
+conclusion="$(jq -r '.conclusion // "cancelled"' <<<"$job")"
+echo "::group::Log"
+if log="$(gh api "repos/HereLiesAz/workflows/actions/jobs/$(jq -r .id <<<"$job")/logs" 2>/dev/null)"; then
+  sed -E 's/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z //' <<<"$log"
+else
+  echo "Log unavailable here: $(jq -r .html_url <<<"$job")"
+fi
+echo "::endgroup::"
+case "$conclusion" in
+  success|skipped|neutral) exit 0 ;;
+  *) echo "::error::$JOB_NAME: $conclusion"; exit 1 ;;
+esac
+'''
+
+
+def _build_target_run_tracker(proxy: str, source_path: str, central_text: str) -> str:
+    """Make the centralized run look like it ran in the target repository.
+
+    The tracker keeps the source workflow's name and triggers and has one job per
+    central job, with the same names and dependencies. Each job follows its central
+    counterpart, printing steps as they finish and then its log, and ends with its
+    result. It never dispatches or builds anything.
+    """
 
     header, doc = _proxy_doc(proxy)
     if TRACKER_MARKER not in header:
         header += TRACKER_MARKER
 
-    doc["permissions"] = {
-        "actions": "read",
-        "contents": "read",
-        "statuses": "read",
-    }
-    doc["jobs"] = {
-        "central-status": {
-            "name": "Track centralized run",
+    central = load_yaml(central_text)
+    central_jobs = (central.get("jobs") if isinstance(central, dict) else None) or {}
+    mirrored = [job_id for job_id in central_jobs if job_id not in _TRACKER_BOOKKEEPING_JOBS]
+    if not mirrored:
+        raise ValueError(f"central workflow for {source_path} has no jobs to mirror")
+
+    doc["permissions"] = {"actions": "read", "contents": "read", "statuses": "read"}
+    jobs = {
+        "central": {
+            "name": "Start",
             "runs-on": "ubuntu-latest",
-            "timeout-minutes": 180,
-            "steps": [
-                {
-                    "name": "Mirror centralized workflow status",
-                    "env": {
-                        "GH_TOKEN": "${{ github.token }}",
-                        "STATUS_CONTEXT": source_path,
-                        "TARGET_SHA": "${{ github.sha }}",
-                    },
-                    "shell": "bash",
-                    "run": r'''set -euo pipefail
-created_at="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .created_at)"
-threshold="$(date -u -d "$created_at - 5 seconds" +%s)"
-last_state=""
-
-# The gateway skips some events a tracker still sees (unmatched filters, forks, manual
-# runs, CI-skip pushes). No central status within 20 minutes means no central run.
-for attempt in $(seq 1 720); do
-  if [[ -z "$last_state" && "$attempt" -gt 80 ]]; then
-    echo "::notice::No centralized run of $STATUS_CONTEXT was started for this event."
-    exit 0
-  fi
-  statuses="$(gh api "repos/$GITHUB_REPOSITORY/statuses/$TARGET_SHA?per_page=100")"
-  row="$(jq -c     --arg context "$STATUS_CONTEXT"     --argjson threshold "$threshold"     '[.[] | select(.context == $context and ((.updated_at | fromdateiso8601) >= $threshold))][0] // empty'     <<<"$statuses")"
-
-  if [[ -n "$row" ]]; then
-    state="$(jq -r '.state' <<<"$row")"
-    target_url="$(jq -r '.target_url // empty' <<<"$row")"
-    if [[ "$state" != "$last_state" ]]; then
-      echo "Central workflow state: $state"
-      [[ -z "$target_url" ]] || echo "Central run: $target_url"
-      last_state="$state"
-    fi
-    case "$state" in
-      success)
-        exit 0
-        ;;
-      failure|error)
-        exit 1
-        ;;
-    esac
-  fi
-
-  sleep 15
-done
-
-echo "::error::Timed out waiting for centralized workflow status $STATUS_CONTEXT on $TARGET_SHA" >&2
-exit 1
-''',
-                }
-            ],
+            "timeout-minutes": 25,
+            "outputs": {"run_id": "${{ steps.locate.outputs.run_id }}"},
+            "steps": [{
+                "id": "locate",
+                "name": "Locate run",
+                "env": {
+                    "GH_TOKEN": "${{ github.token }}",
+                    "STATUS_CONTEXT": source_path,
+                    "TARGET_SHA": "${{ github.event.pull_request.head.sha || github.sha }}",
+                },
+                "shell": "bash",
+                "run": _LOCATE_SCRIPT,
+            }],
         }
     }
+    for job_id in mirrored:
+        job = central_jobs[job_id] if isinstance(central_jobs[job_id], dict) else {}
+        job_name = str(job.get("name") or job_id)
+        needs = [n for n in _need_list(job.get("needs")) if n in mirrored]
+        jobs[job_id] = {
+            "name": job_name,
+            "needs": ["central", *needs],
+            "if": "${{ needs.central.outputs.run_id != '' }}",
+            "runs-on": "ubuntu-latest",
+            "timeout-minutes": 360,
+            "steps": [{
+                "name": job_name,
+                "env": {
+                    "GH_TOKEN": "${{ github.token }}",
+                    "RUN_ID": "${{ needs.central.outputs.run_id }}",
+                    "JOB_NAME": job_name,
+                },
+                "shell": "bash",
+                "run": _FOLLOW_SCRIPT,
+            }],
+        }
+    doc["jobs"] = jobs
     return header + dump_yaml(doc)
 
 
-def _stage_missing_trackers(
+def _need_list(value) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    return []
+
+
+def _stage_trackers(
     gh,
     manifest: dict,
     staged: dict[str, tuple[str | None, str]],
-    repository: str,
-    default_branch: str,
 ) -> None:
-    """Restore a tracker for every active binding whose target file is gone.
+    """Write a tracker at the original path of every active centralized binding.
 
-    Earlier syncs deleted target files once their source was centralized, and a
-    binding whose file is absent never passes through the proxy path above.
+    Together the trackers list the central workflows a repository uses. Earlier
+    syncs deleted these files; this restores them.
     """
 
     for path, entry in sorted((manifest.get("workflows") or {}).items()):
-        if path in staged or not isinstance(entry, dict):
+        if not isinstance(entry, dict) or entry.get("status") != "active":
             continue
-        if entry.get("status") != "active" or not entry.get("central_workflow"):
-            continue
+        central_workflow = str(entry.get("central_workflow") or "")
         registry_source = str(entry.get("registry_source") or "")
         source_hash = str(entry.get("source_sha256") or "")
-        if not registry_source or not source_hash:
+        if not central_workflow or not registry_source or not source_hash:
             continue
-        try:
-            gh.get_file(repository, path, ref=default_branch)
-            continue  # present: the synchronizer above already owns it
-        except core.ApiError as exc:
-            if "-> 404:" not in str(exc):
-                raise
         source_text, _ = gh.get_file(core.CENTRAL_REPOSITORY, registry_source, ref="main")
+        central_text, _ = gh.get_file(core.CENTRAL_REPOSITORY, central_workflow, ref="main")
         name = str(entry.get("name") or path)
         proxy = build_proxy(source_text, path, source_hash, name)
         staged[path] = (
-            _build_target_run_tracker(proxy, path),
-            f"Restore centralized workflow run visibility for {path}",
+            _build_target_run_tracker(proxy, path, central_text),
+            f"Mirror centralized workflow {path}",
         )
 
 
@@ -971,11 +1018,10 @@ def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
             # A generated proxy is evidence that the source successfully compiled
             # into the central controller. The target must not retain the proxy:
             # future triggers arrive through the repository webhook instead.
+            # A generated proxy never stays: _stage_trackers replaces it with a
+            # tracker for every active binding; anything else is removed.
             if path.startswith(".github/workflows/") and content.startswith(core.PROXY_MARKER):
-                staged_target_files[path] = (
-                    _build_target_run_tracker(content, path),
-                    f"Preserve centralized workflow run visibility for {path}",
-                )
+                staged_target_files[path] = (None, f"Remove centralized workflow {path}")
             else:
                 staged_target_files[path] = (content, message)
             return
@@ -993,13 +1039,7 @@ def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
         activate_repository_mode(core, repository)
         result = _base_sync_repository(gh, repository, "", dry_run)
         finalize_manifest(gh, core, int(result["repository_id"]), dry_run=dry_run)
-        _stage_missing_trackers(
-            gh,
-            core.load_manifest(gh, repository_id),
-            staged_target_files,
-            repository,
-            default_branch,
-        )
+        _stage_trackers(gh, core.load_manifest(gh, repository_id), staged_target_files)
     finally:
         gh.put_file = original_put_file
 

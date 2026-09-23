@@ -4,7 +4,7 @@ This is the conversion contract for binding a `HereLiesAz/*` repository to the c
 
 ## Steady-state architecture
 
-A centrally managed repository keeps one **tracker** per centralized workflow, at the workflow's original path. Together they list every central workflow the repository uses. A tracker runs on the original triggers, dispatches nothing, and mirrors the central run's commit status into the repository's own Actions tab, passing or failing with it. If no central run starts for an event within 20 minutes, it exits neutral.
+A centrally managed repository keeps one **tracker** per centralized workflow, at the workflow's original path, so its `.github/workflows` still lists everything it runs. A tracker keeps the original name and triggers and has one job per central job, with the same names and dependencies. Each job follows its central counterpart, printing steps as they finish and then the job's log, and ends with its result. The repository's Actions tab reads as if the workflow ran there. Trackers never build or dispatch anything. If no central run starts for an event within 20 minutes, the tracker ends neutral.
 
 ```text
 repository event

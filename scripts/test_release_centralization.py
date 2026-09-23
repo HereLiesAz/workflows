@@ -85,7 +85,11 @@ tracker_proxy = build_proxy(
     '09adb91f6846d345ebb261ae428ad9412bfbfac6fe1d1192a726b84546b46928',
     'Release AAB to Play',
 )
-tracker = _build_target_run_tracker(tracker_proxy, '.github/workflows/release-aab.yml')
+tracker = _build_target_run_tracker(
+    tracker_proxy,
+    '.github/workflows/release-aab.yml',
+    Path('.github/workflows/android-play-release.yml').read_text(encoding='utf-8'),
+)
 tracker_doc = load_yaml(tracker)
 assert TRACKER_MARKER in tracker
 assert tracker_doc['name'] == 'Release AAB to Play'
@@ -93,12 +97,16 @@ assert 'push' in tracker_doc['on']
 assert 'workflow_dispatch' in tracker_doc['on']
 assert tracker_doc['permissions']['statuses'] == 'read'
 assert tracker_doc['permissions']['actions'] == 'read'
-assert 'central-status' in tracker_doc['jobs']
 assert 'central-dispatch' not in tracker_doc['jobs']
-tracker_run = tracker_doc['jobs']['central-status']['steps'][0]['run']
-assert 'statuses/$TARGET_SHA' in tracker_run
-assert 'Central workflow state:' in tracker_run
-assert 'curl ' not in tracker_run
+# One tracker job per central job, same names and dependency order, bookkeeping hidden.
+assert list(tracker_doc['jobs']) == ['central', 'version_contract', 'build_and_publish'], list(tracker_doc['jobs'])
+assert tracker_doc['jobs']['build_and_publish']['needs'] == ['central', 'version_contract']
+assert tracker_doc['jobs']['version_contract']['needs'] == ['central']
+locate_run = tracker_doc['jobs']['central']['steps'][0]['run']
+assert 'statuses/$TARGET_SHA' in locate_run
+assert 'No run of this workflow was started' in locate_run
+follow_run = tracker_doc['jobs']['build_and_publish']['steps'][0]['run']
+assert '/logs' in follow_run and 'curl ' not in follow_run and 'dispatches' not in follow_run
 
 play_workflow = Path('.github/workflows/android-play-release.yml').read_text(encoding='utf-8')
 assert "HTTP_TIMEOUT_SECONDS=120" in play_workflow
@@ -174,7 +182,7 @@ assert 'git tag -fa "$TAG"' in multi_platform_release  # retained only for expli
 
 print('release centralization regression test passed')
 
-# Every centralized binding whose target file is gone gets its tracker restored.
+# Every active binding gets a tracker; other entries get none.
 import sync_repository as _sync
 import sync_repository_catalog as _core
 
@@ -190,9 +198,12 @@ class _FakeGitHub:
         return self.files[key], "sha"
 
 
-_staged = {}
-_sync._stage_missing_trackers(
-    _FakeGitHub({(_core.CENTRAL_REPOSITORY, 'registry/1/release.source.yml'): tracker_source}),
+_staged = {'.github/workflows/release-aab.yml': (None, 'remove proxy')}
+_sync._stage_trackers(
+    _FakeGitHub({
+        (_core.CENTRAL_REPOSITORY, 'registry/1/release.source.yml'): tracker_source,
+        (_core.CENTRAL_REPOSITORY, '.github/workflows/android-play-release.yml'): play_workflow,
+    }),
     {'workflows': {
         '.github/workflows/release-aab.yml': {
             'status': 'active',
@@ -204,10 +215,8 @@ _sync._stage_missing_trackers(
         '.github/workflows/ci.yml': {'status': 'obsolete', 'central_workflow': '.github/workflows/ci-validation.yml'},
     }},
     _staged,
-    'HereLiesAz/example',
-    'main',
 )
 assert list(_staged) == ['.github/workflows/release-aab.yml'], _staged
 _restored = _staged['.github/workflows/release-aab.yml'][0]
-assert TRACKER_MARKER in _restored and 'central-dispatch' not in _restored
-assert "No centralized run of $STATUS_CONTEXT" in _restored
+assert _restored is not None and TRACKER_MARKER in _restored
+assert 'build_and_publish' in load_yaml(_restored)['jobs']

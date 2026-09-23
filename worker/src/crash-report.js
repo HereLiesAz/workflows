@@ -19,6 +19,11 @@ export const CRASH_REPORT_APPS = {
     packages: ["com.hereliesaz.illumera"],
     key: "illumera-crash-reports-v1",
   },
+  aive: {
+    // Only the GitHub-release flavor reports (its applicationId is the legacy haive id).
+    packages: ["com.hereliesaz.haive"],
+    key: "aive-crash-reports-v1",
+  },
 };
 
 export async function receiveCrashReport(request, repoName, githubRequest) {

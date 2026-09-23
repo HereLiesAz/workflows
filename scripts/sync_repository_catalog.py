@@ -1051,6 +1051,10 @@ def sync_repository(gh: GitHub, full_name: str, worker_url: str, dry_run: bool =
             continue
         if stale_entry.get("status") != "active":
             continue
+        # The sync itself removes a target's workflow file once its source is registered
+        # and bound centrally; that absence is the intended steady state, not a deletion.
+        if stale_entry.get("centralized"):
+            continue
         stale_entry["status"] = "obsolete"
         stale_entry["reason"] = "workflow file no longer exists in the target repository"
         stale_entry["updated_at"] = now_iso()
@@ -1120,7 +1124,7 @@ def sync_repository(gh: GitHub, full_name: str, worker_url: str, dry_run: bool =
                 workflows_manifest[path] = {"status": "blocked", "name": workflow_name, "source_sha256": source_hash, "blockers": [f"catalog override is missing: {override}"], "updated_at": now_iso()}
                 results.append({"path": path, "status": "blocked", "blockers": [f"catalog override is missing: {override}"]})
                 continue
-            workflows_manifest[path] = {"status": "active", "name": workflow_name, "source_sha256": source_hash, "registry_source": registry_source, "central_workflow": override, "binding": "curated", "updated_at": now_iso()}
+            workflows_manifest[path] = {"status": "active", "name": workflow_name, "source_sha256": source_hash, "registry_source": registry_source, "central_workflow": override, "binding": "curated", "centralized": True, "updated_at": now_iso()}
             if not dry_run:
                 gh.put_file(CENTRAL_REPOSITORY, registry_source, source_text, f"Register {repo['full_name']}:{path}", branch="main")
                 proxy = build_proxy(source_text, path, source_hash, workflow_name)
@@ -1182,6 +1186,7 @@ def sync_repository(gh: GitHub, full_name: str, worker_url: str, dry_run: bool =
             "registry_source": registry_source,
             "central_workflow": central_workflow,
             "binding": "shared-variant",
+            "centralized": True,
             "implementation_sha256": implementation_hash,
             "shared_variant": shared_variant,
             "updated_at": now_iso(),

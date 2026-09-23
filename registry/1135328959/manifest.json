@@ -8,7 +8,7 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": false,
+  "worker_url_configured": true,
   "workflows": {
     ".github/workflows/android-ci.yml": {
       "blockers": [
@@ -112,14 +112,14 @@
       "blockers": [
         "GET https://api.github.com/repos/HereLiesAz/LogKitty/contents/.github/workflows/gemini-review.yml?ref=main -> 404: {\"message\":\"Not Found\",\"documentation_url\":\"https://docs.github.com/rest/repos/contents#get-repository-content\",\"status\":\"404\"}"
       ],
-      "name": "\ud83d\udd00 Gemini Dispatch",
+      "name": "🔀 Gemini Dispatch",
       "registry_source": "registry/1135328959/gemini-dispatch-b7ca9237.source.yml",
       "source_sha256": "6e968bf98c395eab77522a4cbf8df0c8404a90299ed826aefd9a50e800321c3f",
       "status": "local",
       "updated_at": "2026-09-23T14:52:26+00:00"
     },
     ".github/workflows/gemini-invoke.yml": {
-      "name": "\u25b6\ufe0f Gemini Invoke",
+      "name": "▶️ Gemini Invoke",
       "registry_source": "registry/1135328959/gemini-invoke-12affba2.source.yml",
       "source_sha256": "77a31cbc20bb9bc3ae05e13ba34a4964e127b68cf7357c4c3d29a5a8e5642b59",
       "status": "library",
@@ -130,14 +130,14 @@
         "job 'label' step 2 uses actions/github-script with runner-repository context",
         "job 'triage' step 1 uses actions/github-script with runner-repository context"
       ],
-      "name": "\ud83d\udccb Gemini Scheduled Issue Triage",
+      "name": "📋 Gemini Scheduled Issue Triage",
       "registry_source": "registry/1135328959/gemini-scheduled-triage-cdff38b9.source.yml",
       "source_sha256": "7eeda1c60dc75f9eed6df6f1182db0ce0a14860479b235e4173d4511392cb7ed",
       "status": "local",
       "updated_at": "2026-09-23T14:52:27+00:00"
     },
     ".github/workflows/gemini-triage.yml": {
-      "name": "\ud83d\udd00 Gemini Triage",
+      "name": "🔀 Gemini Triage",
       "registry_source": "registry/1135328959/gemini-triage-734cf9ba.source.yml",
       "source_sha256": "f2c3261d3def98868a5be1848fc44becbc0ae29179d4d3de0b28444099bbcdeb",
       "status": "library",
@@ -157,7 +157,7 @@
     ".github/workflows/jules-dispatch.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-dispatch.yml",
-      "name": "\ud83d\udd00 Jules Dispatch",
+      "name": "🔀 Jules Dispatch",
       "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/1135328959/jules-dispatch-800d0b01.source.yml",
       "source_sha256": "17c13d04cfa6d1e55af692790eaab5608a1b4b511a1f66e56ec133a8803eb5da",
@@ -167,7 +167,7 @@
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "\ud83d\ude08 Glee Audit",
+      "name": "😈 Glee Audit",
       "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/1135328959/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
@@ -177,7 +177,7 @@
     ".github/workflows/jules-invoke.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-dispatch.yml",
-      "name": "\u25b6\ufe0f Jules Invoke",
+      "name": "▶️ Jules Invoke",
       "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/1135328959/jules-invoke-b23fc002.source.yml",
       "source_sha256": "cb2a978450da9b6dc82f8527a4ff2dbcde9af37e4e88d99e4409f217826572f0",
@@ -196,7 +196,7 @@
       "updated_at": "2026-09-23T14:52:27+00:00"
     },
     ".github/workflows/jules-review.yml": {
-      "name": "\ud83d\udd0e Jules Review",
+      "name": "🔎 Jules Review",
       "registry_source": "registry/1135328959/jules-review-9f7b6ce5.source.yml",
       "source_sha256": "b170093ab22ff75431fb6ea62d3e4ff1a254c5ba7352ee150e59e8dfa4b6f416",
       "status": "library",
@@ -205,7 +205,7 @@
     ".github/workflows/jules-scheduled-triage.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-scheduled-triage.yml",
-      "name": "\ud83d\udccb Jules Scheduled Issue Triage",
+      "name": "📋 Jules Scheduled Issue Triage",
       "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/1135328959/jules-scheduled-triage-7b36475f.source.yml",
       "source_sha256": "c5795302751261681062afb2384c0a30807517ee87a9246fcc46f874d0b0f7f1",
@@ -213,7 +213,7 @@
       "updated_at": "2026-09-22T17:10:28+00:00"
     },
     ".github/workflows/jules-triage.yml": {
-      "name": "\ud83d\udd00 Jules Triage",
+      "name": "🔀 Jules Triage",
       "registry_source": "registry/1135328959/jules-triage-5c552504.source.yml",
       "source_sha256": "dd3c04d1b62501e2260474da42dff9fb083431b27c1b21c47b20a0dc8cb8a09c",
       "status": "library",
@@ -243,7 +243,7 @@
       "blockers": [
         "job 'validate-pr' step 6 uses actions/github-script with runner-repository context"
       ],
-      "name": "\ud83d\udcd0 Enforce Contribution Guidelines",
+      "name": "📐 Enforce Contribution Guidelines",
       "registry_source": "registry/1135328959/pr-contribution-guidelines-review-fc3ba3ac.source.yml",
       "source_sha256": "401369f274168179ca4c2652bbc60cb3fc6d660bcffa3f82724232d354fef13d",
       "status": "local",

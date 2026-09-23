@@ -173,3 +173,41 @@ assert '--prerelease="$prerelease"' in multi_platform_release
 assert 'git tag -fa "$TAG"' in multi_platform_release  # retained only for explicit force_tag profiles
 
 print('release centralization regression test passed')
+
+# Every centralized binding whose target file is gone gets its tracker restored.
+import sync_repository as _sync
+import sync_repository_catalog as _core
+
+
+class _FakeGitHub:
+    def __init__(self, files):
+        self.files = files
+
+    def get_file(self, full_name, path, ref=None):
+        key = (full_name, path)
+        if key not in self.files:
+            raise _core.ApiError(f"GET {path} -> 404: Not Found")
+        return self.files[key], "sha"
+
+
+_staged = {}
+_sync._stage_missing_trackers(
+    _FakeGitHub({(_core.CENTRAL_REPOSITORY, 'registry/1/release.source.yml'): tracker_source}),
+    {'workflows': {
+        '.github/workflows/release-aab.yml': {
+            'status': 'active',
+            'central_workflow': '.github/workflows/android-play-release.yml',
+            'registry_source': 'registry/1/release.source.yml',
+            'source_sha256': '09adb91f6846d345ebb261ae428ad9412bfbfac6fe1d1192a726b84546b46928',
+            'name': 'Release AAB to Play',
+        },
+        '.github/workflows/ci.yml': {'status': 'obsolete', 'central_workflow': '.github/workflows/ci-validation.yml'},
+    }},
+    _staged,
+    'HereLiesAz/example',
+    'main',
+)
+assert list(_staged) == ['.github/workflows/release-aab.yml'], _staged
+_restored = _staged['.github/workflows/release-aab.yml'][0]
+assert TRACKER_MARKER in _restored and 'central-dispatch' not in _restored
+assert "No centralized run of $STATUS_CONTEXT" in _restored

@@ -29,7 +29,7 @@ The central sync registers one repository webhook through the Worker. The Worker
 
 The legacy OIDC `/dispatch` endpoint is retained only while old proxies are being removed; it is not the steady-state trigger transport.
 
-Runtime results are reported back to the target SHA using **commit statuses**, not Check Runs.
+Runtime results are reported back to the target SHA using **commit statuses**, not Check Runs. Each target keeps a tracker per centralized workflow at its original path, listing what it uses and mirroring each run's result into the target's Actions tab.
 
 ## Workflow policy and repository templates
 
@@ -59,7 +59,7 @@ The normal migration flow is:
 4. review every workflow classification and identify obsolete automation;
 5. add repository policy for workflows that should be removed rather than migrated;
 6. run the sync with `dry_run: false`;
-7. verify the target has no controller-generated proxy workflows and inspect any intentionally local blockers;
+7. verify the target has a tracker for every centralized workflow, no dispatching proxy, and inspect any intentionally local blockers;
 8. exercise at least one centralized workflow end to end through the repository webhook;
 9. remove duplicated target credentials only after runtime verification succeeds.
 

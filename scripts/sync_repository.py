@@ -43,9 +43,9 @@ _base_compile_central = core.compile_central
 _base_build_proxy = core.build_proxy
 _base_sync_repository = core.sync_repository
 
-TARGET_RUN_TRACKERS = {
-    ("hereliesaz/guillotine", ".github/workflows/release-aab.yml"),
-}
+# Every centralized workflow keeps a tracker at its original target path: the
+# repository's .github/workflows is the list of central workflows it uses, and each
+# tracker mirrors its central run's result into the repository's own Actions tab.
 TRACKER_MARKER = "# central-run-tracker: HereLiesAz/workflows\n"
 
 
@@ -531,7 +531,13 @@ created_at="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq
 threshold="$(date -u -d "$created_at - 5 seconds" +%s)"
 last_state=""
 
+# The gateway skips some events a tracker still sees (unmatched filters, forks, manual
+# runs, CI-skip pushes). No central status within 20 minutes means no central run.
 for attempt in $(seq 1 720); do
+  if [[ -z "$last_state" && "$attempt" -gt 80 ]]; then
+    echo "::notice::No centralized run of $STATUS_CONTEXT was started for this event."
+    exit 0
+  fi
   statuses="$(gh api "repos/$GITHUB_REPOSITORY/statuses/$TARGET_SHA?per_page=100")"
   row="$(jq -c     --arg context "$STATUS_CONTEXT"     --argjson threshold "$threshold"     '[.[] | select(.context == $context and ((.updated_at | fromdateiso8601) >= $threshold))][0] // empty'     <<<"$statuses")"
 
@@ -564,6 +570,43 @@ exit 1
         }
     }
     return header + dump_yaml(doc)
+
+
+def _stage_missing_trackers(
+    gh,
+    manifest: dict,
+    staged: dict[str, tuple[str | None, str]],
+    repository: str,
+    default_branch: str,
+) -> None:
+    """Restore a tracker for every active binding whose target file is gone.
+
+    Earlier syncs deleted target files once their source was centralized, and a
+    binding whose file is absent never passes through the proxy path above.
+    """
+
+    for path, entry in sorted((manifest.get("workflows") or {}).items()):
+        if path in staged or not isinstance(entry, dict):
+            continue
+        if entry.get("status") != "active" or not entry.get("central_workflow"):
+            continue
+        registry_source = str(entry.get("registry_source") or "")
+        source_hash = str(entry.get("source_sha256") or "")
+        if not registry_source or not source_hash:
+            continue
+        try:
+            gh.get_file(repository, path, ref=default_branch)
+            continue  # present: the synchronizer above already owns it
+        except core.ApiError as exc:
+            if "-> 404:" not in str(exc):
+                raise
+        source_text, _ = gh.get_file(core.CENTRAL_REPOSITORY, registry_source, ref="main")
+        name = str(entry.get("name") or path)
+        proxy = build_proxy(source_text, path, source_hash, name)
+        staged[path] = (
+            _build_target_run_tracker(proxy, path),
+            f"Restore centralized workflow run visibility for {path}",
+        )
 
 
 def _prune_rebound_repository_workflows(
@@ -929,14 +972,10 @@ def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
             # into the central controller. The target must not retain the proxy:
             # future triggers arrive through the repository webhook instead.
             if path.startswith(".github/workflows/") and content.startswith(core.PROXY_MARKER):
-                tracker_key = (repository.casefold(), path)
-                if tracker_key in TARGET_RUN_TRACKERS:
-                    staged_target_files[path] = (
-                        _build_target_run_tracker(content, path),
-                        f"Preserve centralized workflow run visibility for {path}",
-                    )
-                else:
-                    staged_target_files[path] = (None, f"Remove centralized workflow {path}")
+                staged_target_files[path] = (
+                    _build_target_run_tracker(content, path),
+                    f"Preserve centralized workflow run visibility for {path}",
+                )
             else:
                 staged_target_files[path] = (content, message)
             return
@@ -954,6 +993,13 @@ def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
         activate_repository_mode(core, repository)
         result = _base_sync_repository(gh, repository, "", dry_run)
         finalize_manifest(gh, core, int(result["repository_id"]), dry_run=dry_run)
+        _stage_missing_trackers(
+            gh,
+            core.load_manifest(gh, repository_id),
+            staged_target_files,
+            repository,
+            default_branch,
+        )
     finally:
         gh.put_file = original_put_file
 

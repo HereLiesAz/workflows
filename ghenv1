@@ -1,0 +1,3 @@
+PRE_BUILD_COMMAND=test "$VERSION_MAJOR" -le 1 && test "$VERSION_MINOR" -le 99 && test "$VERSION_PATCH" -le 999 && test "$VERSION_BUILD" -le 9999 || { echo "::error::$VERSION cannot be encoded as an illumera versionCode" >&2; exit 1; }
+code=$(( VERSION_MAJOR * 1000000000 + VERSION_MINOR * 10000000 + VERSION_PATCH * 10000 + VERSION_BUILD ))
+echo "RELEASE_VERSION_CODE=$code" >> "$GITHUB_ENV"

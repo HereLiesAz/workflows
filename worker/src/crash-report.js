@@ -60,7 +60,8 @@ export async function receiveCrashReport(request, repoName, githubRequest) {
 
 async function fileIssue(report, repoPath, githubRequest) {
   const stackTrace = field(report.STACK_TRACE, "No stack trace", MAX_STACK_CHARS);
-  const kind = /ApplicationNotResponding/.test(stackTrace.split("\n")[0] || "") ? "ANR" : "Crash";
+  const firstLine = stackTrace.split("\n")[0] || "";
+  const kind = /ApplicationNotResponding/.test(firstLine) ? "ANR" : /HandledError/.test(firstLine) ? "Error" : "Crash";
   const signature = await crashSignature(stackTrace);
   const dedupeLabel = `crash-${signature}`;
   const headline = singleLine(stackTrace.split("\n")[0] || "Unknown exception", 180);
@@ -98,9 +99,18 @@ function sanitizeReport(report) {
   for (const [key, value] of Object.entries(report)) {
     if (!/^[A-Z0-9_]{1,80}$/.test(key)) continue;
     const max = key === "STACK_TRACE" || key === "CUSTOM_DATA" ? MAX_STACK_CHARS : MAX_FIELD_CHARS;
-    out[key] = stringify(value).slice(0, max);
+    out[key] = redact(stringify(value)).slice(0, max);
   }
   return out;
+}
+
+// Issues are public and stream URLs can carry account tokens (debrid links, addon
+// configs): keep only scheme and host of any URL, and drop magnet links entirely.
+const URL_RE = /\b([a-zA-Z][a-zA-Z0-9+.-]*:\/\/)(?:[^@/\s?#]*@)?([^/\s?#@]+)[^\s"')]*/g;
+const MAGNET_RE = /magnet:\?\S+/g;
+
+export function redact(text) {
+  return text.replace(MAGNET_RE, "magnet:<redacted>").replace(URL_RE, "$1$2/<redacted>");
 }
 
 function stringify(value) {

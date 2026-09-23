@@ -4,7 +4,7 @@ This is the conversion contract for binding a `HereLiesAz/*` repository to the c
 
 ## Steady-state architecture
 
-A centrally managed repository does **not** keep controller-generated trigger/proxy workflows.
+A centrally managed repository keeps one **tracker** per centralized workflow, at the workflow's original path, so its `.github/workflows` still lists everything it runs. A tracker keeps the original name and triggers and has one job per central job, with the same names and dependencies. Each job follows its central counterpart, printing steps as they finish and then the job's log, and ends with its result. The repository's Actions tab reads as if the workflow ran there. Trackers never build or dispatch anything. If no central run starts for an event within 20 minutes, the tracker ends neutral.
 
 ```text
 repository event
@@ -48,7 +48,7 @@ A workflow that combines `workflow_call` with real triggers such as `push` is no
 5. Run the real sync.
 6. The controller first asks the Worker to register/update the target repository webhook. If that fails, migration stops before target workflow removal.
 7. Original workflow sources are stored in the central registry and implementations are compiled/bound centrally.
-8. Controller-generated proxy files are removed in one target commit. Any truly local blocker is preserved as its original workflow, never as a proxy.
+8. Controller-generated proxy files are replaced by trackers in one target commit (`[skip ci]`), and a tracker is restored for any active binding whose file is missing. Any truly local blocker is preserved as its original workflow, never as a proxy.
 9. Exercise a low-risk repository event and verify central dispatch plus the target commit status.
 10. If the repository publishes releases, move shared version/tag/release semantics into the central release family/actions and verify the first grouped release.
 11. Only then remove duplicated target secrets that no remaining local workflow uses.
@@ -92,7 +92,7 @@ Supported matching includes:
 
 The dispatcher fetches pull-request changed-file lists from GitHub when path filters require them.
 
-Manual `workflow_dispatch` and cron schedules are controller concerns because no target workflow exists to receive them. They must be invoked/scheduled centrally rather than reintroducing a target stub.
+Manual `workflow_dispatch` and cron schedules are controller concerns: trackers never dispatch, so they are invoked/scheduled centrally. A tracker's own manual run only mirrors.
 
 ## Concurrency
 
@@ -124,10 +124,10 @@ Centralization is **not** global serialization.
 
 ## Rollback
 
-Registry source snapshots are the recovery source. If central execution for a workflow must be rolled back, restore the registered source to its original target path and mark the manifest entry local. Do not recreate a proxy.
+Registry source snapshots are the recovery source. If central execution for a workflow must be rolled back, restore the registered source to its original target path, replacing the tracker, and mark the manifest entry local. Do not recreate a dispatching proxy.
 
 Webhook registration itself is safe to leave in place during rollback; unmatched events are ignored by the central dispatcher.
 
 ## Completion standard
 
-A repository is finished when intended automation still exists, target proxy files are gone, remaining local workflows have explicit unresolved blockers, central event routing has been exercised, and duplicated secrets have been removed only after successful runtime verification.
+A repository is finished when intended automation still exists, every centralized workflow has a tracker and no dispatching proxy remains, remaining local workflows have explicit unresolved blockers, central event routing has been exercised, and duplicated secrets have been removed only after successful runtime verification.

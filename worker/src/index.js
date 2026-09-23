@@ -608,7 +608,7 @@ function pemBodyToBytes(pem, label) {
   const body = pem
     .replace(`-----BEGIN ${label}-----`, "")
     .replace(`-----END ${label}-----`, "")
-    .replace(/\\s+/g, "");
+    .replace(/\s+/g, "");
   if (!body) throw new HttpError(500, `GH_PRIVATE_KEY ${label} PEM is empty`);
   const binary = atob(body);
   const bytes = new Uint8Array(binary.length);
@@ -670,7 +670,7 @@ function base64UrlEncodeBytes(bytes) {
   for (let i = 0; i < bytes.length; i += chunkSize) {
     binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + chunkSize, bytes.length)));
   }
-  return btoa(binary).replace(/=/g, "").replace(/\\+/g, "-").replace(/\\//g, "_");
+  return btoa(binary).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 }
 
 async function derivedWebhookSecret(env) {

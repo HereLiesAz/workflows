@@ -558,6 +558,9 @@ jobs:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           ACRA_URL: ${{ secrets.ACRA_URL }}
           ACRA_TOKEN: ${{ secrets.ACRA_TOKEN }}
+          # GitHub Packages dependencies (e.g. CueDetat's Meta Wearables SDK) need credentials.
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_ACTOR: ${{ secrets.GH_ACTOR }}
         shell: bash
         run: |
           set -euo pipefail

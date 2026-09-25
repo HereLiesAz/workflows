@@ -108,49 +108,67 @@ assert 'No run of this workflow was started' in locate_run
 follow_run = tracker_doc['jobs']['build_and_publish']['steps'][0]['run']
 assert '/logs' in follow_run and 'curl ' not in follow_run and 'dispatches' not in follow_run
 
+# The Play publisher lives in shared actions the workflow calls; check the contract across all of them.
 play_workflow = Path('.github/workflows/android-play-release.yml').read_text(encoding='utf-8')
-assert "HTTP_TIMEOUT_SECONDS=120" in play_workflow
-assert "httplib2.Http(timeout=HTTP_TIMEOUT_SECONDS)" in play_workflow
-assert "timeout 1800 python" in play_workflow  # hard wall-clock cap on the whole publish step
+play_contract = "\n".join(
+    Path(path).read_text(encoding='utf-8')
+    for path in (
+        '.github/workflows/android-play-release.yml',
+        '.github/actions/resolve-android-mapping/action.yml',
+        '.github/actions/resolve-android-mapping/resolve.sh',
+        '.github/actions/google-play-publish/action.yml',
+        '.github/actions/google-play-publish/publish.py',
+    )
+)
+assert "uses: HereLiesAz/workflows/.github/actions/resolve-android-mapping@main" in play_contract
+assert "uses: HereLiesAz/workflows/.github/actions/google-play-publish@main" in play_contract
+assert "HTTP_TIMEOUT_SECONDS=120" in play_contract
+assert "httplib2.Http(timeout=HTTP_TIMEOUT_SECONDS)" in play_contract
+assert "timeout 1800 python" in play_contract  # hard wall-clock cap on the whole publish step
 # The AAB upload observably needs more than 120s against Play's upload
 # endpoint (measured: a 445MB bundle timed out three times in a row at
 # 120s while the same file hit GitHub's blob storage in ~14s). It gets its
 # own generous timeout and a single attempt at that layer; the outer
 # edit-retry loop still retries the whole edit (fresh upload included).
-assert "UPLOAD_TIMEOUT_SECONDS=600" in play_workflow
-assert "httplib2.Http(timeout=UPLOAD_TIMEOUT_SECONDS)" in play_workflow
-assert "upload_svc.edits().bundles().upload(" in play_workflow
-assert "return execute(request, retries=1)" in play_workflow
-assert "resumable=False" in play_workflow
-assert "RedirectMissingLocation" in play_workflow
-assert "next_chunk(num_retries=REQUEST_RETRIES)" not in play_workflow
-assert "except transient as exc:" in play_workflow
-assert "return request.execute(num_retries=retries)" in play_workflow
-assert "MediaFileUpload(aab,mimetype='application/octet-stream')).execute()" not in play_workflow
-assert "Resolve required mapping.txt" in play_workflow
-assert "Upload mapping.txt artifact" in play_workflow
-assert "Play publishing requires a nonempty R8/ProGuard mapping.txt" in play_workflow
-assert "MAPPING_FILE: ${{ env.MAPPING_FILE }}" in play_workflow
-assert "deobfuscationfiles().upload" in play_workflow
-assert "Required mapping.txt is missing or empty" in play_workflow
+assert "UPLOAD_TIMEOUT_SECONDS=600" in play_contract
+assert "httplib2.Http(timeout=UPLOAD_TIMEOUT_SECONDS)" in play_contract
+assert "upload_svc.edits().bundles().upload(" in play_contract
+assert "return execute(request, retries=1)" in play_contract
+assert "resumable=False" in play_contract
+assert "RedirectMissingLocation" in play_contract
+assert "next_chunk(num_retries=REQUEST_RETRIES)" not in play_contract
+assert "except transient as exc:" in play_contract
+assert "return request.execute(num_retries=retries)" in play_contract
+assert "MediaFileUpload(aab,mimetype='application/octet-stream')).execute()" not in play_contract
+assert "Resolve required mapping.txt" in play_contract
+assert "Upload mapping.txt artifact" in play_contract
+assert "Play publishing requires a nonempty R8/ProGuard mapping.txt" in play_contract
+assert "mapping-file: ${{ env.MAPPING_FILE }}" in play_contract
+assert "MAPPING_FILE: ${{ steps.mapping.outputs.path }}" in play_contract
+assert "deobfuscationfiles().upload" in play_contract
+assert "Required mapping.txt is missing or empty" in play_contract
 # Play's deobfuscationFiles endpoint rejects text/plain outright (400 "Media type
 # 'text/plain' is not supported."); the mapping.txt upload must use octet-stream,
 # same as the AAB upload, or every publish attempt fails identically and forever.
-assert "media_body=MediaFileUpload(mapping,mimetype='application/octet-stream')" in play_workflow
-assert "media_body=MediaFileUpload(mapping,mimetype='text/plain')" not in play_workflow
+assert "media_body=MediaFileUpload(mapping,mimetype='application/octet-stream')" in play_contract
+assert "media_body=MediaFileUpload(mapping,mimetype='text/plain')" not in play_contract
 # A 4xx HttpError is normally deterministic, not transient: retrying it just
 # re-uploads the whole AAB from scratch for a request that can never succeed.
 # Only 429/5xx and real transport failures should trigger a retry — except a
 # 400 "not completed yet" from edits.commit, a real observed eventual-consistency
 # race on Play's backend right after bundles().upload(), which is worth retrying.
-assert "def is_retriable(exc):" in play_workflow
-assert "not is_retriable(exc):" in play_workflow
-assert "'not completed yet' in content" in play_workflow
+assert "def is_retriable(exc):" in play_contract
+assert "not is_retriable(exc):" in play_contract
+assert "'not completed yet' in content" in play_contract
 
 for play_path, required in {
     ".github/workflows/android-play-release.yml": (
         "Upload mapping.txt artifact",
+        "google-play-publish@main",
+    ),
+    ".github/actions/google-play-publish/publish.py": (
         "deobfuscationfiles().upload",
+        "release['releaseNotes']=release_notes",
     ),
 }.items():
     text = Path(play_path).read_text(encoding="utf-8")

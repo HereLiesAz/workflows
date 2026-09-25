@@ -1,0 +1,71 @@
+name: Publish to Google Play
+description: >-
+  Upload an Android App Bundle and its R8 mapping.txt to Google Play and release it to one or more
+  tracks, with optional localized "What's new" notes.
+inputs:
+  service-account-json:
+    description: Google Play service account JSON.
+    required: true
+  package-name:
+    description: Application ID on Google Play.
+    required: true
+  aab-path:
+    description: Path or glob of the .aab to publish; the first match is used.
+    required: true
+  tracks:
+    description: JSON array of {track, status, name?, preserve_existing?} release specs.
+    required: false
+    default: '[{"track":"internal","status":"completed"}]'
+  mapping-file:
+    description: >-
+      Resolved mapping.txt. When empty, it is resolved with resolve-android-mapping (build output or
+      the copy AGP embeds in the bundle).
+    required: false
+    default: ""
+  release-notes-dir:
+    description: >-
+      Directory of whatsnew-<language> files (fastlane layout); default.txt is used as en-US when no
+      whatsnew files exist. Empty publishes without notes.
+    required: false
+    default: ""
+  draft-fallback:
+    description: Stage the release as a draft when Play refuses a live rollout for upgrade-path reasons.
+    required: false
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - name: Locate bundle
+      id: bundle
+      shell: bash
+      env:
+        AAB_GLOB: ${{ inputs.aab-path }}
+      run: |
+        set -euo pipefail
+        shopt -s globstar nullglob
+        matches=($AAB_GLOB)
+        test "${#matches[@]}" -gt 0 && test -s "${matches[0]}" || { echo "::error::No bundle matched $AAB_GLOB" >&2; exit 1; }
+        echo "path=${matches[0]}" >> "$GITHUB_OUTPUT"
+
+    - name: Resolve mapping.txt
+      id: mapping
+      uses: HereLiesAz/workflows/.github/actions/resolve-android-mapping@main
+      with:
+        aab-path: ${{ steps.bundle.outputs.path }}
+        mapping-file: ${{ inputs.mapping-file }}
+
+    - name: Publish bundle
+      shell: bash
+      env:
+        PLAY_SERVICE_ACCOUNT_JSON: ${{ inputs.service-account-json }}
+        PACKAGE_NAME: ${{ inputs.package-name }}
+        AAB_PATH: ${{ steps.bundle.outputs.path }}
+        TRACKS_JSON: ${{ inputs.tracks }}
+        MAPPING_FILE: ${{ steps.mapping.outputs.path }}
+        RELEASE_NOTES_DIR: ${{ inputs.release-notes-dir }}
+        DRAFT_FALLBACK: ${{ inputs.draft-fallback }}
+      run: |
+        set -euo pipefail
+        python -m pip install --quiet google-api-python-client google-auth google-auth-httplib2
+        # Hard cap: kill the publisher after 30 minutes regardless of API hang.
+        timeout 1800 python "$GITHUB_ACTION_PATH/publish.py"

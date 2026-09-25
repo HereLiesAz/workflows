@@ -49,6 +49,8 @@ Each template carries `.github/workflow-request.yml`, a non-executable menu/requ
 
 ## Adding another repository
 
+New public repositories need no action: **Sync repository workflows** runs hourly, registers any repository without a registry entry, and runs its push workflows once so nothing that happened before registration is missed. To run a registered workflow by hand, start **Central workflow gateway** with the repository name and, if it has more than one, the workflow's file or display name.
+
 See **[Repository onboarding](docs/REPOSITORY_ONBOARDING.md)** for the complete conversion procedure, safety rules, classification model, smoke-test process, rollback procedure, and the checklist we will use for every repository.
 
 The normal migration flow is:

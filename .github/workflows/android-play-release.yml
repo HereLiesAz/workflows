@@ -514,10 +514,52 @@ jobs:
           fi
           test -n "$package" || { echo "::error::Could not determine Android applicationId" >&2; exit 1; }
           echo "package_name=$package" >> "$GITHUB_OUTPUT"
-          release_version_code="${RELEASE_VERSION_CODE:-$ANDROID_VERSION_CODE}"
+          # versionCode: one above the highest code live on any Play track, skipping codes Play
+          # already holds as uploads. The version-name encoding (major*10^8 + minor*10^6 +
+          # patch*10^4 + build) jumped codes by the ten thousand and moved apps off their own
+          # sequence, so it is only the fallback when Play can't be asked (no service account,
+          # or not publishing). RELEASE_VERSION_CODE, when a profile sets it, still wins.
+          play_next_code=""
+          if [ -z "${RELEASE_VERSION_CODE:-}" ] && [ "$PUBLISH_PLAY" = true ] && [ -n "$PLAY_SERVICE_ACCOUNT_JSON" ]; then
+            python -m pip install --quiet google-api-python-client google-auth google-auth-httplib2
+            play_next_code="$(PACKAGE_NAME="$package" timeout 300 python - <<'PY'
+          import json, os
+          import httplib2
+          from google.oauth2 import service_account
+          from google_auth_httplib2 import AuthorizedHttp
+          from googleapiclient.discovery import build
+
+          creds=service_account.Credentials.from_service_account_info(
+              json.loads(os.environ['PLAY_SERVICE_ACCOUNT_JSON']),
+              scopes=['https://www.googleapis.com/auth/androidpublisher'],
+          )
+          svc=build('androidpublisher','v3',http=AuthorizedHttp(creds, http=httplib2.Http(timeout=120)),cache_discovery=False)
+          package=os.environ['PACKAGE_NAME']
+          edit=svc.edits().insert(packageName=package,body={}).execute(num_retries=3)['id']
+          try:
+              uploaded={int(b['versionCode']) for b in svc.edits().bundles().list(packageName=package,editId=edit).execute(num_retries=3).get('bundles', [])}
+              uploaded|={int(a['versionCode']) for a in svc.edits().apks().list(packageName=package,editId=edit).execute(num_retries=3).get('apks', [])}
+              live=[int(c) for t in svc.edits().tracks().list(packageName=package,editId=edit).execute(num_retries=3).get('tracks', [])
+                    for r in t.get('releases', []) if r.get('status') in ('completed','inProgress','halted')
+                    for c in r.get('versionCodes', [])]
+          finally:
+              svc.edits().delete(packageName=package,editId=edit).execute(num_retries=3)
+          nxt=max(live, default=0)+1
+          while nxt in uploaded:
+              nxt+=1
+          print(nxt)
+          PY
+            )" || play_next_code=""
+            if [[ "$play_next_code" =~ ^[0-9]+$ ]]; then echo "Next Play versionCode: $play_next_code"; else echo "::warning::Could not read Play versionCodes; falling back to the version-name encoding"; play_next_code=""; fi
+          fi
+          release_version_code="${RELEASE_VERSION_CODE:-${play_next_code:-$ANDROID_VERSION_CODE}}"
           release_version_name="${RELEASE_VERSION_NAME:-$VERSION}"
           test "$release_version_code" -ge 0 || { echo "::error::Release version cannot be encoded as Android versionCode: $release_version_name" >&2; exit 1; }
-          args="-P${VERSION_ARG}=${release_version_code} -PversionCodeOverride=${release_version_code} -PversionNameOverride=${release_version_name} -PreleaseVersionCode=${release_version_code} -PreleaseVersionName=${release_version_name} -PversionBuild=${VERSION_BUILD} -PversionName=${release_version_name}"
+          # Pass -PversionBuild once: when it is the profile's VERSION_ARG it already carries the code,
+          # and a second -PversionBuild (the build number) overrode it, uploading the wrong code.
+          build_arg="-PversionBuild=${VERSION_BUILD}"
+          [ "$VERSION_ARG" = versionBuild ] && build_arg=""
+          args="-P${VERSION_ARG}=${release_version_code} -PversionCodeOverride=${release_version_code} -PversionNameOverride=${release_version_name} -PreleaseVersionCode=${release_version_code} -PreleaseVersionName=${release_version_name} ${build_arg} -PversionName=${release_version_name}"
           echo "VERSION_ARGS=$args" >> "$GITHUB_ENV"
           echo "EFFECTIVE_RELEASE_VERSION_CODE=$release_version_code" >> "$GITHUB_ENV"
           echo "EFFECTIVE_RELEASE_VERSION_NAME=$release_version_name" >> "$GITHUB_ENV"

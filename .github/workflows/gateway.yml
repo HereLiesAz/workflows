@@ -22,34 +22,33 @@ on:
 
   workflow_dispatch:
     inputs:
-      # Worker/webhook transport uses repository + repository_id + request_b64.
-      # Human manual dispatch uses repository + source_workflow_path and may
-      # optionally provide target_ref/inputs_json.
+      # To run a repository's workflow by hand, fill in only the first two fields.
+      # repository_id and request_b64 are set by the Worker for webhook events.
       repository:
-        description: Target repository, e.g. HereLiesAz/HG2Gui
-        required: false
-        type: string
-      repository_id:
-        description: Internal immutable repository ID supplied by the Worker
-        required: false
-        type: string
-      request_b64:
-        description: Internal verified Worker request; leave empty for a human manual run
+        description: Repository to run a workflow for, e.g. illumera
         required: false
         type: string
       source_workflow_path:
-        description: Registered workflow path for a human manual run, e.g. .github/workflows/release-play.yml
+        description: Workflow to run, e.g. deploy.yml or "Deploy Worker" (blank if the repository has only one)
         required: false
         type: string
       target_ref:
-        description: Branch, tag, or SHA for a human manual run; blank means the default branch
+        description: (optional) Branch, tag or SHA; blank means the default branch
         required: false
         default: ''
         type: string
       inputs_json:
-        description: JSON object containing the original workflow_dispatch inputs
+        description: (optional) Inputs for the workflow, as a JSON object
         required: false
         default: '{}'
+        type: string
+      repository_id:
+        description: (internal, set by the Worker; leave blank)
+        required: false
+        type: string
+      request_b64:
+        description: (internal, set by the Worker; leave blank)
+        required: false
         type: string
 
 run-name: gateway · ${{ inputs.repository || github.event.schedule || 'manual' }}
@@ -129,10 +128,6 @@ jobs:
           set -euo pipefail
           [[ -n "${{ inputs.repository }}" ]] || {
             echo "::error::Manual dispatch requires repository."
-            exit 1
-          }
-          [[ -n "${{ inputs.source_workflow_path }}" ]] || {
-            echo "::error::Manual dispatch requires source_workflow_path."
             exit 1
           }
           python scripts/dispatch_manual.py \

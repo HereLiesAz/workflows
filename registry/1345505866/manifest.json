@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-09-24T23:08:47+00:00",
+  "last_sync_at": "2026-09-25T12:14:07+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/illumera",
@@ -8,7 +8,7 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
+  "worker_url_configured": false,
   "workflows": {
     ".github/workflows/ci.yml": {
       "binding": "curated",
@@ -20,10 +20,20 @@
       "status": "obsolete",
       "updated_at": "2026-09-22T18:06:50+00:00"
     },
+    ".github/workflows/desktop-release.yml": {
+      "binding": "curated",
+      "central_workflow": ".github/workflows/multi-platform-app-release.yml",
+      "centralized": true,
+      "name": "Desktop and TV Release",
+      "registry_source": "registry/1345505866/desktop-release-1e558e6c.source.yml",
+      "source_sha256": "7d870343f471c1c3f1a3d2e0a6712af45c74b500a3b0b32f6069ac3493eb09c0",
+      "status": "active",
+      "updated_at": "2026-09-25T12:14:03+00:00"
+    },
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "😈 Glee Audit",
+      "name": "\ud83d\ude08 Glee Audit",
       "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/1345505866/jules-glee-0de23ac9.source.yml",
       "source_sha256": "9aa63d02927a5e790e34e579d446800e097a1f756daa8990e3f5dac1c2ff0203",
@@ -38,7 +48,17 @@
       "registry_source": "registry/1345505866/release-16911b98.source.yml",
       "source_sha256": "60ac0b25cf88bcff28f3b5c31d1d9545e5a6ba10d9b80d1b7d35e540329b350e",
       "status": "active",
-      "updated_at": "2026-09-23T20:31:50+00:00"
+      "updated_at": "2026-09-25T12:14:05+00:00"
+    },
+    ".github/workflows/web-deploy.yml": {
+      "binding": "curated",
+      "central_workflow": ".github/workflows/cloudflare-worker-deploy.yml",
+      "centralized": true,
+      "name": "Deploy Web App",
+      "registry_source": "registry/1345505866/web-deploy-0208aaef.source.yml",
+      "source_sha256": "a90a3f56cdc247d4df2f4a53a7f68a18123e71759f2b88d0e5fa0bb97df18034",
+      "status": "active",
+      "updated_at": "2026-09-25T12:14:06+00:00"
     }
   }
 }

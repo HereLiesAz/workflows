@@ -1042,14 +1042,21 @@ def sync_repository(gh: GitHub, full_name: str, worker_url: str, dry_run: bool =
         if item.get("type") == "file" and item.get("path", "").endswith((".yml", ".yaml"))
     }
     # A workflow the target repository deleted stops appearing in `listing`, so the loop
-    # below never revisits its manifest entry. Left untouched, a stale "active" entry
-    # permanently blocks _prune_rebound_repository_workflows from ever recognizing the
-    # central compiled duplicate (if any) as unreachable and deleting it. Mark it obsolete
-    # here, from the live listing alone, before anything else can rely on its old status.
+    # below never revisits its manifest entry. An "active" entry bound to a central_workflow
+    # (binding curated/repository) is expected to have no local file at all once fully
+    # centralized -- REPOSITORY_ONBOARDING.md's steady-state architecture removes the proxy
+    # in the same commit that activates the binding (see "What a healthy converted repository
+    # looks like": "no file beginning with `# centralized-by: HereLiesAz/workflows`"). Demoting
+    # those entries to obsolete just because the file is (correctly) gone breaks dispatch for
+    # every fully-migrated repository on the very next sync after activation, with no local
+    # symptom (dispatch_request.py silently finds no active binding to route to). Only demote
+    # an "active" entry that never actually got a central_workflow binding -- that combination
+    # shouldn't occur from the compile loop below, but is handled defensively rather than
+    # asserted against, since this loop runs before that state is known for certain.
     for stale_path, stale_entry in workflows_manifest.items():
         if stale_path in live_paths or not isinstance(stale_entry, dict):
             continue
-        if stale_entry.get("status") != "active":
+        if stale_entry.get("status") != "active" or stale_entry.get("central_workflow"):
             continue
         # The sync itself removes a target's workflow file once its source is registered
         # and bound centrally; that absence is the intended steady state, not a deletion.

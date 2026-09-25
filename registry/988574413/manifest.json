@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-09-25T11:33:23+00:00",
+  "last_sync_at": "2026-09-25T11:52:44+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/CueDetat",
@@ -8,7 +8,7 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
+  "worker_url_configured": false,
   "workflows": {
     ".github/workflows/android-ci.yml": {
       "blockers": [
@@ -16,9 +16,9 @@
       ],
       "name": "Android CI",
       "registry_source": "registry/988574413/android-ci-3798bddf.source.yml",
-      "source_sha256": "d5ccb26749555453b6bdf9c11c6e8d2100956789264fefe3ef4943c83b7d4fe9",
+      "source_sha256": "283ef4b2b111d1c96ba9690e7bcb61e64c933d93c4ef01d1eee612b0a000d832",
       "status": "local",
-      "updated_at": "2026-09-25T11:33:17+00:00"
+      "updated_at": "2026-09-25T11:52:36+00:00"
     },
     ".github/workflows/android-release-aab.yml": {
       "name": "Build & Publish AAB (Play)",
@@ -52,9 +52,9 @@
       ],
       "name": "Merged Build & Release",
       "registry_source": "registry/988574413/android_debug_apk_release-be731378.source.yml",
-      "source_sha256": "951c076c205d90fbf0bf56a34858fd0c05858ecc98a1880f806fff6b7551c715",
+      "source_sha256": "1d956a620bfd350c5d92ca9f1805e7502718fa85c20205f1c2b23212bb845500",
       "status": "local",
-      "updated_at": "2026-09-25T11:33:17+00:00"
+      "updated_at": "2026-09-25T11:52:37+00:00"
     },
     ".github/workflows/android_release.yml": {
       "blockers": [
@@ -62,9 +62,9 @@
       ],
       "name": "Android Release Build",
       "registry_source": "registry/988574413/android_release-ec538631.source.yml",
-      "source_sha256": "c347e27f9acb97828121251dd684df1eaa718a7c633583dfc036bf0b9a1266ba",
+      "source_sha256": "260acbdd92ce86641bfb23882a90fddb7a0f36f6b8db71ef5790637122aa7eff",
       "status": "local",
-      "updated_at": "2026-09-25T11:33:18+00:00"
+      "updated_at": "2026-09-25T11:52:38+00:00"
     },
     ".github/workflows/backup.yml": {
       "binding": "curated",
@@ -84,7 +84,7 @@
       "registry_source": "registry/988574413/capture-relay-deploy-91fd2ce3.source.yml",
       "source_sha256": "cc3b3d2f63a2ff31d475af991e561c7ff8003b432b51c8b1c41a084ad82c0171",
       "status": "active",
-      "updated_at": "2026-09-25T11:33:18+00:00"
+      "updated_at": "2026-09-25T11:52:40+00:00"
     },
     ".github/workflows/clear_cache.yml": {
       "binding": "curated",
@@ -147,12 +147,12 @@
       "registry_source": "registry/988574413/jekyll-gh-pages-5de61e74.source.yml",
       "source_sha256": "bc38315952dc5a20fa874a45475051dd81a7cdde23084779920690407903ba63",
       "status": "local",
-      "updated_at": "2026-09-25T11:33:20+00:00"
+      "updated_at": "2026-09-25T11:52:41+00:00"
     },
     ".github/workflows/jules-dispatch.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-dispatch.yml",
-      "name": "🔀 Jules Dispatch",
+      "name": "\ud83d\udd00 Jules Dispatch",
       "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/988574413/jules-dispatch-800d0b01.source.yml",
       "source_sha256": "17c13d04cfa6d1e55af692790eaab5608a1b4b511a1f66e56ec133a8803eb5da",
@@ -162,7 +162,7 @@
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "😈 Glee Audit",
+      "name": "\ud83d\ude08 Glee Audit",
       "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/988574413/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
@@ -172,7 +172,7 @@
     ".github/workflows/jules-invoke.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-dispatch.yml",
-      "name": "▶️ Jules Invoke",
+      "name": "\u25b6\ufe0f Jules Invoke",
       "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/988574413/jules-invoke-b23fc002.source.yml",
       "source_sha256": "cb2a978450da9b6dc82f8527a4ff2dbcde9af37e4e88d99e4409f217826572f0",
@@ -187,19 +187,19 @@
       "registry_source": "registry/988574413/jules-issue-handler-f9e1d4df.source.yml",
       "source_sha256": "50426fc4f0128ad1e06d8ac9a863712a5b27a49036e43becf4bda5ad99524693",
       "status": "local",
-      "updated_at": "2026-09-25T11:33:20+00:00"
+      "updated_at": "2026-09-25T11:52:41+00:00"
     },
     ".github/workflows/jules-review.yml": {
-      "name": "🔎 Jules Review",
+      "name": "\ud83d\udd0e Jules Review",
       "registry_source": "registry/988574413/jules-review-9f7b6ce5.source.yml",
       "source_sha256": "b170093ab22ff75431fb6ea62d3e4ff1a254c5ba7352ee150e59e8dfa4b6f416",
       "status": "library",
-      "updated_at": "2026-09-25T11:33:21+00:00"
+      "updated_at": "2026-09-25T11:52:41+00:00"
     },
     ".github/workflows/jules-scheduled-triage.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-scheduled-triage.yml",
-      "name": "📋 Jules Scheduled Issue Triage",
+      "name": "\ud83d\udccb Jules Scheduled Issue Triage",
       "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/988574413/jules-scheduled-triage-7b36475f.source.yml",
       "source_sha256": "c5795302751261681062afb2384c0a30807517ee87a9246fcc46f874d0b0f7f1",
@@ -214,14 +214,14 @@
       "registry_source": "registry/988574413/jules-security-fixer-b6efeb4d.source.yml",
       "source_sha256": "8b7156955b7f5b47019130cb255d22228944d32c9b533fb14dc61181a993b89b",
       "status": "local",
-      "updated_at": "2026-09-25T11:33:21+00:00"
+      "updated_at": "2026-09-25T11:52:42+00:00"
     },
     ".github/workflows/jules-triage.yml": {
-      "name": "🔀 Jules Triage",
+      "name": "\ud83d\udd00 Jules Triage",
       "registry_source": "registry/988574413/jules-triage-5c552504.source.yml",
       "source_sha256": "dd3c04d1b62501e2260474da42dff9fb083431b27c1b21c47b20a0dc8cb8a09c",
       "status": "library",
-      "updated_at": "2026-09-25T11:33:22+00:00"
+      "updated_at": "2026-09-25T11:52:42+00:00"
     },
     ".github/workflows/label.yml": {
       "blockers": [
@@ -231,17 +231,17 @@
       "registry_source": "registry/988574413/label-04cea97c.source.yml",
       "source_sha256": "9e4ca08e0ce167c9f1ee6c3add108323047fe6af5cecbde30037314360a8c7da",
       "status": "local",
-      "updated_at": "2026-09-25T11:33:22+00:00"
+      "updated_at": "2026-09-25T11:52:43+00:00"
     },
     ".github/workflows/play_publish.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/android-play-release.yml",
+      "centralized": true,
       "name": "Play Publish (AAB)",
-      "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/988574413/play_publish-153f786b.source.yml",
       "source_sha256": "c99c3eed02d6deb557eaba891c904d3fcdabde1c27a518dee8c7e8e422b92b98",
-      "status": "obsolete",
-      "updated_at": "2026-09-22T12:22:34+00:00"
+      "status": "active",
+      "updated_at": "2026-09-25T11:52:44+00:00"
     },
     ".github/workflows/release.yml": {
       "binding": "repository",

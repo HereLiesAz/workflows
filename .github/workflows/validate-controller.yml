@@ -59,6 +59,7 @@ jobs:
             scripts/retry_repository_sync.py \
             scripts/dispatch_request.py \
             scripts/test_dispatch_input_contract.py \
+            scripts/test_sync_on_setup_change.py \
             scripts/test_dispatch_manual.py \
             scripts/dispatch_manual.py \
             scripts/audit_workflow_collection.py \
@@ -214,6 +215,9 @@ jobs:
 
       - name: Regression-test dispatch input contracts
         run: python scripts/test_dispatch_input_contract.py
+
+      - name: Regression-test sync requests from workflow-setup pushes
+        run: python scripts/test_sync_on_setup_change.py
 
       - name: Regression-test manual dispatch matching
         run: python scripts/test_dispatch_manual.py

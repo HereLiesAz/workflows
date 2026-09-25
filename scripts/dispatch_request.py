@@ -216,6 +216,30 @@ def _changed_files(gh: GitHub, repository: str, event_name: str, event: dict) ->
 
     return []
 
+WORKFLOW_SETUP_PATHS = (".github/workflows/", ".github/workflow-request.yml")
+
+
+def _request_sync_if_setup_changed(central_gh: GitHub, repository: str, default_branch: str, event: dict, changed: list[str] | None) -> dict | None:
+    """Re-sync a repository when a push to its default branch changes its workflow setup.
+
+    Anyone who can push to the repository (a person, or an LLM session granted only
+    that repository) can then add, change or remove centralized workflows without
+    access to this controller. The synchronizer's own commits carry [skip ci] and are
+    dropped before this runs, so a sync never triggers itself.
+    """
+    if str(event.get("ref") or "") != f"refs/heads/{default_branch}":
+        return None
+    touched = [path for path in (changed or []) if path.startswith(WORKFLOW_SETUP_PATHS[0]) or path == WORKFLOW_SETUP_PATHS[1]]
+    if not touched:
+        return None
+    central_gh.json(
+        "POST",
+        f"/repos/{CENTRAL_REPOSITORY}/actions/workflows/sync-repository.yml/dispatches",
+        {"ref": "main", "inputs": {"repository": repository}},
+    )
+    return {"status": "sync-requested", "repository": repository, "changed": touched}
+
+
 def _event_trigger(
     source_doc: dict,
     event_name: str,
@@ -541,6 +565,16 @@ def main() -> int:
         )
     else:
         changed_files = _changed_files(gh, repository, event_name, event)
+        if event_name == "push":
+            sync_request = _request_sync_if_setup_changed(
+                central_gh,
+                repository,
+                str(manifest_repo.get("default_branch") or "main"),
+                event,
+                changed_files,
+            )
+            if sync_request:
+                dispatches.append(sync_request)
         for source_path, entry in sorted(workflows.items()):
             if not isinstance(entry, dict) or entry.get("status") != "active":
                 continue

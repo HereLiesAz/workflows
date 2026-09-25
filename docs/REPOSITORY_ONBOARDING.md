@@ -131,3 +131,17 @@ Webhook registration itself is safe to leave in place during rollback; unmatched
 ## Completion standard
 
 A repository is finished when intended automation still exists, every centralized workflow has a tracker and no dispatching proxy remains, remaining local workflows have explicit unresolved blockers, central event routing has been exercised, and duplicated secrets have been removed only after successful runtime verification.
+
+## Syncing from the target repository
+
+A registered repository re-syncs itself whenever a push to its default branch changes
+`.github/workflows/**` or `.github/workflow-request.yml`. The gateway sees the push
+through the repository webhook and starts **Sync repository workflows** for that
+repository alone.
+
+So anyone with write access to the target repository alone, including an LLM
+session granted only that repository, can add, change or remove centralized
+workflows: commit the workflow source (or the request menu change) to the default
+branch and the controller registers and binds it, then replaces the file with its
+tracker. The synchronizer's own commits carry `[skip ci]`, so they never trigger
+another sync.

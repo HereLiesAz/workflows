@@ -1,0 +1,240 @@
+# workflow-policy: generalized-v1
+# workflow-purpose: Test a target repository's Cloudflare Worker and deploy it with Wrangler on pushes to its default branch.
+# required-secret: GH_TOKEN | Central GitHub token used to check out the target repository and report its commit status.
+# required-secret: CLOUDFLARE_API_TOKEN | Authorizes Wrangler to deploy the target repository's Worker to Cloudflare.
+# required-secret: CLOUDFLARE_ACCOUNT_ID | Identifies the Cloudflare account that hosts the target repository's Worker.
+# The repository supplies wrangler.toml/wrangler.jsonc; nothing Worker-specific lives here.
+# Optional purpose-profile keys: working_directory (default "."), node_version
+# (default "22"), test_command (default "npm test --if-present").
+name: Cloudflare Worker Deploy
+run-name: ${{ inputs.target_repository_name }} · Cloudflare Worker Deploy
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_ref:
+        required: true
+        type: string
+      target_ref_name:
+        required: false
+        type: string
+      target_ref_type:
+        required: false
+        type: string
+      target_head_ref:
+        required: false
+        type: string
+      target_base_ref:
+        required: false
+        type: string
+      target_actor:
+        required: true
+        type: string
+      target_actor_id:
+        required: false
+        type: string
+      target_event_name:
+        required: true
+        type: string
+      target_event_json:
+        required: true
+        type: string
+      target_inputs_json:
+        required: true
+        type: string
+      target_vars_json:
+        required: true
+        type: string
+      target_run_id:
+        required: true
+        type: string
+      target_run_number:
+        required: false
+        type: string
+      target_run_attempt:
+        required: false
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      source_sha256:
+        required: true
+        type: string
+      target_repository_name:
+        required: true
+        type: string
+      purpose_profile_json:
+        required: false
+        type: string
+        default: '{}'
+jobs:
+  policy_secret_preflight:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target_repository_name }}
+    env:
+      REQUIRED_GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      REQUIRED_CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      REQUIRED_CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${REQUIRED_GH_TOKEN:-}" || {
+            echo "::error::Missing required secret GH_TOKEN — Central GitHub token used to check out the target repository and report its commit status."
+            exit 1
+          }
+          test -n "${REQUIRED_CLOUDFLARE_API_TOKEN:-}" || {
+            echo "::error::Missing required secret CLOUDFLARE_API_TOKEN — Authorizes Wrangler to deploy the target repository's Worker to Cloudflare."
+            exit 1
+          }
+          test -n "${REQUIRED_CLOUDFLARE_ACCOUNT_ID:-}" || {
+            echo "::error::Missing required secret CLOUDFLARE_ACCOUNT_ID — Identifies the Cloudflare account that hosts the target repository's Worker."
+            exit 1
+          }
+
+  central_check_start:
+    needs: policy_secret_preflight
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: "set -euo pipefail\nrepo_json=\"$(gh api \"repos/${TARGET_REPOSITORY}\")\"\nactual_repo_id=\"$(jq -r '.id' <<<\"$repo_json\")\"\nactual_owner_id=\"$(jq -r '.owner.id' <<<\"$repo_json\")\"\nactual_owner=\"$(jq -r '.owner.login' <<<\"$repo_json\")\"\n[[ \"$actual_repo_id\" == \"$TARGET_REPOSITORY_ID\" ]] || { echo \"Repository ID mismatch\" >&2; exit 1; }\n[[ \"$actual_owner_id\" == \"103241502\" ]] || { echo \"Repository is not owned by HereLiesAz\" >&2; exit 1; }\n[[ \"${actual_owner,,}\" == \"hereliesaz\" ]] || { echo \"Repository owner mismatch\" >&2; exit 1; }\n[[ \"$TARGET_REPOSITORY_OWNER_ID\" == \"103241502\" ]] || { echo \"OIDC owner ID mismatch\" >&2; exit 1; }"
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\npayload=\"$(jq -n --arg state \"pending\" --arg context \"$STATUS_CONTEXT\" --arg description \"Running from the shared HereLiesAz/workflows catalog.\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+
+  test_and_deploy:
+    needs: central_check_start
+    # Deploy only from the default branch (push or manual run); never from pull requests.
+    if: ${{ inputs.target_event_name == 'push' || inputs.target_event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target_repository_name }}
+    permissions:
+      contents: read
+    concurrency:
+      group: worker-deploy-${{ inputs.target_repository_name }}
+      cancel-in-progress: false
+    steps:
+      - name: Check out target
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+
+      - name: Resolve profile
+        env:
+          PROFILE_JSON: ${{ inputs.purpose_profile_json }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "WORKER_DIR=$(jq -r '.working_directory // "."' <<<"$PROFILE_JSON")"
+            echo "NODE_VERSION=$(jq -r '.node_version // "22"' <<<"$PROFILE_JSON")"
+            echo "TEST_COMMAND=$(jq -r '.test_command // "npm test --if-present"' <<<"$PROFILE_JSON")"
+          } >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install and test
+        working-directory: ${{ env.WORKER_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f package-lock.json ]]; then npm ci; elif [[ -f package.json ]]; then npm install --no-audit --no-fund; fi
+          eval "$TEST_COMMAND"
+
+      - name: Deploy with Wrangler
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: ${{ env.WORKER_DIR }}
+
+  central_check_finish:
+    if: ${{ always() }}
+    needs:
+      - central_check_start
+      - test_and_deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+    permissions:
+      contents: read
+    env:
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+      TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
+      TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+      TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+      TARGET_HEAD_REF: ${{ inputs.target_head_ref }}
+      TARGET_BASE_REF: ${{ inputs.target_base_ref }}
+      TARGET_ACTOR: ${{ inputs.target_actor }}
+      TARGET_ACTOR_ID: ${{ inputs.target_actor_id }}
+      TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+      TARGET_RUN_ID: ${{ inputs.target_run_id }}
+      TARGET_RUN_NUMBER: ${{ inputs.target_run_number }}
+      TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
+      TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}

@@ -96,7 +96,7 @@ The synchronizer blocks a workflow if it tries to use a repo-local script/action
 Dependencies that are part of a **shared workflow implementation** should live here alongside the shared workflow instead of being copied into every target repository.
 
 The same rule applies to cross-repository release policy. Shared release families use the reusable
-`four-part-version` and `minor-grouped-release` actions here rather than copying version/tag/release
+`four-part-version` and `patch-grouped-release` actions here rather than copying version/tag/release
 shell logic into target repositories.
 
 ## Controller workflows

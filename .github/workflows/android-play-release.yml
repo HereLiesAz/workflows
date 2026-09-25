@@ -983,9 +983,9 @@ jobs:
           echo "app_name=$app_name" >> "$GITHUB_OUTPUT"
           echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
 
-      - name: Publish minor-grouped GitHub release for Play build
+      - name: Publish patch-grouped GitHub release for Play build
         if: ${{ env.PUBLISH_GITHUB_RELEASE == 'true' }}
-        uses: HereLiesAz/workflows/.github/actions/minor-grouped-release@main
+        uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@main
         with:
           github-token: ${{ secrets.GH_TOKEN }}
           target-repository: ${{ env.TARGET_REPOSITORY }}

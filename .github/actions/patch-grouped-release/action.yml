@@ -1,9 +1,7 @@
-name: Patch-grouped GitHub release (deprecated alias)
+name: Patch-grouped GitHub release
 description: >-
-  Deprecated alias for .github/actions/minor-grouped-release, which now groups releases by
-  MAJOR.MINOR instead of MAJOR.MINOR.PATCH. Update the source workflow to call
-  minor-grouped-release directly; this alias exists only so already-registered source workflows
-  do not break before they are resynced.
+  Group immutable MAJOR.MINOR.PATCH.BUILD artifacts under one MAJOR.MINOR.PATCH GitHub Release.
+  Shares its publisher with minor-grouped-release; only the grouping level differs.
 inputs:
   github-token:
     description: Repository-scoped token with contents:write.
@@ -44,23 +42,26 @@ inputs:
     required: false
     default: "true"
   migrate-legacy-build-releases:
-    description: Move assets from old release objects into the grouped release, preserving their tags.
+    description: Move assets from old per-build release objects into the patch release, preserving their tags.
     required: false
     default: "true"
 runs:
   using: composite
   steps:
-    - uses: HereLiesAz/workflows/.github/actions/minor-grouped-release@main
-      with:
-        github-token: ${{ inputs.github-token }}
-        target-repository: ${{ inputs.target-repository }}
-        target-sha: ${{ inputs.target-sha }}
-        build-version: ${{ inputs.build-version }}
-        assets: ${{ inputs.assets }}
-        title-prefix: ${{ inputs.title-prefix }}
-        asset-name-mode: ${{ inputs.asset-name-mode }}
-        notes-file: ${{ inputs.notes-file }}
-        tag-prefix: ${{ inputs.tag-prefix }}
-        prerelease: ${{ inputs.prerelease }}
-        make-latest: ${{ inputs.make-latest }}
-        migrate-legacy-build-releases: ${{ inputs.migrate-legacy-build-releases }}
+    - name: Publish grouped patch release
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        TARGET_REPOSITORY: ${{ inputs.target-repository }}
+        TARGET_SHA: ${{ inputs.target-sha }}
+        BUILD_VERSION: ${{ inputs.build-version }}
+        ASSET_GLOB: ${{ inputs.assets }}
+        TITLE_PREFIX: ${{ inputs.title-prefix }}
+        ASSET_NAME_MODE: ${{ inputs.asset-name-mode }}
+        NOTES_FILE: ${{ inputs.notes-file }}
+        TAG_PREFIX: ${{ inputs.tag-prefix }}
+        PRERELEASE: ${{ inputs.prerelease }}
+        MAKE_LATEST: ${{ inputs.make-latest }}
+        MIGRATE_LEGACY_BUILD_RELEASES: ${{ inputs.migrate-legacy-build-releases }}
+        GROUP_LEVEL: patch
+      run: python3 "$GITHUB_ACTION_PATH/../minor-grouped-release/publish.py"

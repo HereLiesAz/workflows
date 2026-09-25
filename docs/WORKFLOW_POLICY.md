@@ -46,9 +46,9 @@ Release workflows are subject to the same centralization rule as build/test work
 When a project uses `MAJOR.MINOR.PATCH.BUILD` versions:
 
 - use `.github/actions/four-part-version` for BUILD derivation;
-- use `.github/actions/minor-grouped-release` for Git tags and GitHub Release publication;
+- use `.github/actions/patch-grouped-release` for Git tags and GitHub Release publication;
 - keep exact four-part tags immutable;
-- group build artifacts under the two-part minor Release, across every patch in that minor;
+- group build artifacts under the three-part patch Release (`MAJOR.MINOR.PATCH`);
 - keep the full four-part version in asset names;
 - never use clobber semantics to replace different bytes under an existing grouped asset name; and
 - preserve exact-build tags when legacy one-build-per-Release objects are migrated.

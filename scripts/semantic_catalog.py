@@ -240,6 +240,19 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "daa7c2c9b42632686d27a6ac2571e5ca36223fceb5a2a8e23d58f3fc2cb76a57",
         },
     },
+    # Tests a repository's Cloudflare Worker and deploys it with Wrangler from the
+    # default branch. The repository's own wrangler config names the Worker; an
+    # optional purpose profile can set working_directory, node_version, test_command.
+    ".github/workflows/cloudflare-worker-deploy.yml": {
+        "name": "Cloudflare Worker Deploy",
+        "canonical_hash": "bd67cc6ef566adb6cf3dbe612c38fe16bf8a93606090e8f4a8ad1cd56a8d1d4f",
+        "generalized": True,
+        "source_hashes": {
+            # HereLiesAz/stremio-soundtrack:.github/workflows/deploy.yml — npm test,
+            # then wrangler deploy on pushes to main.
+            "bd67cc6ef566adb6cf3dbe612c38fe16bf8a93606090e8f4a8ad1cd56a8d1d4f",
+        },
+    },
 }
 
 PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {

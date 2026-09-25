@@ -51,14 +51,32 @@ jobs:
           input="${{ inputs.repository }}"
 
           if [[ -z "$input" ]]; then
-            # Auto-mode: collect every manifest with worker_url_configured=false
+            # Auto-mode, part 1: registered repositories whose webhook isn't configured yet.
             mapfile -t targets < <(
               grep -rl '"worker_url_configured": false' registry/ 2>/dev/null \
                 | xargs -r jq -r '.repository.full_name // empty' 2>/dev/null \
                 | sort -u
             )
+
+            # Part 2: public repositories created since the last full sync that have no
+            # registry entry at all. Same public-only discovery and cursor as
+            # sync-all-repositories, so private repositories are never picked up.
+            cursor="$(tr -d '\r\n' < .controller/repository-scrape-cursor)"
+            cursor_encoded="$(jq -rn --arg value "$cursor" '$value|@uri')"
+            if scraped="$(curl --fail-with-body --silent --show-error "${WORKER_URL%/}/repositories?stop=${cursor_encoded}")" \
+              && jq -e '.ok == true and (.repositories | type == "array")' <<<"$scraped" >/dev/null; then
+              registered="$(jq -r '.repository.full_name // empty' registry/*/manifest.json 2>/dev/null | sort -u)"
+              while IFS= read -r repository; do
+                [[ -n "$repository" && "$repository" != "HereLiesAz/workflows" ]] || continue
+                grep -qxF "$repository" <<<"$registered" || targets+=("$repository")
+              done < <(jq -r '.repositories[]' <<<"$scraped")
+            else
+              echo "::warning::Repository discovery failed; only registered repositories are considered."
+            fi
+            mapfile -t targets < <(printf '%s\n' "${targets[@]}" | sed '/^$/d' | sort -u)
+
             if [[ ${#targets[@]} -eq 0 ]]; then
-              echo "All registered repositories already have worker_url_configured=true. Nothing to do."
+              echo "No unregistered or unconfigured repositories found. Nothing to do."
               echo "targets=[]" >> "$GITHUB_OUTPUT"
             else
               echo "Auto-mode: ${#targets[@]} unregistered repo(s) found."

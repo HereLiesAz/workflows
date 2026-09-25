@@ -188,9 +188,9 @@ jobs:
           echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
           echo "tag-prefix=$tag_prefix" >> "$GITHUB_OUTPUT"
 
-      - name: Publish minor-grouped release
+      - name: Publish patch-grouped release
         if: ${{ steps.grouping.outputs.grouped == 'true' }}
-        uses: HereLiesAz/workflows/.github/actions/minor-grouped-release@main
+        uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@main
         with:
           github-token: ${{ secrets.GH_TOKEN }}
           target-repository: ${{ inputs.target_repository }}

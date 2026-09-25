@@ -61,6 +61,8 @@ tag_prefix = os.environ.get("TAG_PREFIX", "")
 prerelease = env_bool("PRERELEASE")
 make_latest = env_bool("MAKE_LATEST")
 migrate_legacy = env_bool("MIGRATE_LEGACY_BUILD_RELEASES")
+# "patch" groups under MAJOR.MINOR.PATCH (patch-grouped-release); "minor" under MAJOR.MINOR.
+group_level = os.environ.get("GROUP_LEVEL", "minor").strip()
 
 if not os.environ.get("GH_TOKEN"):
     fail("github-token is required")
@@ -75,13 +77,15 @@ if not asset_glob:
     fail("assets glob is required")
 if not title_prefix:
     fail("title-prefix is required")
+if group_level not in {"minor", "patch"}:
+    fail("group-level must be minor or patch")
 if asset_name_mode not in {"inject-version", "require-version"}:
     fail("asset-name-mode must be inject-version or require-version")
 
-minor_version = ".".join(match.groups()[:2])
+group_version = ".".join(match.groups()[: 3 if group_level == "patch" else 2])
 build_tag = f"{tag_prefix}{build_version}"
-minor_tag = f"{tag_prefix}{minor_version}"
-minor_title = f"{title_prefix} {minor_version}"
+group_tag = f"{tag_prefix}{group_version}"
+group_title = f"{title_prefix} {group_version}"
 
 raw_assets = [Path(item) for item in sorted(glob.glob(asset_glob, recursive=True)) if Path(item).is_file()]
 if not raw_assets:
@@ -151,11 +155,11 @@ def ensure_immutable_tag(tag: str, sha: str, message: str) -> None:
     git("push", "origin", f"refs/tags/{tag}")
 
 
-def ensure_minor_tag() -> None:
-    if tag_target(minor_tag) is not None:
+def ensure_group_tag() -> None:
+    if tag_target(group_tag) is not None:
         return
-    git("tag", "-a", minor_tag, target_sha, "-m", f"{minor_title} grouped release")
-    git("push", "origin", f"refs/tags/{minor_tag}")
+    git("tag", "-a", group_tag, target_sha, "-m", f"{group_title} grouped release")
+    git("push", "origin", f"refs/tags/{group_tag}")
 
 
 def release_json(tag: str) -> dict | None:
@@ -171,16 +175,18 @@ def release_json(tag: str) -> dict | None:
 
 
 def write_notes(path: Path) -> None:
-    tags = git("tag", "-l", f"{tag_prefix}{minor_version}.*", "--sort=-v:refname", capture=True)
+    tags = git("tag", "-l", f"{tag_prefix}{group_version}.*", "--sort=-v:refname", capture=True)
     exact_pattern = re.compile(
-        "^" + re.escape(tag_prefix + minor_version) + r"\.\d+\.\d+$"
+        "^" + re.escape(tag_prefix + group_version) + (r"\.\d+$" if group_level == "patch" else r"\.\d+\.\d+$")
     )
     exact_tags = [tag for tag in tags.splitlines() if exact_pattern.fullmatch(tag)]
 
     lines = [
-        f"# {minor_title}",
+        f"# {group_title}",
         "",
-        f"All immutable **{minor_version}.x** builds, across every patch, are grouped in this release.",
+        f"All immutable **{group_version}.x** builds"
+        + ("" if group_level == "patch" else ", across every patch,")
+        + " are grouped in this release.",
         "",
         f"Latest published build in this run: **{build_version}** from commit {target_sha}.",
         "",
@@ -197,11 +203,11 @@ def edit_release(notes_path: Path) -> None:
     args = [
         "release",
         "edit",
-        minor_tag,
+        group_tag,
         "--repo",
         repo,
         "--title",
-        minor_title,
+        group_title,
         "--notes-file",
         str(notes_path),
     ]
@@ -212,19 +218,19 @@ def edit_release(notes_path: Path) -> None:
     gh(*args)
 
 
-def ensure_minor_release(notes_path: Path) -> None:
-    if release_json(minor_tag) is not None:
+def ensure_group_release(notes_path: Path) -> None:
+    if release_json(group_tag) is not None:
         edit_release(notes_path)
         return
     args = [
         "release",
         "create",
-        minor_tag,
+        group_tag,
         "--repo",
         repo,
         "--verify-tag",
         "--title",
-        minor_title,
+        group_title,
         "--notes-file",
         str(notes_path),
     ]
@@ -281,15 +287,16 @@ def legacy_release_tags() -> list[str]:
         )
     )
     payload = [item for page in pages for item in page]
-    # Matches both old one-release-per-build tags (MAJOR.MINOR.PATCH.BUILD) and old
-    # one-release-per-patch tags (MAJOR.MINOR.PATCH) that predate minor-level grouping.
-    pattern = re.compile("^" + re.escape(tag_prefix + minor_version) + r"\.\d+(?:\.\d+)?$")
+    # Minor level matches both old one-release-per-build tags (MAJOR.MINOR.PATCH.BUILD) and old
+    # one-release-per-patch tags (MAJOR.MINOR.PATCH). Patch level matches per-build tags only.
+    suffix = r"\.\d+$" if group_level == "patch" else r"\.\d+(?:\.\d+)?$"
+    pattern = re.compile("^" + re.escape(tag_prefix + group_version) + suffix)
     return sorted(
         {
             str(item.get("tag_name"))
             for item in payload
             if pattern.fullmatch(str(item.get("tag_name") or ""))
-            and str(item.get("tag_name")) != minor_tag
+            and str(item.get("tag_name")) != group_tag
         }
     )
 
@@ -309,28 +316,28 @@ def migrate_release(tag: str) -> None:
                     renamed = Path(directory) / name_with_version(file.name, legacy_version)
                     file.rename(renamed)
                     file = renamed
-                upload_idempotently(minor_tag, file)
+                upload_idempotently(group_tag, file)
     # Deliberately omit --cleanup-tag. Exact build tags remain immutable and discoverable.
     gh("release", "delete", tag, "--repo", repo, "--yes")
 
 
 ensure_immutable_tag(build_tag, target_sha, f"{title_prefix} {build_version}")
-ensure_minor_tag()
+ensure_group_tag()
 
 with tempfile.TemporaryDirectory(prefix="minor-release-notes-") as directory:
     release_notes = Path(directory) / "notes.md"
     write_notes(release_notes)
-    ensure_minor_release(release_notes)
+    ensure_group_release(release_notes)
 
     if migrate_legacy:
         for legacy_tag in legacy_release_tags():
-            print(f"Migrating legacy release {legacy_tag} into {minor_tag}; preserving its tag.")
+            print(f"Migrating legacy release {legacy_tag} into {group_tag}; preserving its tag.")
             migrate_release(legacy_tag)
 
     for asset in assets:
-        upload_idempotently(minor_tag, asset)
+        upload_idempotently(group_tag, asset)
 
     write_notes(release_notes)
     edit_release(release_notes)
 
-print(f"Grouped {build_tag} under GitHub Release {minor_tag}.")
+print(f"Grouped {build_tag} under GitHub Release {group_tag}.")

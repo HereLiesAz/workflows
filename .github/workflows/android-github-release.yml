@@ -437,8 +437,8 @@ jobs:
             printf 'Release build from commit %s\n' "$(git rev-parse HEAD)" > grouped-release-notes.md
           fi
 
-      - name: Publish minor-grouped GitHub release
-        uses: HereLiesAz/workflows/.github/actions/minor-grouped-release@main
+      - name: Publish patch-grouped GitHub release
+        uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@main
         with:
           github-token: ${{ secrets.GH_TOKEN }}
           target-repository: ${{ inputs.target_repository }}

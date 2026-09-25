@@ -1,0 +1,26 @@
+name: Resolve Android mapping.txt
+description: >-
+  Locate the R8/ProGuard mapping.txt for an Android App Bundle (explicit path, build output, or the
+  copy embedded in the bundle) and fail when none exists.
+inputs:
+  aab-path:
+    description: Path to the .aab being released.
+    required: true
+  mapping-file:
+    description: Optional explicit mapping.txt path.
+    required: false
+    default: ""
+outputs:
+  path:
+    description: Canonical mapping.txt path under RUNNER_TEMP.
+    value: ${{ steps.resolve.outputs.path }}
+runs:
+  using: composite
+  steps:
+    - name: Resolve mapping.txt
+      id: resolve
+      shell: bash
+      env:
+        AAB_PATH: ${{ inputs.aab-path }}
+        MAPPING_FILE: ${{ inputs.mapping-file }}
+      run: bash "$GITHUB_ACTION_PATH/resolve.sh"

@@ -256,6 +256,8 @@ jobs:
           test_command="$(jq -r '.test_command // empty' <<<"$PROFILE_JSON")"
           ad_id_check="$(jq -r '.ad_id_check // false' <<<"$PROFILE_JSON")"
           mapping_file="$(jq -r '.mapping_file // empty' <<<"$PROFILE_JSON")"
+          native_debug_symbols="$(jq -r '.native_debug_symbols // "FULL"' <<<"$PROFILE_JSON")"
+          case "$native_debug_symbols" in FULL|SYMBOL_TABLE|NONE) ;; *) echo "::error::native_debug_symbols must be FULL, SYMBOL_TABLE or NONE, not $native_debug_symbols" >&2; exit 1 ;; esac
           github_release_after_play="$(jq -r '.github_release_after_play // "never"' <<<"$PROFILE_JSON")"
           release_app_name="$(jq -r '.release_app_name // empty' <<<"$PROFILE_JSON")"
           tracks="$(jq -c --argjson d "$default_tracks" '.tracks // $d' <<<"$PROFILE_JSON")"
@@ -305,6 +307,7 @@ jobs:
             echo "TEST_COMMAND=$test_command"
             echo "AD_ID_CHECK=$ad_id_check"
             echo "MAPPING_FILE=$mapping_file"
+            echo "NATIVE_DEBUG_SYMBOL_LEVEL=$native_debug_symbols"
             echo "GITHUB_RELEASE_AFTER_PLAY=$github_release_after_play"
             echo "RELEASE_APP_NAME=$release_app_name"
             release=false
@@ -519,6 +522,31 @@ jobs:
           echo "EFFECTIVE_RELEASE_VERSION_CODE=$release_version_code" >> "$GITHUB_ENV"
           echo "EFFECTIVE_RELEASE_VERSION_NAME=$release_version_name" >> "$GITHUB_ENV"
 
+      # Play Console warns about bundles with native code but no debug symbols, and can't
+      # symbolicate their native crashes and ANRs. A Gradle init script turns on
+      # ndk.debugSymbolLevel for every app build type that doesn't set it, so any Android
+      # target ships symbols inside the AAB (BUNDLE-METADATA), which Play reads on upload.
+      # Profile key native_debug_symbols: FULL (default), SYMBOL_TABLE or NONE.
+      - name: Package native debug symbols
+        if: ${{ env.NATIVE_DEBUG_SYMBOL_LEVEL != 'NONE' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          init_dir="${GRADLE_USER_HOME:-$HOME/.gradle}/init.d"
+          mkdir -p "$init_dir"
+          cat > "$init_dir/central-native-debug-symbols.gradle" <<'GRADLE'
+          def level = System.getenv('NATIVE_DEBUG_SYMBOL_LEVEL') ?: 'FULL'
+          if (level != 'NONE') {
+              allprojects { project ->
+                  project.plugins.withId('com.android.application') {
+                      project.android.buildTypes.configureEach { buildType ->
+                          if (buildType.ndk.debugSymbolLevel == null) buildType.ndk.debugSymbolLevel = level
+                      }
+                  }
+              }
+          }
+          GRADLE
+
       - name: Build signed AAB
         env:
           KEYSTORE_FILE: ${{ github.workspace }}/app/keystore.jks
@@ -553,6 +581,14 @@ jobs:
           aab="$(compgen -G "$AAB_GLOB" | head -1 || true)"
           test -n "$aab" && test -s "$aab" || { echo "::error::No AAB matched $AAB_GLOB" >&2; exit 1; }
           echo "AAB_PATH=$aab" >> "$GITHUB_ENV"
+          if unzip -Z1 "$aab" | grep -q '^base/lib/'; then
+            symbols="$(unzip -Z1 "$aab" | grep -c '^BUNDLE-METADATA/com.android.tools.build.debugsymbols/' || true)"
+            if [ "$symbols" -gt 0 ]; then
+              echo "Bundle carries $symbols native debug symbol file(s)."
+            elif [ "$NATIVE_DEBUG_SYMBOL_LEVEL" != NONE ]; then
+              echo "::warning::The bundle has native libraries but no debug symbols; Play Console can't symbolicate native crashes. Check the build's ndk.debugSymbolLevel and NDK setup."
+            fi
+          fi
           if [ -n "$APK_GLOB" ]; then
             apk="$(compgen -G "$APK_GLOB" | head -1 || true)"
             test -n "$apk" && test -s "$apk" || { echo "::error::No APK matched $APK_GLOB" >&2; exit 1; }

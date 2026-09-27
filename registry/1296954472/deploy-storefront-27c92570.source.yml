@@ -1,123 +1,51 @@
-name: Build & Deploy Storefront to Cloudflare
-
+# Builds and deploys the production Cloudflare Worker (apps/storefront-worker): the React storefront at
+# azphalt.store, the docs at azphalt.org, and the Repository API. Bound centrally to HereLiesAz/workflows'
+# cloudflare-worker-deploy.yml, whose purpose profile for this file runs the same steps; the controller
+# replaces this file with its tracker once registered.
+name: Deploy Storefront
 on:
   push:
     branches: [main]
     paths:
-      - 'apps/storefront-react/**'
-      - 'apps/storefront-worker/**'
-      - 'apps/storefront/registry/**'
-      - 'packages/azp/**'
-      - 'packages/sdk/**'
-      - 'pnpm-lock.yaml'
-      - '.github/workflows/deploy-storefront.yml'
-  pull_request:
-    branches: [main]
-    paths:
-      - 'apps/storefront-react/**'
-      - 'apps/storefront-worker/**'
-      - 'apps/storefront/registry/**'
-      - 'packages/azp/**'
-      - 'packages/sdk/**'
-      - 'pnpm-lock.yaml'
-      - '.github/workflows/deploy-storefront.yml'
+      - "apps/storefront-worker/**"
+      - "apps/storefront-react/**"
+      - "apps/storefront/registry/**"
+      - "docs/**"
+      - "spec/**"
+      - "packages/azp/**"
+      - "packages/azdk/**"
+      - "packages/web-handoff/**"
+      - "version.properties"
+      - "pnpm-lock.yaml"
   workflow_dispatch:
-
 permissions:
   contents: read
-
-concurrency:
-  group: deploy-storefront
-  cancel-in-progress: true
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          version: '9.15.0'
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: pnpm
-
-      - name: Install workspace deps
-        run: pnpm install --frozen-lockfile
-
-      - name: Build @azphalt/azp and workspace dependencies
-        run: pnpm --filter "@azphalt/azp..." build
-
-      - name: Verify committed registry catalog
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: pnpm --filter @azphalt/storefront build-catalog --check
-
-      - name: Build static React storefront
-        run: pnpm --filter @azphalt/storefront-react build
-
-      - name: Verify exported Aive workflow and role catalog
-        shell: bash
+          node-version: "24"
+      - run: corepack enable && pnpm install --frozen-lockfile
+      # Builds the Worker's dependencies (the React storefront, the docs) and assembles its assets.
+      - run: pnpm --filter "@azphalt/storefront-worker..." build
+      - run: pnpm --filter @azphalt/storefront-worker typecheck
+      - run: pnpm --filter @azphalt/storefront-worker test
+      - name: Verify the exported catalog carries the Aive workflow and role lane
         run: |
-          set -euo pipefail
-          catalog="apps/storefront-react/dist/catalog.json"
-          test -s "$catalog" || {
-            echo "::error::Storefront build did not emit catalog.json"
-            exit 1
-          }
           jq -e '
             any(.[]; .id == "com.hereliesaz.haive.feature-delivery" and .kind == "workflow")
-            and
-            any(.[]; .id == "com.hereliesaz.haive.role.ux-researcher" and .kind == "role")
-          ' "$catalog" >/dev/null || {
-            echo "::error::Exported storefront catalog is missing the Aive workflow/role lane"
-            exit 1
-          }
-
-      - name: Bundle Worker without deploying
-        run: npx --yes wrangler@4 deploy --dry-run --config apps/storefront-worker/wrangler.jsonc
-
-      - name: Deploy Worker and static assets to Cloudflare
-        if: github.event_name != 'pull_request'
+            and any(.[]; .id == "com.hereliesaz.haive.role.ux-researcher" and .kind == "role")
+          ' apps/storefront-worker/dist/catalog.json >/dev/null
+      - id: deploy
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --config apps/storefront-worker/wrangler.jsonc
-
-      - name: Verify live Aive workflow and role catalog
-        if: github.event_name != 'pull_request'
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          verify_package() {
-            local query="$1"
-            local expected_id="$2"
-            local expected_kind="$3"
-            local response="$RUNNER_TEMP/azphalt-live-${expected_kind}.json"
-
-            for attempt in $(seq 1 30); do
-              if curl --fail --silent --show-error --retry 2                 "https://azphalt.store/packages?app=com.hereliesaz.aive&kind=${expected_kind}&q=${query}&page=1&sort=name"                 -o "$response" &&
-                jq -e --arg id "$expected_id" --arg kind "$expected_kind" '
-                  (.total // 0) > 0 and
-                  any(.packages[]?; .id == $id and .kind == $kind)
-                ' "$response" >/dev/null; then
-                return 0
-              fi
-              echo "Live catalog has not converged yet (attempt $attempt/30 for $expected_id)"
-              sleep 10
-            done
-
-            echo "::error::Live azphalt.store catalog is missing $expected_id for Aive"
-            cat "$response" 2>/dev/null || true
-            return 1
-          }
-
-          verify_package "feature-delivery" "com.hereliesaz.haive.feature-delivery" "workflow"
-          verify_package "ux-researcher" "com.hereliesaz.haive.role.ux-researcher" "role"
+          workingDirectory: apps/storefront-worker
+      - name: Verify the new version is serving
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: node apps/storefront-worker/scripts/verify-deployment.mjs "$DEPLOYMENT_URL"

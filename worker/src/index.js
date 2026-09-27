@@ -1,3 +1,4 @@
+import { WorkerEntrypoint } from "cloudflare:workers";
 import { receiveCrashReport } from "./crash-report.js";
 
 const GITHUB_ISSUER = "https://token.actions.githubusercontent.com";
@@ -16,7 +17,36 @@ let jwksCache;
 let jwksCacheExpiresAt = 0;
 let githubInstallationTokenCache = "";
 let githubInstallationTokenExpiresAt = 0;
+let azphaltPublishTokenCache = "";
+let azphaltPublishTokenExpiresAt = 0;
 // GitHub API traffic uses short-lived App installation tokens, never DISPATCH_TOKEN.
+
+/**
+ * Tokens for other Workers on this account, over a service binding — never over HTTP, so nothing on
+ * the public internet can ask for one. Each method mints a short-lived installation token narrowed to
+ * one repository and the permissions its caller needs, so the caller holds no GitHub secret of its own.
+ */
+export class RepositoryTokens extends WorkerEntrypoint {
+  /**
+   * For azphalt-store's `POST /packages` (HereLiesAz/azphalt apps/storefront-worker/src/publish.ts):
+   * it writes a submission branch and opens a review pull request on HereLiesAz/azphalt.
+   */
+  async azphaltPublishToken() {
+    const now = Math.floor(Date.now() / 1000);
+    if (!azphaltPublishTokenCache || now >= azphaltPublishTokenExpiresAt - 300) {
+      const minted = await mintInstallationToken(this.env, {
+        repositories: ["azphalt"],
+        permissions: { contents: "write", pull_requests: "write" },
+      });
+      azphaltPublishTokenCache = minted.token;
+      azphaltPublishTokenExpiresAt = minted.expiresAt;
+    }
+    return {
+      token: azphaltPublishTokenCache,
+      expiresAt: new Date(azphaltPublishTokenExpiresAt * 1000).toISOString(),
+    };
+  }
+}
 
 export default {
   async fetch(request, env) {
@@ -501,12 +531,24 @@ async function githubApi(env, path, method = "GET", body = undefined, allowEmpty
 }
 
 async function githubInstallationToken(env) {
-  requireGitHubAppCredentials(env);
-
   const now = Math.floor(Date.now() / 1000);
   if (githubInstallationTokenCache && now < githubInstallationTokenExpiresAt - 120) {
     return githubInstallationTokenCache;
   }
+
+  const minted = await mintInstallationToken(env);
+  githubInstallationTokenCache = minted.token;
+  githubInstallationTokenExpiresAt = minted.expiresAt;
+  return minted.token;
+}
+
+/**
+ * Mint an installation token for the App's installation on OWNER_LOGIN. `request` is the body of
+ * GitHub's access-token call: empty for the installation's full access, or `repositories` and
+ * `permissions` to narrow it (never wider than the App's own grant — GitHub refuses that with 422).
+ */
+async function mintInstallationToken(env, request = {}) {
+  requireGitHubAppCredentials(env);
 
   const appJwt = await createGitHubAppJwt(env);
   const installationsResponse = await fetch("https://api.github.com/app/installations?per_page=100", {
@@ -543,7 +585,7 @@ async function githubInstallationToken(env) {
         "User-Agent": "HereLiesAz-workflows-cloudflare-gateway",
         "X-GitHub-Api-Version": API_VERSION,
       },
-      body: "{}",
+      body: JSON.stringify(request),
     },
   );
   if (!tokenResponse.ok) {
@@ -558,9 +600,7 @@ async function githubInstallationToken(env) {
     throw new HttpError(502, "GitHub App returned an invalid installation token");
   }
 
-  githubInstallationTokenCache = token;
-  githubInstallationTokenExpiresAt = Math.floor(expiresAt / 1000);
-  return token;
+  return { token, expiresAt: Math.floor(expiresAt / 1000) };
 }
 
 function requireGitHubAppCredentials(env) {

@@ -264,7 +264,7 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             # HereLiesAz/azphalt:.github/workflows/deploy-storefront.yml — builds, tests and
             # deploys the azphalt.store / azphalt.org Worker in apps/storefront-worker from the
             # pnpm workspace, then verifies it on its deployment URL (purpose profile below).
-            "276ce6f6fd3d4ead60608a11dab2839e5623b9086fec2292aaf47015baca08da",
+            "270461827e058812404e79e1f6741b59888a5add8c36388e1e61f645a65eaf7d",
         },
     },
 }
@@ -280,7 +280,7 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
     # root (install_command runs in a subshell; test_command changes directory itself). The build
     # assembles the React storefront and the docs into the Worker's assets; verify-deployment.mjs
     # then checks the new version on its workers.dev URL.
-    "276ce6f6fd3d4ead60608a11dab2839e5623b9086fec2292aaf47015baca08da": {
+    "270461827e058812404e79e1f6741b59888a5add8c36388e1e61f645a65eaf7d": {
         "working_directory": "apps/storefront-worker",
         "node_version": "24",
         "install_command": "corepack enable && cd ../.. && pnpm install --frozen-lockfile",

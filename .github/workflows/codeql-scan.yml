@@ -196,7 +196,11 @@ jobs:
           java-version: ${{ fromJSON(inputs.purpose_profile_json).java_version || '21' }}
       - name: Set up Android SDK
         if: ${{ matrix.language == 'java-kotlin' }}
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          # v3's default installs the SDK "tools" package, which the SDK repository no longer carries,
+          # so sdkmanager exits 1. The build installs what it needs; the action only provides the SDK.
+          packages: ''
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:

@@ -7,8 +7,11 @@
 # required-secret: TRAKT_CLIENT_SECRET | Trakt OAuth client secret, set on Workers whose profile lists it in worker_secrets.
 # The repository supplies wrangler.toml/wrangler.jsonc; nothing Worker-specific lives here.
 # Optional purpose-profile keys: working_directory (default "."), node_version
-# (default "22"), test_command (default "npm test --if-present"), worker_secrets (names of
-# central secrets to set on the Worker after deploying; only those forwarded below are allowed).
+# (default "22"), install_command (default: npm ci / npm install in working_directory; run in a
+# subshell, so a `cd` in it does not carry over), test_command (default "npm test --if-present"),
+# worker_secrets (names of central secrets to set on the Worker after deploying; only those
+# forwarded below are allowed), verify_command (run last, with DEPLOYMENT_URL set to Wrangler's
+# deployment URL; a failure fails the run).
 name: Cloudflare Worker Deploy
 run-name: ${{ inputs.target_repository_name }} · Cloudflare Worker Deploy
 on:
@@ -211,13 +214,22 @@ jobs:
 
       - name: Install and test
         working-directory: ${{ env.WORKER_DIR }}
+        env:
+          PROFILE_JSON: ${{ inputs.purpose_profile_json }}
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -f package-lock.json ]]; then npm ci; elif [[ -f package.json ]]; then npm install --no-audit --no-fund; fi
+          profile="${PROFILE_JSON:-}"; [[ -n "$profile" ]] || profile='{}'
+          install_command="$(jq -r '.install_command // ""' <<<"$profile")"
+          if [[ -n "$install_command" ]]; then
+            ( eval "$install_command" )
+          elif [[ -f package-lock.json ]]; then npm ci
+          elif [[ -f package.json ]]; then npm install --no-audit --no-fund
+          fi
           eval "$TEST_COMMAND"
 
       - name: Deploy with Wrangler
+        id: deploy
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -254,6 +266,23 @@ jobs:
           printf '%s' "$payload" > "$RUNNER_TEMP/worker-env.json"
           npx --yes wrangler@4 secret bulk "$RUNNER_TEMP/worker-env.json"
           rm -f "$RUNNER_TEMP/worker-env.json"
+
+      # A Worker whose profile names a verify_command proves the new version is serving before the
+      # run reports success. DEPLOYMENT_URL is the version's own address (workers.dev), so the check
+      # does not depend on where the public domain points.
+      - name: Verify deployment
+        working-directory: ${{ env.WORKER_DIR }}
+        env:
+          PROFILE_JSON: ${{ inputs.purpose_profile_json }}
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          profile="${PROFILE_JSON:-}"; [[ -n "$profile" ]] || profile='{}'
+          verify_command="$(jq -r '.verify_command // ""' <<<"$profile")"
+          if [[ -z "$verify_command" ]]; then exit 0; fi
+          test -n "${DEPLOYMENT_URL:-}" || { echo "::error::Wrangler reported no deployment URL to verify"; exit 1; }
+          eval "$verify_command"
 
   central_check_finish:
     if: ${{ always() }}

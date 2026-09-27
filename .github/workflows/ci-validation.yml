@@ -86,8 +86,12 @@ on:
 permissions:
   contents: read
 
+# The event name is part of the group: a branch with an open pull request delivers a push and a
+# pull_request event for the same commit, and without it the second run cancelled the first, so
+# the tracker watching the first reported a cancelled job as a failure. A newer push still cancels
+# the older push run, and a newer pull_request update the older one.
 concurrency:
-  group: ci-validation-${{ inputs.target_repository_name }}-${{ inputs.target_ref_name || inputs.target_sha }}-${{ inputs.source_workflow_path }}
+  group: ci-validation-${{ inputs.target_repository_name }}-${{ inputs.target_ref_name || inputs.target_sha }}-${{ inputs.source_workflow_path }}-${{ inputs.target_event_name }}
   cancel-in-progress: true
 
 jobs:

@@ -269,9 +269,25 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "270461827e058812404e79e1f6741b59888a5add8c36388e1e61f645a65eaf7d",
         },
     },
+    # Security-reviews a repository's pull requests with the OpenCode agent (read-only) and posts one
+    # comment; replaces the Copilot security review. Optional purpose profile: model,
+    # fallback_model, focus, opencode_version (see the workflow header).
+    ".github/workflows/opencode-security-review.yml": {
+        "name": "OpenCode Security Review",
+        "canonical_hash": "f92c8098bd65c2f6c0b73de4010998467baf20ddbb76202d2dddf4db75b28399",
+        "generalized": True,
+        "source_hashes": {
+            # HereLiesAz/azphalt:.github/workflows/security-review.yml (purpose profile below).
+            "f92c8098bd65c2f6c0b73de4010998467baf20ddbb76202d2dddf4db75b28399",
+        },
+    },
 }
 
 PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
+    # azphalt's security review: points the reviewer at the trust boundaries the store depends on.
+    "f92c8098bd65c2f6c0b73de4010998467baf20ddbb76202d2dddf4db75b28399": {
+        "focus": "Trust boundaries in this repository: the Cloudflare Worker in apps/storefront-worker (Stripe checkout and webhooks, Ed25519-signed entitlements, the HMAC buyer-session cookie, ADMIN_TOKEN-gated routes, POST /packages .azp signature and publisher-pin checks, the GitHub token it obtains); the .azp container verifiers in packages/azp and apps/storefront-cmp/azp (path safety, digests, signatures); the extension sandbox in packages/runtime-*; and the GitHub workflow files.",
+    },
     # illumera desktop and TV packages (HereLiesAz/illumera:.github/workflows/desktop-release.yml).
     "7d870343f471c1c3f1a3d2e0a6712af45c74b500a3b0b32f6069ac3493eb09c0": {"serialize": False, "prepare_node_version": "22", "prepare_command": "version=\"$(node -p \"require('./desktop/package.json').version.split('.').slice(0, 2).join('.')\").${TARGET_RUN_NUMBER}\"\ntest -n \"$version\" || { echo \"::error::could not read desktop/package.json version\" >&2; exit 1; }\necho \"version=$version\" >> \"$GITHUB_OUTPUT\"\necho \"tag=desktop-v$version\" >> \"$GITHUB_OUTPUT\"", "matrix": {"include": [{"os": "ubuntu-latest", "node_version": "22", "artifact_name": "desktop-linux", "prepare": "sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf", "build": "cd desktop && npm ci && npm run fetch-torrserver && npx tauri build --bundles deb,appimage", "artifact_path": "desktop/src-tauri/target/release/bundle/deb/*.deb\ndesktop/src-tauri/target/release/bundle/appimage/*.AppImage"}, {"os": "macos-latest", "node_version": "22", "artifact_name": "desktop-macos", "build": "cd desktop && npm ci && npm run fetch-torrserver && npx tauri build --bundles dmg", "artifact_path": "desktop/src-tauri/target/release/bundle/dmg/*.dmg"}, {"os": "windows-latest", "node_version": "22", "shell": "pwsh", "artifact_name": "desktop-windows", "build": "$ErrorActionPreference = 'Stop'; Set-Location desktop; npm ci; if ($LASTEXITCODE) { exit $LASTEXITCODE }; npm run fetch-torrserver; if ($LASTEXITCODE) { exit $LASTEXITCODE }; npx tauri build --bundles nsis; exit $LASTEXITCODE", "artifact_path": "desktop/src-tauri/target/release/bundle/nsis/*.exe"}, {"os": "ubuntu-latest", "node_version": "22", "artifact_name": "tv-packages", "build": "cd web && npm ci && npm run package:webos && npm run package:tizen && cd ../roku && npm ci && npm test && npm run package", "artifact_path": "web/packages/*\nroku/packages/*"}]}, "allow_partial": True, "release_when": "always", "tag_mode": "prepare-output", "force_tag": False, "prerelease": True, "title_template": "illumera desktop & TV $VERSION", "body_template": "Desktop (Windows .exe, macOS Apple-silicon .dmg, Linux .deb/.AppImage) and TV (LG webOS .ipk, unsigned Samsung Tizen .wgt, sideloadable Roku .zip) builds from commit $BUILD_SHA. The desktop app bundles TorrServer (GPL-3.0, https://github.com/YouROK/TorrServer) for torrent playback. The macOS build is unsigned: right-click the app and choose Open the first time."},
     # illumera's web app: a Vite build in web/ served as Worker static assets.

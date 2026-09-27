@@ -118,6 +118,9 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "1c85cedbe13e2334c6ec9d887ee06ee6fc81827311b8ed50278de225b90f17ba",
             "9e3b56da6fe8e52662f6e9fff25d1bfb9d4285673008a6b13cc4af7ccbed2e59",
             "888afc38304e373a2efcb201edf4be0eb263cb606ec4498f377e7972ba976fac",
+            # HereLiesAz/azphalt:.github/workflows/codeql.yml — actions, JS/TS, and the Kotlin in
+            # apps/storefront-cmp built by hand (purpose profile below).
+            "6649c58e422ab9b7f0b9ffcd8063f5af06360d14d60d48a054e8668342379c1d",
         },
     },
     ".github/workflows/website-sftp-deploy.yml": {
@@ -284,6 +287,14 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
 }
 
 PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
+    # azphalt's CodeQL: its Kotlin lives in apps/storefront-cmp, not at the root, so autobuild finds
+    # nothing. The desktop target and the azp verifier are compiled under the tracer on Java 17, with
+    # the version frozen; the other languages need no build.
+    "6649c58e422ab9b7f0b9ffcd8063f5af06360d14d60d48a054e8668342379c1d": {
+        "languages": ["actions", "java-kotlin", "javascript-typescript"],
+        "java_version": "17",
+        "build_command": "if [ \"$LANGUAGE\" = java-kotlin ]; then cd apps/storefront-cmp && chmod +x gradlew && AZPHALT_VERSION_FROZEN=1 ./gradlew compileKotlinDesktop :azp:compileKotlin --no-daemon --no-build-cache; fi",
+    },
     # azphalt's security review: points the reviewer at the trust boundaries the store depends on.
     "f92c8098bd65c2f6c0b73de4010998467baf20ddbb76202d2dddf4db75b28399": {
         "focus": "Trust boundaries in this repository: the Cloudflare Worker in apps/storefront-worker (Stripe checkout and webhooks, Ed25519-signed entitlements, the HMAC buyer-session cookie, ADMIN_TOKEN-gated routes, POST /packages .azp signature and publisher-pin checks, the GitHub token it obtains); the .azp container verifiers in packages/azp and apps/storefront-cmp/azp (path safety, digests, signatures); the extension sandbox in packages/runtime-*; and the GitHub workflow files.",

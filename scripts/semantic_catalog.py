@@ -172,7 +172,9 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "f8094e4c2c08c047dc17b2ccb7766dab14eeb775d66238b2c1f93c06fe995cce",
             "8d0bee7aa3ab78d04396737b8f3fdde27eb3f4164f501979a811cac647b569b7",
             "6ab641050248a526163bd43e627e6bf32c80a618fa1b0bfb4dbf3d24e1e8c697",
-            "57f245d8d8504ca1ef5146ccc3533aecc5d08c45ab5aa9416b3b619ba3c385a9",
+            # HereLiesAz/azphalt:.github/workflows/ci.yml — the pnpm workspace, the conformance
+            # fixtures and the Compose storefront (purpose profile below).
+            "37131af38d354a990188382a11ac85f23a67e4e72d054eb32b614b7ca17a6a61",
             "60c8cb4ab8364f08369e2fae3b9a8322825d0a596405966da26a7889e98501a8",
             "b662b29aa007235e906bac5ae76e05b1f0573f4599f76125dfbeda4acfd89864",
         },
@@ -316,9 +318,12 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
     "1606a824a8bd29eb3c6dbd9ca74f88692ee0abd248e910d9a1ee69acb279766c": {"kind": "flutter", "java_version": "17", "flutter_version": "3.16.0", "command": "flutter pub get\nflutter build apk --debug\nVERSION=$(grep '^version:' pubspec.yaml | head -n 1 | sed 's/^version:[[:space:]]*//' | tr -d '\\r ')\nif [ -z \"$VERSION\" ]; then VERSION=1.0.0; fi\nmv build/app/outputs/flutter-apk/app-debug.apk \"build/app/outputs/flutter-apk/IDEaz-$VERSION-debug.apk\"", "report_path": "build/app/outputs/flutter-apk/IDEaz-*-debug.apk", "report_when": "always", "retention_days": 7},
     "968458e29535134b77927dbc8ec6c653ad070e0b6e9cd30f7ac9063544eb14e9": {"tool": "maven", "java_version": "17", "publish_command": "mvn --batch-mode deploy"},
     "03e2f1e420d12d9cc0a7cdbd64594ac76c6f5025b064f43083b57b0714cf087a": {"tool": "gradle", "java_version": "21", "jitpack": True, "build_command": "./gradlew assemble", "publish_command": "./gradlew publish"},
-    "57f245d8d8504ca1ef5146ccc3533aecc5d08c45ab5aa9416b3b619ba3c385a9": {
+    # azphalt's PR/push CI: builds and tests the pnpm workspace (Node 24, pnpm via corepack), fails on
+    # drifted conformance fixtures, then builds the Compose storefront (Wasm, Android) and runs the
+    # shared-model and Kotlin .azp verifier tests. FROZEN: CI never bumps version.properties.
+    "37131af38d354a990188382a11ac85f23a67e4e72d054eb32b614b7ca17a6a61": {
         "kind": "node",
-        "node_version": "22",
+        "node_version": "24",
         "java_version": "17",
         "version_frozen": "1",
         "command": "corepack enable\npnpm install --frozen-lockfile\npnpm build\npnpm test\npnpm fixtures\ngit add -N conformance/fixtures\ngit diff --exit-code -- conformance/fixtures\nnode .github/scripts/write-google-services.mjs\n( cd apps/storefront-cmp && chmod +x gradlew && ./gradlew wasmJsBrowserDistribution --no-daemon --stacktrace && ./gradlew assembleDebug --no-daemon --stacktrace && ./gradlew desktopTest --no-daemon --stacktrace && ./gradlew :azp:test --no-daemon --stacktrace )",

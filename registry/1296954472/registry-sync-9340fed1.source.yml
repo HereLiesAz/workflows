@@ -85,13 +85,13 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: '9.15.0'
+      # No version here: pnpm/action-setup reads package.json's packageManager, and naming a second
+      # version makes it refuse to run.
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: pnpm

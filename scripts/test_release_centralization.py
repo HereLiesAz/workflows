@@ -105,6 +105,20 @@ assert tracker_doc['jobs']['version_contract']['needs'] == ['central']
 locate_run = tracker_doc['jobs']['central']['steps'][0]['run']
 assert 'statuses/$TARGET_SHA' in locate_run
 assert 'No run of this workflow was started' in locate_run
+assert '::error::No central run of' in locate_run
+# paths-ignore on push: the gateway may drop the event, so a missing run stays a notice.
+assert tracker_doc['jobs']['central']['steps'][0]['env']['REQUIRE_RUN_ON_PUSH'] == 'false'
+_strict_tracker = load_yaml(_build_target_run_tracker(
+    build_proxy(
+        tracker_source.replace("    paths-ignore:\n      - version.properties\n", ""),
+        '.github/workflows/release-aab.yml',
+        '09adb91f6846d345ebb261ae428ad9412bfbfac6fe1d1192a726b84546b46928',
+        'Release AAB to Play',
+    ),
+    '.github/workflows/release-aab.yml',
+    Path('.github/workflows/android-play-release.yml').read_text(encoding='utf-8'),
+))
+assert _strict_tracker['jobs']['central']['steps'][0]['env']['REQUIRE_RUN_ON_PUSH'] == 'true'
 follow_run = tracker_doc['jobs']['build_and_publish']['steps'][0]['run']
 assert '/logs' in follow_run and 'curl ' not in follow_run and 'dispatches' not in follow_run
 

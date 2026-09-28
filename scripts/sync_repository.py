@@ -518,6 +518,21 @@ for _ in $(seq 1 80); do
   fi
   sleep 15
 done
+# A push to the default branch of the repository itself (not a fork) without a CI-skip
+# token must start a central run; its absence means nothing was built or published even
+# though every follower job would be skipped and the run would show green. Only trackers
+# whose push trigger has no path filters opt in (REQUIRE_RUN_ON_PUSH), because the gateway
+# may legitimately drop a push for a path filter the tracker evaluated differently.
+if [[ "${REQUIRE_RUN_ON_PUSH:-false}" == true && "$GITHUB_EVENT_NAME" == push ]]; then
+  default_branch="$(jq -r '.repository.default_branch // empty' "$GITHUB_EVENT_PATH")"
+  is_fork="$(jq -r '.repository.fork // false' "$GITHUB_EVENT_PATH")"
+  skipped="$(jq -r '[(.head_commit.message // ""), (.commits // [] | map(.message // "") | select(length > 0) | all(ascii_downcase | test("\\[(skip ci|ci skip|no ci|skip actions|actions skip)\\]")))]
+    | (.[0] | ascii_downcase | test("\\[(skip ci|ci skip|no ci|skip actions|actions skip)\\]")) or (.[1] == true)' "$GITHUB_EVENT_PATH")"
+  if [[ -n "$default_branch" && "$GITHUB_REF" == "refs/heads/$default_branch" && "$is_fork" != true && "$skipped" != true ]]; then
+    echo "::error::No central run of $STATUS_CONTEXT appeared for push $TARGET_SHA to $default_branch within 20 minutes; nothing was built or published. Check the HereLiesAz/workflows gateway."
+    exit 1
+  fi
+fi
 echo "::notice::No run of this workflow was started for this event."
 '''
 
@@ -588,6 +603,7 @@ def _build_target_run_tracker(proxy: str, source_path: str, central_text: str) -
                     "GH_TOKEN": "${{ github.token }}",
                     "STATUS_CONTEXT": source_path,
                     "TARGET_SHA": "${{ github.event.pull_request.head.sha || github.sha }}",
+                    "REQUIRE_RUN_ON_PUSH": "true" if _push_without_path_filters(doc.get("on")) else "false",
                 },
                 "shell": "bash",
                 "run": _LOCATE_SCRIPT,
@@ -617,6 +633,21 @@ def _build_target_run_tracker(proxy: str, source_path: str, central_text: str) -
         }
     doc["jobs"] = jobs
     return header + dump_yaml(doc)
+
+
+def _push_without_path_filters(on_value) -> bool:
+    """True when the workflow runs on push and that trigger carries no path filters."""
+
+    if isinstance(on_value, str):
+        return on_value == "push"
+    if isinstance(on_value, list):
+        return "push" in on_value
+    if isinstance(on_value, dict) and "push" in on_value:
+        push = on_value.get("push")
+        if not isinstance(push, dict):
+            return True
+        return "paths" not in push and "paths-ignore" not in push
+    return False
 
 
 def _need_list(value) -> list[str]:

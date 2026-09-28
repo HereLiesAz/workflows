@@ -121,17 +121,24 @@ jobs:
 
       - name: Route human manual invocation
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.request_b64 == '' }}
+        # Inputs arrive as environment variables, never spliced into the script: JSON's own
+        # double quotes used to close the bash string (turning {"mode":"pinned"} into
+        # {mode:pinned}), and any field could inject shell.
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          MANUAL_REPOSITORY: ${{ inputs.repository }}
+          MANUAL_SOURCE_WORKFLOW_PATH: ${{ inputs.source_workflow_path }}
+          MANUAL_TARGET_REF: ${{ inputs.target_ref }}
+          MANUAL_INPUTS_JSON: ${{ inputs.inputs_json }}
         shell: bash
         run: |
           set -euo pipefail
-          [[ -n "${{ inputs.repository }}" ]] || {
+          [[ -n "$MANUAL_REPOSITORY" ]] || {
             echo "::error::Manual dispatch requires repository."
             exit 1
           }
           python scripts/dispatch_manual.py \
-            --repository "${{ inputs.repository }}" \
-            --source-workflow-path "${{ inputs.source_workflow_path }}" \
-            --target-ref "${{ inputs.target_ref }}" \
-            --inputs-json "${{ inputs.inputs_json }}"
+            --repository "$MANUAL_REPOSITORY" \
+            --source-workflow-path "$MANUAL_SOURCE_WORKFLOW_PATH" \
+            --target-ref "$MANUAL_TARGET_REF" \
+            --inputs-json "$MANUAL_INPUTS_JSON"

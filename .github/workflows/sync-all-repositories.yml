@@ -317,6 +317,13 @@ jobs:
                 fi
               fi
 
+              # Every shard rewrites the Worker's event-consumer map with only its own
+              # repositories' rows, so the shard copies always differ. It is regenerated
+              # from the folded registry below instead.
+              if [[ "$path" == "worker/src/event-consumers.js" ]]; then
+                continue
+              fi
+
               if [[ -n "${folded_paths[$path]:-}" ]]; then
                 previous="${folded_paths[$path]}"
                 current_blob="$(git rev-parse "origin/$branch:$path" 2>/dev/null || true)"
@@ -342,6 +349,12 @@ jobs:
             printf '%s\n' "$NEWEST_REPOSITORY" > .controller/repository-scrape-cursor
             git add .controller/repository-scrape-cursor
           fi
+
+          # Regenerate the Worker's webhook event-consumer map from the folded registry, so
+          # the same atomic commit carries it (validate-controller.yml then redeploys the Worker).
+          python -m pip install --disable-pip-version-check --quiet 'ruamel.yaml==0.18.15'
+          python scripts/generate_event_consumers.py
+          git add -- worker/src/event-consumers.js
 
           if git diff --cached --quiet; then
             echo "Shard branches contained no central changes." >> "$GITHUB_STEP_SUMMARY"

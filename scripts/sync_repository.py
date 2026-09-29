@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import re
+import time
 import urllib.parse
 
 try:
@@ -18,6 +19,11 @@ try:
 except ImportError:
     from repository_workflow_mode import activate as activate_repository_mode
     from repository_workflow_mode import finalize_manifest
+
+try:
+    from . import generate_event_consumers as event_consumers
+except ImportError:
+    import generate_event_consumers as event_consumers
 
 try:
     from .version_contract import (
@@ -983,6 +989,54 @@ def _ensure_version_contract(gh, repository: str, default_branch: str, dry_run: 
     }
 
 
+def _refresh_event_consumers(gh, repository_id: int, attempts: int = 5) -> dict:
+    """Update this repository's row of the Worker's webhook event-consumer map.
+
+    The Worker drops webhook events that no active registered workflow consumes, so a
+    registration that changes a repository's triggers must also change the map the Worker
+    is built from, in the same place the manifest was written (main, or this run's shard
+    branch). Only this repository's row is replaced; a concurrent sync of another
+    repository that wins the race makes the PUT conflict, and the row is re-applied on
+    top of the fresh file. validate-controller.yml redeploys the Worker when it changes.
+    """
+    manifest = core.load_manifest(gh, repository_id)
+    if not (manifest.get("repository") or {}).get("id"):
+        return {"changed": False, "reason": "no registry manifest"}
+
+    def read_source(registry_source: str) -> str:
+        text, _ = gh.get_file(core.CENTRAL_REPOSITORY, registry_source, ref="main")
+        return text
+
+    key, entry = event_consumers.repository_entry(manifest, read_source)
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            current_text, _ = gh.get_file(core.CENTRAL_REPOSITORY, event_consumers.MODULE_PATH, ref="main")
+            consumers = event_consumers.parse_module(current_text)
+        except core.ApiError as exc:
+            if "-> 404:" not in str(exc):
+                raise
+            consumers = {}
+        if consumers.get(key) == entry:
+            return {"changed": False, "events": entry["events"]}
+        consumers[key] = entry
+        try:
+            gh.put_file(
+                core.CENTRAL_REPOSITORY,
+                event_consumers.MODULE_PATH,
+                event_consumers.render_module(consumers),
+                f"Update Worker event consumers for {entry['repository']}",
+                branch="main",
+            )
+            return {"changed": True, "events": entry["events"]}
+        except core.ApiError as exc:
+            if "-> 409:" not in str(exc) and "-> 422:" not in str(exc):
+                raise
+            last_error = exc
+            time.sleep(attempt)
+    raise RuntimeError(f"Could not update {event_consumers.MODULE_PATH}: {last_error}")
+
+
 def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
     # Repository mode is mandatory. The legacy core is retained only as a compiler
     # engine; it is never allowed to publish shared_variant families.
@@ -1061,6 +1115,9 @@ def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
             before_manifest,
             after_manifest,
         )
+
+    if not dry_run:
+        result["event_consumers"] = _refresh_event_consumers(gh, repository_id)
 
     for row in result.get("results") or []:
         if not isinstance(row, dict):

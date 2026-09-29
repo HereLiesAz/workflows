@@ -1,5 +1,6 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { receiveCrashReport } from "./crash-report.js";
+import { webhookDropReason } from "./event-filter.js";
 
 const GITHUB_ISSUER = "https://token.actions.githubusercontent.com";
 const GITHUB_JWKS = "https://token.actions.githubusercontent.com/.well-known/jwks";
@@ -266,6 +267,20 @@ async function receiveRepositoryWebhook(request, env) {
   if (String(repository.owner?.id) !== OWNER_ID ||
       String(repository.owner?.login || "").toLowerCase() !== OWNER_LOGIN.toLowerCase()) {
     throw new HttpError(403, "Webhook repository is not owned by HereLiesAz");
+  }
+
+  // Forward only events some active registered workflow of this repository is triggered by
+  // (plus push, which can request a re-sync). Everything else, e.g. workflow_run, would start a
+  // gateway run that can never dispatch anything. See scripts/generate_event_consumers.py.
+  const dropReason = webhookDropReason(repository.id, eventName);
+  if (dropReason) {
+    return json({
+      ok: true,
+      ignored: true,
+      repository: repository.full_name,
+      event_name: eventName,
+      reason: dropReason,
+    }, 202);
   }
 
   const context = await normalizeWebhookContext(env, eventName, event);

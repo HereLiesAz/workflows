@@ -66,6 +66,8 @@ jobs:
             scripts/report_workflow_purposes.py \
             scripts/test_release_centralization.py \
             scripts/test_version_contract.py \
+            scripts/generate_event_consumers.py \
+            scripts/test_event_consumers.py \
             scripts/test_workflow_policy.py \
             scripts/version_contract.py
 
@@ -225,8 +227,17 @@ jobs:
       - name: Regression-test canonical version contract
         run: python scripts/test_version_contract.py
 
+      - name: Check Worker event-consumer map is current and has no routing gaps
+        run: python scripts/test_event_consumers.py
+
       - name: Check Worker JavaScript
-        run: node --check worker/src/index.js
+        run: |
+          node --check worker/src/index.js
+          node --check worker/src/event-filter.js
+          node --check worker/src/event-consumers.js
+
+      - name: Unit-test Worker webhook event filter
+        run: node --test worker/test/event-filter.test.mjs
 
       - name: Smoke test public repository scraper
         shell: bash

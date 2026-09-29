@@ -1,7 +1,7 @@
 # Generated for HereLiesAz/aive:.github/workflows/live-runtime-verification.yml.
 # Edit the registered source or synchronizer, not this compiled workflow.
 # Generated shared catalog workflow. Do not edit by hand.
-# catalog-source: shared/31fee0a56376bf4b88885284c49c999f43a524f1c672b7ccfb81da330ffe3e88
+# catalog-source: shared/f46ff1e64c1e28c36b8921918d66512068f85c42f6536f5c3bab5b372ec85115
 name: aive · Live Runtime Verification
 on:
   workflow_dispatch:
@@ -125,7 +125,7 @@ jobs:
     timeout-minutes: 20
     env:
       AIVE_LIVE_RUNTIME_VERIFICATION: '1'
-      AIVE_LIVE_PROVIDER: ${{ fromJSON(inputs.target_inputs_json).provider }}
+      AIVE_LIVE_PROVIDER: ${{ fromJSON(inputs.target_inputs_json).provider || (inputs.target_event_name == 'pull_request' && 'kilo' || '') }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

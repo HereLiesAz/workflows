@@ -132,7 +132,8 @@ export const EVENT_CONSUMERS = {
   "936307432": {
     "repository": "HereLiesAz/GraffitiXR",
     "events": [
-      "push"
+      "push",
+      "workflow_dispatch"
     ]
   },
   "962304765": {

@@ -24,7 +24,8 @@ jobs:
     timeout-minutes: 20
     env:
       AIVE_LIVE_RUNTIME_VERIFICATION: "1"
-      AIVE_LIVE_PROVIDER: ${{ inputs.provider }}
+      # Pull-request runs take no input; they verify the keyless Kilo path.
+      AIVE_LIVE_PROVIDER: ${{ inputs.provider || (github.event_name == 'pull_request' && 'kilo' || '') }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

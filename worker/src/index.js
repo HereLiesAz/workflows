@@ -1,6 +1,6 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { receiveCrashReport } from "./crash-report.js";
-import { webhookDropReason } from "./event-filter.js";
+import { pushDropReason, webhookDropReason } from "./event-filter.js";
 
 const GITHUB_ISSUER = "https://token.actions.githubusercontent.com";
 const GITHUB_JWKS = "https://token.actions.githubusercontent.com/.well-known/jwks";
@@ -272,7 +272,8 @@ async function receiveRepositoryWebhook(request, env) {
   // Forward only events some active registered workflow of this repository is triggered by
   // (plus push, which can request a re-sync). Everything else, e.g. workflow_run, would start a
   // gateway run that can never dispatch anything. See scripts/generate_event_consumers.py.
-  const dropReason = webhookDropReason(repository.id, eventName);
+  const dropReason = webhookDropReason(repository.id, eventName) ||
+    (eventName === "push" ? pushDropReason(event) : null);
   if (dropReason) {
     return json({
       ok: true,

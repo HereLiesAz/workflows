@@ -18,3 +18,36 @@ export function webhookDropReason(repositoryId, eventName, consumers = EVENT_CON
   }
   return null;
 }
+
+const CI_SKIP_TOKENS = ["[skip ci]", "[ci skip]", "[no ci]", "[skip actions]", "[actions skip]"];
+
+function hasSkipToken(message) {
+  const text = String(message || "").toLowerCase();
+  return CI_SKIP_TOKENS.some((token) => text.includes(token));
+}
+
+/**
+ * Drop push deliveries the gateway would route to nothing, before they cost a queued gateway run.
+ *
+ * Every gateway run competes for the account's concurrent-job limit with real builds, so a push
+ * that can never start a workflow only delays the ones that can (2026-09-29: Graffux release
+ * pushes waited 85 minutes in that queue and their trackers gave up). Mirrors
+ * scripts/dispatch_request.py, which already ignores these after the run has started:
+ * - branch/tag deletions (GitHub never runs push workflows for them; nothing is to be synced);
+ * - pushes whose head commit, or every commit, carries a CI-skip token (the controller's own
+ *   "chore(version): … [skip ci]" commits land here after every release).
+ * Returns null to forward, or the reason for dropping.
+ */
+export function pushDropReason(event) {
+  if (!event || typeof event !== "object") return null;
+  if (event.deleted === true) return "Push deletes a ref; no workflow runs for it";
+  const head = event.head_commit && typeof event.head_commit === "object" ? event.head_commit : null;
+  const commits = Array.isArray(event.commits)
+    ? event.commits.filter((commit) => commit && typeof commit === "object")
+    : [];
+  if ((head && hasSkipToken(head.message)) ||
+      (commits.length > 0 && commits.every((commit) => hasSkipToken(commit.message)))) {
+    return "Push carries an explicit CI-skip token";
+  }
+  return null;
+}

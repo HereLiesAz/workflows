@@ -512,8 +512,12 @@ _LOCATE_SCRIPT = r'''set -euo pipefail
 created_at="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .created_at)"
 threshold="$(date -u -d "$created_at - 5 seconds" +%s)"
 # The gateway skips some events a tracker still sees (unmatched filters, forks, manual
-# runs, CI-skip pushes). No central status within 20 minutes means no central run.
-for _ in $(seq 1 80); do
+# runs, CI-skip pushes). No central status within 90 minutes means no central run.
+# The window is long on purpose: a gateway run can sit queued behind the account's
+# concurrent-job limit for over an hour when long builds are running (2026-09-29:
+# Graffux pushes at 17:04 and 17:46 were routed at 18:28 and 19:12), and a shorter
+# window gave up on runs that then built and published anyway.
+for _ in $(seq 1 360); do
   url="$(gh api "repos/$GITHUB_REPOSITORY/statuses/$TARGET_SHA?per_page=100" --jq \
     "[.[] | select(.context == \"$STATUS_CONTEXT\" and ((.updated_at | fromdateiso8601) >= $threshold))][0].target_url // empty")"
   run_id="$(sed -nE 's#.*/HereLiesAz/workflows/actions/runs/([0-9]+).*#\1#p' <<<"$url")"
@@ -585,7 +589,7 @@ def _build_target_run_tracker(proxy: str, source_path: str, central_text: str) -
         "central": {
             "name": "Start",
             "runs-on": "ubuntu-latest",
-            "timeout-minutes": 25,
+            "timeout-minutes": 100,
             "outputs": {"run_id": "${{ steps.locate.outputs.run_id }}"},
             "steps": [{
                 "id": "locate",

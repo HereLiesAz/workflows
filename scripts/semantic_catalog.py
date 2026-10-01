@@ -178,6 +178,9 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             # HereLiesAz/onwordly:.github/workflows/experiment.yml — one-off/repeatable
             # arithmetic curriculum experiment; shared CI runner with artifact capture.
             "a14103076f04d0dcf7520701410782ec0ef741cd41fcbb42c54b8b7c169be69a",
+            # HereLiesAz/onwordly:.github/workflows/kaggle-experiment.yml —
+            # Experiment 001 submitted to Kaggle GPU compute by the shared executor.
+            "89de5ece52df893092d584de3375396b32bc294f5212bc274130a540424a93fc",
             # HereLiesAz/azphalt:.github/workflows/ci.yml — the pnpm workspace, the conformance
             # fixtures and the Compose storefront (purpose profile below).
             "37131af38d354a990188382a11ac85f23a67e4e72d054eb32b614b7ca17a6a61",
@@ -439,6 +442,18 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
         "command": "pytest -q\nonwordly-arithmetic",
         "report_path": "results/001-arithmetic-curriculum/**",
         "report_when": "always",
+        "retention_days": 30,
+        "timeout_minutes": 360,
+    },
+    "89de5ece52df893092d584de3375396b32bc294f5212bc274130a540424a93fc": {
+        "kind": "kaggle",
+        "title": "Onwordly Experiment 001",
+        "kernel_slug": "onwordly-experiment-001",
+        "accelerator": "NvidiaTeslaT4",
+        "setup_command": "python -m pip install --upgrade pip\npip install -e \".[train,test]\"",
+        "command": "pytest -q\nonwordly-arithmetic --output /kaggle/working/results/001-arithmetic-curriculum\nonwordly-arithmetic-report /kaggle/working/results/001-arithmetic-curriculum/summary.json --output /kaggle/working/results/001-arithmetic-curriculum/RESULTS.md",
+        "kaggle_timeout_seconds": 21600,
+        "poll_seconds": 30,
         "retention_days": 30,
         "timeout_minutes": 360,
     },

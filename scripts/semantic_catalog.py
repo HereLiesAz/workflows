@@ -175,6 +175,9 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "f8094e4c2c08c047dc17b2ccb7766dab14eeb775d66238b2c1f93c06fe995cce",
             "8d0bee7aa3ab78d04396737b8f3fdde27eb3f4164f501979a811cac647b569b7",
             "6ab641050248a526163bd43e627e6bf32c80a618fa1b0bfb4dbf3d24e1e8c697",
+            # HereLiesAz/onwordly:.github/workflows/experiment.yml — one-off/repeatable
+            # arithmetic curriculum experiment; shared CI runner with artifact capture.
+            "a14103076f04d0dcf7520701410782ec0ef741cd41fcbb42c54b8b7c169be69a",
             # HereLiesAz/azphalt:.github/workflows/ci.yml — the pnpm workspace, the conformance
             # fixtures and the Compose storefront (purpose profile below).
             "37131af38d354a990188382a11ac85f23a67e4e72d054eb32b614b7ca17a6a61",
@@ -427,6 +430,17 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
         "python_versions": ["3.10", "3.11", "3.12"],
         "install_command": "python -m pip install --upgrade pip\npip install -r requirements.txt\npip install -e \".[dev]\"",
         "command": "pytest -q",
+    },
+    "a14103076f04d0dcf7520701410782ec0ef741cd41fcbb42c54b8b7c169be69a": {
+        "kind": "python",
+        "os": ["ubuntu-latest"],
+        "python_versions": ["3.12"],
+        "install_command": "python -m pip install --upgrade pip\npip install -e \".[train,test]\"",
+        "command": "pytest -q\nonwordly-arithmetic",
+        "report_path": "results/001-arithmetic-curriculum/**",
+        "report_when": "always",
+        "retention_days": 30,
+        "timeout_minutes": 360,
     },
     "1e1a288d8b11d79b01237145826c5d0dd03a1398dc40685fefbe5ab1e9ec66e7": {
         "kind": "python",

@@ -138,6 +138,7 @@ jobs:
         os: ${{ fromJSON(inputs.purpose_profile_json).os || fromJSON('["ubuntu-latest"]') }}
         python-version: ${{ fromJSON(inputs.purpose_profile_json).python_versions || fromJSON('["3.12"]') }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ fromJSON(inputs.purpose_profile_json).timeout_minutes || 360 }}
     permissions:
       contents: read
     steps:
@@ -167,6 +168,15 @@ jobs:
             bash -eo pipefail -c "$INSTALL_COMMAND"
           fi
           bash -eo pipefail -c "$VALIDATE_COMMAND"
+
+      - name: Upload Python validation artifacts
+        if: ${{ always() && fromJSON(inputs.purpose_profile_json).report_path != null && fromJSON(inputs.purpose_profile_json).report_path != '' && (fromJSON(inputs.purpose_profile_json).report_when != 'failure' || failure()) }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-reports-${{ inputs.target_repository_name }}-${{ github.run_id }}
+          path: ${{ fromJSON(inputs.purpose_profile_json).report_path }}
+          retention-days: ${{ fromJSON(inputs.purpose_profile_json).retention_days || 7 }}
+          if-no-files-found: warn
 
   validate_node:
     needs: central_check_start

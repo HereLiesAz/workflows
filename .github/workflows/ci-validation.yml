@@ -431,21 +431,23 @@ jobs:
           bash -eo pipefail -c "$VALIDATE_COMMAND"
 
 
+
   validate_kaggle:
     needs: central_check_start
-    if: \${{ fromJSON(inputs.purpose_profile_json).kind == 'kaggle' && (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) }}
+    if: ${{ fromJSON(inputs.purpose_profile_json).kind == 'kaggle' && (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) }}
     runs-on: ubuntu-latest
-    timeout-minutes: \${{ fromJSON(inputs.purpose_profile_json).timeout_minutes || 360 }}
+    timeout-minutes: ${{ fromJSON(inputs.purpose_profile_json).timeout_minutes || 360 }}
+    environment: ${{ inputs.target_repository_name }}
     permissions:
       contents: read
     env:
-      TARGET_REPOSITORY: \${{ inputs.target_repository }}
-      TARGET_SHA: \${{ inputs.target_sha }}
-      PURPOSE_PROFILE_JSON: \${{ inputs.purpose_profile_json }}
-      KAGGLE_API_TOKEN: \${{ secrets.KAGGLE_API_TOKEN }}
-      KAGGLE_USERNAME: \${{ secrets.KAGGLE_USERNAME || vars.KAGGLE_USERNAME }}
-      KAGGLE_KEY: \${{ secrets.KAGGLE_KEY }}
-      KAGGLE_JSON: \${{ secrets.KAGGLE_JSON }}
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_SHA: ${{ inputs.target_sha }}
+      PURPOSE_PROFILE_JSON: ${{ inputs.purpose_profile_json }}
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME || vars.KAGGLE_USERNAME }}
+      KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+      KAGGLE_JSON: ${{ secrets.KAGGLE_JSON }}
     steps:
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -463,24 +465,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ -n "\${KAGGLE_JSON:-}" ]; then
+          if [ -n "${KAGGLE_JSON:-}" ]; then
             mkdir -p "$HOME/.kaggle"
             printf '%s' "$KAGGLE_JSON" > "$HOME/.kaggle/kaggle.json"
             chmod 600 "$HOME/.kaggle/kaggle.json"
-            if [ -z "\${KAGGLE_USERNAME:-}" ]; then
+            if [ -z "${KAGGLE_USERNAME:-}" ]; then
               KAGGLE_USERNAME="$(jq -r '.username // empty' "$HOME/.kaggle/kaggle.json")"
               echo "KAGGLE_USERNAME=$KAGGLE_USERNAME" >> "$GITHUB_ENV"
             fi
           fi
 
-          if [ -z "\${KAGGLE_API_TOKEN:-}" ] && { [ -z "\${KAGGLE_USERNAME:-}" ] || [ -z "\${KAGGLE_KEY:-}" ]; } && [ ! -f "$HOME/.kaggle/kaggle.json" ]; then
+          if [ -z "${KAGGLE_API_TOKEN:-}" ] && { [ -z "${KAGGLE_USERNAME:-}" ] || [ -z "${KAGGLE_KEY:-}" ]; } && [ ! -f "$HOME/.kaggle/kaggle.json" ]; then
             echo "::error::No Kaggle credentials are available to the central workflow."
             exit 1
           fi
 
-          # A kernel ID requires the account slug. Prefer the configured username;
-          # if only token auth is present, try to infer it from an existing owned kernel.
-          owner="\${KAGGLE_USERNAME:-}"
+          owner="${KAGGLE_USERNAME:-}"
           if [ -z "$owner" ]; then
             owned="$(kaggle kernels list -m -v --page-size 1 2>/dev/null || true)"
             owner="$(awk -F, 'NR==2 {split($1,a,"/"); print a[1]}' <<<"$owned")"
@@ -490,14 +490,12 @@ jobs:
             exit 1
           fi
           echo "owner=$owner" >> "$GITHUB_OUTPUT"
-
-          # Verify the credential without printing it.
           kaggle kernels list -m --page-size 1 >/dev/null
 
       - name: Build Kaggle kernel package
         id: package
         env:
-          KAGGLE_OWNER: \${{ steps.kaggle-auth.outputs.owner }}
+          KAGGLE_OWNER: ${{ steps.kaggle-auth.outputs.owner }}
         shell: bash
         run: |
           set -euo pipefail
@@ -507,6 +505,7 @@ jobs:
           python - <<'PY'
           import json
           import os
+          import textwrap
           from pathlib import Path
 
           profile = json.loads(os.environ["PURPOSE_PROFILE_JSON"])
@@ -520,7 +519,8 @@ jobs:
           setup_command = profile.get("setup_command", "")
           command = profile["command"]
 
-          script = f'''from __future__ import annotations
+          script = f"""\
+          from __future__ import annotations
           import shutil
           import subprocess
           from pathlib import Path
@@ -543,9 +543,7 @@ jobs:
           finally:
               if target.exists():
                   shutil.rmtree(target)
-          '''
-          # Remove the indentation introduced by this workflow's heredoc.
-          import textwrap
+          """
           Path("kaggle-kernel/experiment.py").write_text(textwrap.dedent(script), encoding="utf-8")
 
           metadata = {
@@ -567,7 +565,6 @@ jobs:
               json.dumps(metadata, indent=2) + "\n",
               encoding="utf-8",
           )
-          print(f"kernel_ref={owner}/{slug}")
           PY
 
           kernel_ref="$(python -c 'import json; print(json.load(open("kaggle-kernel/kernel-metadata.json"))["id"])')"
@@ -581,9 +578,9 @@ jobs:
 
       - name: Submit Kaggle GPU run
         env:
-          KERNEL_REF: \${{ steps.package.outputs.kernel_ref }}
-          ACCELERATOR: \${{ steps.package.outputs.accelerator }}
-          KAGGLE_TIMEOUT_SECONDS: \${{ steps.package.outputs.timeout_seconds }}
+          KERNEL_REF: ${{ steps.package.outputs.kernel_ref }}
+          ACCELERATOR: ${{ steps.package.outputs.accelerator }}
+          KAGGLE_TIMEOUT_SECONDS: ${{ steps.package.outputs.timeout_seconds }}
         shell: bash
         run: |
           set -euo pipefail
@@ -592,9 +589,9 @@ jobs:
 
       - name: Wait for Kaggle run
         env:
-          KERNEL_REF: \${{ steps.package.outputs.kernel_ref }}
-          KAGGLE_TIMEOUT_SECONDS: \${{ steps.package.outputs.timeout_seconds }}
-          POLL_SECONDS: \${{ steps.package.outputs.poll_seconds }}
+          KERNEL_REF: ${{ steps.package.outputs.kernel_ref }}
+          KAGGLE_TIMEOUT_SECONDS: ${{ steps.package.outputs.timeout_seconds }}
+          POLL_SECONDS: ${{ steps.package.outputs.poll_seconds }}
         shell: bash
         run: |
           set -euo pipefail
@@ -616,21 +613,21 @@ jobs:
           exit 124
 
       - name: Download Kaggle outputs
-        if: \${{ success() }}
+        if: ${{ success() }}
         env:
-          KERNEL_REF: \${{ steps.package.outputs.kernel_ref }}
+          KERNEL_REF: ${{ steps.package.outputs.kernel_ref }}
         shell: bash
         run: |
           set -euo pipefail
           kaggle kernels output "$KERNEL_REF" -p kaggle-output -o
 
       - name: Upload Kaggle outputs
-        if: \${{ always() }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: kaggle-\${{ inputs.target_repository_name }}-\${{ github.run_id }}
+          name: kaggle-${{ inputs.target_repository_name }}-${{ github.run_id }}
           path: kaggle-output/
-          retention-days: \${{ fromJSON(inputs.purpose_profile_json).retention_days || 30 }}
+          retention-days: ${{ fromJSON(inputs.purpose_profile_json).retention_days || 30 }}
           if-no-files-found: warn
 
   central_check_finish:

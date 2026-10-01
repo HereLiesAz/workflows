@@ -108,16 +108,13 @@ export default {
   },
 };
 
-async function scrapePublicRepositories(url) {
+async function scrapePublicRepositories() {
   const repositories = [];
   const seen = new Set();
-  const stop = String(url.searchParams.get("stop") || "").trim();
-  const stopFullName = stop && stop.includes("/") ? stop : (stop ? `${OWNER_LOGIN}/${stop}` : "");
-  let stopFound = false;
   let pageUrl = `https://github.com/${OWNER_LOGIN}?tab=repositories&q=&type=public&language=&sort=`;
   let pagesScanned = 0;
 
-  while (pageUrl && pagesScanned < 20 && !stopFound) {
+  while (pageUrl && pagesScanned < 50) {
     pagesScanned += 1;
     const response = await fetch(pageUrl, {
       headers: {
@@ -137,7 +134,6 @@ async function scrapePublicRepositories(url) {
       element(element) {
         const href = element.getAttribute("href") || "";
 
-        // Preserve GitHub's own pagination URL instead of reconstructing it.
         if (href.includes("tab=repositories") && href.includes("type=public") && /[?&]page=\d+/.test(href)) {
           try {
             const candidate = new URL(href, "https://github.com");
@@ -146,17 +142,12 @@ async function scrapePublicRepositories(url) {
           } catch {}
         }
 
-        if (stopFound) return;
         const match = href.match(/^\/HereLiesAz\/([A-Za-z0-9_.-]+)$/i);
         if (!match) return;
         const name = match[1];
         if (name.toLowerCase() === "workflows") return;
         const fullName = `${OWNER_LOGIN}/${name}`;
 
-        if (stopFullName && fullName.toLowerCase() === stopFullName.toLowerCase()) {
-          stopFound = true;
-          return;
-        }
         if (!seen.has(fullName)) {
           seen.add(fullName);
           repositories.push(fullName);
@@ -166,12 +157,12 @@ async function scrapePublicRepositories(url) {
     });
     await rewriter.transform(response).text();
 
-    if (stopFound || foundOnPage === 0) break;
+    if (foundOnPage === 0) break;
     pageUrl = nextHref;
   }
 
-  if (stopFullName && !stopFound) {
-    throw new HttpError(409, `Expected repository cursor not found: ${stopFullName}`);
+  if (repositories.length === 0) {
+    throw new HttpError(502, "GitHub public repository scrape returned no repositories");
   }
 
   return json({
@@ -179,10 +170,8 @@ async function scrapePublicRepositories(url) {
     owner: OWNER_LOGIN,
     repositories,
     count: repositories.length,
-    stop_repository: stopFullName || null,
-    stop_found: stopFound,
     pages_scanned: pagesScanned,
-    source: "github-public-html",
+    source: "github-public-html-full-scan",
   });
 }
 

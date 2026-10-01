@@ -36,7 +36,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: remote-result-${{ inputs.target_repository }}-${{ inputs.source_workflow_path }}-${{ inputs.run_ref }}
+  group: remote-result-${{ inputs.target_check_sha }}-${{ inputs.source_workflow_path }}
   cancel-in-progress: true
 
 jobs:

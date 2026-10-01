@@ -183,7 +183,7 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "89de5ece52df893092d584de3375396b32bc294f5212bc274130a540424a93fc",
             # HereLiesAz/aive:.github/workflows/orchestration-specialist-training.yml —
             # Orchestration v2 specialist training on centralized Kaggle GPU compute.
-            "88dc654f1cd0fed54783f4f0f4d5e539bdfd481138a2b0381b678079272d73bc",
+            "8d6665414985e370ab0f1227d15102696a92757585ddbb4266b5a4fe1f5c105b",
             # HereLiesAz/azphalt:.github/workflows/ci.yml — the pnpm workspace, the conformance
             # fixtures and the Compose storefront (purpose profile below).
             "37131af38d354a990188382a11ac85f23a67e4e72d054eb32b614b7ca17a6a61",
@@ -461,7 +461,7 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
         "retention_days": 30,
         "timeout_minutes": 360,
     },
-    "88dc654f1cd0fed54783f4f0f4d5e539bdfd481138a2b0381b678079272d73bc": {
+    "8d6665414985e370ab0f1227d15102696a92757585ddbb4266b5a4fe1f5c105b": {
         "kind": "kaggle",
         "title": "Aive Orchestration Specialists v2",
         "kernel_slug": "aive-orchestration-specialists-v2",
@@ -477,6 +477,7 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
         "release_title": "orchestration-utilities-v2",
         "release_notes": "Gated Aive orchestration specialists: multitask and per-role adapter release shapes.",
         "release_prerelease": True,
+        "release_publish_on_push": True,
         "release_assets_glob": "kaggle-output/orchestration-v2-output/assets/*",
     },
     "1e1a288d8b11d79b01237145826c5d0dd03a1398dc40685fefbe5ab1e9ec66e7": {

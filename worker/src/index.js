@@ -1,6 +1,7 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { receiveCrashReport } from "./crash-report.js";
 import { pushDropReason, webhookDropReason } from "./event-filter.js";
+import { createRemoteRunToken, normalizeRemoteRunState, sanitizeStatusDescription, verifyRemoteRunToken } from "./remote-run.js";
 
 const GITHUB_ISSUER = "https://token.actions.githubusercontent.com";
 const GITHUB_JWKS = "https://token.actions.githubusercontent.com/.well-known/jwks";
@@ -93,6 +94,12 @@ export default {
       if (request.method === "POST" && crashRoute) {
         return await receiveCrashReport(request, crashRoute[1], (path, method, body) =>
           githubApi(env, path, method, body));
+      }
+      if (request.method === "POST" && url.pathname === "/remote-run/start") {
+        return await issueRemoteRunCallback(request, env, url);
+      }
+      if (request.method === "POST" && url.pathname === "/remote-run/callback") {
+        return await receiveRemoteRunCallback(request, env);
       }
       if (request.method === "POST" && url.pathname === "/dispatch") {
         return await receiveLegacyOidcDispatch(request, env);
@@ -405,6 +412,149 @@ async function defaultBranchSha(env, repository, branch) {
   const sha = String(commit?.sha || "");
   if (!sha) throw new HttpError(502, `Could not resolve ${repository}:${branch}`);
   return sha;
+}
+
+async function issueRemoteRunCallback(request, env, url) {
+  requireDispatchToken(env);
+
+  const bearer = request.headers.get("Authorization") || "";
+  const match = bearer.match(/^Bearer\s+(.+)$/i);
+  if (!match) throw new HttpError(401, "Missing central Actions OIDC bearer token");
+
+  const claims = await verifyGitHubOidc(match[1]);
+  if (String(claims.repository || "").toLowerCase() !== CENTRAL_REPOSITORY.toLowerCase()) {
+    throw new HttpError(403, "Only HereLiesAz/workflows may issue remote-run callbacks");
+  }
+  if (String(claims.repository_owner_id || "") !== OWNER_ID) {
+    throw new HttpError(403, "Central workflow owner mismatch");
+  }
+  const workflowRef = String(claims.workflow_ref || "");
+  if (!workflowRef.startsWith(`${CENTRAL_REPOSITORY}/.github/workflows/ci-validation.yml@`)) {
+    throw new HttpError(403, "Remote-run callbacks may only be issued by CI Validation");
+  }
+
+  const body = await readJsonBody(request);
+  const targetRepository = String(body.target_repository || "");
+  const targetSha = String(body.target_sha || "");
+  const targetCheckSha = String(body.target_check_sha || "");
+  const sourceWorkflowPath = String(body.source_workflow_path || "");
+  const kernelRef = String(body.kernel_ref || "");
+  const centralRunId = String(body.central_run_id || "");
+  const ttl = Math.max(300, Math.min(Number(body.ttl_seconds || 43200), 86400));
+
+  if (!/^HereLiesAz\/[A-Za-z0-9_.-]+$/.test(targetRepository)) {
+    throw new HttpError(400, "target_repository is invalid");
+  }
+  if (!/^[a-f0-9]{40}$/i.test(targetSha) || !/^[a-f0-9]{40}$/i.test(targetCheckSha)) {
+    throw new HttpError(400, "target SHA is invalid");
+  }
+  if (!/^\.github\/workflows\/[^/]+\.ya?ml$/.test(sourceWorkflowPath)) {
+    throw new HttpError(400, "source_workflow_path is invalid");
+  }
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(kernelRef)) {
+    throw new HttpError(400, "kernel_ref is invalid");
+  }
+  if (!/^\d+$/.test(centralRunId)) {
+    throw new HttpError(400, "central_run_id is invalid");
+  }
+
+  const repo = await githubApi(env, `/repos/${targetRepository}`);
+  if (String(repo.owner?.id) !== OWNER_ID ||
+      String(repo.owner?.login || "").toLowerCase() !== OWNER_LOGIN.toLowerCase()) {
+    throw new HttpError(403, "Target repository is not owned by HereLiesAz");
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const detailsUrl = `https://www.kaggle.com/code/${kernelRef}`;
+  const token = await createRemoteRunToken(env.DISPATCH_TOKEN, {
+    kind: "kaggle",
+    iat: now,
+    exp: now + ttl,
+    target_repository: targetRepository,
+    target_sha: targetSha,
+    target_check_sha: targetCheckSha,
+    source_workflow_path: sourceWorkflowPath,
+    kernel_ref: kernelRef,
+    central_run_id: centralRunId,
+    details_url: detailsUrl,
+  });
+
+  return json({
+    ok: true,
+    callback_url: `${url.origin}/remote-run/callback`,
+    callback_token: token,
+    expires_at: new Date((now + ttl) * 1000).toISOString(),
+  }, 201);
+}
+
+async function receiveRemoteRunCallback(request, env) {
+  requireDispatchToken(env);
+
+  const bearer = request.headers.get("Authorization") || "";
+  const match = bearer.match(/^Bearer\s+(.+)$/i);
+  if (!match) throw new HttpError(401, "Missing remote-run callback token");
+
+  let claims;
+  try {
+    claims = await verifyRemoteRunToken(env.DISPATCH_TOKEN, match[1]);
+  } catch (error) {
+    throw new HttpError(401, error instanceof Error ? error.message : "Invalid remote-run callback token");
+  }
+  if (claims.kind !== "kaggle") throw new HttpError(400, "Unsupported remote-run kind");
+
+  const body = await readJsonBody(request);
+  let state;
+  try {
+    state = normalizeRemoteRunState(body.state);
+  } catch (error) {
+    throw new HttpError(400, error instanceof Error ? error.message : "Invalid remote-run state");
+  }
+
+  const fallback = state === "success"
+    ? `Kaggle kernel ${claims.kernel_ref} completed.`
+    : `Kaggle kernel ${claims.kernel_ref} failed.`;
+  const description = sanitizeStatusDescription(body.description, fallback);
+
+  await githubApi(
+    env,
+    `/repos/${claims.target_repository}/statuses/${claims.target_check_sha}`,
+    "POST",
+    {
+      state,
+      context: claims.source_workflow_path,
+      description,
+      target_url: claims.details_url,
+    },
+  );
+
+  await githubApi(
+    env,
+    `/repos/${CENTRAL_REPOSITORY}/actions/workflows/kaggle-async-result.yml/dispatches`,
+    "POST",
+    {
+      ref: "main",
+      inputs: {
+        target_repository: claims.target_repository,
+        target_sha: claims.target_sha,
+        target_check_sha: claims.target_check_sha,
+        source_workflow_path: claims.source_workflow_path,
+        kernel_ref: claims.kernel_ref,
+        remote_state: state,
+        remote_description: description,
+        details_url: claims.details_url,
+      },
+    },
+    true,
+  );
+
+  return json({
+    ok: true,
+    target_repository: claims.target_repository,
+    target_sha: claims.target_sha,
+    kernel_ref: claims.kernel_ref,
+    state,
+    collector_dispatched: true,
+  }, 202);
 }
 
 async function receiveLegacyOidcDispatch(request, env) {

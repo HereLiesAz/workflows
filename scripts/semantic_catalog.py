@@ -451,7 +451,7 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
         "kernel_slug": "onwordly-experiment-001",
         "accelerator": "NvidiaTeslaT4",
         "setup_command": "python -m pip install --upgrade pip\npip install -e \".[train,test]\"",
-        "command": "pytest -q\nonwordly-arithmetic --output /kaggle/working/results/001-arithmetic-curriculum\nonwordly-arithmetic-report /kaggle/working/results/001-arithmetic-curriculum/summary.json --output /kaggle/working/results/001-arithmetic-curriculum/RESULTS.md",
+        "command": "pytest -q\nonwordly-kaggle",
         "kaggle_timeout_seconds": 21600,
         "poll_seconds": 30,
         "retention_days": 30,

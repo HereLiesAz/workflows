@@ -456,10 +456,11 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
         "accelerator": "NvidiaTeslaT4",
         "setup_command": "python -m pip install --upgrade pip\npip install -e \".[train,test]\"",
         "command": "pytest -q\nonwordly-kaggle",
+        "async_callback": True,
+        "callback_ttl_seconds": 43200,
         "kaggle_timeout_seconds": 21600,
-        "poll_seconds": 30,
         "retention_days": 30,
-        "timeout_minutes": 360,
+        "timeout_minutes": 20,
     },
     "8d6665414985e370ab0f1227d15102696a92757585ddbb4266b5a4fe1f5c105b": {
         "kind": "kaggle",

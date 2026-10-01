@@ -20,6 +20,8 @@ let githubInstallationTokenCache = "";
 let githubInstallationTokenExpiresAt = 0;
 let azphaltPublishTokenCache = "";
 let azphaltPublishTokenExpiresAt = 0;
+let nolawalletIdTokenCache = "";
+let nolawalletIdTokenExpiresAt = 0;
 // GitHub API traffic uses short-lived App installation tokens, never DISPATCH_TOKEN.
 
 /**
@@ -47,6 +49,26 @@ export class RepositoryTokens extends WorkerEntrypoint {
       expiresAt: new Date(azphaltPublishTokenExpiresAt * 1000).toISOString(),
     };
   }
+
+  /**
+   * For the NoLAWallet ID renderer Worker. It writes pending inputs/results and dispatches
+   * render-id inside the private HereLiesAz/NoLAWallet-id repository.
+   */
+  async nolawalletIdToken() {
+    const now = Math.floor(Date.now() / 1000);
+    if (!nolawalletIdTokenCache || now >= nolawalletIdTokenExpiresAt - 300) {
+      const minted = await mintInstallationToken(this.env, {
+        repositories: ["NoLAWallet-id"],
+        permissions: { contents: "write" },
+      });
+      nolawalletIdTokenCache = minted.token;
+      nolawalletIdTokenExpiresAt = minted.expiresAt;
+    }
+    return {
+      token: nolawalletIdTokenCache,
+      expiresAt: new Date(nolawalletIdTokenExpiresAt * 1000).toISOString(),
+    };
+  }
 }
 
 export default {
@@ -56,11 +78,11 @@ export default {
     if (request.method === "GET" && url.pathname === "/health") {
       return json({ ok: true, service: "HereLiesAz/workflows gateway", mode: "webhook-central" });
     }
-    if (request.method === "GET" && url.pathname === "/repositories") {
-      return await scrapePublicRepositories(url);
-    }
 
     try {
+      if (request.method === "GET" && url.pathname === "/repositories") {
+        return await scrapePublicRepositories(url);
+      }
       if (request.method === "POST" && url.pathname === "/register") {
         return await registerRepositoryWebhook(request, env, url);
       }

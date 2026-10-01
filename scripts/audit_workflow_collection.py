@@ -25,7 +25,10 @@ CURATED = {
     ".github/workflows/morphont-publish.yml",
 } | set(SEMANTIC_WORKFLOWS)
 CONTROLLER = {
+    ".github/workflows/cancel-runs.yml",
     ".github/workflows/gateway.yml",
+    ".github/workflows/kaggle-async-result.yml",
+    ".github/workflows/kaggle-session-diagnostics.yml",
     ".github/workflows/sync-repository.yml",
     ".github/workflows/sync-all-repositories.yml",
     ".github/workflows/sync-registry-changes.yml",

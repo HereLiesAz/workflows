@@ -579,10 +579,12 @@ jobs:
           accelerator="$(jq -r '.accelerator // "NvidiaTeslaT4"' <<<"$PURPOSE_PROFILE_JSON")"
           timeout_seconds="$(jq -r '.kaggle_timeout_seconds // 21600' <<<"$PURPOSE_PROFILE_JSON")"
           poll_seconds="$(jq -r '.poll_seconds // 30' <<<"$PURPOSE_PROFILE_JSON")"
+          queued_timeout_seconds="$(jq -r '.queued_timeout_seconds // 1800' <<<"$PURPOSE_PROFILE_JSON")"
           echo "kernel_ref=$kernel_ref" >> "$GITHUB_OUTPUT"
           echo "accelerator=$accelerator" >> "$GITHUB_OUTPUT"
           echo "timeout_seconds=$timeout_seconds" >> "$GITHUB_OUTPUT"
           echo "poll_seconds=$poll_seconds" >> "$GITHUB_OUTPUT"
+          echo "queued_timeout_seconds=$queued_timeout_seconds" >> "$GITHUB_OUTPUT"
 
       - name: Submit Kaggle GPU run
         env:
@@ -594,26 +596,58 @@ jobs:
           set -euo pipefail
           echo "Submitting $KERNEL_REF on $ACCELERATOR"
           kaggle kernels push -p kaggle-kernel --accelerator "$ACCELERATOR" --timeout "$KAGGLE_TIMEOUT_SECONDS"
+          {
+            echo "### Kaggle submission"
+            echo
+            echo "- Kernel: https://www.kaggle.com/code/$KERNEL_REF"
+            echo "- Accelerator: $ACCELERATOR"
+            echo "- Submitted: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Wait for Kaggle run
         env:
           KERNEL_REF: ${{ steps.package.outputs.kernel_ref }}
           KAGGLE_TIMEOUT_SECONDS: ${{ steps.package.outputs.timeout_seconds }}
           POLL_SECONDS: ${{ steps.package.outputs.poll_seconds }}
+          QUEUED_TIMEOUT_SECONDS: ${{ steps.package.outputs.queued_timeout_seconds }}
         shell: bash
         run: |
           set -euo pipefail
-          deadline=$(( $(date +%s) + KAGGLE_TIMEOUT_SECONDS ))
+          started_at="$(date +%s)"
+          deadline=$(( started_at + KAGGLE_TIMEOUT_SECONDS ))
+          queued_since=""
+          last_state=""
           while [ "$(date +%s)" -lt "$deadline" ]; do
+            now="$(date +%s)"
             status="$(kaggle kernels status "$KERNEL_REF" 2>&1 || true)"
-            echo "$status"
+            echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ') $status"
             lower="$(tr '[:upper:]' '[:lower:]' <<<"$status")"
-            if [[ "$lower" == *"complete"* ]]; then
+
+            state="unknown"
+            [[ "$lower" == *"queued"* ]] && state="queued"
+            [[ "$lower" == *"running"* ]] && state="running"
+            [[ "$lower" == *"complete"* ]] && state="complete"
+            if [[ "$state" != "$last_state" ]]; then
+              echo "Kaggle state transition: ${last_state:-submitted} -> $state"
+              echo "- $(date -u +'%Y-%m-%dT%H:%M:%SZ'): $state" >> "$GITHUB_STEP_SUMMARY"
+              last_state="$state"
+            fi
+
+            if [[ "$state" == "complete" ]]; then
               exit 0
             fi
             if [[ "$lower" == *"error"* || "$lower" == *"failed"* || "$lower" == *"cancelled"* ]]; then
               echo "::error::Kaggle kernel failed: $status"
               exit 1
+            fi
+            if [[ "$state" == "queued" ]]; then
+              if [[ -z "$queued_since" ]]; then queued_since="$now"; fi
+              if (( now - queued_since >= QUEUED_TIMEOUT_SECONDS )); then
+                echo "::error::Kaggle kernel remained queued for $((now - queued_since)) seconds: $KERNEL_REF"
+                exit 75
+              fi
+            else
+              queued_since=""
             fi
             sleep "$POLL_SECONDS"
           done

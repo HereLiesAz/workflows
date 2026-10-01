@@ -638,6 +638,63 @@ jobs:
           retention-days: ${{ fromJSON(inputs.purpose_profile_json).retention_days || 30 }}
           if-no-files-found: warn
 
+      - name: Publish immutable Kaggle release assets
+        if: ${{ success() && fromJSON(inputs.purpose_profile_json).release_tag != null && fromJSON(inputs.purpose_profile_json).release_tag != '' && (inputs.target_event_name == 'workflow_dispatch' || (inputs.target_event_name == 'push' && fromJSON(inputs.purpose_profile_json).release_publish_on_push == true)) }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          TARGET_REPOSITORY: ${{ inputs.target_repository }}
+          TARGET_SHA: ${{ inputs.target_sha }}
+          RELEASE_TAG: ${{ fromJSON(inputs.purpose_profile_json).release_tag }}
+          RELEASE_TITLE: ${{ fromJSON(inputs.purpose_profile_json).release_title || fromJSON(inputs.purpose_profile_json).release_tag }}
+          RELEASE_NOTES: ${{ fromJSON(inputs.purpose_profile_json).release_notes || 'Kaggle release artifacts.' }}
+          RELEASE_PRERELEASE: ${{ fromJSON(inputs.purpose_profile_json).release_prerelease || false }}
+          RELEASE_ASSETS_GLOB: ${{ fromJSON(inputs.purpose_profile_json).release_assets_glob }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${RELEASE_ASSETS_GLOB:-}" ]] || { echo "::error::release_assets_glob is required when release_tag is set"; exit 1; }
+
+          if ! gh api "repos/$TARGET_REPOSITORY/releases/tags/$RELEASE_TAG" >/tmp/release.json 2>/dev/null; then
+            args=(release create "$RELEASE_TAG" --repo "$TARGET_REPOSITORY" --target "$TARGET_SHA" --title "$RELEASE_TITLE" --notes "$RELEASE_NOTES")
+            [[ "$RELEASE_PRERELEASE" == "true" ]] && args+=(--prerelease)
+            gh "${args[@]}"
+            gh api "repos/$TARGET_REPOSITORY/releases/tags/$RELEASE_TAG" >/tmp/release.json
+          fi
+
+          mapfile -t assets < <(python3 - <<'PY'
+          import glob, os
+          pattern = os.environ["RELEASE_ASSETS_GLOB"]
+          for path in sorted(glob.glob(pattern, recursive=True)):
+              if os.path.isfile(path):
+                  print(path)
+          PY
+          )
+          [[ "${#assets[@]}" -gt 0 ]] || { echo "::error::No files matched $RELEASE_ASSETS_GLOB"; exit 1; }
+
+          for path in "${assets[@]}"; do
+            name="$(basename "$path")"
+            digest="sha256:$(sha256sum "$path" | awk '{print $1}')"
+            current_digest="$(jq -r --arg name "$name" '[.assets[] | select(.name == $name)][0].digest // empty' /tmp/release.json)"
+            current_id="$(jq -r --arg name "$name" '[.assets[] | select(.name == $name)][0].id // empty' /tmp/release.json)"
+            if [[ -n "$current_id" ]]; then
+              if [[ "$current_digest" == "$digest" ]]; then
+                echo "Already published: $name ($digest)"
+                continue
+              fi
+              echo "::error::$RELEASE_TAG/$name already exists with digest '${current_digest:-unknown}', expected $digest. Release assets are immutable; bump release_tag."
+              exit 1
+            fi
+
+            gh release upload "$RELEASE_TAG" "$path" --repo "$TARGET_REPOSITORY"
+            gh api "repos/$TARGET_REPOSITORY/releases/tags/$RELEASE_TAG" >/tmp/release.json
+            remote_digest="$(jq -r --arg name "$name" '[.assets[] | select(.name == $name)][0].digest // empty' /tmp/release.json)"
+            if [[ -n "$remote_digest" && "$remote_digest" != "$digest" ]]; then
+              echo "::error::Published digest mismatch for $name: $remote_digest != $digest"
+              exit 1
+            fi
+            echo "Published: $name ($digest)"
+          done
+
   central_check_finish:
     if: ${{ always() }}
     needs:

@@ -33,17 +33,14 @@ jobs:
       - name: Check out central controller
         uses: actions/checkout@v4
 
-      - name: Discover only repositories newer than the cursor
+      - name: Discover all public repositories
         id: repos
         shell: bash
         run: |
           set -euo pipefail
 
-          cursor="$(tr -d '\r\n' < .controller/repository-scrape-cursor)"
-          [[ -n "$cursor" ]] || { echo "::error::Repository scrape cursor is empty"; exit 1; }
-          cursor_encoded="$(jq -rn --arg value "$cursor" '$value|@uri')"
-          scraped="$(curl --fail-with-body --silent --show-error "${WORKER_URL%/}/repositories?stop=${cursor_encoded}")"
-          jq -e '.ok == true and (.repositories | type == "array") and .stop_found == true' <<<"$scraped" >/dev/null
+          scraped="$(curl --fail-with-body --silent --show-error "${WORKER_URL%/}/repositories")"
+          jq -e '.ok == true and (.repositories | type == "array") and (.repositories | length) > 0' <<<"$scraped" >/dev/null
 
           declare -A registered_ids=()
           repositories='[]'
@@ -72,20 +69,15 @@ jobs:
 
           repositories="$(jq -c 'unique | sort' <<<"$repositories")"
           count="$(jq 'length' <<<"$repositories")"
-          newest_repository="$(jq -r 'if (.repositories|length) > 0 then .repositories[0] else empty end' <<<"$scraped")"
-          if [[ -z "$newest_repository" ]]; then
-            newest_repository="$cursor"
-          fi
-
           echo "repositories=$repositories" >> "$GITHUB_OUTPUT"
           echo "count=$count" >> "$GITHUB_OUTPUT"
-          echo "newest_repository=$newest_repository" >> "$GITHUB_OUTPUT"
+          echo "newest_repository=" >> "$GITHUB_OUTPUT"
           echo "new_count=$new_count" >> "$GITHUB_OUTPUT"
 
           {
             echo "## Live public repository discovery"
             echo
-            echo "- Cursor: \`$cursor\`"
+            echo "- Discovery mode: **full public scan**"
             echo "- HTML pages scanned: **$(jq -r '.pages_scanned' <<<"$scraped")**"
             echo "- Newly discovered repositories: **$new_count**"
             echo "- Total registered + newly discovered repositories queued: **$count**"

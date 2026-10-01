@@ -1560,7 +1560,8 @@ export const EVENT_CONSUMERS = {
     "repository": "HereLiesAz/onwordly",
     "events": [
       "pull_request",
-      "push"
+      "push",
+      "workflow_dispatch"
     ]
   }
 };

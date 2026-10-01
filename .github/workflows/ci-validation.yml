@@ -519,6 +519,10 @@ jobs:
 
           slug = profile.get("kernel_slug", "central-experiment")
           title = profile.get("title", "Central Kaggle Experiment")
+          if profile.get("unique_kernel_per_run", False):
+              suffix = sha[:8]
+              slug = f"{slug}-{suffix}"
+              title = f"{title} {suffix}"
           accelerator = profile.get("accelerator", "NvidiaTeslaT4")
           setup_command = profile.get("setup_command", "")
           command = profile["command"]

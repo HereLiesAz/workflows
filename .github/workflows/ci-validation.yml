@@ -91,7 +91,7 @@ permissions:
 # the tracker watching the first reported a cancelled job as a failure. A newer push still cancels
 # the older push run, and a newer pull_request update the older one.
 concurrency:
-  group: ci-validation-${{ inputs.target_repository_name }}-${{ fromJSON(inputs.purpose_profile_json).kind == 'kaggle' && inputs.target_sha || inputs.target_ref_name || inputs.target_sha }}-${{ inputs.source_workflow_path }}-${{ inputs.target_event_name }}
+  group: ci-validation-${{ inputs.target_repository_name }}-${{ fromJSON(inputs.purpose_profile_json).kind == 'kaggle' && fromJSON(inputs.purpose_profile_json).kernel_slug || inputs.target_ref_name || inputs.target_sha }}-${{ inputs.source_workflow_path }}-${{ inputs.target_event_name }}
   cancel-in-progress: true
 
 jobs:
@@ -814,7 +814,11 @@ jobs:
           done
 
   central_check_finish:
-    if: ${{ always() }}
+    # A workflow cancellation must terminate immediately. Running an `always()` cleanup job
+    # after cancellation can leave the run queued for a runner, which keeps its concurrency
+    # slot and target workflow status alive indefinitely. A newer run will supersede the
+    # pending status for the same source workflow.
+    if: ${{ always() && !cancelled() }}
     needs:
       - central_check_start
       - validate_python

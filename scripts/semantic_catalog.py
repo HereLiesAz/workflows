@@ -450,7 +450,6 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
     },
     "89de5ece52df893092d584de3375396b32bc294f5212bc274130a540424a93fc": {
         "kind": "kaggle",
-        "concurrency_sha": "main",
         "title": "Onwordly Experiment 001",
         "kernel_slug": "onwordly-experiment",
         "unique_kernel_per_run": True,

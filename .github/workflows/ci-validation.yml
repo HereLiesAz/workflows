@@ -4,10 +4,6 @@ name: CI Validation
 run-name: ${{ inputs.target_repository_name }} · ${{ inputs.target_workflow_name }} · ${{ inputs.target_sha }}
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/cancel-onwordly-002'
   workflow_dispatch:
     inputs:
       target_repository:
@@ -95,18 +91,11 @@ permissions:
 # the tracker watching the first reported a cancelled job as a failure. A newer push still cancels
 # the older push run, and a newer pull_request update the older one.
 concurrency:
-  group: ${{ github.event_name == 'push' && 'ci-validation-onwordly-main-.github/workflows/kaggle-experiment.yml-push' || format('ci-validation-{0}-{1}-{2}-{3}', inputs.target_repository_name, (fromJSON(inputs.purpose_profile_json).kind == 'kaggle' && (fromJSON(inputs.purpose_profile_json).concurrency_sha || inputs.target_sha) || inputs.target_ref_name || inputs.target_sha), inputs.source_workflow_path, inputs.target_event_name) }}
+  group: ci-validation-${{ inputs.target_repository_name }}-${{ fromJSON(inputs.purpose_profile_json).kind == 'kaggle' && inputs.target_sha || inputs.target_ref_name || inputs.target_sha }}-${{ inputs.source_workflow_path }}-${{ inputs.target_event_name }}
   cancel-in-progress: true
 
 jobs:
-  cancel_superseded_run:
-    if: ${{ github.event_name == 'push' }}
-    runs-on: ubuntu-slim
-    steps:
-      - run: echo "Superseded stale Onwordly Experiment 002 run."
-
   central_check_start:
-    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -609,11 +598,25 @@ jobs:
         run: |
           set -euo pipefail
           echo "Submitting $KERNEL_REF on $ACCELERATOR"
-          kaggle kernels push -p kaggle-kernel --accelerator "$ACCELERATOR" --timeout "$KAGGLE_TIMEOUT_SECONDS"
+
+          set +e
+          push_output="$(kaggle kernels push -p kaggle-kernel --accelerator "$ACCELERATOR" --timeout "$KAGGLE_TIMEOUT_SECONDS" 2>&1)"
+          push_exit=$?
+          set -e
+          printf '%s\n' "$push_output"
+
+          lower="$(tr '[:upper:]' '[:lower:]' <<<"$push_output")"
+          if (( push_exit != 0 )) || [[ "$lower" == *"kernel push error:"* ]] || [[ "$lower" != *"successfully pushed"* ]]; then
+            mkdir -p kaggle-control
+            printf '%s\n' "$push_output" > kaggle-control/submission-error.txt
+            echo "::error::Kaggle submission did not create a runnable kernel."
+            exit 1
+          fi
+
           submitted_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           kaggle_url="https://www.kaggle.com/code/$KERNEL_REF"
           mkdir -p kaggle-control
-          jq -n             --arg kernel_ref "$KERNEL_REF"             --arg kaggle_url "$kaggle_url"             --arg target_repository "$TARGET_REPOSITORY"             --arg target_sha "$TARGET_SHA"             --arg accelerator "$ACCELERATOR"             --arg submitted_at "$submitted_at"             --arg timeout_seconds "$KAGGLE_TIMEOUT_SECONDS"             '{kernel_ref:$kernel_ref,kaggle_url:$kaggle_url,target_repository:$target_repository,target_sha:$target_sha,accelerator:$accelerator,submitted_at:$submitted_at,timeout_seconds:($timeout_seconds|tonumber)}'             > kaggle-control/run.json
+          jq -n             --arg kernel_ref "$KERNEL_REF"             --arg kaggle_url "$kaggle_url"             --arg target_repository "$TARGET_REPOSITORY"             --arg target_sha "$TARGET_SHA"             --arg accelerator "$ACCELERATOR"             --arg submitted_at "$submitted_at"             --arg submission_output "$push_output"             --arg timeout_seconds "$KAGGLE_TIMEOUT_SECONDS"             '{kernel_ref:$kernel_ref,kaggle_url:$kaggle_url,target_repository:$target_repository,target_sha:$target_sha,accelerator:$accelerator,submitted_at:$submitted_at,submission_output:$submission_output,timeout_seconds:($timeout_seconds|tonumber)}'             > kaggle-control/run.json
 
           {
             echo "### Kaggle submission"
@@ -623,6 +626,7 @@ jobs:
             echo "- Target: `$TARGET_REPOSITORY@$TARGET_SHA`"
             echo "- Accelerator: `$ACCELERATOR`"
             echo "- Submitted: `$submitted_at`"
+            echo "- Submission confirmed by Kaggle CLI."
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::notice title=Kaggle kernel::$KERNEL_REF — $kaggle_url"
 
@@ -632,12 +636,17 @@ jobs:
           fi
 
       - name: Upload Kaggle run metadata
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: kaggle-control-${{ inputs.target_repository_name }}-${{ github.run_id }}
-          path: kaggle-control/run.json
+          path: |
+            kaggle-control/run.json
+            kaggle-control/submission-error.txt
+            kaggle-control/final-status.txt
+            kaggle-control/final-files.txt
           retention-days: ${{ fromJSON(inputs.purpose_profile_json).retention_days || 30 }}
-          if-no-files-found: error
+          if-no-files-found: warn
 
       - name: Wait for Kaggle run
         env:
@@ -652,29 +661,50 @@ jobs:
           deadline=$(( started_at + KAGGLE_TIMEOUT_SECONDS ))
           queued_since=""
           last_state=""
+          unknown_polls=0
+
           while [ "$(date +%s)" -lt "$deadline" ]; do
             now="$(date +%s)"
+            timestamp="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
             status="$(kaggle kernels status "$KERNEL_REF" 2>&1 || true)"
-            echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ') $status"
+            echo "[$timestamp] $status"
             lower="$(tr '[:upper:]' '[:lower:]' <<<"$status")"
+
+            if [[ "$lower" == *"cannot access kernel"* || "$lower" == *"permission"* || "$lower" == *"not found"* || "$lower" == *"does not exist"* ]]; then
+              echo "::error::Kaggle status endpoint cannot access the submitted kernel: $status"
+              exit 2
+            fi
 
             state="unknown"
             [[ "$lower" == *"queued"* ]] && state="queued"
             [[ "$lower" == *"running"* ]] && state="running"
             [[ "$lower" == *"complete"* ]] && state="complete"
+
+            if [[ "$state" == "unknown" ]]; then
+              unknown_polls=$((unknown_polls + 1))
+              if (( unknown_polls >= 3 )); then
+                echo "::error::Kaggle returned an unrecognized status for three consecutive polls: $status"
+                exit 3
+              fi
+            else
+              unknown_polls=0
+            fi
+
             if [[ "$state" != "$last_state" ]]; then
               echo "Kaggle state transition: ${last_state:-submitted} -> $state"
-              echo "- $(date -u +'%Y-%m-%dT%H:%M:%SZ'): $state" >> "$GITHUB_STEP_SUMMARY"
+              echo "- `$timestamp`: **$state** — `$KERNEL_REF`" >> "$GITHUB_STEP_SUMMARY"
               last_state="$state"
             fi
 
             if [[ "$state" == "complete" ]]; then
+              echo "::notice title=Kaggle complete::$KERNEL_REF completed at $timestamp"
               exit 0
             fi
             if [[ "$lower" == *"error"* || "$lower" == *"failed"* || "$lower" == *"cancelled"* ]]; then
               echo "::error::Kaggle kernel failed: $status"
               exit 1
             fi
+
             if [[ "$state" == "queued" ]]; then
               if [[ -z "$queued_since" ]]; then queued_since="$now"; fi
               if (( now - queued_since >= QUEUED_TIMEOUT_SECONDS )); then
@@ -684,10 +714,29 @@ jobs:
             else
               queued_since=""
             fi
+
             sleep "$POLL_SECONDS"
           done
+
           echo "::error::Timed out waiting for Kaggle kernel $KERNEL_REF"
           exit 124
+
+      - name: Capture Kaggle failure diagnostics
+        if: ${{ failure() }}
+        env:
+          KERNEL_REF: ${{ steps.package.outputs.kernel_ref }}
+        shell: bash
+        run: |
+          set +e
+          mkdir -p kaggle-control
+          kaggle kernels status "$KERNEL_REF" > kaggle-control/final-status.txt 2>&1
+          kaggle kernels files "$KERNEL_REF" > kaggle-control/final-files.txt 2>&1
+          {
+            echo "### Kaggle failure diagnostics"
+            echo
+            echo "- Kernel ref: `$KERNEL_REF`"
+            echo "- Diagnostics are attached in the Kaggle control artifact."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Download Kaggle outputs
         if: ${{ success() }}

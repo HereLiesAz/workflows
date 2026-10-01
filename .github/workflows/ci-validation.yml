@@ -639,7 +639,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Publish immutable Kaggle release assets
-        if: ${{ success() && fromJSON(inputs.purpose_profile_json).release_tag != null && fromJSON(inputs.purpose_profile_json).release_tag != '' && inputs.target_event_name == 'workflow_dispatch' }}
+        if: ${{ success() && fromJSON(inputs.purpose_profile_json).release_tag != null && fromJSON(inputs.purpose_profile_json).release_tag != '' && (inputs.target_event_name == 'workflow_dispatch' || (inputs.target_event_name == 'push' && fromJSON(inputs.purpose_profile_json).release_publish_on_push == true)) }}
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           TARGET_REPOSITORY: ${{ inputs.target_repository }}

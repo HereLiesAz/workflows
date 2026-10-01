@@ -215,6 +215,9 @@ jobs:
       - name: Regression-test release centralization
         run: python scripts/test_release_centralization.py
 
+      - name: Regression-test private repository exclusion
+        run: python scripts/test_private_repository_exclusion.py
+
       - name: Regression-test dispatch input contracts
         run: python scripts/test_dispatch_input_contract.py
 

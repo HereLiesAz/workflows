@@ -15,7 +15,8 @@ test("remote-run token round-trips and expires", async () => {
     target_repository: "HereLiesAz/onwordly",
     target_check_sha: "a".repeat(40),
     source_workflow_path: ".github/workflows/kaggle-experiment.yml",
-    kernel_ref: "azwashere/onwordly-experiment-deadbeef",
+    provider: "kaggle",
+    run_ref: "azwashere/onwordly-experiment-deadbeef",
   };
   const token = await createRemoteRunToken("test-secret", claims);
   assert.deepEqual(await verifyRemoteRunToken("test-secret", token, 1_500), { v: 1, ...claims });

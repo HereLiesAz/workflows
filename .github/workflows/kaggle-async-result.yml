@@ -34,7 +34,7 @@ permissions:
 
 concurrency:
   group: kaggle-result-${{ inputs.kernel_ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   collect:

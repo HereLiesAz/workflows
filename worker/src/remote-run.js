@@ -3,8 +3,8 @@ const PURPOSE = "HereLiesAz/workflows:remote-run-callback:v1";
 export async function createRemoteRunToken(secret, claims) {
   if (!secret) throw new Error("Remote-run signing secret is required");
   const payload = {
-    v: 1,
     ...claims,
+    v: 1,
   };
   const encoded = base64UrlEncodeUtf8(JSON.stringify(payload));
   const signature = await sign(secret, encoded);

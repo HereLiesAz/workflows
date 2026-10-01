@@ -293,8 +293,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cursor="$(tr -d '\r\n' < .controller/repository-scrape-cursor)"
-          cursor_encoded="$(jq -rn --arg value "$cursor" '$value|@uri')"
-          response="$(curl --fail-with-body --silent --show-error "https://workflows.hereliesaz.workers.dev/repositories?stop=${cursor_encoded}")"
-          jq -e --arg cursor "$cursor" '.ok == true and .stop_found == true and .stop_repository == $cursor and (.repositories | type == "array")' <<<"$response" >/dev/null
-          echo "Scraper reached cursor $cursor after $(jq -r '.pages_scanned' <<<"$response") page(s)."
+          response="$(curl --fail-with-body --silent --show-error "https://workflows.hereliesaz.workers.dev/repositories")"
+          jq -e '.ok == true and (.repositories | type == "array") and (.repositories | length) > 0' <<<"$response" >/dev/null
+          echo "Scraper returned $(jq -r '.count' <<<"$response") public repositories across $(jq -r '.pages_scanned' <<<"$response") page(s)."

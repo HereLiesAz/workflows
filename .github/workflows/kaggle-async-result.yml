@@ -1,0 +1,113 @@
+name: Collect asynchronous Kaggle result
+run-name: ${{ inputs.target_repository }} · ${{ inputs.kernel_ref }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      kernel_ref:
+        required: true
+        type: string
+      remote_state:
+        required: true
+        type: string
+      remote_description:
+        required: false
+        type: string
+      details_url:
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kaggle-result-${{ inputs.kernel_ref }}
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN || secrets.KAGGLE_TOKEN }}
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME || vars.KAGGLE_USERNAME }}
+      KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+      KAGGLE_JSON: ${{ secrets.KAGGLE_JSON }}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Kaggle CLI
+        run: python -m pip install --quiet --upgrade kaggle
+
+      - name: Configure Kaggle credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${KAGGLE_JSON:-}" ]; then
+            mkdir -p "$HOME/.kaggle"
+            printf '%s' "$KAGGLE_JSON" > "$HOME/.kaggle/kaggle.json"
+            chmod 600 "$HOME/.kaggle/kaggle.json"
+          fi
+          if [ -z "${KAGGLE_API_TOKEN:-}" ] && { [ -z "${KAGGLE_USERNAME:-}" ] || [ -z "${KAGGLE_KEY:-}" ]; } && [ ! -f "$HOME/.kaggle/kaggle.json" ]; then
+            echo "::error::No Kaggle credentials are available to collect the completed run."
+            exit 1
+          fi
+
+      - name: Capture terminal Kaggle metadata
+        env:
+          KERNEL_REF: ${{ inputs.kernel_ref }}
+          REMOTE_STATE: ${{ inputs.remote_state }}
+          REMOTE_DESCRIPTION: ${{ inputs.remote_description }}
+          DETAILS_URL: ${{ inputs.details_url }}
+          TARGET_REPOSITORY: ${{ inputs.target_repository }}
+          TARGET_SHA: ${{ inputs.target_sha }}
+        shell: bash
+        run: |
+          set -u
+          mkdir -p kaggle-control kaggle-output
+          kaggle kernels status "$KERNEL_REF" > kaggle-control/final-status.txt 2>&1 || true
+          kaggle kernels files "$KERNEL_REF" > kaggle-control/final-files.txt 2>&1 || true
+          jq -n             --arg kernel_ref "$KERNEL_REF"             --arg state "$REMOTE_STATE"             --arg description "$REMOTE_DESCRIPTION"             --arg details_url "$DETAILS_URL"             --arg target_repository "$TARGET_REPOSITORY"             --arg target_sha "$TARGET_SHA"             --arg collected_at "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"             '{kernel_ref:$kernel_ref,state:$state,description:$description,details_url:$details_url,target_repository:$target_repository,target_sha:$target_sha,collected_at:$collected_at}'             > kaggle-control/remote-result.json
+
+      - name: Download Kaggle outputs
+        env:
+          KERNEL_REF: ${{ inputs.kernel_ref }}
+        shell: bash
+        run: |
+          set +e
+          kaggle kernels output "$KERNEL_REF" -p kaggle-output -o
+          rc=$?
+          if (( rc != 0 )); then
+            echo "::warning::Kaggle output download failed after the remote run reported completion; control metadata will still be preserved."
+          fi
+          exit 0
+
+      - name: Upload terminal metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaggle-control-${{ github.run_id }}
+          path: kaggle-control/
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload Kaggle outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaggle-output-${{ github.run_id }}
+          path: kaggle-output/
+          retention-days: 30
+          if-no-files-found: warn

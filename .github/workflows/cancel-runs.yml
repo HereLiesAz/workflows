@@ -1,0 +1,104 @@
+name: Cancel Selected Workflow Runs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/cancel-runs.json'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cancel:
+    runs-on: ubuntu-slim
+    env:
+      GH_TOKEN: ${{ github.token }}
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN || secrets.KAGGLE_TOKEN }}
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME || vars.KAGGLE_USERNAME }}
+      KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+      KAGGLE_JSON: ${{ secrets.KAGGLE_JSON }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cancel and force-cancel requested GitHub runs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t run_ids < <(jq -r '.run_ids[]? | tostring' .github/cancel-runs.json)
+          for run_id in "${run_ids[@]}"; do
+            status="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" --jq .status 2>/dev/null || echo missing)"
+            echo "Run ${run_id}: ${status}"
+            if [[ "$status" == "missing" || "$status" == "completed" ]]; then
+              continue
+            fi
+
+            echo "Requesting normal cancellation for ${run_id}"
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/cancel" >/dev/null || true
+            sleep 3
+
+            status="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" --jq .status 2>/dev/null || echo missing)"
+            if [[ "$status" != "completed" && "$status" != "missing" ]]; then
+              echo "Run ${run_id} is still ${status}; force-cancelling."
+              gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/force-cancel" >/dev/null
+            fi
+          done
+
+      - name: Delete superseded ephemeral Kaggle kernels
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! jq -e '.kaggle_kernel_slugs | length > 0' .github/cancel-runs.json >/dev/null; then
+            exit 0
+          fi
+
+          python -m pip install --quiet --upgrade kaggle
+          if [[ -n "${KAGGLE_JSON:-}" ]]; then
+            mkdir -p "$HOME/.kaggle"
+            printf '%s' "$KAGGLE_JSON" > "$HOME/.kaggle/kaggle.json"
+            chmod 600 "$HOME/.kaggle/kaggle.json"
+            if [[ -z "${KAGGLE_USERNAME:-}" ]]; then
+              KAGGLE_USERNAME="$(jq -r '.username // empty' "$HOME/.kaggle/kaggle.json")"
+            fi
+          fi
+
+          owner="${KAGGLE_USERNAME:-}"
+          if [[ -z "$owner" ]]; then
+            config="$(kaggle config view 2>/dev/null || true)"
+            owner="$(awk -F: 'tolower($1) ~ /username/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2; exit}' <<<"$config")"
+          fi
+          if [[ -z "$owner" ]]; then
+            echo "::warning::Could not infer Kaggle owner; GitHub runs were force-cancelled, but ephemeral kernels could not be deleted."
+            exit 0
+          fi
+
+          mapfile -t slugs < <(jq -r '.kaggle_kernel_slugs[]?' .github/cancel-runs.json)
+          for slug in "${slugs[@]}"; do
+            ref="${owner}/${slug}"
+            status="$(kaggle kernels status "$ref" 2>&1 || true)"
+            echo "$ref: $status"
+            lower="$(tr '[:upper:]' '[:lower:]' <<<"$status")"
+            if [[ "$lower" == *"not found"* || "$lower" == *"does not exist"* ]]; then
+              continue
+            fi
+            kaggle kernels delete "$ref" -y || true
+            echo "Deleted superseded ephemeral Kaggle kernel $ref"
+          done
+
+      - name: Verify requested GitHub runs stopped
+        shell: bash
+        run: |
+          set -euo pipefail
+          failed=0
+          mapfile -t run_ids < <(jq -r '.run_ids[]? | tostring' .github/cancel-runs.json)
+          for run_id in "${run_ids[@]}"; do
+            status="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" --jq .status 2>/dev/null || echo missing)"
+            conclusion="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" --jq '.conclusion // ""' 2>/dev/null || true)"
+            echo "Final: ${run_id} status=${status} conclusion=${conclusion}"
+            if [[ "$status" != "completed" && "$status" != "missing" ]]; then
+              failed=1
+            fi
+          done
+          exit "$failed"

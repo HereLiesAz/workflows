@@ -461,7 +461,7 @@ jobs:
           python -m pip install --upgrade pip kaggle
 
       - name: Discover configured Kaggle credential names
-        if: ${{ secrets.KAGGLE_API_TOKEN == '' && secrets.KAGGLE_USERNAME == '' && secrets.KAGGLE_KEY == '' && secrets.KAGGLE_JSON == '' }}
+        if: ${{ env.KAGGLE_API_TOKEN == '' && env.KAGGLE_USERNAME == '' && env.KAGGLE_KEY == '' && env.KAGGLE_JSON == '' }}
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           TARGET_ENVIRONMENT: ${{ inputs.target_repository_name }}

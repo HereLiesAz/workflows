@@ -1559,6 +1559,7 @@ export const EVENT_CONSUMERS = {
   "1399135886": {
     "repository": "HereLiesAz/onwordly",
     "events": [
+      "pull_request",
       "push"
     ]
   }

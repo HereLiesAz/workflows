@@ -444,7 +444,7 @@ jobs:
       TARGET_REPOSITORY: ${{ inputs.target_repository }}
       TARGET_SHA: ${{ inputs.target_sha }}
       PURPOSE_PROFILE_JSON: ${{ inputs.purpose_profile_json }}
-      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN || secrets.KAGGLE_TOKEN }}
       KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME || vars.KAGGLE_USERNAME }}
       KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
       KAGGLE_JSON: ${{ secrets.KAGGLE_JSON }}
@@ -459,23 +459,6 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip kaggle
-
-      - name: Discover configured Kaggle credential names
-        if: ${{ env.KAGGLE_API_TOKEN == '' && env.KAGGLE_USERNAME == '' && env.KAGGLE_KEY == '' && env.KAGGLE_JSON == '' }}
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          TARGET_ENVIRONMENT: ${{ inputs.target_repository_name }}
-        shell: bash
-        run: |
-          set +e
-          echo "Repository-level Kaggle secret names:"
-          gh api "repos/$GITHUB_REPOSITORY/actions/secrets?per_page=100" --jq '.secrets[].name | select(test("KAGGLE"; "i"))' 2>/dev/null || true
-          echo "Environment-level Kaggle secret names:"
-          gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT/secrets?per_page=100" --jq '.secrets[].name | select(test("KAGGLE"; "i"))' 2>/dev/null || true
-          echo "Repository-level Kaggle variable names:"
-          gh api "repos/$GITHUB_REPOSITORY/actions/variables?per_page=100" --jq '.variables[].name | select(test("KAGGLE"; "i"))' 2>/dev/null || true
-          echo "Environment-level Kaggle variable names:"
-          gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT/variables?per_page=100" --jq '.variables[].name | select(test("KAGGLE"; "i"))' 2>/dev/null || true
 
       - name: Configure Kaggle credentials
         id: kaggle-auth
@@ -499,11 +482,15 @@ jobs:
 
           owner="${KAGGLE_USERNAME:-}"
           if [ -z "$owner" ]; then
+            config="$(kaggle config view 2>/dev/null || true)"
+            owner="$(awk -F: 'tolower($1) ~ /username/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2; exit}' <<<"$config")"
+          fi
+          if [ -z "$owner" ]; then
             owned="$(kaggle kernels list -m -v --page-size 1 2>/dev/null || true)"
             owner="$(awk -F, 'NR==2 {split($1,a,"/"); print a[1]}' <<<"$owned")"
           fi
           if [ -z "$owner" ]; then
-            echo "::error::Kaggle authentication works only if the account slug is known. Add KAGGLE_USERNAME as a workflows secret or variable."
+            echo "::error::Kaggle token is present, but the account slug could not be inferred. Add KAGGLE_USERNAME as a workflows secret or variable."
             exit 1
           fi
           echo "owner=$owner" >> "$GITHUB_OUTPUT"

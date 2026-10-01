@@ -238,9 +238,10 @@ jobs:
           node --check worker/src/index.js
           node --check worker/src/event-filter.js
           node --check worker/src/event-consumers.js
+          node --check worker/src/remote-run.js
 
-      - name: Unit-test Worker webhook event filter
-        run: node --test worker/test/event-filter.test.mjs
+      - name: Unit-test Worker gateway
+        run: npm --prefix worker test
 
   deploy-gateway-worker:
     name: Deploy central gateway Worker

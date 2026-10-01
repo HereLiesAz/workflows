@@ -1,0 +1,85 @@
+# workflow-policy: generalized-v1
+# workflow-purpose: Finalize a target commit status after external compute reports its own terminal result.
+# required-secret: GH_TOKEN | Central GitHub token used to finalize remote-compute commit statuses.
+name: Finalize remote compute result
+run-name: ${{ inputs.target_repository }} · ${{ inputs.provider }} · ${{ inputs.run_ref }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      provider:
+        required: true
+        type: string
+      run_ref:
+        required: true
+        type: string
+      remote_state:
+        required: true
+        type: string
+      remote_description:
+        required: false
+        type: string
+      details_url:
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: remote-result-${{ inputs.target_check_sha }}-${{ inputs.source_workflow_path }}
+  cancel-in-progress: true
+
+jobs:
+  policy_secret_preflight:
+    runs-on: ubuntu-slim
+    env:
+      REQUIRED_GH_TOKEN: ${{ secrets.GH_TOKEN }}
+    steps:
+      - name: Verify required central credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${REQUIRED_GH_TOKEN:-}" ]; then
+            echo "::error::Missing required secret GH_TOKEN — Central GitHub token used to finalize remote-compute commit statuses."
+            exit 1
+          fi
+
+  finalize:
+    needs: policy_secret_preflight
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+      REMOTE_STATE: ${{ inputs.remote_state }}
+      REMOTE_DESCRIPTION: ${{ inputs.remote_description }}
+      DETAILS_URL: ${{ inputs.details_url }}
+    steps:
+      - name: Finalize target remote-compute status
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$REMOTE_STATE" in
+            success|failure) ;;
+            *) echo "::error::Invalid terminal remote state: $REMOTE_STATE"; exit 2 ;;
+          esac
+          description="${REMOTE_DESCRIPTION:-Remote compute finished.}"
+          payload="$(jq -n \
+            --arg state "$REMOTE_STATE" \
+            --arg context "$STATUS_CONTEXT" \
+            --arg description "$description" \
+            --arg target_url "$DETAILS_URL" \
+            '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+          gh api --method POST "repos/$TARGET_REPOSITORY/statuses/$TARGET_CHECK_SHA" --input - <<<"$payload" >/dev/null

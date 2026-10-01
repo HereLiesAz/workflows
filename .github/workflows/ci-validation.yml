@@ -440,6 +440,7 @@ jobs:
     environment: ${{ inputs.target_repository_name }}
     permissions:
       contents: read
+      id-token: write
     env:
       TARGET_REPOSITORY: ${{ inputs.target_repository }}
       TARGET_SHA: ${{ inputs.target_sha }}
@@ -589,6 +590,106 @@ jobs:
           echo "poll_seconds=$poll_seconds" >> "$GITHUB_OUTPUT"
           echo "queued_timeout_seconds=$queued_timeout_seconds" >> "$GITHUB_OUTPUT"
 
+      - name: Register asynchronous remote-run callback
+        id: async-callback
+        if: ${{ fromJSON(inputs.purpose_profile_json).async_callback == true }}
+        env:
+          WORKER_URL: https://workflows.hereliesaz.workers.dev
+          KERNEL_REF: ${{ steps.package.outputs.kernel_ref }}
+          CALLBACK_TTL_SECONDS: ${{ fromJSON(inputs.purpose_profile_json).callback_ttl_seconds || 43200 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          oidc_json="$(curl --fail-with-body --silent --show-error             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN"             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=hereliesaz-workflows")"
+          oidc_token="$(jq -er '.value' <<<"$oidc_json")"
+          details_url="https://www.kaggle.com/code/$KERNEL_REF"
+          payload="$(jq -n             --arg target_repository "$TARGET_REPOSITORY"             --arg target_sha "$TARGET_SHA"             --arg target_check_sha "$TARGET_CHECK_SHA"             --arg source_workflow_path "$SOURCE_WORKFLOW_PATH"             --arg provider "kaggle"             --arg run_ref "$KERNEL_REF"             --arg details_url "$details_url"             --arg central_run_id "$GITHUB_RUN_ID"             --arg ttl_seconds "$CALLBACK_TTL_SECONDS"             '{target_repository:$target_repository,target_sha:$target_sha,target_check_sha:$target_check_sha,source_workflow_path:$source_workflow_path,provider:$provider,run_ref:$run_ref,details_url:$details_url,central_run_id:$central_run_id,ttl_seconds:($ttl_seconds|tonumber)}')"
+          response="$(curl --fail-with-body --silent --show-error             -H "Authorization: Bearer $oidc_token"             -H "Content-Type: application/json"             --data "$payload"             "$WORKER_URL/remote-run/start")"
+          callback_token="$(jq -er '.callback_token' <<<"$response")"
+          echo "::add-mask::$callback_token"
+          echo "callback_url=$(jq -er '.callback_url' <<<"$response")" >> "$GITHUB_OUTPUT"
+          echo "callback_token=$callback_token" >> "$GITHUB_OUTPUT"
+          echo "expires_at=$(jq -er '.expires_at' <<<"$response")" >> "$GITHUB_OUTPUT"
+
+      - name: Wrap Kaggle payload with callback reporter
+        if: ${{ fromJSON(inputs.purpose_profile_json).async_callback == true }}
+        env:
+          CALLBACK_URL: ${{ steps.async-callback.outputs.callback_url }}
+          CALLBACK_TOKEN: ${{ steps.async-callback.outputs.callback_token }}
+          KERNEL_REF: ${{ steps.package.outputs.kernel_ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mv kaggle-kernel/experiment.py kaggle-kernel/payload.py
+          python - <<'PY'
+          import json
+          import os
+          import textwrap
+          from pathlib import Path
+
+          callback_url = os.environ["CALLBACK_URL"]
+          callback_token = os.environ["CALLBACK_TOKEN"]
+          kernel_ref = os.environ["KERNEL_REF"]
+
+          wrapper = f"""
+          from __future__ import annotations
+
+          import json
+          import runpy
+          import time
+          import traceback
+          import urllib.request
+          from pathlib import Path
+
+          CALLBACK_URL = {callback_url!r}
+          CALLBACK_TOKEN = {callback_token!r}
+          KERNEL_REF = {kernel_ref!r}
+          PAYLOAD = Path(__file__).with_name("payload.py")
+
+          failure = None
+          state = "success"
+          description = f"Kaggle kernel {{KERNEL_REF}} completed."
+
+          try:
+              runpy.run_path(str(PAYLOAD), run_name="__main__")
+          except BaseException as exc:
+              failure = exc
+              state = "failure"
+              description = f"Kaggle kernel {{KERNEL_REF}} failed: {{type(exc).__name__}}"
+              traceback.print_exc()
+          finally:
+              body = json.dumps({{"state": state, "description": description}}).encode("utf-8")
+              last_error = None
+              for delay in (0, 2, 5, 10, 20):
+                  if delay:
+                      time.sleep(delay)
+                  request = urllib.request.Request(
+                      CALLBACK_URL,
+                      data=body,
+                      method="POST",
+                      headers={{
+                          "Authorization": f"Bearer {{CALLBACK_TOKEN}}",
+                          "Content-Type": "application/json",
+                          "User-Agent": "onwordly-kaggle-remote-run",
+                      }},
+                  )
+                  try:
+                      with urllib.request.urlopen(request, timeout=20) as response:
+                          response.read()
+                      last_error = None
+                      break
+                  except Exception as callback_error:
+                      last_error = callback_error
+                      print(f"Remote callback attempt failed: {{callback_error!r}}", flush=True)
+              if last_error is not None:
+                  print(f"Remote callback exhausted retries: {{last_error!r}}", flush=True)
+
+          if failure is not None:
+              raise failure
+          """
+          Path("kaggle-kernel/experiment.py").write_text(textwrap.dedent(wrapper), encoding="utf-8")
+          PY
+
       - name: Submit Kaggle GPU run
         env:
           KERNEL_REF: ${{ steps.package.outputs.kernel_ref }}
@@ -649,6 +750,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Wait for Kaggle run
+        if: ${{ fromJSON(inputs.purpose_profile_json).async_callback != true }}
         env:
           KERNEL_REF: ${{ steps.package.outputs.kernel_ref }}
           KAGGLE_TIMEOUT_SECONDS: ${{ steps.package.outputs.timeout_seconds }}
@@ -722,7 +824,7 @@ jobs:
           exit 124
 
       - name: Capture Kaggle failure diagnostics
-        if: ${{ failure() }}
+        if: ${{ failure() && fromJSON(inputs.purpose_profile_json).async_callback != true }}
         env:
           KERNEL_REF: ${{ steps.package.outputs.kernel_ref }}
         shell: bash
@@ -739,7 +841,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Download Kaggle outputs
-        if: ${{ success() }}
+        if: ${{ success() && fromJSON(inputs.purpose_profile_json).async_callback != true }}
         env:
           KERNEL_REF: ${{ steps.package.outputs.kernel_ref }}
         shell: bash
@@ -748,7 +850,7 @@ jobs:
           kaggle kernels output "$KERNEL_REF" -p kaggle-output -o
 
       - name: Upload Kaggle outputs
-        if: ${{ always() }}
+        if: ${{ always() && fromJSON(inputs.purpose_profile_json).async_callback != true }}
         uses: actions/upload-artifact@v4
         with:
           name: kaggle-${{ inputs.target_repository_name }}-${{ github.run_id }}
@@ -757,7 +859,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Publish immutable Kaggle release assets
-        if: ${{ success() && fromJSON(inputs.purpose_profile_json).release_tag != null && fromJSON(inputs.purpose_profile_json).release_tag != '' && (inputs.target_event_name == 'workflow_dispatch' || (inputs.target_event_name == 'push' && fromJSON(inputs.purpose_profile_json).release_publish_on_push == true)) }}
+        if: ${{ success() && fromJSON(inputs.purpose_profile_json).async_callback != true && fromJSON(inputs.purpose_profile_json).release_tag != null && fromJSON(inputs.purpose_profile_json).release_tag != '' && (inputs.target_event_name == 'workflow_dispatch' || (inputs.target_event_name == 'push' && fromJSON(inputs.purpose_profile_json).release_publish_on_push == true)) }}
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           TARGET_REPOSITORY: ${{ inputs.target_repository }}
@@ -843,9 +945,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          async_remote="$(jq -r '(.kind == "kaggle" and .async_callback == true)' <<<'${{ inputs.purpose_profile_json }}')"
           if [[ "$FAILED" == "true" ]]; then
             state="failure"
-            description="CI validation failed."
+            description="CI validation failed before remote execution completed."
+          elif [[ "$async_remote" == "true" ]]; then
+            echo "Remote compute was dispatched successfully; the remote job owns the terminal commit status."
+            exit 0
           else
             state="success"
             description="CI validation completed successfully."

@@ -442,7 +442,9 @@ async function issueRemoteRunCallback(request, env, url) {
   const runRef = String(body.run_ref || "");
   const detailsUrl = String(body.details_url || "");
   const centralRunId = String(body.central_run_id || "");
-  const ttl = Math.max(300, Math.min(Number(body.ttl_seconds || 43200), 86400));
+  const requestedTtl = Number(body.ttl_seconds || 43200);
+  if (!Number.isFinite(requestedTtl)) throw new HttpError(400, "ttl_seconds is invalid");
+  const ttl = Math.max(300, Math.min(Math.trunc(requestedTtl), 86400));
 
   if (!/^HereLiesAz\/[A-Za-z0-9_.-]+$/.test(targetRepository)) {
     throw new HttpError(400, "target_repository is invalid");

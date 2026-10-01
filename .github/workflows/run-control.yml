@@ -1,0 +1,103 @@
+name: Run Control
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/run-control.json'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN || secrets.KAGGLE_TOKEN }}
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME || vars.KAGGLE_USERNAME }}
+      KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+      KAGGLE_JSON: ${{ secrets.KAGGLE_JSON }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cancel selected GitHub runs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t runs < <(jq -r '.github_run_ids[]? | tostring' .github/run-control.json)
+          for run_id in "${runs[@]}"; do
+            state="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" --jq .status 2>/dev/null || echo missing)"
+            echo "GitHub run ${run_id}: ${state}"
+            if [[ "$state" == "queued" || "$state" == "in_progress" || "$state" == "waiting" || "$state" == "pending" ]]; then
+              gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/cancel" >/dev/null
+              echo "Cancellation requested for GitHub run ${run_id}"
+            fi
+          done
+
+      - name: Configure Kaggle
+        id: kaggle
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! jq -e '.kaggle_kernel_slugs | length > 0' .github/run-control.json >/dev/null; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          python -m pip install --quiet --upgrade kaggle
+          if [[ -n "${KAGGLE_JSON:-}" ]]; then
+            mkdir -p "$HOME/.kaggle"
+            printf '%s' "$KAGGLE_JSON" > "$HOME/.kaggle/kaggle.json"
+            chmod 600 "$HOME/.kaggle/kaggle.json"
+            if [[ -z "${KAGGLE_USERNAME:-}" ]]; then
+              KAGGLE_USERNAME="$(jq -r '.username // empty' "$HOME/.kaggle/kaggle.json")"
+              echo "KAGGLE_USERNAME=$KAGGLE_USERNAME" >> "$GITHUB_ENV"
+            fi
+          fi
+          owner="${KAGGLE_USERNAME:-}"
+          if [[ -z "$owner" ]]; then
+            config="$(kaggle config view 2>/dev/null || true)"
+            owner="$(awk -F: 'tolower($1) ~ /username/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2; exit}' <<<"$config")"
+          fi
+          if [[ -z "$owner" ]]; then
+            echo "::warning::Could not infer Kaggle owner; GitHub runs were cancelled, but Kaggle kernels were not deleted."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "owner=$owner" >> "$GITHUB_OUTPUT"
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+      - name: Delete superseded ephemeral Kaggle kernels
+        if: ${{ steps.kaggle.outputs.enabled == 'true' }}
+        env:
+          KAGGLE_OWNER: ${{ steps.kaggle.outputs.owner }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t slugs < <(jq -r '.kaggle_kernel_slugs[]?' .github/run-control.json)
+          for slug in "${slugs[@]}"; do
+            ref="${KAGGLE_OWNER}/${slug}"
+            status="$(kaggle kernels status "$ref" 2>&1 || true)"
+            echo "Kaggle kernel $ref: $status"
+            if [[ "$(tr '[:upper:]' '[:lower:]' <<<"$status")" != *"not found"* ]]; then
+              kaggle kernels delete "$ref" -y || true
+              echo "Deleted superseded ephemeral Kaggle kernel $ref"
+            fi
+          done
+
+      - name: Summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Run control"
+            echo
+            echo "Requested GitHub run cancellations:"
+            jq -r '.github_run_ids[]? | "- `" + tostring + "`"' .github/run-control.json
+            echo
+            echo "Requested ephemeral Kaggle kernel deletions:"
+            jq -r '.kaggle_kernel_slugs[]? | "- `" + . + "`"' .github/run-control.json
+          } >> "$GITHUB_STEP_SUMMARY"

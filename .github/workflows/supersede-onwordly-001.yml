@@ -1,0 +1,20 @@
+name: Supersede Onwordly Experiment 001
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/cancel-runs.json'
+
+concurrency:
+  group: ci-validation-onwordly-408f441600348607cf852adc45cce5642a6dba7f-.github/workflows/kaggle-experiment.yml-push
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  supersede:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Superseded stale Onwordly Kaggle run for 408f441600348607cf852adc45cce5642a6dba7f."

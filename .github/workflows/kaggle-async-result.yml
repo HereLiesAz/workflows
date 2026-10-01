@@ -41,11 +41,31 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
       KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN || secrets.KAGGLE_TOKEN }}
       KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME || vars.KAGGLE_USERNAME }}
       KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
       KAGGLE_JSON: ${{ secrets.KAGGLE_JSON }}
     steps:
+      - name: Finalize target remote-run status
+        env:
+          TARGET_REPOSITORY: ${{ inputs.target_repository }}
+          TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+          STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+          REMOTE_STATE: ${{ inputs.remote_state }}
+          REMOTE_DESCRIPTION: ${{ inputs.remote_description }}
+          DETAILS_URL: ${{ inputs.details_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$REMOTE_STATE" in
+            success|failure) ;;
+            *) echo "::error::Invalid terminal remote state: $REMOTE_STATE"; exit 2 ;;
+          esac
+          description="${REMOTE_DESCRIPTION:-Remote Kaggle run finished.}"
+          payload="$(jq -n             --arg state "$REMOTE_STATE"             --arg context "$STATUS_CONTEXT"             --arg description "$description"             --arg target_url "$DETAILS_URL"             '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+          gh api --method POST "repos/$TARGET_REPOSITORY/statuses/$TARGET_CHECK_SHA" --input - <<<"$payload" >/dev/null
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

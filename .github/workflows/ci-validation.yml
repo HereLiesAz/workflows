@@ -95,7 +95,7 @@ permissions:
 # the tracker watching the first reported a cancelled job as a failure. A newer push still cancels
 # the older push run, and a newer pull_request update the older one.
 concurrency:
-  group: ${{ github.event_name == 'push' && 'ci-validation-onwordly-7a382a4ffb9fab5ee4fe20842f7b862e7d366c85-.github/workflows/kaggle-experiment.yml-push' || format('ci-validation-{0}-{1}-{2}-{3}', inputs.target_repository_name, (fromJSON(inputs.purpose_profile_json).kind == 'kaggle' && (fromJSON(inputs.purpose_profile_json).concurrency_sha || inputs.target_sha) || inputs.target_ref_name || inputs.target_sha), inputs.source_workflow_path, inputs.target_event_name) }}
+  group: ${{ github.event_name == 'push' && 'ci-validation-onwordly-main-.github/workflows/kaggle-experiment.yml-push' || format('ci-validation-{0}-{1}-{2}-{3}', inputs.target_repository_name, (fromJSON(inputs.purpose_profile_json).kind == 'kaggle' && (fromJSON(inputs.purpose_profile_json).concurrency_sha || inputs.target_sha) || inputs.target_ref_name || inputs.target_sha), inputs.source_workflow_path, inputs.target_event_name) }}
   cancel-in-progress: true
 
 jobs:

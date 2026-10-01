@@ -602,10 +602,13 @@ jobs:
           set -euo pipefail
           oidc_json="$(curl --fail-with-body --silent --show-error             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN"             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=hereliesaz-workflows")"
           oidc_token="$(jq -er '.value' <<<"$oidc_json")"
-          payload="$(jq -n             --arg target_repository "$TARGET_REPOSITORY"             --arg target_sha "$TARGET_SHA"             --arg target_check_sha "$TARGET_CHECK_SHA"             --arg source_workflow_path "$SOURCE_WORKFLOW_PATH"             --arg kernel_ref "$KERNEL_REF"             --arg central_run_id "$GITHUB_RUN_ID"             --arg ttl_seconds "$CALLBACK_TTL_SECONDS"             '{target_repository:$target_repository,target_sha:$target_sha,target_check_sha:$target_check_sha,source_workflow_path:$source_workflow_path,kernel_ref:$kernel_ref,central_run_id:$central_run_id,ttl_seconds:($ttl_seconds|tonumber)}')"
+          details_url="https://www.kaggle.com/code/$KERNEL_REF"
+          payload="$(jq -n             --arg target_repository "$TARGET_REPOSITORY"             --arg target_sha "$TARGET_SHA"             --arg target_check_sha "$TARGET_CHECK_SHA"             --arg source_workflow_path "$SOURCE_WORKFLOW_PATH"             --arg provider "kaggle"             --arg run_ref "$KERNEL_REF"             --arg details_url "$details_url"             --arg central_run_id "$GITHUB_RUN_ID"             --arg ttl_seconds "$CALLBACK_TTL_SECONDS"             '{target_repository:$target_repository,target_sha:$target_sha,target_check_sha:$target_check_sha,source_workflow_path:$source_workflow_path,provider:$provider,run_ref:$run_ref,details_url:$details_url,central_run_id:$central_run_id,ttl_seconds:($ttl_seconds|tonumber)}')"
           response="$(curl --fail-with-body --silent --show-error             -H "Authorization: Bearer $oidc_token"             -H "Content-Type: application/json"             --data "$payload"             "$WORKER_URL/remote-run/start")"
+          callback_token="$(jq -er '.callback_token' <<<"$response")"
+          echo "::add-mask::$callback_token"
           echo "callback_url=$(jq -er '.callback_url' <<<"$response")" >> "$GITHUB_OUTPUT"
-          echo "callback_token=$(jq -er '.callback_token' <<<"$response")" >> "$GITHUB_OUTPUT"
+          echo "callback_token=$callback_token" >> "$GITHUB_OUTPUT"
           echo "expires_at=$(jq -er '.expires_at' <<<"$response")" >> "$GITHUB_OUTPUT"
 
       - name: Wrap Kaggle payload with callback reporter

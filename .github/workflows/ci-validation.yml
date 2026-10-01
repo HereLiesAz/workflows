@@ -460,6 +460,23 @@ jobs:
           set -euo pipefail
           python -m pip install --upgrade pip kaggle
 
+      - name: Discover configured Kaggle credential names
+        if: ${{ secrets.KAGGLE_API_TOKEN == '' && secrets.KAGGLE_USERNAME == '' && secrets.KAGGLE_KEY == '' && secrets.KAGGLE_JSON == '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          TARGET_ENVIRONMENT: ${{ inputs.target_repository_name }}
+        shell: bash
+        run: |
+          set +e
+          echo "Repository-level Kaggle secret names:"
+          gh api "repos/$GITHUB_REPOSITORY/actions/secrets?per_page=100" --jq '.secrets[].name | select(test("KAGGLE"; "i"))' 2>/dev/null || true
+          echo "Environment-level Kaggle secret names:"
+          gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT/secrets?per_page=100" --jq '.secrets[].name | select(test("KAGGLE"; "i"))' 2>/dev/null || true
+          echo "Repository-level Kaggle variable names:"
+          gh api "repos/$GITHUB_REPOSITORY/actions/variables?per_page=100" --jq '.variables[].name | select(test("KAGGLE"; "i"))' 2>/dev/null || true
+          echo "Environment-level Kaggle variable names:"
+          gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT/variables?per_page=100" --jq '.variables[].name | select(test("KAGGLE"; "i"))' 2>/dev/null || true
+
       - name: Configure Kaggle credentials
         id: kaggle-auth
         shell: bash

@@ -1,7 +1,7 @@
 # Generalized purpose workflow: CI Validation.
 # Language, toolchain, commands, service requirements, and diagnostics are profiles instead of duplicate workflows.
 name: CI Validation
-run-name: ${{ inputs.target_repository_name }} · CI Validation
+run-name: ${{ inputs.target_repository_name }} · ${{ inputs.target_workflow_name }} · ${{ inputs.target_sha }}
 
 on:
   workflow_dispatch:
@@ -91,7 +91,7 @@ permissions:
 # the tracker watching the first reported a cancelled job as a failure. A newer push still cancels
 # the older push run, and a newer pull_request update the older one.
 concurrency:
-  group: ci-validation-${{ inputs.target_repository_name }}-${{ fromJSON(inputs.purpose_profile_json).kind == 'kaggle' && inputs.target_sha || inputs.target_ref_name || inputs.target_sha }}-${{ inputs.source_workflow_path }}-${{ inputs.target_event_name }}
+  group: ci-validation-${{ inputs.target_repository_name }}-${{ fromJSON(inputs.purpose_profile_json).kind == 'kaggle' && (fromJSON(inputs.purpose_profile_json).concurrency_sha || inputs.target_sha) || inputs.target_ref_name || inputs.target_sha }}-${{ inputs.source_workflow_path }}-${{ inputs.target_event_name }}
   cancel-in-progress: true
 
 jobs:
@@ -443,6 +443,9 @@ jobs:
     env:
       TARGET_REPOSITORY: ${{ inputs.target_repository }}
       TARGET_SHA: ${{ inputs.target_sha }}
+      TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+      SOURCE_WORKFLOW_PATH: ${{ inputs.source_workflow_path }}
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
       PURPOSE_PROFILE_JSON: ${{ inputs.purpose_profile_json }}
       KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN || secrets.KAGGLE_TOKEN }}
       KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME || vars.KAGGLE_USERNAME }}
@@ -596,13 +599,34 @@ jobs:
           set -euo pipefail
           echo "Submitting $KERNEL_REF on $ACCELERATOR"
           kaggle kernels push -p kaggle-kernel --accelerator "$ACCELERATOR" --timeout "$KAGGLE_TIMEOUT_SECONDS"
+          submitted_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          kaggle_url="https://www.kaggle.com/code/$KERNEL_REF"
+          mkdir -p kaggle-control
+          jq -n             --arg kernel_ref "$KERNEL_REF"             --arg kaggle_url "$kaggle_url"             --arg target_repository "$TARGET_REPOSITORY"             --arg target_sha "$TARGET_SHA"             --arg accelerator "$ACCELERATOR"             --arg submitted_at "$submitted_at"             --arg timeout_seconds "$KAGGLE_TIMEOUT_SECONDS"             '{kernel_ref:$kernel_ref,kaggle_url:$kaggle_url,target_repository:$target_repository,target_sha:$target_sha,accelerator:$accelerator,submitted_at:$submitted_at,timeout_seconds:($timeout_seconds|tonumber)}'             > kaggle-control/run.json
+
           {
             echo "### Kaggle submission"
             echo
-            echo "- Kernel: https://www.kaggle.com/code/$KERNEL_REF"
-            echo "- Accelerator: $ACCELERATOR"
-            echo "- Submitted: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo "- Kernel: $kaggle_url"
+            echo "- Kernel ref: `$KERNEL_REF`"
+            echo "- Target: `$TARGET_REPOSITORY@$TARGET_SHA`"
+            echo "- Accelerator: `$ACCELERATOR`"
+            echo "- Submitted: `$submitted_at`"
           } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=Kaggle kernel::$KERNEL_REF — $kaggle_url"
+
+          if [[ -n "${GH_TOKEN:-}" && -n "${TARGET_CHECK_SHA:-}" ]]; then
+            payload="$(jq -n               --arg state "pending"               --arg context "$SOURCE_WORKFLOW_PATH"               --arg description "Kaggle kernel $KERNEL_REF submitted."               --arg target_url "$kaggle_url"               '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+            gh api --method POST "repos/$TARGET_REPOSITORY/statuses/$TARGET_CHECK_SHA" --input - <<<"$payload" >/dev/null || true
+          fi
+
+      - name: Upload Kaggle run metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaggle-control-${{ inputs.target_repository_name }}-${{ github.run_id }}
+          path: kaggle-control/run.json
+          retention-days: ${{ fromJSON(inputs.purpose_profile_json).retention_days || 30 }}
+          if-no-files-found: error
 
       - name: Wait for Kaggle run
         env:

@@ -468,7 +468,7 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
         "unique_kernel_per_run": True,
         "accelerator": "NvidiaTeslaT4",
         "setup_command": "python -m pip install --upgrade pip\npython -m pip install jupyter nbconvert",
-        "command": "jupyter nbconvert --to notebook --execute tools/orchestration_training/aive_orchestration_specialists.ipynb --output /kaggle/working/orchestration-v2-run.ipynb --ExecutePreprocessor.timeout=-1",
+        "command": "jupyter nbconvert --to notebook --execute tools/orchestration_training/aive_orchestration_specialists.ipynb --output orchestration-v2-run.ipynb --output-dir /kaggle/working --ExecutePreprocessor.timeout=-1",
         "kaggle_timeout_seconds": 21600,
         "poll_seconds": 30,
         "retention_days": 30,

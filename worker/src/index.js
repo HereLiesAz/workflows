@@ -438,7 +438,9 @@ async function issueRemoteRunCallback(request, env, url) {
   const targetSha = String(body.target_sha || "");
   const targetCheckSha = String(body.target_check_sha || "");
   const sourceWorkflowPath = String(body.source_workflow_path || "");
-  const kernelRef = String(body.kernel_ref || "");
+  const provider = String(body.provider || "").toLowerCase();
+  const runRef = String(body.run_ref || "");
+  const detailsUrl = String(body.details_url || "");
   const centralRunId = String(body.central_run_id || "");
   const ttl = Math.max(300, Math.min(Number(body.ttl_seconds || 43200), 86400));
 
@@ -451,8 +453,20 @@ async function issueRemoteRunCallback(request, env, url) {
   if (!/^\.github\/workflows\/[^/]+\.ya?ml$/.test(sourceWorkflowPath)) {
     throw new HttpError(400, "source_workflow_path is invalid");
   }
-  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(kernelRef)) {
-    throw new HttpError(400, "kernel_ref is invalid");
+  if (!/^[a-z0-9_.-]{1,40}$/.test(provider)) {
+    throw new HttpError(400, "provider is invalid");
+  }
+  if (!runRef || runRef.length > 200) {
+    throw new HttpError(400, "run_ref is invalid");
+  }
+  if (detailsUrl) {
+    let parsed;
+    try {
+      parsed = new URL(detailsUrl);
+    } catch {
+      throw new HttpError(400, "details_url is invalid");
+    }
+    if (parsed.protocol !== "https:") throw new HttpError(400, "details_url must use HTTPS");
   }
   if (!/^\d+$/.test(centralRunId)) {
     throw new HttpError(400, "central_run_id is invalid");
@@ -465,16 +479,16 @@ async function issueRemoteRunCallback(request, env, url) {
   }
 
   const now = Math.floor(Date.now() / 1000);
-  const detailsUrl = `https://www.kaggle.com/code/${kernelRef}`;
   const token = await createRemoteRunToken(env.DISPATCH_TOKEN, {
-    kind: "kaggle",
+    kind: "remote-compute",
+    provider,
     iat: now,
     exp: now + ttl,
     target_repository: targetRepository,
     target_sha: targetSha,
     target_check_sha: targetCheckSha,
     source_workflow_path: sourceWorkflowPath,
-    kernel_ref: kernelRef,
+    run_ref: runRef,
     central_run_id: centralRunId,
     details_url: detailsUrl,
   });
@@ -500,7 +514,8 @@ async function receiveRemoteRunCallback(request, env) {
   } catch (error) {
     throw new HttpError(401, error instanceof Error ? error.message : "Invalid remote-run callback token");
   }
-  if (claims.kind !== "kaggle") throw new HttpError(400, "Unsupported remote-run kind");
+  if (claims.kind !== "remote-compute") throw new HttpError(400, "Unsupported remote-run kind");
+  if (!claims.provider || !claims.run_ref) throw new HttpError(400, "Remote-run token is missing provider identity");
 
   const body = await readJsonBody(request);
   let state;
@@ -511,22 +526,22 @@ async function receiveRemoteRunCallback(request, env) {
   }
 
   const fallback = state === "success"
-    ? `Kaggle kernel ${claims.kernel_ref} completed.`
-    : `Kaggle kernel ${claims.kernel_ref} failed.`;
+    ? `${claims.provider} remote run ${claims.run_ref} completed.`
+    : `${claims.provider} remote run ${claims.run_ref} failed.`;
   const description = sanitizeStatusDescription(body.description, fallback);
 
   await githubApi(
     env,
-    `/repos/${CENTRAL_REPOSITORY}/actions/workflows/kaggle-async-result.yml/dispatches`,
+    `/repos/${CENTRAL_REPOSITORY}/actions/workflows/remote-run-result.yml/dispatches`,
     "POST",
     {
       ref: "main",
       inputs: {
         target_repository: claims.target_repository,
-        target_sha: claims.target_sha,
         target_check_sha: claims.target_check_sha,
         source_workflow_path: claims.source_workflow_path,
-        kernel_ref: claims.kernel_ref,
+        provider: claims.provider,
+        run_ref: claims.run_ref,
         remote_state: state,
         remote_description: description,
         details_url: claims.details_url,
@@ -539,9 +554,10 @@ async function receiveRemoteRunCallback(request, env) {
     ok: true,
     target_repository: claims.target_repository,
     target_sha: claims.target_sha,
-    kernel_ref: claims.kernel_ref,
+    provider: claims.provider,
+    run_ref: claims.run_ref,
     state,
-    collector_dispatched: true,
+    finalizer_dispatched: true,
   }, 202);
 }
 

@@ -517,18 +517,6 @@ async function receiveRemoteRunCallback(request, env) {
 
   await githubApi(
     env,
-    `/repos/${claims.target_repository}/statuses/${claims.target_check_sha}`,
-    "POST",
-    {
-      state,
-      context: claims.source_workflow_path,
-      description,
-      target_url: claims.details_url,
-    },
-  );
-
-  await githubApi(
-    env,
     `/repos/${CENTRAL_REPOSITORY}/actions/workflows/kaggle-async-result.yml/dispatches`,
     "POST",
     {

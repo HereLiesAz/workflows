@@ -108,6 +108,7 @@ export default {
   },
 };
 
+// Full scan is intentional: GitHub's profile ordering is not a stable creation cursor.
 async function scrapePublicRepositories() {
   const repositories = [];
   const seen = new Set();

@@ -31,6 +31,42 @@ The legacy OIDC `/dispatch` endpoint is retained only while old proxies are bein
 
 Runtime results are reported back to the target SHA using **commit statuses**, not Check Runs. Each target keeps a tracker per centralized workflow at its original path, listing what it uses and mirroring each run's result into the target's Actions tab.
 
+## CI runs in its own repository
+
+CI is the exception to central execution: every project runs its own CI in its own repository, so fundamental testing is never blocked, queued or delayed by central capacity, the gateway, or this repository's health. The controller only **records** what that CI reports, on the orphan branch [`ci-status`](https://github.com/HereLiesAz/workflows/tree/ci-status) (no workflow files, so its commits start nothing):
+
+~~~text
+target CI run (runs in the target repository)
+   ├─ workflow_run / workflow_job webhook ─┐     (automatic, no target code)
+   └─ optional ci-report step (OIDC) ──────┤     (custom summary/data)
+                                           ▼
+                          Worker · worker/src/ci-status.js
+                                           ▼
+           ci-status branch · repositories/<repository_id>.json (last 20 runs, per job progress)
+                                           ▼
+           ci-status-dashboard.yml (every 15 min) → ci-status/README.md
+~~~
+
+- A workflow is **target CI** (`status: local`, `ci: true` in its manifest entry) when it calls `HereLiesAz/workflows/.github/actions/ci-report`, or when it is pull-request validation the catalog would otherwise bind to `ci-validation.yml`. Workflows bound there without a `pull_request` trigger (e.g. experiments on central compute) stay central.
+- The sync restores a target CI workflow's original source over its tracker and never blocks a new one under the submission policy. Secrets it references are listed in the entry's `required_secrets`; they must exist in the target repository.
+- `scripts/generate_event_consumers.py` lists each repository's target CI under `ci` in the Worker's map; the Worker records those `workflow_run`/`workflow_job` deliveries and never forwards them to the gateway.
+- Reporting failures never affect the run: the webhook is out-of-band, and the `ci-report` action turns every error into a warning.
+
+Optional explicit report, as the last step of a CI job:
+
+~~~yaml
+permissions:
+  contents: read
+  id-token: write   # the run's OIDC token authenticates the report; no secret needed
+steps:
+  # ... build and test ...
+  - if: always()
+    uses: HereLiesAz/workflows/.github/actions/ci-report@main
+    with:
+      summary: 128 passed, 0 failed
+      data: '{"passed": 128, "failed": 0}'
+~~~
+
 ## Workflow policy and repository templates
 
 New workflow implementations must be submitted to this repository and generalized for reuse before they are allowed into a target repository. See **[Generalized workflow policy](docs/WORKFLOW_POLICY.md)**.
@@ -105,5 +141,6 @@ shell logic into target repositories.
 - `gateway.yml` — receives verified dispatches from the Worker and routes them to the registered shared workflow.
 - `validate-controller.yml` also redeploys the Worker (`wrangler deploy --config wrangler.jsonc`) on a push to `main` that changes `worker/` or `wrangler.jsonc`, including a regenerated event-consumer map.
 - `validate-controller.yml` — validates controller code and generated workflow behavior.
+- `ci-status-dashboard.yml` — renders the `ci-status` branch dashboard from what target CI reported.
 
 Always run a **dry sync first** for a new repository. A repository is not considered converted until every classification has been reviewed and at least one centralized runtime path has been proven end to end.

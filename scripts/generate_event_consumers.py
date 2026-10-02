@@ -15,6 +15,9 @@ and mirrors how scripts/dispatch_request.py routes an event:
 * ``workflow_call`` and ``schedule`` are not webhooks (schedules are routed by
   dispatch_schedule.py). ``workflow_dispatch`` IS a webhook: GitHub delivers one when a
   workflow is run by hand in the target repository, and the gateway routes it, so it is kept;
+* manifest entries marked ``ci: true`` run in the target repository itself; they are listed
+  under ``ci`` as ``{path, name}`` so the Worker records their ``workflow_run`` /
+  ``workflow_job`` webhooks on the ci-status ledger (never routed to the gateway);
 * every registered repository consumes ``push``, because a push to its default
   branch that changes its workflow setup requests a re-sync
   (``_request_sync_if_setup_changed``), even when no active workflow uses push.
@@ -87,15 +90,28 @@ def repository_events(manifest: dict, read_source: Callable[[str], str]) -> list
     return sorted(events)
 
 
+def repository_ci_workflows(manifest: dict) -> list[dict]:
+    """Target-local CI workflows whose runs are reported to the ci-status ledger."""
+    return [
+        {"path": path, "name": str(entry.get("name") or path)}
+        for path, entry in sorted((manifest.get("workflows") or {}).items())
+        if isinstance(entry, dict) and entry.get("status") == "local" and entry.get("ci") is True
+    ]
+
+
 def repository_entry(manifest: dict, read_source: Callable[[str], str]) -> tuple[str, dict]:
     repo = manifest.get("repository") or {}
     repository_id = str(repo.get("id") or "")
     if not repository_id:
         raise RuntimeError("Registry manifest has no repository.id")
-    return repository_id, {
+    entry = {
         "repository": str(repo.get("full_name") or ""),
         "events": repository_events(manifest, read_source),
     }
+    ci = repository_ci_workflows(manifest)
+    if ci:
+        entry["ci"] = ci
+    return repository_id, entry
 
 
 def build_consumer_map(root: Path = ROOT) -> dict[str, dict]:

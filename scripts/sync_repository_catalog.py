@@ -274,6 +274,40 @@ def _local_dependency_blockers(doc: dict[str, Any]) -> list[str]:
     return blockers
 
 
+CI_VALIDATION_WORKFLOW = ".github/workflows/ci-validation.yml"
+CI_REPORT_ACTION = "HereLiesAz/workflows/.github/actions/ci-report"
+_SECRET_REFERENCE = re.compile(r"secrets\.([A-Za-z_][A-Za-z0-9_]*)")
+
+
+def _trigger_names(on_value: Any) -> set[str]:
+    if isinstance(on_value, str):
+        return {on_value}
+    if isinstance(on_value, (list, dict)):
+        return {str(item) for item in on_value}
+    return set()
+
+
+def target_ci_reason(doc: dict[str, Any], override: str | None) -> str | None:
+    """Why a workflow is target-local CI, or None.
+
+    CI runs in its own repository so central capacity can never block or delay it; the
+    controller only records its progress (worker/src/ci-status.js). A workflow is CI when it
+    calls the ci-report action, or when it is pull-request validation the catalog would
+    otherwise bind to ci-validation.yml (experiments bound there have no pull_request trigger
+    and stay central).
+    """
+    for value in walk_strings(doc.get("jobs") or {}):
+        if value.startswith(CI_REPORT_ACTION + "@") or value == CI_REPORT_ACTION:
+            return "declares CI with the ci-report action; CI runs in the target repository"
+    if override == CI_VALIDATION_WORKFLOW and "pull_request" in _trigger_names(doc.get("on", doc.get(True))):
+        return "pull-request validation runs in the target repository; progress is reported centrally"
+    return None
+
+
+def required_secrets(source_text: str) -> list[str]:
+    return sorted({name for name in _SECRET_REFERENCE.findall(source_text) if name != "GITHUB_TOKEN"})
+
+
 def central_execution_blockers(doc: dict[str, Any]) -> list[str]:
     blockers: list[str] = []
     unsafe_action_prefixes = (
@@ -1124,6 +1158,25 @@ def sync_repository(gh: GitHub, full_name: str, worker_url: str, dry_run: bool =
             continue
 
         override = reviewed_override_for_source(source_hash) or CATALOG_PATH_OVERRIDES.get(path)
+        ci_reason = target_ci_reason(parsed, override)
+        if ci_reason:
+            workflows_manifest[path] = {
+                "status": "local",
+                "ci": True,
+                "name": workflow_name,
+                "source_sha256": source_hash,
+                "registry_source": registry_source,
+                "reason": ci_reason,
+                "required_secrets": required_secrets(source_text),
+                "updated_at": now_iso(),
+            }
+            if not dry_run:
+                gh.put_file(CENTRAL_REPOSITORY, registry_source, source_text, f"Register target CI {repo['full_name']}:{path}", branch="main")
+                if is_proxy:
+                    gh.put_file(repo["full_name"], path, source_text, f"Restore {path}; CI runs in this repository", branch=default_branch)
+            results.append({"path": path, "status": "local", "ci": True, "reason": ci_reason})
+            continue
+
         if override:
             try:
                 gh.get_file(CENTRAL_REPOSITORY, override)

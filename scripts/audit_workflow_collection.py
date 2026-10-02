@@ -26,6 +26,7 @@ CURATED = {
 } | set(SEMANTIC_WORKFLOWS)
 CONTROLLER = {
     ".github/workflows/cancel-runs.yml",
+    ".github/workflows/ci-status-dashboard.yml",
     ".github/workflows/gateway.yml",
     ".github/workflows/kaggle-session-diagnostics.yml",
     ".github/workflows/remote-run-result.yml",

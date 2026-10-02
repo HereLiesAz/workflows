@@ -13,6 +13,8 @@ shared catalog; make it public first if it needs centralized workflows.
 
 A new target-repository workflow file is rejected by repository synchronization unless that workflow path is already registered. New capabilities must be submitted here first.
 
+**Exception: CI.** A target repository may add its own CI at any time; declaring it with the `HereLiesAz/workflows/.github/actions/ci-report` action is enough. It is registered `local` with `ci: true`, runs in the target, and reports progress to the `ci-status` branch. See [CI runs in its own repository](../README.md#ci-runs-in-its-own-repository).
+
 A new workflow added to `.github/workflows/` in this repository must:
 
 1. declare `# workflow-policy: generalized-v1`;

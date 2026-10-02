@@ -801,6 +801,12 @@ def _enforce_new_workflow_submission_policy(
         if core.reviewed_override_for_source(source_hash):
             continue
 
+        # CI runs in its own repository and is never blocked by central policy; declaring it
+        # with the ci-report action is enough (it is registered local, ci: true).
+        parsed = core.load_yaml(source_text)
+        if isinstance(parsed, dict) and core.target_ci_reason(parsed, None):
+            continue
+
         unsubmitted.append(path)
 
     if unsubmitted:

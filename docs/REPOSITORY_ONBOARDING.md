@@ -34,6 +34,7 @@ Project-local scripts and composite actions remain in the project. A central exe
 - **active / curated** — bound to a generalized central implementation.
 - **active / repository** — centrally executed but still has repository-specific behavior that has not yet converged on a generalized implementation.
 - **library** — pure `workflow_call` source retained while centralized callers still need expansion.
+- **local / ci** — target CI (`ci: true`). Runs in the target repository by design and reports progress centrally; never centralized. See [CI runs in its own repository](../README.md#ci-runs-in-its-own-repository).
 - **local** — not yet safe to centralize. The blocker is explicit and must be fixed; this is a migration state, not the desired endpoint.
 - **blocked/disabled** — intentionally prevented from executing.
 
@@ -136,7 +137,7 @@ Centralization is **not** global serialization.
 - no file beginning with `# centralized-by: HereLiesAz/workflows`;
 - no `WORKFLOWS_GATEWAY_URL` variable required by the controller;
 - one active repository webhook pointing to the central Worker;
-- local workflows only where the manifest records a real migration blocker;
+- local workflows only where the manifest records a real migration blocker, plus its own CI (`ci: true`), with any `required_secrets` set in the target;
 - no copied central service credentials solely for centrally executed workflows.
 
 ### Central repository

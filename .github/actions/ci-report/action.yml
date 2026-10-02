@@ -1,0 +1,51 @@
+name: HereLiesAz CI report
+description: >-
+  Report this CI run's progress to HereLiesAz/workflows (ci-status ledger). Never fails, never blocks:
+  every error becomes a warning. Authenticates with the run's own GitHub OIDC token, so the calling
+  job needs `permissions: id-token: write` and no secret. Using this action also declares the
+  workflow as target-local CI to the central sync.
+inputs:
+  status:
+    description: Status to record for this job (defaults to the job's own status).
+    required: false
+    default: ""
+  summary:
+    description: Short human-readable summary (max 2000 characters).
+    required: false
+    default: ""
+  data:
+    description: Optional JSON value with extra results (e.g. test counts, coverage).
+    required: false
+    default: "null"
+  endpoint:
+    description: ci-report endpoint.
+    required: false
+    default: https://workflows.hereliesaz.workers.dev/ci-report
+runs:
+  using: composite
+  steps:
+    - name: Report CI progress
+      shell: bash
+      env:
+        REPORT_STATUS: ${{ inputs.status || job.status }}
+        REPORT_SUMMARY: ${{ inputs.summary }}
+        REPORT_DATA: ${{ inputs.data }}
+        REPORT_JOB: ${{ github.job }}
+        REPORT_ENDPOINT: ${{ inputs.endpoint }}
+      run: |
+        set +e
+        warn() { echo "::warning::CI report skipped: $1"; exit 0; }
+        [[ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]] || warn "job lacks 'permissions: id-token: write'"
+        token="$(curl -fsS --max-time 10 -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+          "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=hereliesaz-workflows" | jq -r '.value // empty')"
+        [[ -n "$token" ]] || warn "could not obtain an OIDC token"
+        jq -n --arg job "$REPORT_JOB" --arg status "$REPORT_STATUS" --arg summary "$REPORT_SUMMARY" \
+          --arg data "$REPORT_DATA" \
+          '{job: $job, status: $status, summary: $summary, data: ($data | try fromjson catch $data)}' > "$RUNNER_TEMP/ci-report.json" \
+          || warn "could not build the report body"
+        code="$(curl -sS --max-time 15 -o "$RUNNER_TEMP/ci-report.out" -w '%{http_code}' -X POST \
+          -H "Authorization: Bearer $token" -H "Content-Type: application/json" \
+          --data-binary "@$RUNNER_TEMP/ci-report.json" "$REPORT_ENDPOINT")"
+        [[ "$code" == 202 ]] || warn "endpoint answered ${code:-nothing}: $(head -c 300 "$RUNNER_TEMP/ci-report.out" 2>/dev/null)"
+        echo "Reported to HereLiesAz/workflows ci-status."
+        exit 0

@@ -1,5 +1,7 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
+import { applyReport, applyWebhookEvent, ciWorkflowForEvent, reportFromClaims, updateLedger } from "./ci-status.js";
 import { receiveCrashReport } from "./crash-report.js";
+import { EVENT_CONSUMERS } from "./event-consumers.js";
 import { pushDropReason, webhookDropReason } from "./event-filter.js";
 import { createRemoteRunToken, normalizeRemoteRunState, sanitizeStatusDescription, verifyRemoteRunToken } from "./remote-run.js";
 
@@ -94,6 +96,9 @@ export default {
       if (request.method === "POST" && crashRoute) {
         return await receiveCrashReport(request, crashRoute[1], (path, method, body) =>
           githubApi(env, path, method, body));
+      }
+      if (request.method === "POST" && url.pathname === "/ci-report") {
+        return await receiveCiReport(request, env);
       }
       if (request.method === "POST" && url.pathname === "/remote-run/start") {
         return await issueRemoteRunCallback(request, env, url);
@@ -272,6 +277,20 @@ async function receiveRepositoryWebhook(request, env) {
     return json({ ok: true, pong: true, zen: event.zen || "" });
   }
 
+  // Target-repository CI runs locally; its run/job lifecycle is recorded on the ci-status ledger.
+  // Recording never decides routing: a workflow_run some central workflow consumes still flows on.
+  let ciRecorded = false;
+  if (eventName === "workflow_run" || eventName === "workflow_job") {
+    try {
+      ciRecorded = await recordCiWebhook(env, eventName, event);
+    } catch (error) {
+      console.error("ci-status record failed", error);
+    }
+    if (ciRecorded && eventName === "workflow_job") {
+      return json({ ok: true, recorded: "ci-status", repository: event.repository.full_name, event_name: eventName }, 202);
+    }
+  }
+
   // These GitHub lifecycle events currently have no registered workflow
   // consumers. Dropping them here prevents check/job activity from recursively
   // creating gateway runs that can never dispatch anything.
@@ -297,6 +316,7 @@ async function receiveRepositoryWebhook(request, env) {
     return json({
       ok: true,
       ignored: true,
+      ...(ciRecorded ? { recorded: "ci-status" } : {}),
       repository: repository.full_name,
       event_name: eventName,
       reason: dropReason,
@@ -340,6 +360,55 @@ async function receiveRepositoryWebhook(request, env) {
     event_name: eventName,
     delivery,
   }, 202);
+}
+
+/**
+ * Record a workflow_run / workflow_job of a registered CI workflow on the ci-status ledger.
+ * Returns true when recorded, false when the event is not from a registered CI workflow.
+ * Ownership is checked here because this runs before the general check.
+ */
+async function recordCiWebhook(env, eventName, event) {
+  const repository = event.repository;
+  if (!repository || String(repository.owner?.id) !== OWNER_ID) return false;
+  const consumer = Object.prototype.hasOwnProperty.call(EVENT_CONSUMERS, String(repository.id))
+    ? EVENT_CONSUMERS[String(repository.id)]
+    : null;
+  const workflow = ciWorkflowForEvent(consumer, eventName, event);
+  if (!workflow) return false;
+  await updateLedger(
+    (path, method, body) => githubApi(env, path, method, body),
+    CENTRAL_REPOSITORY,
+    repository.id,
+    (ledger) => applyWebhookEvent(ledger, repository, workflow, eventName, event),
+  );
+  return true;
+}
+
+/** Optional explicit report from a target CI step (.github/actions/ci-report), OIDC-authenticated. */
+async function receiveCiReport(request, env) {
+  const bearer = request.headers.get("Authorization") || "";
+  const match = bearer.match(/^Bearer\s+(.+)$/i);
+  if (!match) throw new HttpError(401, "Missing OIDC bearer token");
+  const claims = await verifyGitHubOidc(match[1]);
+  let body;
+  try {
+    body = JSON.parse(await readRawBody(request));
+  } catch {
+    throw new HttpError(400, "Request body is not valid JSON");
+  }
+  let report;
+  try {
+    report = reportFromClaims(claims, body, OWNER_ID);
+  } catch (error) {
+    throw new HttpError(403, error.message);
+  }
+  await updateLedger(
+    (path, method, payload) => githubApi(env, path, method, payload),
+    CENTRAL_REPOSITORY,
+    report.repository.id,
+    (ledger) => applyReport(ledger, report),
+  );
+  return json({ ok: true, recorded: "ci-status", repository: report.repository.full_name, workflow: report.workflow.path }, 202);
 }
 
 async function normalizeWebhookContext(env, eventName, event) {

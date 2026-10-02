@@ -68,6 +68,8 @@ jobs:
             scripts/test_version_contract.py \
             scripts/generate_event_consumers.py \
             scripts/test_event_consumers.py \
+            scripts/test_target_ci.py \
+            scripts/render_ci_status.py \
             scripts/test_workflow_policy.py \
             scripts/version_contract.py
 
@@ -233,8 +235,12 @@ jobs:
       - name: Check Worker event-consumer map is current and has no routing gaps
         run: python scripts/test_event_consumers.py
 
+      - name: Regression-test target-local CI classification
+        run: python scripts/test_target_ci.py
+
       - name: Check Worker JavaScript
         run: |
+          node --check worker/src/ci-status.js
           node --check worker/src/index.js
           node --check worker/src/event-filter.js
           node --check worker/src/event-consumers.js

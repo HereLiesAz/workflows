@@ -1,0 +1,57 @@
+# workflow-policy: generalized-v1
+# workflow-purpose: Render the central dashboard of CI progress reported by every target repository.
+# Renders README.md on the ci-status branch from the ledger the Worker writes there
+# (worker/src/ci-status.js). Target CI never waits on this; it only reads what was reported.
+name: CI status dashboard
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ci-status-dashboard
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: controller
+          sparse-checkout: scripts/render_ci_status.py
+          sparse-checkout-cone-mode: false
+
+      - name: Check out ledger
+        id: ledger
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! git ls-remote --exit-code --heads "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-status >/dev/null; then
+            echo "::notice::No CI has reported yet; ci-status branch does not exist."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git clone --depth 1 --branch ci-status "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ledger
+          echo "present=true" >> "$GITHUB_OUTPUT"
+
+      - name: Render and commit
+        if: steps.ledger.outputs.present == 'true'
+        working-directory: ledger
+        run: |
+          python ../controller/scripts/render_ci_status.py .
+          git diff --quiet -- README.md && { echo "Unchanged."; exit 0; }
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "ci-status: render dashboard"
+          for attempt in 1 2 3; do
+            git push origin HEAD:ci-status && exit 0
+            git pull --rebase origin ci-status || { git rebase --abort; git reset --hard origin/ci-status; python ../controller/scripts/render_ci_status.py .; git add README.md; git commit -m "ci-status: render dashboard" || exit 0; }
+          done
+          exit 1

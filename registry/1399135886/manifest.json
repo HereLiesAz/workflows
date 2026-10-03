@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-10-01T19:58:48+00:00",
+  "last_sync_at": "2026-10-03T07:46:09+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/onwordly",
@@ -8,37 +8,37 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
+  "worker_url_configured": false,
   "workflows": {
     ".github/workflows/ci.yml": {
-      "binding": "curated",
-      "central_workflow": ".github/workflows/ci-validation.yml",
-      "centralized": true,
+      "ci": true,
       "name": "CI",
+      "reason": "validation runs in the target repository; progress is reported centrally",
       "registry_source": "registry/1399135886/ci-899ce9c2.source.yml",
+      "required_secrets": [],
       "source_sha256": "5fe909668facbf1604c5b7b3b84ba42ecff633f5ed2a52a4ba54180d8a0053d0",
-      "status": "active",
-      "updated_at": "2026-10-01T19:58:46+00:00"
+      "status": "local",
+      "updated_at": "2026-10-03T07:46:08+00:00"
     },
     ".github/workflows/experiment.yml": {
-      "binding": "curated",
-      "central_workflow": ".github/workflows/ci-validation.yml",
-      "centralized": true,
+      "ci": true,
       "name": "Experiment 001",
+      "reason": "validation runs in the target repository; progress is reported centrally",
       "registry_source": "registry/1399135886/experiment-ce6504e2.source.yml",
+      "required_secrets": [],
       "source_sha256": "a14103076f04d0dcf7520701410782ec0ef741cd41fcbb42c54b8b7c169be69a",
-      "status": "active",
-      "updated_at": "2026-10-01T19:58:47+00:00"
+      "status": "local",
+      "updated_at": "2026-10-03T07:46:08+00:00"
     },
     ".github/workflows/kaggle-experiment.yml": {
-      "binding": "curated",
-      "central_workflow": ".github/workflows/ci-validation.yml",
-      "centralized": true,
+      "ci": true,
       "name": "Kaggle Experiment 001",
+      "reason": "validation runs in the target repository; progress is reported centrally",
       "registry_source": "registry/1399135886/kaggle-experiment-bae24740.source.yml",
+      "required_secrets": [],
       "source_sha256": "89de5ece52df893092d584de3375396b32bc294f5212bc274130a540424a93fc",
-      "status": "active",
-      "updated_at": "2026-10-01T19:58:48+00:00"
+      "status": "local",
+      "updated_at": "2026-10-03T07:46:09+00:00"
     }
   }
 }

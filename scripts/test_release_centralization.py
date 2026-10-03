@@ -95,18 +95,16 @@ assert TRACKER_MARKER in tracker
 assert tracker_doc['name'] == 'Release AAB to Play'
 assert 'push' in tracker_doc['on']
 assert 'workflow_dispatch' in tracker_doc['on']
-assert tracker_doc['permissions']['statuses'] == 'read'
-assert tracker_doc['permissions']['actions'] == 'read'
+assert tracker_doc['permissions'] == {}
 assert 'central-dispatch' not in tracker_doc['jobs']
-# One tracker job per central job, same names and dependency order, bookkeeping hidden.
-assert list(tracker_doc['jobs']) == ['central', 'version_contract', 'build_and_publish'], list(tracker_doc['jobs'])
-assert tracker_doc['jobs']['build_and_publish']['needs'] == ['central', 'version_contract']
-assert tracker_doc['jobs']['version_contract']['needs'] == ['central']
-locate_run = tracker_doc['jobs']['central']['steps'][0]['run']
-assert 'statuses/$TARGET_SHA' in locate_run
-assert 'No run of this workflow was started' in locate_run
-follow_run = tracker_doc['jobs']['build_and_publish']['steps'][0]['run']
-assert '/logs' in follow_run and 'curl ' not in follow_run and 'dispatches' not in follow_run
+# One short hand-off job: never polls, never holds a runner while the central run waits.
+assert list(tracker_doc['jobs']) == ['central'], list(tracker_doc['jobs'])
+handoff = tracker_doc['jobs']['central']
+assert handoff['timeout-minutes'] <= 2
+handoff_run = handoff['steps'][0]['run']
+assert 'sleep' not in handoff_run and 'gh api' not in handoff_run
+assert 'curl ' not in handoff_run and 'dispatches' not in handoff_run
+assert handoff['steps'][0]['env']['STATUS_CONTEXT'] == '.github/workflows/release-aab.yml', handoff['steps'][0]['env']
 
 # The Play publisher lives in shared actions the workflow calls; check the contract across all of them.
 play_workflow = Path('.github/workflows/android-play-release.yml').read_text(encoding='utf-8')
@@ -237,4 +235,4 @@ _sync._stage_trackers(
 assert list(_staged) == ['.github/workflows/release-aab.yml'], _staged
 _restored = _staged['.github/workflows/release-aab.yml'][0]
 assert _restored is not None and TRACKER_MARKER in _restored
-assert 'build_and_publish' in load_yaml(_restored)['jobs']
+assert list(load_yaml(_restored)['jobs']) == ['central']

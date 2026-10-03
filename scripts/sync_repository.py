@@ -667,6 +667,10 @@ REPOSITORY_REVIEWED_WORKFLOW_BLOBS = {
     "hereliesaz/conveyance-liquid": {
         ".github/workflows/ci.yml": "1445c059bfcdffbfd19c8c267c3e02baca34e8bd",
     },
+    # Six-hourly upload of the stroke-data branch to a private Kaggle dataset (KAGGLE_TOKEN).
+    "hereliesaz/graffux": {
+        ".github/workflows/stroke-data-kaggle.yml": "1ad6c2215e60f381921364459c50a58a4040fd7a",
+    },
     "hereliesaz/conveyance-bacterium": {
         ".github/workflows/ci.yml": "8b32d6357f4b1c826d7f9bcea208df7ea29b7a86",
     },

@@ -5,10 +5,11 @@ on:
   # One central tick fans out to every registered workflow whose original cron
   # matches this expression. New cron expressions must be added here when the
   # corresponding generalized workflow is admitted to the catalog;
-  # scripts/test_gateway_schedule.py enforces the exact match.
+  # scripts/test_gateway_schedule.py fails on a missing one and warns on an unused one.
   schedule:
     - cron: '17 6 * * *'
     - cron: '39 12 * * 1'
+    - cron: '17 */6 * * *'
 
   workflow_dispatch:
     inputs:

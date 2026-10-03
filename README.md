@@ -47,7 +47,7 @@ target CI run (runs in the target repository)
            ci-status-dashboard.yml (every 15 min) → ci-status/README.md
 ~~~
 
-- A workflow is **target CI** (`status: local`, `ci: true` in its manifest entry) when it calls `HereLiesAz/workflows/.github/actions/ci-report`, or when it is pull-request validation the catalog would otherwise bind to `ci-validation.yml`. Workflows bound there without a `pull_request` trigger (e.g. experiments on central compute) stay central.
+- A workflow is **target CI** (`status: local`, `ci: true` in its manifest entry) when it calls `HereLiesAz/workflows/.github/actions/ci-report`, or when the catalog would otherwise bind it to `ci-validation.yml`, whatever its triggers. CI and dependency submission always run from the target repository's own Actions (dependency submission is already a central-execution blocker).
 - The sync restores a target CI workflow's original source over its tracker and never blocks a new one under the submission policy. Secrets it references are listed in the entry's `required_secrets`; they must exist in the target repository.
 - `scripts/generate_event_consumers.py` lists each repository's target CI under `ci` in the Worker's map; the Worker records those `workflow_run`/`workflow_job` deliveries and never forwards them to the gateway.
 - Reporting failures never affect the run: the webhook is out-of-band, and the `ci-report` action turns every error into a warning.

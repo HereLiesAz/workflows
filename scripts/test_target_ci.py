@@ -22,7 +22,7 @@ assert target_ci_reason(pr_validation, CI_VALIDATION_WORKFLOW)
 assert target_ci_reason(pr_validation, None) is None, "undeclared CI with no binding is left to the normal path"
 
 experiment = load_yaml("name: Experiment\non: {push: {paths: [.run]}, workflow_dispatch: {}}\njobs: {t: {runs-on: x, steps: [{run: y}]}}\n")
-assert target_ci_reason(experiment, CI_VALIDATION_WORKFLOW) is None, "experiments keep central compute"
+assert target_ci_reason(experiment, CI_VALIDATION_WORKFLOW), "CI runs in its own repository whatever its triggers"
 
 assert required_secrets("${{ secrets.GOOGLE_SERVICES }} ${{ secrets.GITHUB_TOKEN }} ${{secrets.A}}") == ["A", "GOOGLE_SERVICES"]
 

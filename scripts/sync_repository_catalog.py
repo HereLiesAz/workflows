@@ -292,15 +292,14 @@ def target_ci_reason(doc: dict[str, Any], override: str | None) -> str | None:
 
     CI runs in its own repository so central capacity can never block or delay it; the
     controller only records its progress (worker/src/ci-status.js). A workflow is CI when it
-    calls the ci-report action, or when it is pull-request validation the catalog would
-    otherwise bind to ci-validation.yml (experiments bound there have no pull_request trigger
-    and stay central).
+    calls the ci-report action, or when the catalog would bind it to ci-validation.yml,
+    whatever its triggers: CI is never central.
     """
     for value in walk_strings(doc.get("jobs") or {}):
         if value.startswith(CI_REPORT_ACTION + "@") or value == CI_REPORT_ACTION:
             return "declares CI with the ci-report action; CI runs in the target repository"
-    if override == CI_VALIDATION_WORKFLOW and "pull_request" in _trigger_names(doc.get("on", doc.get(True))):
-        return "pull-request validation runs in the target repository; progress is reported centrally"
+    if override == CI_VALIDATION_WORKFLOW:
+        return "validation runs in the target repository; progress is reported centrally"
     return None
 
 

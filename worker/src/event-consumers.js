@@ -1575,7 +1575,8 @@ export const EVENT_CONSUMERS = {
   "1399135886": {
     "repository": "HereLiesAz/onwordly",
     "events": [
-      "push"
+      "push",
+      "workflow_dispatch"
     ],
     "ci": [
       {
@@ -1585,10 +1586,6 @@ export const EVENT_CONSUMERS = {
       {
         "path": ".github/workflows/experiment.yml",
         "name": "Experiment 001"
-      },
-      {
-        "path": ".github/workflows/kaggle-experiment.yml",
-        "name": "Kaggle Experiment 001"
       }
     ]
   }

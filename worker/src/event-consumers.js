@@ -1569,9 +1569,21 @@ export const EVENT_CONSUMERS = {
   "1399135886": {
     "repository": "HereLiesAz/onwordly",
     "events": [
-      "pull_request",
-      "push",
-      "workflow_dispatch"
+      "push"
+    ],
+    "ci": [
+      {
+        "path": ".github/workflows/ci.yml",
+        "name": "CI"
+      },
+      {
+        "path": ".github/workflows/experiment.yml",
+        "name": "Experiment 001"
+      },
+      {
+        "path": ".github/workflows/kaggle-experiment.yml",
+        "name": "Kaggle Experiment 001"
+      }
     ]
   }
 };

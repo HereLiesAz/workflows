@@ -511,6 +511,7 @@ async function issueRemoteRunCallback(request, env, url) {
   const runRef = String(body.run_ref || "");
   const detailsUrl = String(body.details_url || "");
   const centralRunId = String(body.central_run_id || "");
+  const publishRelease = body.publish_release === true;
   const requestedTtl = Number(body.ttl_seconds || 43200);
   if (!Number.isFinite(requestedTtl)) throw new HttpError(400, "ttl_seconds is invalid");
   const ttl = Math.max(300, Math.min(Math.trunc(requestedTtl), 86400));
@@ -562,6 +563,7 @@ async function issueRemoteRunCallback(request, env, url) {
     run_ref: runRef,
     central_run_id: centralRunId,
     details_url: detailsUrl,
+    publish_release: publishRelease,
   });
 
   return json({
@@ -609,6 +611,7 @@ async function receiveRemoteRunCallback(request, env) {
       ref: "main",
       inputs: {
         target_repository: claims.target_repository,
+        target_sha: claims.target_sha,
         target_check_sha: claims.target_check_sha,
         source_workflow_path: claims.source_workflow_path,
         provider: claims.provider,
@@ -616,6 +619,7 @@ async function receiveRemoteRunCallback(request, env) {
         remote_state: state,
         remote_description: description,
         details_url: claims.details_url,
+        publish_release: claims.publish_release === true ? "true" : "false",
       },
     },
     true,

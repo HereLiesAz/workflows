@@ -1,6 +1,7 @@
 # workflow-policy: generalized-v1
 # workflow-purpose: Finalize a target commit status after external compute reports its own terminal result.
 # required-secret: GH_TOKEN | Central GitHub token used to finalize remote-compute commit statuses.
+# required-secret: KAGGLE_TOKEN | Kaggle API token used to collect kernel outputs after a kernel reports back.
 name: Finalize remote compute result
 run-name: ${{ inputs.target_repository }} · ${{ inputs.provider }} · ${{ inputs.run_ref }}
 
@@ -9,6 +10,9 @@ on:
     inputs:
       target_repository:
         required: true
+        type: string
+      target_sha:
+        required: false
         type: string
       target_check_sha:
         required: true
@@ -31,6 +35,10 @@ on:
       details_url:
         required: false
         type: string
+      publish_release:
+        required: false
+        type: string
+        default: 'false'
 
 permissions:
   contents: read
@@ -44,6 +52,7 @@ jobs:
     runs-on: ubuntu-slim
     env:
       REQUIRED_GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      REQUIRED_KAGGLE_TOKEN: ${{ secrets.KAGGLE_TOKEN }}
     steps:
       - name: Verify required central credential
         shell: bash
@@ -53,9 +62,145 @@ jobs:
             echo "::error::Missing required secret GH_TOKEN — Central GitHub token used to finalize remote-compute commit statuses."
             exit 1
           fi
+          if [ -z "${REQUIRED_KAGGLE_TOKEN:-}" ]; then
+            echo "::error::Missing required secret KAGGLE_TOKEN — Kaggle API token used to collect kernel outputs after a kernel reports back."
+            exit 1
+          fi
+
+  # Kaggle reports its own result from inside the kernel; nothing waits on it. Once a success
+  # arrives, this job collects the outputs and publishes the profile's release, then exits.
+  collect_outputs:
+    needs: policy_secret_preflight
+    if: ${{ inputs.provider == 'kaggle' && inputs.remote_state == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      TARGET_REPOSITORY: ${{ inputs.target_repository }}
+      TARGET_SHA: ${{ inputs.target_sha || inputs.target_check_sha }}
+      SOURCE_WORKFLOW_PATH: ${{ inputs.source_workflow_path }}
+      KERNEL_REF: ${{ inputs.run_ref }}
+      PUBLISH_RELEASE: ${{ inputs.publish_release }}
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check kaggle 'ruamel.yaml==0.18.15'
+
+      - name: Resolve the purpose profile
+        id: profile
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os, sys
+          from pathlib import Path
+          sys.path.insert(0, "scripts")
+          from semantic_catalog import purpose_profile_for_source
+
+          repository, path = os.environ["TARGET_REPOSITORY"], os.environ["SOURCE_WORKFLOW_PATH"]
+          profile = {}
+          for manifest in Path("registry").glob("*/manifest.json"):
+              data = json.loads(manifest.read_text(encoding="utf-8"))
+              if (data.get("repository") or {}).get("full_name", "").lower() == repository.lower():
+                  entry = (data.get("workflows") or {}).get(path) or {}
+                  profile = purpose_profile_for_source(str(entry.get("source_sha256") or "")) or {}
+          print("json=" + json.dumps(profile, separators=(",", ":")))
+          PY
+
+      - name: Wait for the kernel to finish saving outputs
+        # The callback fires from inside the kernel just before it exits; Kaggle saves
+        # /kaggle/working on exit, so this waits seconds to minutes, never the whole run.
+        shell: bash
+        run: |
+          set -euo pipefail
+          deadline=$(( $(date +%s) + 900 ))
+          while (( $(date +%s) < deadline )); do
+            status="$(kaggle kernels status "$KERNEL_REF" 2>&1 || true)"
+            lower="$(tr '[:upper:]' '[:lower:]' <<<"$status")"
+            [[ "$lower" == *complete* ]] && exit 0
+            [[ "$lower" == *error* || "$lower" == *failed* || "$lower" == *cancel* ]] && { echo "::error::Kaggle kernel did not complete: $status"; exit 1; }
+            sleep 20
+          done
+          echo "::error::Kaggle kernel $KERNEL_REF did not finish saving outputs within 15 minutes"
+          exit 1
+
+      - name: Download Kaggle outputs
+        shell: bash
+        run: kaggle kernels output "$KERNEL_REF" -p kaggle-output -o
+
+      - name: Upload Kaggle outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaggle-${{ github.run_id }}
+          path: kaggle-output/
+          retention-days: ${{ fromJSON(steps.profile.outputs.json).retention_days || 30 }}
+          if-no-files-found: warn
+
+      - name: Publish immutable Kaggle release assets
+        if: ${{ inputs.publish_release == 'true' && fromJSON(steps.profile.outputs.json).release_tag != null && fromJSON(steps.profile.outputs.json).release_tag != '' }}
+        env:
+          RELEASE_TAG: ${{ fromJSON(steps.profile.outputs.json).release_tag }}
+          RELEASE_TITLE: ${{ fromJSON(steps.profile.outputs.json).release_title || fromJSON(steps.profile.outputs.json).release_tag }}
+          RELEASE_NOTES: ${{ fromJSON(steps.profile.outputs.json).release_notes || 'Kaggle release artifacts.' }}
+          RELEASE_PRERELEASE: ${{ fromJSON(steps.profile.outputs.json).release_prerelease || false }}
+          RELEASE_ASSETS_GLOB: ${{ fromJSON(steps.profile.outputs.json).release_assets_glob }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${RELEASE_ASSETS_GLOB:-}" ]] || { echo "::error::release_assets_glob is required when release_tag is set"; exit 1; }
+
+          if ! gh api "repos/$TARGET_REPOSITORY/releases/tags/$RELEASE_TAG" >/tmp/release.json 2>/dev/null; then
+            args=(release create "$RELEASE_TAG" --repo "$TARGET_REPOSITORY" --target "$TARGET_SHA" --title "$RELEASE_TITLE" --notes "$RELEASE_NOTES")
+            [[ "$RELEASE_PRERELEASE" == "true" ]] && args+=(--prerelease)
+            gh "${args[@]}"
+            gh api "repos/$TARGET_REPOSITORY/releases/tags/$RELEASE_TAG" >/tmp/release.json
+          fi
+
+          mapfile -t assets < <(python3 - <<'PY'
+          import glob, os
+          pattern = os.environ["RELEASE_ASSETS_GLOB"]
+          for path in sorted(glob.glob(pattern, recursive=True)):
+              if os.path.isfile(path):
+                  print(path)
+          PY
+          )
+          [[ "${#assets[@]}" -gt 0 ]] || { echo "::error::No files matched $RELEASE_ASSETS_GLOB"; exit 1; }
+
+          for path in "${assets[@]}"; do
+            name="$(basename "$path")"
+            digest="sha256:$(sha256sum "$path" | awk '{print $1}')"
+            current_digest="$(jq -r --arg name "$name" '[.assets[] | select(.name == $name)][0].digest // empty' /tmp/release.json)"
+            current_id="$(jq -r --arg name "$name" '[.assets[] | select(.name == $name)][0].id // empty' /tmp/release.json)"
+            if [[ -n "$current_id" ]]; then
+              if [[ "$current_digest" == "$digest" ]]; then
+                echo "Already published: $name ($digest)"
+                continue
+              fi
+              echo "::error::$RELEASE_TAG/$name already exists with digest '${current_digest:-unknown}', expected $digest. Release assets are immutable; bump release_tag."
+              exit 1
+            fi
+
+            gh release upload "$RELEASE_TAG" "$path" --repo "$TARGET_REPOSITORY"
+            gh api "repos/$TARGET_REPOSITORY/releases/tags/$RELEASE_TAG" >/tmp/release.json
+            remote_digest="$(jq -r --arg name "$name" '[.assets[] | select(.name == $name)][0].digest // empty' /tmp/release.json)"
+            if [[ -n "$remote_digest" && "$remote_digest" != "$digest" ]]; then
+              echo "::error::Published digest mismatch for $name: $remote_digest != $digest"
+              exit 1
+            fi
+            echo "Published: $name ($digest)"
+          done
+
 
   finalize:
-    needs: policy_secret_preflight
+    needs: [policy_secret_preflight, collect_outputs]
+    # Runs after output collection (or its skip); a failed collection fails the status.
+    if: ${{ always() && needs.policy_secret_preflight.result == 'success' }}
     runs-on: ubuntu-slim
     timeout-minutes: 5
     env:
@@ -66,6 +211,7 @@ jobs:
       REMOTE_STATE: ${{ inputs.remote_state }}
       REMOTE_DESCRIPTION: ${{ inputs.remote_description }}
       DETAILS_URL: ${{ inputs.details_url }}
+      COLLECT_RESULT: ${{ needs.collect_outputs.result }}
     steps:
       - name: Finalize target remote-compute status
         shell: bash
@@ -76,6 +222,10 @@ jobs:
             *) echo "::error::Invalid terminal remote state: $REMOTE_STATE"; exit 2 ;;
           esac
           description="${REMOTE_DESCRIPTION:-Remote compute finished.}"
+          if [[ "$REMOTE_STATE" == "success" && ( "$COLLECT_RESULT" == "failure" || "$COLLECT_RESULT" == "cancelled" ) ]]; then
+            REMOTE_STATE="failure"
+            description="Remote compute succeeded, but collecting outputs or publishing the release failed."
+          fi
           payload="$(jq -n \
             --arg state "$REMOTE_STATE" \
             --arg context "$STATUS_CONTEXT" \

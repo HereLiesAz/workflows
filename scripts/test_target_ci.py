@@ -56,3 +56,7 @@ for _manifest in sorted(_glob.glob("registry/*/manifest.json")):
         assert "pull_request" not in _triggers(_doc.get("on", _doc.get(True))), (
             f"{_manifest} {_path}: pull-request CI is still bound to {CI_VALIDATION_WORKFLOW}; re-sync the repository"
         )
+
+stub = load_yaml("name: Training\non: {push: {}, workflow_dispatch: {}}\njobs: {k: {runs-on: x, steps: [{run: echo stub}]}}\n")
+assert target_ci_reason(stub, CI_VALIDATION_WORKFLOW, {"kind": "kaggle"}) is None, "Kaggle remote compute stays central"
+assert target_ci_reason(stub, CI_VALIDATION_WORKFLOW, {"kind": "python"}), "other validation runs in the target repository"

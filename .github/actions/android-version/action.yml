@@ -1,0 +1,71 @@
+name: Android version
+description: >-
+  The one versioning rule for every Android release. versionCode is one more than the highest of
+  the code recorded in the repository and every code Google Play has ever accepted for the package
+  (all tracks, all statuses, drafts included). versionName keeps the hand-managed major.minor.patch
+  from version.properties and raises only its last field by one. Nothing else is added, multiplied
+  or derived. `record` writes the published pair back to the repository's default branch.
+inputs:
+  mode:
+    description: "`next` computes the next pair; `record` writes a published pair back."
+    required: true
+  version-file:
+    description: Path of the properties file inside the checkout and the repository.
+    required: false
+    default: version.properties
+  service-account-json:
+    description: Google Play service account JSON. Empty skips the Play lookup (GitHub-only apps).
+    required: false
+    default: ""
+  package-name:
+    description: Application ID on Google Play (needed with service-account-json).
+    required: false
+    default: ""
+  repository:
+    description: "`record` only: owner/name of the repository to write to."
+    required: false
+    default: ""
+  branch:
+    description: "`record` only: branch to write to."
+    required: false
+    default: ""
+  version-code:
+    description: "`record` only: the published versionCode."
+    required: false
+    default: ""
+  version-name:
+    description: "`record` only: the published versionName."
+    required: false
+    default: ""
+  github-token:
+    description: "`record` only: token allowed to write the repository's contents."
+    required: false
+    default: ""
+outputs:
+  version-code:
+    description: Next versionCode (`next`).
+    value: ${{ steps.run.outputs.version_code }}
+  version-name:
+    description: Next versionName (`next`).
+    value: ${{ steps.run.outputs.version_name }}
+runs:
+  using: composite
+  steps:
+    - id: run
+      shell: bash
+      env:
+        MODE: ${{ inputs.mode }}
+        VERSION_FILE: ${{ inputs.version-file }}
+        PLAY_SERVICE_ACCOUNT_JSON: ${{ inputs.service-account-json }}
+        PACKAGE_NAME: ${{ inputs.package-name }}
+        RECORD_REPOSITORY: ${{ inputs.repository }}
+        RECORD_BRANCH: ${{ inputs.branch }}
+        RECORD_CODE: ${{ inputs.version-code }}
+        RECORD_NAME: ${{ inputs.version-name }}
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: |
+        set -euo pipefail
+        if [ "$MODE" = next ] && [ -n "$PLAY_SERVICE_ACCOUNT_JSON" ]; then
+          python -m pip install --quiet google-api-python-client google-auth google-auth-httplib2
+        fi
+        python "$GITHUB_ACTION_PATH/version.py"

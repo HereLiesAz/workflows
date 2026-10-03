@@ -229,6 +229,9 @@ jobs:
       - name: Check the gateway schedule matches registered crons
         run: python scripts/test_gateway_schedule.py
 
+      - name: Regression-test the single Android versioning rule
+        run: python scripts/test_android_version.py
+
       - name: Check Worker JavaScript
         run: |
           for file in worker/src/*.js; do node --check "$file"; done

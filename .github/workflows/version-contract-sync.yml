@@ -61,7 +61,7 @@ jobs:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
     steps:
       - name: Check out version controller
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install controller dependency
         run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'

@@ -151,7 +151,7 @@ jobs:
       TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
       TARGET_REF_NAME: ${{ inputs.target_ref_name }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}

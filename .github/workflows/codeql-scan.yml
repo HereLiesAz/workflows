@@ -126,7 +126,7 @@ jobs:
     outputs:
       languages: ${{ steps.detect.outputs.languages }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}
@@ -182,7 +182,7 @@ jobs:
       group: codeql-${{ inputs.target_repository_name }}-${{ inputs.target_ref_name || inputs.target_sha }}-${{ matrix.language }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}

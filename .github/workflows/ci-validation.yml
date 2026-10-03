@@ -143,7 +143,7 @@ jobs:
       contents: read
     steps:
       - name: Check out target
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}
@@ -205,7 +205,7 @@ jobs:
       AZPHALT_VERSION_FROZEN: ${{ fromJSON(inputs.purpose_profile_json).version_frozen || '' }}
     steps:
       - name: Check out target
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}
@@ -278,7 +278,7 @@ jobs:
     environment: ${{ inputs.target_repository_name }}
     steps:
       - name: Check out target
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}
@@ -311,7 +311,7 @@ jobs:
 
       - name: Check out extra dependency repository
         if: ${{ fromJSON(inputs.purpose_profile_json).extra_checkout_repository != null && fromJSON(inputs.purpose_profile_json).extra_checkout_repository != '' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ fromJSON(inputs.purpose_profile_json).extra_checkout_repository }}
           ref: ${{ fromJSON(inputs.purpose_profile_json).extra_checkout_ref }}
@@ -372,7 +372,7 @@ jobs:
       contents: read
     steps:
       - name: Check out target
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}
@@ -415,7 +415,7 @@ jobs:
       contents: read
     steps:
       - name: Check out target
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}

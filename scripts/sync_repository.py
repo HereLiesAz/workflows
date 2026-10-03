@@ -188,7 +188,7 @@ def _version_contract_job() -> dict:
         "steps": [
             {
                 "name": "Checkout source revision",
-                "uses": "actions/checkout@v4",
+                "uses": "actions/checkout@v7",
                 "with": {
                     "repository": "${{ inputs.target_repository }}",
                     "ref": "${{ inputs.target_sha }}",

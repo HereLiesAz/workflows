@@ -147,7 +147,7 @@ jobs:
           exit 1
 
       - name: Check out target
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}
@@ -212,7 +212,7 @@ jobs:
       contents: read
     steps:
       - name: Check out prepared commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ needs.prepare.outputs.build_sha }}
@@ -331,7 +331,7 @@ jobs:
 
       - name: Check out target release commit
         if: ${{ steps.policy.outputs.publish == 'true' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ needs.prepare.outputs.build_sha }}

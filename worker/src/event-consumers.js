@@ -244,10 +244,6 @@ export const EVENT_CONSUMERS = {
       {
         "path": ".github/workflows/bitcos-engine.yml",
         "name": "BITCOS Engine"
-      },
-      {
-        "path": ".github/workflows/orchestration-specialist-training.yml",
-        "name": "Orchestration Specialist Training"
       }
     ]
   },

@@ -29,7 +29,7 @@ The central sync registers one repository webhook through the Worker. The Worker
 
 The legacy OIDC `/dispatch` endpoint is retained only while old proxies are being removed; it is not the steady-state trigger transport.
 
-Runtime results are reported back to the target SHA using **commit statuses**, not Check Runs. Each target keeps a tracker per centralized workflow at its original path, listing what it uses and mirroring each run's result into the target's Actions tab.
+Runtime results are reported back to the target SHA using **commit statuses**, not Check Runs. Each target keeps a tracker per centralized workflow at its original path, listing what it uses. A tracker is one seconds-long job that names the commit status carrying the central result; it never waits on the central run, so it never holds a runner the central run needs.
 
 ## CI runs in its own repository
 

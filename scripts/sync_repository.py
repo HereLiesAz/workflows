@@ -508,70 +508,32 @@ def build_proxy(source_text: str, source_path: str, source_hash: str, workflow_n
 
 _TRACKER_BOOKKEEPING_JOBS = {"central_check_start", "central_check_finish"}
 
-_LOCATE_SCRIPT = r'''set -euo pipefail
-created_at="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .created_at)"
-threshold="$(date -u -d "$created_at - 5 seconds" +%s)"
-# The gateway skips some events a tracker still sees (unmatched filters, forks, manual
-# runs, CI-skip pushes). No central status within 90 minutes means no central run.
-# The window is long on purpose: a gateway run can sit queued behind the account's
-# concurrent-job limit for over an hour when long builds are running (2026-09-29:
-# Graffux pushes at 17:04 and 17:46 were routed at 18:28 and 19:12), and a shorter
-# window gave up on runs that then built and published anyway.
-for _ in $(seq 1 360); do
-  url="$(gh api "repos/$GITHUB_REPOSITORY/statuses/$TARGET_SHA?per_page=100" --jq \
-    "[.[] | select(.context == \"$STATUS_CONTEXT\" and ((.updated_at | fromdateiso8601) >= $threshold))][0].target_url // empty")"
-  run_id="$(sed -nE 's#.*/HereLiesAz/workflows/actions/runs/([0-9]+).*#\1#p' <<<"$url")"
-  if [[ -n "$run_id" ]]; then
-    echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
-    echo "Run: $url"
-    exit 0
-  fi
-  sleep 15
-done
-echo "::notice::No run of this workflow was started for this event."
-'''
-
-_FOLLOW_SCRIPT = r'''set -euo pipefail
-api="repos/HereLiesAz/workflows/actions/runs/$RUN_ID"
-seen=""
-job=""
-for _ in $(seq 1 1440); do
-  job="$(gh api "$api/jobs?per_page=100" --jq "[.jobs[] | select(.name == \"$JOB_NAME\" or (.name | startswith(\"$JOB_NAME \")) or (.name | startswith(\"$JOB_NAME / \")))][0] // empty")"
-  if [[ -z "$job" ]]; then
-    [[ "$(gh api "$api" --jq .status)" == completed ]] && { echo "Skipped."; exit 0; }
-    sleep 10
-    continue
-  fi
-  while IFS= read -r line; do
-    [[ -n "$line" ]] || continue
-    grep -qxF "$line" <<<"$seen" || { echo "$line"; seen+="$line"$'\n'; }
-  done < <(jq -r '.steps[]? | select(.status == "completed" and .conclusion != "skipped")
-    | "\(if .conclusion == "success" then "✓" else "✗" end) \(.name)"' <<<"$job")
-  [[ "$(jq -r .status <<<"$job")" == completed ]] && break
-  sleep 10
-done
-conclusion="$(jq -r '.conclusion // "cancelled"' <<<"$job")"
-echo "::group::Log"
-if log="$(gh api "repos/HereLiesAz/workflows/actions/jobs/$(jq -r .id <<<"$job")/logs" 2>/dev/null)"; then
-  sed -E 's/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z //' <<<"$log"
-else
-  echo "Log unavailable here: $(jq -r .html_url <<<"$job")"
-fi
-echo "::endgroup::"
-case "$conclusion" in
-  success|skipped|neutral) exit 0 ;;
-  *) echo "::error::$JOB_NAME: $conclusion"; exit 1 ;;
-esac
-'''
+_HANDOFF_SCRIPT = r"""set -euo pipefail
+# The build runs in HereLiesAz/workflows. Its result is reported on this commit as the
+# commit status named below: pending when the central run starts, then success or
+# failure. This job only points there and ends, so it never holds a runner while the
+# central run waits for one. (Trackers that followed the central run job-by-job held a
+# runner each for the whole build; under the account's concurrent-job limit they
+# starved the very runs they were waiting on: 2026-10-01, illumera waited 3h to start.)
+# No status at all means the gateway intentionally skipped this event.
+{
+  echo "### Runs in HereLiesAz/workflows"
+  echo
+  echo "Result: commit status \`$STATUS_CONTEXT\` on \`$TARGET_SHA\`."
+  echo "Central runs: $GITHUB_SERVER_URL/HereLiesAz/workflows/actions"
+} >> "$GITHUB_STEP_SUMMARY"
+echo "Result is reported as commit status '$STATUS_CONTEXT' on $TARGET_SHA."
+"""
 
 
 def _build_target_run_tracker(proxy: str, source_path: str, central_text: str) -> str:
-    """Make the centralized run look like it ran in the target repository.
+    """Point the target repository at its centralized run, without waiting on it.
 
-    The tracker keeps the source workflow's name and triggers and has one job per
-    central job, with the same names and dependencies. Each job follows its central
-    counterpart, printing steps as they finish and then its log, and ends with its
-    result. It never dispatches or builds anything.
+    The tracker keeps the source workflow's name and triggers, so the repository's
+    workflow list still shows what it runs. It has one short job that names the commit
+    status carrying the central run's result and ends. It never dispatches, builds or
+    polls: the central run's own commit status (pending, then success/failure) is the
+    only result, so a tracker can never report a build that did not happen.
     """
 
     header, doc = _proxy_doc(proxy)
@@ -580,61 +542,27 @@ def _build_target_run_tracker(proxy: str, source_path: str, central_text: str) -
 
     central = load_yaml(central_text)
     central_jobs = (central.get("jobs") if isinstance(central, dict) else None) or {}
-    mirrored = [job_id for job_id in central_jobs if job_id not in _TRACKER_BOOKKEEPING_JOBS]
-    if not mirrored:
+    if not [job_id for job_id in central_jobs if job_id not in _TRACKER_BOOKKEEPING_JOBS]:
         raise ValueError(f"central workflow for {source_path} has no jobs to mirror")
 
-    doc["permissions"] = {"actions": "read", "contents": "read", "statuses": "read"}
-    jobs = {
+    doc["permissions"] = {}
+    doc["jobs"] = {
         "central": {
-            "name": "Start",
+            "name": "Hand-off",
             "runs-on": "ubuntu-latest",
-            "timeout-minutes": 100,
-            "outputs": {"run_id": "${{ steps.locate.outputs.run_id }}"},
+            "timeout-minutes": 2,
             "steps": [{
-                "id": "locate",
-                "name": "Locate run",
+                "name": "Point to central result",
                 "env": {
-                    "GH_TOKEN": "${{ github.token }}",
                     "STATUS_CONTEXT": source_path,
                     "TARGET_SHA": "${{ github.event.pull_request.head.sha || github.sha }}",
                 },
                 "shell": "bash",
-                "run": _LOCATE_SCRIPT,
+                "run": _HANDOFF_SCRIPT,
             }],
         }
     }
-    for job_id in mirrored:
-        job = central_jobs[job_id] if isinstance(central_jobs[job_id], dict) else {}
-        job_name = str(job.get("name") or job_id)
-        needs = [n for n in _need_list(job.get("needs")) if n in mirrored]
-        jobs[job_id] = {
-            "name": job_name,
-            "needs": ["central", *needs],
-            "if": "${{ needs.central.outputs.run_id != '' }}",
-            "runs-on": "ubuntu-latest",
-            "timeout-minutes": 360,
-            "steps": [{
-                "name": job_name,
-                "env": {
-                    "GH_TOKEN": "${{ github.token }}",
-                    "RUN_ID": "${{ needs.central.outputs.run_id }}",
-                    "JOB_NAME": job_name,
-                },
-                "shell": "bash",
-                "run": _FOLLOW_SCRIPT,
-            }],
-        }
-    doc["jobs"] = jobs
     return header + dump_yaml(doc)
-
-
-def _need_list(value) -> list[str]:
-    if isinstance(value, str):
-        return [value]
-    if isinstance(value, list):
-        return [str(item) for item in value]
-    return []
 
 
 def _stage_trackers(

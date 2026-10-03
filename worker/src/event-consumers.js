@@ -239,6 +239,12 @@ export const EVENT_CONSUMERS = {
       "pull_request",
       "push",
       "workflow_dispatch"
+    ],
+    "ci": [
+      {
+        "path": ".github/workflows/bitcos-engine.yml",
+        "name": "BITCOS Engine"
+      }
     ]
   },
   "1033739213": {

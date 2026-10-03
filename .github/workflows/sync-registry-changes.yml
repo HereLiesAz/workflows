@@ -47,7 +47,7 @@ jobs:
       count: ${{ steps.targets.outputs.count }}
     steps:
       - name: Check out central controller
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 2
           persist-credentials: false
@@ -117,7 +117,7 @@ jobs:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
     steps:
       - name: Check out central controller
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 

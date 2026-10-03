@@ -49,7 +49,7 @@ jobs:
       android_version_code: ${{ steps.version.outputs.android_version_code }}
     steps:
       - name: Checkout source revision
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}

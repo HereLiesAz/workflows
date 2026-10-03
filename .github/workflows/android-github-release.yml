@@ -151,7 +151,7 @@ jobs:
       ANDROID_VERSION_CODE: ${{ needs.version_contract.outputs.android_version_code }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           repository: ${{ inputs.target_repository }}

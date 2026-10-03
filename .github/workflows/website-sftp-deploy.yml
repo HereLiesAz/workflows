@@ -135,7 +135,7 @@ jobs:
       TARGET_SHA: ${{ inputs.target_sha }}
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}

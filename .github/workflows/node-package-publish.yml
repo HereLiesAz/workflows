@@ -165,7 +165,7 @@ jobs:
           exit 1
 
       - name: Checkout target repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}

@@ -98,7 +98,7 @@ jobs:
           echo "::error::Timed out waiting for Maven publication queue" >&2
           exit 1
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}

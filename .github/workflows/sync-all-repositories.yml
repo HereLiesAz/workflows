@@ -31,7 +31,7 @@ jobs:
       new_count: ${{ steps.repos.outputs.new_count }}
     steps:
       - name: Check out central controller
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Discover all public repositories
         id: repos
@@ -110,7 +110,7 @@ jobs:
           owner: HereLiesAz
 
       - name: Check out central controller
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           token: ${{ steps.app-token.outputs.token }}
           fetch-depth: 0
@@ -251,7 +251,7 @@ jobs:
           owner: HereLiesAz
 
       - name: Check out latest controller main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           token: ${{ steps.app-token.outputs.token }}
           fetch-depth: 0

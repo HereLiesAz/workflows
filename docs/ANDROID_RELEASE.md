@@ -45,7 +45,7 @@ Only pushes and dispatches on the default branch publish (a dispatch with `publi
 | `build_command` | Gradle invocation (required); the version arguments are appended |
 | `aab_glob`, `apk_glob` | Outputs; the first match is used |
 | `package_name` | Application ID (required for Play) |
-| `play_tracks` | `[{track, status, name?, preserve_existing?}]`; empty = no Play |
+| `play_tracks` | `PLAY_TRACKS` for every Play app (internal, alpha, beta live; production draft); empty = no Play. `beta`/`production` are skipped when Play does not offer them for the app, and fail the release otherwise |
 | `github_release` | Create `v<versionName>` release with the APK (universal APK from the AAB when no APK) |
 | `github_prerelease` | Default true |
 | `release_app_name` | Asset and title name |

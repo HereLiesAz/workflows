@@ -126,6 +126,25 @@ def is_upgrade_path_error(exc):
     text=(str(exc) + ' ' + str(content)).lower()
     return 'existing users' in text and 'upgrade' in text
 
+OPTIONAL_TRACKS=('beta', 'production')
+
+def is_track_unavailable_error(exc):
+    # Play's answers when a track exists in name only: never set up, or the app is still a
+    # draft app (only draft releases allowed). Anything else is a real publish failure.
+    status=getattr(getattr(exc, 'resp', None), 'status', None)
+    if status == 404:
+        return True
+    content=getattr(exc, 'content', b'') or b''
+    if isinstance(content, bytes):
+        content=content.decode('utf-8', 'ignore')
+    text=(str(exc) + ' ' + str(content)).lower()
+    return (
+        'draft app' in text
+        or ('track' in text and any(phrase in text for phrase in (
+            'not found', 'does not exist', 'not available', 'not been set up', 'not set up',
+        )))
+    )
+
 # Profiles opting in (live_rollout_draft_fallback) stage the same bundle as a draft when
 # Play refuses the live rollout, so a targeting regression costs a manual rollout click
 # in the Play Console instead of failing the whole release. Ported from the target's
@@ -150,13 +169,24 @@ for attempt in range(1,EDIT_ATTEMPTS + 1):
             media_body=MediaFileUpload(mapping,mimetype='application/octet-stream'),
         ))
         print(f'Uploaded mapping.txt for versionCode {code}')
+        available_tracks={
+            item.get('track') for item in execute(svc.edits().tracks().list(
+                packageName=package,
+                editId=edit,
+            )).get('tracks', [])
+        }
         for spec in tracks:
-            # Opening a draft on beta/production commonly fails on projects that have
-            # never promoted a release to that track yet (Play requires prior track
-            # history). That is expected, not a publish failure: skip the track instead
-            # of failing the whole run. internal/alpha and any non-draft release still
-            # fail hard, since those are the actual publish action.
-            optional_track=spec.get('status') == 'draft' and spec.get('track') in ('beta', 'production')
+            # Open testing (beta) and production may not be set up for an app yet. A track
+            # Play does not offer, or refuses as unavailable, is skipped with a warning.
+            # Any other failure on an available track fails the release, as do internal
+            # and alpha, which every app has.
+            optional_track=spec.get('track') in OPTIONAL_TRACKS
+            if optional_track and spec['track'] not in available_tracks:
+                print(
+                    f'::warning::Play track {spec["track"]!r} is not available for {package}; skipped.',
+                    flush=True,
+                )
+                continue
             try:
                 status=spec['status']
                 if downgrade_live and status == 'completed':
@@ -186,10 +216,10 @@ for attempt in range(1,EDIT_ATTEMPTS + 1):
                     body=body,
                 ))
             except Exception as exc:
-                if optional_track:
+                if optional_track and is_track_unavailable_error(exc):
                     print(
-                        f'Warning: could not open a draft on track {spec["track"]!r}; '
-                        f'skipping without failing the release: {exc}',
+                        f'::warning::Play track {spec["track"]!r} is not available for {package}; '
+                        f'skipped: {exc}',
                         flush=True,
                     )
                     continue

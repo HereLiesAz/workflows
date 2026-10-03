@@ -25,7 +25,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: workflow-sync-${{ inputs.repository || 'auto' }}
+  # Bare names and owner/name resolve to one group so a repository never syncs twice at once.
+  group: workflow-sync-${{ inputs.repository == '' && 'auto' || (contains(inputs.repository, '/') && inputs.repository || format('HereLiesAz/{0}', inputs.repository)) }}
   cancel-in-progress: false
 
 env:
@@ -46,10 +47,11 @@ jobs:
         id: targets
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          INPUT_REPOSITORY: ${{ inputs.repository }}
         shell: bash
         run: |
           set -euo pipefail
-          input="${{ inputs.repository }}"
+          input="$INPUT_REPOSITORY"
 
           if [[ -z "$input" ]]; then
             # Auto-mode, part 1: registered repositories whose webhook isn't configured yet.
@@ -90,7 +92,8 @@ jobs:
             if [[ "$input" != */* ]]; then
               input="HereLiesAz/${input// /}"
             fi
-            echo "targets=[\"${input}\"]" >> "$GITHUB_OUTPUT"
+            [[ "$input" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "::error::Invalid repository: $input" >&2; exit 1; }
+            echo "targets=$(jq -nc --arg repo "$input" '[$repo]')" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Register webhooks and sync

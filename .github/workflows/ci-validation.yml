@@ -87,11 +87,11 @@ permissions:
   contents: read
 
 # The event name is part of the group: a branch with an open pull request delivers a push and a
-# pull_request event for the same commit, and without it the second run cancelled the first, so
-# the tracker watching the first reported a cancelled job as a failure. A newer push still cancels
-# the older push run, and a newer pull_request update the older one.
+# pull_request event for the same commit, and without it the second run cancelled the first and
+# left a cancelled status on the commit. A newer push still cancels the older push run, and a newer
+# pull_request update the older one. The repository ID keeps renamed or same-named repositories apart.
 concurrency:
-  group: ci-validation-${{ inputs.target_repository_name }}-${{ fromJSON(inputs.purpose_profile_json).kind == 'kaggle' && inputs.target_sha || inputs.target_ref_name || inputs.target_sha }}-${{ inputs.source_workflow_path }}-${{ inputs.target_event_name }}
+  group: ci-validation-${{ inputs.target_repository_id }}-${{ fromJSON(inputs.purpose_profile_json).kind == 'kaggle' && inputs.target_sha || inputs.target_ref_name || inputs.target_sha }}-${{ inputs.source_workflow_path }}-${{ inputs.target_event_name }}
   cancel-in-progress: true
 
 jobs:
@@ -125,9 +125,14 @@ jobs:
         run: |
           set -euo pipefail
           payload="$(jq -n             --arg state "pending"             --arg context "$STATUS_CONTEXT"             --arg description "Running shared CI validation."             --arg target_url "$DETAILS_URL"             '{state:$state,context:$context,description:$description,target_url:$target_url}')"
-          if ! output="$(gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload" 2>&1)"; then
-            echo "::warning::Could not post target status: $output"
-          fi
+          # Retry transient API failures: a missing pending status reads as a skipped event.
+          for attempt in 1 2 3; do
+            if output="$(gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload" 2>&1)"; then
+              exit 0
+            fi
+            sleep $(( attempt * 5 ))
+          done
+          echo "::warning::Could not post target status after 3 attempts: $output"
 
   validate_python:
     needs: central_check_start
@@ -941,14 +946,21 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
           FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          PURPOSE_PROFILE_JSON: ${{ inputs.purpose_profile_json }}
           DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         shell: bash
         run: |
           set -euo pipefail
-          async_remote="$(jq -r '(.kind == "kaggle" and .async_callback == true)' <<<'${{ inputs.purpose_profile_json }}')"
+          async_remote="$(jq -r '(.kind == "kaggle" and .async_callback == true)' <<<"$PURPOSE_PROFILE_JSON")"
+          # Skipped jobs are neither failed nor cancelled; success needs a validation job that ran.
+          validated="$(jq -r '[to_entries[] | select(.key | startswith("validate_")) | select(.value.result == "success")] | length > 0' <<<"$NEEDS_JSON")"
           if [[ "$FAILED" == "true" ]]; then
             state="failure"
             description="CI validation failed before remote execution completed."
+          elif [[ "$validated" != "true" ]]; then
+            state="error"
+            description="No validation ran for this event (fork pull request or unmatched profile)."
           elif [[ "$async_remote" == "true" ]]; then
             echo "Remote compute was dispatched successfully; the remote job owns the terminal commit status."
             exit 0

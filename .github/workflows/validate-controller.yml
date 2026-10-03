@@ -49,29 +49,17 @@ jobs:
         run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
 
       - name: Compile controller Python
+        run: python -m py_compile scripts/*.py
+
+      - name: Require every regression script to be wired in
+        # The test_*.py scripts are plain assert scripts that pytest cannot discover, so one left
+        # off this workflow would never run.
         run: |
-          python -m py_compile \
-            scripts/shared_workflow_library.py \
-            scripts/repository_workflow_mode.py \
-            scripts/semantic_catalog.py \
-            scripts/sync_repository_catalog.py \
-            scripts/sync_repository.py \
-            scripts/retry_repository_sync.py \
-            scripts/dispatch_request.py \
-            scripts/test_dispatch_input_contract.py \
-            scripts/test_sync_on_setup_change.py \
-            scripts/test_dispatch_manual.py \
-            scripts/dispatch_manual.py \
-            scripts/audit_workflow_collection.py \
-            scripts/report_workflow_purposes.py \
-            scripts/test_release_centralization.py \
-            scripts/test_version_contract.py \
-            scripts/generate_event_consumers.py \
-            scripts/test_event_consumers.py \
-            scripts/test_target_ci.py \
-            scripts/render_ci_status.py \
-            scripts/test_workflow_policy.py \
-            scripts/version_contract.py
+          missing=0
+          for test in scripts/test_*.py; do
+            grep -q "run: python $test\$" .github/workflows/validate-controller.yml || { echo "::error::$test is not run by validate-controller.yml"; missing=1; }
+          done
+          exit "$missing"
 
       - name: Audit the complete workflow collection
         run: python scripts/audit_workflow_collection.py
@@ -238,13 +226,12 @@ jobs:
       - name: Regression-test target-local CI classification
         run: python scripts/test_target_ci.py
 
+      - name: Check the gateway schedule matches registered crons
+        run: python scripts/test_gateway_schedule.py
+
       - name: Check Worker JavaScript
         run: |
-          node --check worker/src/ci-status.js
-          node --check worker/src/index.js
-          node --check worker/src/event-filter.js
-          node --check worker/src/event-consumers.js
-          node --check worker/src/remote-run.js
+          for file in worker/src/*.js; do node --check "$file"; done
 
       - name: Unit-test Worker gateway
         run: npm --prefix worker test

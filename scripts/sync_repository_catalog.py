@@ -295,7 +295,16 @@ def target_ci_reason(doc: dict[str, Any], override: str | None) -> str | None:
     calls the ci-report action, or when the catalog would bind it to ci-validation.yml,
     whatever its triggers: CI is never central.
     """
-    for value in walk_strings(doc.get("jobs") or {}):
+    # Only a step's `uses:` declares the action; a mention elsewhere (env, run text) does not.
+    jobs = doc.get("jobs") or {}
+    step_uses = [
+        step.get("uses")
+        for job in (jobs.values() if isinstance(jobs, dict) else [])
+        if isinstance(job, dict)
+        for step in (job.get("steps") or [])
+        if isinstance(step, dict) and isinstance(step.get("uses"), str)
+    ]
+    for value in step_uses:
         if value.startswith(CI_REPORT_ACTION + "@") or value == CI_REPORT_ACTION:
             return "declares CI with the ci-report action; CI runs in the target repository"
     if override == CI_VALIDATION_WORKFLOW:

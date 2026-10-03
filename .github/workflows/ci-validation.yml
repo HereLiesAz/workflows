@@ -87,11 +87,11 @@ permissions:
   contents: read
 
 # The event name is part of the group: a branch with an open pull request delivers a push and a
-# pull_request event for the same commit, and without it the second run cancelled the first, so
-# the tracker watching the first reported a cancelled job as a failure. A newer push still cancels
-# the older push run, and a newer pull_request update the older one.
+# pull_request event for the same commit, and without it the second run cancelled the first and
+# left a cancelled status on the commit. A newer push still cancels the older push run, and a newer
+# pull_request update the older one. The repository ID keeps renamed or same-named repositories apart.
 concurrency:
-  group: ci-validation-${{ inputs.target_repository_name }}-${{ fromJSON(inputs.purpose_profile_json).kind == 'kaggle' && inputs.target_sha || inputs.target_ref_name || inputs.target_sha }}-${{ inputs.source_workflow_path }}-${{ inputs.target_event_name }}
+  group: ci-validation-${{ inputs.target_repository_id }}-${{ fromJSON(inputs.purpose_profile_json).kind == 'kaggle' && inputs.target_sha || inputs.target_ref_name || inputs.target_sha }}-${{ inputs.source_workflow_path }}-${{ inputs.target_event_name }}
   cancel-in-progress: true
 
 jobs:
@@ -125,9 +125,14 @@ jobs:
         run: |
           set -euo pipefail
           payload="$(jq -n             --arg state "pending"             --arg context "$STATUS_CONTEXT"             --arg description "Running shared CI validation."             --arg target_url "$DETAILS_URL"             '{state:$state,context:$context,description:$description,target_url:$target_url}')"
-          if ! output="$(gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload" 2>&1)"; then
-            echo "::warning::Could not post target status: $output"
-          fi
+          # Retry transient API failures: a missing pending status reads as a skipped event.
+          for attempt in 1 2 3; do
+            if output="$(gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload" 2>&1)"; then
+              exit 0
+            fi
+            sleep $(( attempt * 5 ))
+          done
+          echo "::warning::Could not post target status after 3 attempts: $output"
 
   validate_python:
     needs: central_check_start
@@ -436,7 +441,7 @@ jobs:
     needs: central_check_start
     if: ${{ fromJSON(inputs.purpose_profile_json).kind == 'kaggle' && (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) }}
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ fromJSON(inputs.purpose_profile_json).timeout_minutes || 360 }}
+    timeout-minutes: 30  # submits the kernel and exits; Kaggle reports the result (remote-run-result.yml)
     environment: ${{ inputs.target_repository_name }}
     permissions:
       contents: read
@@ -582,28 +587,25 @@ jobs:
           kernel_ref="$(python -c 'import json; print(json.load(open("kaggle-kernel/kernel-metadata.json"))["id"])')"
           accelerator="$(jq -r '.accelerator // "NvidiaTeslaT4"' <<<"$PURPOSE_PROFILE_JSON")"
           timeout_seconds="$(jq -r '.kaggle_timeout_seconds // 21600' <<<"$PURPOSE_PROFILE_JSON")"
-          poll_seconds="$(jq -r '.poll_seconds // 30' <<<"$PURPOSE_PROFILE_JSON")"
-          queued_timeout_seconds="$(jq -r '.queued_timeout_seconds // 1800' <<<"$PURPOSE_PROFILE_JSON")"
           echo "kernel_ref=$kernel_ref" >> "$GITHUB_OUTPUT"
           echo "accelerator=$accelerator" >> "$GITHUB_OUTPUT"
           echo "timeout_seconds=$timeout_seconds" >> "$GITHUB_OUTPUT"
-          echo "poll_seconds=$poll_seconds" >> "$GITHUB_OUTPUT"
-          echo "queued_timeout_seconds=$queued_timeout_seconds" >> "$GITHUB_OUTPUT"
 
       - name: Register asynchronous remote-run callback
         id: async-callback
-        if: ${{ fromJSON(inputs.purpose_profile_json).async_callback == true }}
         env:
           WORKER_URL: https://workflows.hereliesaz.workers.dev
           KERNEL_REF: ${{ steps.package.outputs.kernel_ref }}
           CALLBACK_TTL_SECONDS: ${{ fromJSON(inputs.purpose_profile_json).callback_ttl_seconds || 43200 }}
+          # Release publishing happens in the finalizer once Kaggle reports success.
+          PUBLISH_RELEASE: ${{ fromJSON(inputs.purpose_profile_json).release_tag != null && fromJSON(inputs.purpose_profile_json).release_tag != '' && (inputs.target_event_name == 'workflow_dispatch' || (inputs.target_event_name == 'push' && fromJSON(inputs.purpose_profile_json).release_publish_on_push == true)) }}
         shell: bash
         run: |
           set -euo pipefail
           oidc_json="$(curl --fail-with-body --silent --show-error             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN"             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=hereliesaz-workflows")"
           oidc_token="$(jq -er '.value' <<<"$oidc_json")"
           details_url="https://www.kaggle.com/code/$KERNEL_REF"
-          payload="$(jq -n             --arg target_repository "$TARGET_REPOSITORY"             --arg target_sha "$TARGET_SHA"             --arg target_check_sha "$TARGET_CHECK_SHA"             --arg source_workflow_path "$SOURCE_WORKFLOW_PATH"             --arg provider "kaggle"             --arg run_ref "$KERNEL_REF"             --arg details_url "$details_url"             --arg central_run_id "$GITHUB_RUN_ID"             --arg ttl_seconds "$CALLBACK_TTL_SECONDS"             '{target_repository:$target_repository,target_sha:$target_sha,target_check_sha:$target_check_sha,source_workflow_path:$source_workflow_path,provider:$provider,run_ref:$run_ref,details_url:$details_url,central_run_id:$central_run_id,ttl_seconds:($ttl_seconds|tonumber)}')"
+          payload="$(jq -n             --arg target_repository "$TARGET_REPOSITORY"             --arg target_sha "$TARGET_SHA"             --arg target_check_sha "$TARGET_CHECK_SHA"             --arg source_workflow_path "$SOURCE_WORKFLOW_PATH"             --arg provider "kaggle"             --arg run_ref "$KERNEL_REF"             --arg details_url "$details_url"             --arg central_run_id "$GITHUB_RUN_ID"             --arg ttl_seconds "$CALLBACK_TTL_SECONDS"             --argjson publish_release "$PUBLISH_RELEASE"             '{publish_release:$publish_release,target_repository:$target_repository,target_sha:$target_sha,target_check_sha:$target_check_sha,source_workflow_path:$source_workflow_path,provider:$provider,run_ref:$run_ref,details_url:$details_url,central_run_id:$central_run_id,ttl_seconds:($ttl_seconds|tonumber)}')"
           response="$(curl --fail-with-body --silent --show-error             -H "Authorization: Bearer $oidc_token"             -H "Content-Type: application/json"             --data "$payload"             "$WORKER_URL/remote-run/start")"
           callback_token="$(jq -er '.callback_token' <<<"$response")"
           echo "::add-mask::$callback_token"
@@ -612,7 +614,6 @@ jobs:
           echo "expires_at=$(jq -er '.expires_at' <<<"$response")" >> "$GITHUB_OUTPUT"
 
       - name: Wrap Kaggle payload with callback reporter
-        if: ${{ fromJSON(inputs.purpose_profile_json).async_callback == true }}
         env:
           CALLBACK_URL: ${{ steps.async-callback.outputs.callback_url }}
           CALLBACK_TOKEN: ${{ steps.async-callback.outputs.callback_token }}
@@ -744,176 +745,8 @@ jobs:
           path: |
             kaggle-control/run.json
             kaggle-control/submission-error.txt
-            kaggle-control/final-status.txt
-            kaggle-control/final-files.txt
           retention-days: ${{ fromJSON(inputs.purpose_profile_json).retention_days || 30 }}
           if-no-files-found: warn
-
-      - name: Wait for Kaggle run
-        if: ${{ fromJSON(inputs.purpose_profile_json).async_callback != true }}
-        env:
-          KERNEL_REF: ${{ steps.package.outputs.kernel_ref }}
-          KAGGLE_TIMEOUT_SECONDS: ${{ steps.package.outputs.timeout_seconds }}
-          POLL_SECONDS: ${{ steps.package.outputs.poll_seconds }}
-          QUEUED_TIMEOUT_SECONDS: ${{ steps.package.outputs.queued_timeout_seconds }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          started_at="$(date +%s)"
-          deadline=$(( started_at + KAGGLE_TIMEOUT_SECONDS ))
-          queued_since=""
-          last_state=""
-          unknown_polls=0
-
-          while [ "$(date +%s)" -lt "$deadline" ]; do
-            now="$(date +%s)"
-            timestamp="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-            status="$(kaggle kernels status "$KERNEL_REF" 2>&1 || true)"
-            echo "[$timestamp] $status"
-            lower="$(tr '[:upper:]' '[:lower:]' <<<"$status")"
-
-            if [[ "$lower" == *"cannot access kernel"* || "$lower" == *"permission"* || "$lower" == *"not found"* || "$lower" == *"does not exist"* ]]; then
-              echo "::error::Kaggle status endpoint cannot access the submitted kernel: $status"
-              exit 2
-            fi
-
-            state="unknown"
-            [[ "$lower" == *"queued"* ]] && state="queued"
-            [[ "$lower" == *"running"* ]] && state="running"
-            [[ "$lower" == *"complete"* ]] && state="complete"
-
-            if [[ "$state" == "unknown" ]]; then
-              unknown_polls=$((unknown_polls + 1))
-              if (( unknown_polls >= 3 )); then
-                echo "::error::Kaggle returned an unrecognized status for three consecutive polls: $status"
-                exit 3
-              fi
-            else
-              unknown_polls=0
-            fi
-
-            if [[ "$state" != "$last_state" ]]; then
-              echo "Kaggle state transition: ${last_state:-submitted} -> $state"
-              echo "- `$timestamp`: **$state** — `$KERNEL_REF`" >> "$GITHUB_STEP_SUMMARY"
-              last_state="$state"
-            fi
-
-            if [[ "$state" == "complete" ]]; then
-              echo "::notice title=Kaggle complete::$KERNEL_REF completed at $timestamp"
-              exit 0
-            fi
-            if [[ "$lower" == *"error"* || "$lower" == *"failed"* || "$lower" == *"cancelled"* ]]; then
-              echo "::error::Kaggle kernel failed: $status"
-              exit 1
-            fi
-
-            if [[ "$state" == "queued" ]]; then
-              if [[ -z "$queued_since" ]]; then queued_since="$now"; fi
-              if (( now - queued_since >= QUEUED_TIMEOUT_SECONDS )); then
-                echo "::error::Kaggle kernel remained queued for $((now - queued_since)) seconds: $KERNEL_REF"
-                exit 75
-              fi
-            else
-              queued_since=""
-            fi
-
-            sleep "$POLL_SECONDS"
-          done
-
-          echo "::error::Timed out waiting for Kaggle kernel $KERNEL_REF"
-          exit 124
-
-      - name: Capture Kaggle failure diagnostics
-        if: ${{ failure() && fromJSON(inputs.purpose_profile_json).async_callback != true }}
-        env:
-          KERNEL_REF: ${{ steps.package.outputs.kernel_ref }}
-        shell: bash
-        run: |
-          set +e
-          mkdir -p kaggle-control
-          kaggle kernels status "$KERNEL_REF" > kaggle-control/final-status.txt 2>&1
-          kaggle kernels files "$KERNEL_REF" > kaggle-control/final-files.txt 2>&1
-          {
-            echo "### Kaggle failure diagnostics"
-            echo
-            echo "- Kernel ref: `$KERNEL_REF`"
-            echo "- Diagnostics are attached in the Kaggle control artifact."
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Download Kaggle outputs
-        if: ${{ success() && fromJSON(inputs.purpose_profile_json).async_callback != true }}
-        env:
-          KERNEL_REF: ${{ steps.package.outputs.kernel_ref }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          kaggle kernels output "$KERNEL_REF" -p kaggle-output -o
-
-      - name: Upload Kaggle outputs
-        if: ${{ always() && fromJSON(inputs.purpose_profile_json).async_callback != true }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: kaggle-${{ inputs.target_repository_name }}-${{ github.run_id }}
-          path: kaggle-output/
-          retention-days: ${{ fromJSON(inputs.purpose_profile_json).retention_days || 30 }}
-          if-no-files-found: warn
-
-      - name: Publish immutable Kaggle release assets
-        if: ${{ success() && fromJSON(inputs.purpose_profile_json).async_callback != true && fromJSON(inputs.purpose_profile_json).release_tag != null && fromJSON(inputs.purpose_profile_json).release_tag != '' && (inputs.target_event_name == 'workflow_dispatch' || (inputs.target_event_name == 'push' && fromJSON(inputs.purpose_profile_json).release_publish_on_push == true)) }}
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          TARGET_REPOSITORY: ${{ inputs.target_repository }}
-          TARGET_SHA: ${{ inputs.target_sha }}
-          RELEASE_TAG: ${{ fromJSON(inputs.purpose_profile_json).release_tag }}
-          RELEASE_TITLE: ${{ fromJSON(inputs.purpose_profile_json).release_title || fromJSON(inputs.purpose_profile_json).release_tag }}
-          RELEASE_NOTES: ${{ fromJSON(inputs.purpose_profile_json).release_notes || 'Kaggle release artifacts.' }}
-          RELEASE_PRERELEASE: ${{ fromJSON(inputs.purpose_profile_json).release_prerelease || false }}
-          RELEASE_ASSETS_GLOB: ${{ fromJSON(inputs.purpose_profile_json).release_assets_glob }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ -n "${RELEASE_ASSETS_GLOB:-}" ]] || { echo "::error::release_assets_glob is required when release_tag is set"; exit 1; }
-
-          if ! gh api "repos/$TARGET_REPOSITORY/releases/tags/$RELEASE_TAG" >/tmp/release.json 2>/dev/null; then
-            args=(release create "$RELEASE_TAG" --repo "$TARGET_REPOSITORY" --target "$TARGET_SHA" --title "$RELEASE_TITLE" --notes "$RELEASE_NOTES")
-            [[ "$RELEASE_PRERELEASE" == "true" ]] && args+=(--prerelease)
-            gh "${args[@]}"
-            gh api "repos/$TARGET_REPOSITORY/releases/tags/$RELEASE_TAG" >/tmp/release.json
-          fi
-
-          mapfile -t assets < <(python3 - <<'PY'
-          import glob, os
-          pattern = os.environ["RELEASE_ASSETS_GLOB"]
-          for path in sorted(glob.glob(pattern, recursive=True)):
-              if os.path.isfile(path):
-                  print(path)
-          PY
-          )
-          [[ "${#assets[@]}" -gt 0 ]] || { echo "::error::No files matched $RELEASE_ASSETS_GLOB"; exit 1; }
-
-          for path in "${assets[@]}"; do
-            name="$(basename "$path")"
-            digest="sha256:$(sha256sum "$path" | awk '{print $1}')"
-            current_digest="$(jq -r --arg name "$name" '[.assets[] | select(.name == $name)][0].digest // empty' /tmp/release.json)"
-            current_id="$(jq -r --arg name "$name" '[.assets[] | select(.name == $name)][0].id // empty' /tmp/release.json)"
-            if [[ -n "$current_id" ]]; then
-              if [[ "$current_digest" == "$digest" ]]; then
-                echo "Already published: $name ($digest)"
-                continue
-              fi
-              echo "::error::$RELEASE_TAG/$name already exists with digest '${current_digest:-unknown}', expected $digest. Release assets are immutable; bump release_tag."
-              exit 1
-            fi
-
-            gh release upload "$RELEASE_TAG" "$path" --repo "$TARGET_REPOSITORY"
-            gh api "repos/$TARGET_REPOSITORY/releases/tags/$RELEASE_TAG" >/tmp/release.json
-            remote_digest="$(jq -r --arg name "$name" '[.assets[] | select(.name == $name)][0].digest // empty' /tmp/release.json)"
-            if [[ -n "$remote_digest" && "$remote_digest" != "$digest" ]]; then
-              echo "::error::Published digest mismatch for $name: $remote_digest != $digest"
-              exit 1
-            fi
-            echo "Published: $name ($digest)"
-          done
 
   central_check_finish:
     # A workflow cancellation must terminate immediately. Running an `always()` cleanup job
@@ -941,14 +774,21 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
           FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          PURPOSE_PROFILE_JSON: ${{ inputs.purpose_profile_json }}
           DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         shell: bash
         run: |
           set -euo pipefail
-          async_remote="$(jq -r '(.kind == "kaggle" and .async_callback == true)' <<<'${{ inputs.purpose_profile_json }}')"
+          async_remote="$(jq -r '.kind == "kaggle"' <<<"$PURPOSE_PROFILE_JSON")"
+          # Skipped jobs are neither failed nor cancelled; success needs a validation job that ran.
+          validated="$(jq -r '[to_entries[] | select(.key | startswith("validate_")) | select(.value.result == "success")] | length > 0' <<<"$NEEDS_JSON")"
           if [[ "$FAILED" == "true" ]]; then
             state="failure"
             description="CI validation failed before remote execution completed."
+          elif [[ "$validated" != "true" ]]; then
+            state="error"
+            description="No validation ran for this event (fork pull request or unmatched profile)."
           elif [[ "$async_remote" == "true" ]]; then
             echo "Remote compute was dispatched successfully; the remote job owns the terminal commit status."
             exit 0

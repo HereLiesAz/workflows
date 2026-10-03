@@ -25,9 +25,9 @@ except ImportError:
     from shared_workflow_library import add_shared_variant, semantic_family_slug, shared_workflow_path
 
 try:
-    from .semantic_catalog import reviewed_override_for_source
+    from .semantic_catalog import purpose_profile_for_source, reviewed_override_for_source
 except ImportError:
-    from semantic_catalog import reviewed_override_for_source
+    from semantic_catalog import purpose_profile_for_source, reviewed_override_for_source
 
 API_VERSION = "2026-03-10"
 PROXY_MARKER = "# centralized-by: HereLiesAz/workflows"
@@ -287,7 +287,7 @@ def _trigger_names(on_value: Any) -> set[str]:
     return set()
 
 
-def target_ci_reason(doc: dict[str, Any], override: str | None) -> str | None:
+def target_ci_reason(doc: dict[str, Any], override: str | None, profile: dict[str, Any] | None = None) -> str | None:
     """Why a workflow is target-local CI, or None.
 
     CI runs in its own repository so central capacity can never block or delay it; the
@@ -295,9 +295,22 @@ def target_ci_reason(doc: dict[str, Any], override: str | None) -> str | None:
     calls the ci-report action, or when the catalog would bind it to ci-validation.yml,
     whatever its triggers: CI is never central.
     """
-    for value in walk_strings(doc.get("jobs") or {}):
+    # Only a step's `uses:` declares the action; a mention elsewhere (env, run text) does not.
+    jobs = doc.get("jobs") or {}
+    step_uses = [
+        step.get("uses")
+        for job in (jobs.values() if isinstance(jobs, dict) else [])
+        if isinstance(job, dict)
+        for step in (job.get("steps") or [])
+        if isinstance(step, dict) and isinstance(step.get("uses"), str)
+    ]
+    for value in step_uses:
         if value.startswith(CI_REPORT_ACTION + "@") or value == CI_REPORT_ACTION:
             return "declares CI with the ci-report action; CI runs in the target repository"
+    if override == CI_VALIDATION_WORKFLOW and (profile or {}).get("kind") == "kaggle":
+        # Remote compute, not CI: the target holds only a stub, and the central run submits the
+        # kernel and exits; Kaggle reports the result back (remote-run-result.yml).
+        return None
     if override == CI_VALIDATION_WORKFLOW:
         return "validation runs in the target repository; progress is reported centrally"
     return None
@@ -1157,7 +1170,7 @@ def sync_repository(gh: GitHub, full_name: str, worker_url: str, dry_run: bool =
             continue
 
         override = reviewed_override_for_source(source_hash) or CATALOG_PATH_OVERRIDES.get(path)
-        ci_reason = target_ci_reason(parsed, override)
+        ci_reason = target_ci_reason(parsed, override, purpose_profile_for_source(source_hash))
         if ci_reason:
             workflows_manifest[path] = {
                 "status": "local",

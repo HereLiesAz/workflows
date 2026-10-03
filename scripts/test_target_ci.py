@@ -24,6 +24,9 @@ assert target_ci_reason(pr_validation, None) is None, "undeclared CI with no bin
 experiment = load_yaml("name: Experiment\non: {push: {paths: [.run]}, workflow_dispatch: {}}\njobs: {t: {runs-on: x, steps: [{run: y}]}}\n")
 assert target_ci_reason(experiment, CI_VALIDATION_WORKFLOW), "CI runs in its own repository whatever its triggers"
 
+mention = load_yaml("name: Deploy\non: {push: {}}\njobs: {d: {runs-on: x, env: {NOTE: HereLiesAz/workflows/.github/actions/ci-report@main}, steps: [{run: y}]}}\n")
+assert target_ci_reason(mention, None) is None, "a mention of ci-report outside `uses:` is not CI"
+
 assert required_secrets("${{ secrets.GOOGLE_SERVICES }} ${{ secrets.GITHUB_TOKEN }} ${{secrets.A}}") == ["A", "GOOGLE_SERVICES"]
 
 manifest = {
@@ -38,3 +41,22 @@ assert key == "7"
 assert entry["ci"] == [{"path": ".github/workflows/ci.yml", "name": "CI"}]
 assert "ci" not in repository_entry({"repository": {"id": 8}, "workflows": {}}, lambda _: "")[1]
 print("target CI tests passed")
+
+# No active registry binding may run pull-request CI centrally: a re-sync moves it to the target.
+import glob as _glob
+import json as _json
+from sync_repository_catalog import _trigger_names as _triggers
+
+for _manifest in sorted(_glob.glob("registry/*/manifest.json")):
+    _workflows = _json.load(open(_manifest)).get("workflows") or {}
+    for _path, _entry in _workflows.items():
+        if _entry.get("status") != "active" or CI_VALIDATION_WORKFLOW not in _json.dumps(_entry):
+            continue
+        _doc = load_yaml(open(_entry["registry_source"]).read())
+        assert "pull_request" not in _triggers(_doc.get("on", _doc.get(True))), (
+            f"{_manifest} {_path}: pull-request CI is still bound to {CI_VALIDATION_WORKFLOW}; re-sync the repository"
+        )
+
+stub = load_yaml("name: Training\non: {push: {}, workflow_dispatch: {}}\njobs: {k: {runs-on: x, steps: [{run: echo stub}]}}\n")
+assert target_ci_reason(stub, CI_VALIDATION_WORKFLOW, {"kind": "kaggle"}) is None, "Kaggle remote compute stays central"
+assert target_ci_reason(stub, CI_VALIDATION_WORKFLOW, {"kind": "python"}), "other validation runs in the target repository"

@@ -4,21 +4,11 @@ on:
   # Exact union of schedules currently present in registered workflow sources.
   # One central tick fans out to every registered workflow whose original cron
   # matches this expression. New cron expressions must be added here when the
-  # corresponding generalized workflow is admitted to the catalog.
+  # corresponding generalized workflow is admitted to the catalog;
+  # scripts/test_gateway_schedule.py enforces the exact match.
   schedule:
-    - cron: '*/5 * * * *'
-    - cron: '0 * * * *'
-    - cron: '0 0 * * *'
-    - cron: '30 0 * * *'
-    - cron: '0 2 * * *'
-    - cron: '42 4 * * 5'
-    - cron: '0 6 * * 1'
     - cron: '17 6 * * *'
-    - cron: '0 */6 * * *'
-    - cron: '0 8 * * *'
-    - cron: '34 8 * * 4'
-    - cron: '19 11 * * 4'
-    - cron: '32 11 * * 6'
+    - cron: '39 12 * * 1'
 
   workflow_dispatch:
     inputs:
@@ -66,7 +56,30 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      - name: Check out central controller
+        uses: actions/checkout@v7
+
+      - name: Skip schedule ticks nothing registered uses
+        # A cheap textual pre-filter (no token, no dependencies): every frequent tick used to mint a
+        # token and install ruamel before learning nothing was due. dispatch_schedule.py still
+        # applies the exact cron match.
+        id: due
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" != "schedule" ]]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          sources="$(jq -r '.workflows // {} | to_entries[] | select(.value.status == "active") | .value.registry_source // empty' registry/*/manifest.json)"
+          while IFS= read -r source; do
+            [[ -n "$source" && -f "$source" ]] || continue
+            if grep -qF -- "$SCHEDULE" "$source"; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          done <<<"$sources"
+          echo "No active registered workflow uses '$SCHEDULE'; nothing to route."
+          echo "run=false" >> "$GITHUB_OUTPUT"
+
       - name: Mint GitHub App installation token
+        if: ${{ steps.due.outputs.run == 'true' }}
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v2
         with:
@@ -74,10 +87,8 @@ jobs:
           private-key: ${{ secrets.GH_PRIVATE_KEY }}
           owner: HereLiesAz
 
-      - name: Check out central controller
-        uses: actions/checkout@v7
-
       - name: Install dispatcher dependency
+        if: ${{ steps.due.outputs.run == 'true' }}
         run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
 
       - name: Decode and cross-check verified Worker request
@@ -114,10 +125,11 @@ jobs:
         run: python scripts/dispatch_request.py --request request.json
 
       - name: Route exact registered schedule
-        if: ${{ github.event_name == 'schedule' }}
+        if: ${{ github.event_name == 'schedule' && steps.due.outputs.run == 'true' }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: python scripts/dispatch_schedule.py --schedule "${{ github.event.schedule }}"
+          SCHEDULE: ${{ github.event.schedule }}
+        run: python scripts/dispatch_schedule.py --schedule "$SCHEDULE"
 
       - name: Route human manual invocation
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.request_b64 == '' }}

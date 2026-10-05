@@ -97,7 +97,8 @@ jobs:
           [[ "$(jq -r '.owner.id' <<<"$repo_json")" == "103241502" ]] || { echo "Repository is not owned by HereLiesAz" >&2; exit 1; }
           [[ "$TARGET_REPOSITORY_OWNER_ID" == "103241502" ]] || { echo "OIDC owner ID mismatch" >&2; exit 1; }
 
-          if [ -n "${TARGET_RUN_ID:-}" ]; then
+          # Webhook-dispatched runs carry a synthetic "webhook-<id>" run ID; only numeric IDs are real Actions runs.
+          if [[ "${TARGET_RUN_ID:-}" =~ ^[0-9]+$ ]]; then
             run_json="$(gh api "repos/$TARGET_REPOSITORY/actions/runs/$TARGET_RUN_ID")"
             run_sha="$(jq -r '.head_sha // empty' <<<"$run_json")"
             run_repo="$(jq -r '.repository.full_name // empty' <<<"$run_json")"

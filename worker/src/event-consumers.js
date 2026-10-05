@@ -1566,7 +1566,14 @@ export const EVENT_CONSUMERS = {
   "1387531037": {
     "repository": "HereLiesAz/CaptureTheFlag",
     "events": [
-      "push"
+      "push",
+      "workflow_dispatch"
+    ],
+    "ci": [
+      {
+        "path": ".github/workflows/ci.yml",
+        "name": "CI"
+      }
     ]
   },
   "1399135886": {

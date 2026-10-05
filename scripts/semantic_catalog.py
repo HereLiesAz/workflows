@@ -57,7 +57,6 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "f0b5d5091bb2d2372b65116ee9d154f0fe03ed641d3693436525ff618f47f22a",  # HereLiesAz/Graffux:.github/workflows/release-aab.yml
             "ce9522313a7992b2df23cc8d60707b5c19054f5d66f602b275937279b0acd2bb",  # HereLiesAz/LogKitty:.github/workflows/play-publish.yml (push to main + dispatch)
             "b34445bad4ec762db141d3264b75a0a42220d30d5a6093a768164411a9f7ed63",  # HereLiesAz/CaptureTheFlag:.github/workflows/android-release.yml (push to main + dispatch)
-            "cd3d4388f8a71e7a5a395cad6f1839503325b2bc3688e7b8d578795197e08274",  # HereLiesAz/morphont:.github/workflows/android-release.yml (push to main + dispatch)
         },
     },
     ".github/workflows/android-play-release.yml": {
@@ -78,6 +77,8 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "df112d8b1aca0ce4becf377934ec040932583ee15d96862684ef6fab81e06d81",
             "d469abed7144cbed30feaf51455bdc0bc039b6bb9978968ff5a534d361e31828",
             "825e6e5a5cbc7d80f2854e239557599c354131b24dee94d3c14b806f640ce98b",
+            # HereLiesAz/morphont:.github/workflows/android-play-release.yml (push to main + dispatch)
+            "00b778f4976e1d25ba89bec60971e5ff4031a5df976534ef0d2dfd8aa36b33ed",
             "a95687c1a4f8af0ad53e5d420d557fc7237dd2f97d70d63201ac4cdff6edb6c6",
             "b97bd64bdcefbb35d0e33cd76c966052f13342e26a4e5fcdf1650a95cb994b0e",
             # HereLiesAz/hereliesaz.github.io:.github/workflows/android-release-aab.yml
@@ -96,6 +97,8 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
         "canonical_hash": "41ccb8c30d393fdc42a44d3b208b179f948ebc44e1c316c4e78b76f627f3bb3c",
         "generalized": True,
         "source_hashes": {
+            # HereLiesAz/morphont:.github/workflows/android-github-release.yml (push to main + dispatch)
+            "ecf7abccfbe523d0ebf901d4f64f7cfb462532f16a7b8b49daff5b53feaf5c31",
             "41ccb8c30d393fdc42a44d3b208b179f948ebc44e1c316c4e78b76f627f3bb3c",
             "4574d6f09eca2407de0f4303494e984c4bba5b3edcc035a5903824ce0ef58315",
             "09588a228454cd17abb67313111597bf62edf69ac9286a225bed91913b7ffb35",
@@ -430,10 +433,11 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
     "ce9522313a7992b2df23cc8d60707b5c19054f5d66f602b275937279b0acd2bb": {"package_name": "com.hereliesaz.logkitty", "java_version": "21", "build_command": "./gradlew bundleRelease --no-daemon --stacktrace", "aab_glob": "app/build/outputs/bundle/release/*.aab", "play_tracks": PLAY_TRACKS, "github_release": True, "release_app_name": "LogKitty"},
     # CaptureTheFlag: shared game-rule tests, then the R8-shrunk :app:bundleRelease (its mapping.txt
     # goes to Play); Play on the shared tracks and a GitHub Release with the universal APK.
-    # HereLiesAz/morphont: Compose Multiplatform app; the Android app module is :androidApp. Its
-    # shared code depends on HereLiesAz/convey from GitHub Packages, which the build reads with
-    # GH_TOKEN (exported by this workflow). R8 is on, so Play receives mapping.txt.
-    "cd3d4388f8a71e7a5a395cad6f1839503325b2bc3688e7b8d578795197e08274": {"package_name": "com.hereliesaz.morphont", "java_version": "21", "build_command": "./gradlew :androidApp:assembleRelease :androidApp:bundleRelease --no-daemon --stacktrace", "aab_glob": "androidApp/build/outputs/bundle/release/*.aab", "apk_glob": "androidApp/build/outputs/apk/release/*.apk", "play_tracks": PLAY_TRACKS, "github_release": True, "github_prerelease": False, "release_app_name": "Morphont"},
+    # HereLiesAz/morphont (Compose Multiplatform; Android module :androidApp). Upload key stored as
+    # KEYSTORE_PRIVATE + KEYSTORE_CHAIN in the morphont environment. R8 is on, so mapping.txt exists.
+    # Shared code reads HereLiesAz/convey from GitHub Packages with GH_TOKEN.
+    "00b778f4976e1d25ba89bec60971e5ff4031a5df976534ef0d2dfd8aa36b33ed": {"signing": "pem-chain", "java_version": "21", "google_services": "none", "inject_signing_args": True, "package_name": "com.hereliesaz.morphont", "build_command": "./gradlew :androidApp:bundleRelease --no-daemon --stacktrace", "aab_glob": "androidApp/build/outputs/bundle/release/*.aab", "mapping_file": "androidApp/build/outputs/mapping/release/mapping.txt", "publish_on_push": True, "publish_default": True, "tracks": PLAY_TRACKS, "release_app_name": "Morphont"},
+    "ecf7abccfbe523d0ebf901d4f64f7cfb462532f16a7b8b49daff5b53feaf5c31": {"signing": "pem-chain", "chain_secret": "KEYSTORE_CHAIN", "java_version": "21", "google_services": "none", "inject_signing_args": True, "build_command": "./gradlew :androidApp:assembleRelease --no-daemon --stacktrace", "artifact_glob": "androidApp/build/outputs/apk/release/*.apk", "mapping_file": "androidApp/build/outputs/mapping/release/mapping.txt", "persist_version": False, "app_name": "Morphont"},
     # HereLiesAz/morphont desktop: four-part version major.minor.patch.<run>, grouped under the
     # patch Release next to the Android APK. github_packages exports GH_TOKEN to the build so Gradle
     # can read HereLiesAz/convey from GitHub Packages.

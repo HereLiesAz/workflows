@@ -424,9 +424,9 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
     # LogKitty: signed bundleRelease (dynamic :feature:stats included); Play on the shared tracks and a
     # GitHub Release whose APK is the universal APK built from the AAB.
     "ce9522313a7992b2df23cc8d60707b5c19054f5d66f602b275937279b0acd2bb": {"package_name": "com.hereliesaz.logkitty", "java_version": "21", "build_command": "./gradlew bundleRelease --no-daemon --stacktrace", "aab_glob": "app/build/outputs/bundle/release/*.aab", "play_tracks": PLAY_TRACKS, "github_release": True, "release_app_name": "LogKitty"},
-    # CaptureTheFlag: signed :app:bundleRelease; Play on the shared tracks and a GitHub Release with the
-    # universal APK built from the AAB.
-    "b34445bad4ec762db141d3264b75a0a42220d30d5a6093a768164411a9f7ed63": {"package_name": "com.hereliesaz.capturetheflag", "java_version": "21", "build_command": "./gradlew :app:bundleRelease --no-daemon --stacktrace", "aab_glob": "app/build/outputs/bundle/release/*.aab", "play_tracks": PLAY_TRACKS, "github_release": True, "release_app_name": "CaptureTheFlag"},
+    # CaptureTheFlag: shared game-rule tests, then the R8-shrunk :app:bundleRelease (its mapping.txt
+    # goes to Play); Play on the shared tracks and a GitHub Release with the universal APK.
+    "b34445bad4ec762db141d3264b75a0a42220d30d5a6093a768164411a9f7ed63": {"package_name": "com.hereliesaz.capturetheflag", "java_version": "21", "build_command": "./gradlew :shared:jvmTest :app:bundleRelease --no-daemon --stacktrace", "aab_glob": "app/build/outputs/bundle/release/*.aab", "play_tracks": PLAY_TRACKS, "github_release": True, "release_app_name": "CaptureTheFlag"},
     "f0b5d5091bb2d2372b65116ee9d154f0fe03ed641d3693436525ff618f47f22a": {"package_name": "com.hereliesaz.graffux", "pre_build_command": "rustup target add aarch64-linux-android armv7-linux-androideabi", "build_command": "./gradlew bundleRelease -Pgraffux.wgpu.require=true", "aab_glob": "app/build/outputs/bundle/release/*.aab", "play_tracks": PLAY_TRACKS},
     "e27bd12865d67d2b1c70163a463a38a043c90869fd8d319a4097d7b2412852ed": {"signing": "raw-jks", "build_command": "./gradlew bundlePlaystoreRelease", "aab_glob": "app/build/outputs/bundle/playstoreRelease/*.aab", "arcore_local_properties": True, "persist_version": True},
     "bc33a453efa94395260c9b521a0fc01da92a27a8da0181d2c598770148ee6007": {"signing": "raw-jks", "build_command": "./gradlew bundleRelease", "aab_glob": "app/build/outputs/bundle/release/*.aab", "persist_version": True},

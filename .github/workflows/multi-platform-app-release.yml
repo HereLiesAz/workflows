@@ -267,6 +267,8 @@ jobs:
         env:
           BUILD_COMMAND: ${{ matrix.build }}
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          # Only for matrix entries that opt in: lets Gradle read dependencies from GitHub Packages.
+          GH_TOKEN: ${{ matrix.github_packages == true && secrets.GH_TOKEN || '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -277,6 +279,8 @@ jobs:
         env:
           BUILD_COMMAND: ${{ matrix.build }}
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          # Only for matrix entries that opt in: lets Gradle read dependencies from GitHub Packages.
+          GH_TOKEN: ${{ matrix.github_packages == true && secrets.GH_TOKEN || '' }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'

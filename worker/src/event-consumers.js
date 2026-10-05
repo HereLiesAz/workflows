@@ -1523,7 +1523,8 @@ export const EVENT_CONSUMERS = {
   "1356357185": {
     "repository": "HereLiesAz/morphont",
     "events": [
-      "push"
+      "push",
+      "workflow_dispatch"
     ]
   },
   "1377725263": {

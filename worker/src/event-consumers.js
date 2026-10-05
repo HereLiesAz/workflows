@@ -1592,5 +1592,11 @@ export const EVENT_CONSUMERS = {
         "name": "Experiment 001"
       }
     ]
+  },
+  "1405770542": {
+    "repository": "HereLiesAz/SphereSLAM",
+    "events": [
+      "push"
+    ]
   }
 };

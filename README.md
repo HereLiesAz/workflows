@@ -8,4 +8,4 @@ full history of the last 20 runs is in `repositories/<repository_id>.json`.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | BITCOS Engine | ⏳ queued | #37106354284 | main | `09cccd4` | 2026-10-03T07:31:59.974Z |  |
 | [HereLiesAz/azphalt](https://github.com/HereLiesAz/azphalt) | CI | ✅ success | [#1408](https://github.com/HereLiesAz/azphalt/actions/runs/37157296586) | main | `35f6d73` | 2026-10-03T22:13:38Z |  |
-| [HereLiesAz/CaptureTheFlag](https://github.com/HereLiesAz/CaptureTheFlag) | CI | ⏳ queued | #37330307604 | main | `02bc5fe` | 2026-10-05T15:10:30.367Z | test: Node and shared tests |
+| [HereLiesAz/CaptureTheFlag](https://github.com/HereLiesAz/CaptureTheFlag) | CI | ✅ success | [#5](https://github.com/HereLiesAz/CaptureTheFlag/actions/runs/37369830267) | claude/wizardly-archimedes-105nqh | `f4e993b` | 2026-10-05T20:38:23.792Z | test: Node and shared tests |

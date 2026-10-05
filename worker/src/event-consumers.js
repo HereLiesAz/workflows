@@ -412,7 +412,8 @@ export const EVENT_CONSUMERS = {
   "1135328959": {
     "repository": "HereLiesAz/LogKitty",
     "events": [
-      "push"
+      "push",
+      "workflow_dispatch"
     ]
   },
   "1139101411": {

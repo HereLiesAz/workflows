@@ -1,0 +1,21 @@
+# Sir Match-a-Lot desktop installers (Windows .msi, macOS .dmg, Linux .deb), built and released
+# by HereLiesAz/workflows (.github/workflows/multi-platform-app-release.yml).
+# This file is the trigger contract; the central sync replaces it with a tracker.
+name: Desktop Release
+on:
+  push:
+    branches: [main]
+    paths:
+      - "desktopApp/**"
+      - "shared/**"
+      - "gradle/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
+      - "version.properties"
+  workflow_dispatch:
+permissions: {}
+jobs:
+  hand-off:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Sir Match-a-Lot's desktop release runs centrally in HereLiesAz/workflows."

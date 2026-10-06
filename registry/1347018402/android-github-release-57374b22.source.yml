@@ -1,0 +1,24 @@
+# Lamplight: built, signed and published by HereLiesAz/workflows (.github/workflows/android-github-release.yml):
+# a GitHub Release with the signed APK.
+# Replaces the signed-release half of build-and-release.yml (which keeps tests, debug and web).
+# This file is the trigger contract; the central sync replaces it with a tracker.
+name: Lamplight Android GitHub Release
+permissions: {}
+on:
+  push:
+    branches: [main]
+    paths:
+      - "shared/src/commonMain/**"
+      - "shared/src/androidMain/**"
+      - "shared/build.gradle.kts"
+      - "androidApp/**"
+      - "gradle/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
+      - "version.properties"
+  workflow_dispatch:
+jobs:
+  hand-off:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Lamplight Android GitHub Release runs centrally in HereLiesAz/workflows."

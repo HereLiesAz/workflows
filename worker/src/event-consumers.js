@@ -1482,7 +1482,8 @@ export const EVENT_CONSUMERS = {
   "1347018402": {
     "repository": "HereLiesAz/lamplight",
     "events": [
-      "push"
+      "push",
+      "workflow_dispatch"
     ]
   },
   "1350968130": {

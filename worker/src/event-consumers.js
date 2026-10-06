@@ -335,7 +335,8 @@ export const EVENT_CONSUMERS = {
   "1044343870": {
     "repository": "HereLiesAz/TheLexorcist",
     "events": [
-      "push"
+      "push",
+      "workflow_dispatch"
     ]
   },
   "1049454166": {

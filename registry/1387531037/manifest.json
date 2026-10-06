@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-10-05T15:08:35+00:00",
+  "last_sync_at": "2026-10-06T02:18:01+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/CaptureTheFlag",
@@ -8,8 +8,28 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
+  "worker_url_configured": false,
   "workflows": {
+    ".github/workflows/android-release-aab.yml": {
+      "binding": "curated",
+      "central_workflow": ".github/workflows/android-play-release.yml",
+      "centralized": true,
+      "name": "Build & Publish AAB (Play)",
+      "registry_source": "registry/1387531037/android-release-aab-c7afaeed.source.yml",
+      "source_sha256": "c7e435bc33db1508560b4f5e700570d3f9544ce3d2efa16b4b7df2a60ee3c1f4",
+      "status": "active",
+      "updated_at": "2026-10-06T02:17:58+00:00"
+    },
+    ".github/workflows/android-release-apk.yml": {
+      "binding": "curated",
+      "central_workflow": ".github/workflows/android-github-release.yml",
+      "centralized": true,
+      "name": "Compile and Release APK",
+      "registry_source": "registry/1387531037/android-release-apk-f927747f.source.yml",
+      "source_sha256": "41ccb8c30d393fdc42a44d3b208b179f948ebc44e1c316c4e78b76f627f3bb3c",
+      "status": "active",
+      "updated_at": "2026-10-06T02:18:00+00:00"
+    },
     ".github/workflows/android-release.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/android-release.yml",
@@ -28,7 +48,7 @@
       "required_secrets": [],
       "source_sha256": "666faa97ac97183eea03a05f2c724a383409b86194e027da16efa0eb92a248ab",
       "status": "local",
-      "updated_at": "2026-10-05T15:08:33+00:00"
+      "updated_at": "2026-10-06T02:18:01+00:00"
     }
   }
 }

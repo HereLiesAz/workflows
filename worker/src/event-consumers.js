@@ -316,7 +316,8 @@ export const EVENT_CONSUMERS = {
   "1040927577": {
     "repository": "HereLiesAz/MadeMeDance",
     "events": [
-      "push"
+      "push",
+      "workflow_dispatch"
     ]
   },
   "1042930308": {

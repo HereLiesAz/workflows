@@ -1315,7 +1315,8 @@ export const EVENT_CONSUMERS = {
   "1308046744": {
     "repository": "HereLiesAz/sir-match-a-lot",
     "events": [
-      "push"
+      "push",
+      "workflow_dispatch"
     ]
   },
   "1313864608": {

@@ -124,49 +124,18 @@ jobs:
           name: places-manifests
           path: shared/src/commonMain/composeResources/files
 
-      - name: Reconstruct and verify release keystore
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
-        id: signing
-        uses: ./.github/actions/android-keystore
-        with:
-          keystore-password: ${{ secrets.KEYSTORE_PASSWORD }}
-          key-alias: ${{ secrets.KEY_ALIAS }}
-          key-password: ${{ secrets.KEY_PASSWORD }}
-          expected-owner: ${{ secrets.KEYSTORE_OWNER }}
-          keystore-private: ${{ secrets.KEYSTORE_PRIVATE }}
-          keystore-public: ${{ secrets.KEYSTORE_PUBLIC }}
-          keystore-chain: ${{ secrets.KEYSTORE_CHAIN }}
-          keystore-rsa: ${{ secrets.KEYSTORE_RSA }}
-          expected-sha1: ${{ secrets.KEYSTORE_SHA1 }}
-          expected-sha256: ${{ secrets.KEYSTORE_SHA256 }}
-
       - name: Build with Gradle
         id: gradle-build
-        env:
-          LAMPLIGHT_KEYSTORE_FILE: ${{ steps.signing.outputs.keystore-path }}
-          LAMPLIGHT_KEYSTORE_TYPE: ${{ steps.signing.outputs.store-type }}
-          LAMPLIGHT_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          LAMPLIGHT_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          LAMPLIGHT_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        # Signed release APK/AAB builds and publishing moved to HereLiesAz/workflows
+        # (android-github-release.yml / android-play-release.yml); this job only tests and
+        # builds debug.
         run: |
           set +e
-
-          if [ "$GITHUB_EVENT_NAME" = "pull_request" ] || { [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF" != "refs/heads/main" ]; }; then
-            export LAMPLIGHT_REQUIRE_SIGNING=false
-            ./gradlew allTests assembleDebug -PversionBuild=$BUILD_NUMBER -PversionName=$VERSION_NAME --build-cache > build.log 2>&1
-          else
-            export LAMPLIGHT_REQUIRE_SIGNING=true
-            ./gradlew allTests assembleRelease -PversionBuild=$BUILD_NUMBER -PversionName=$VERSION_NAME --build-cache > build.log 2>&1
-          fi
-
+          ./gradlew allTests assembleDebug -PversionBuild=$BUILD_NUMBER -PversionName=$VERSION_NAME --build-cache > build.log 2>&1
           EXIT_CODE=$?
           echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
           cat build.log
           exit $EXIT_CODE
-
-      - name: Remove signing material
-        if: always()
-        run: rm -rf "$RUNNER_TEMP/lamplight-signing"
 
       - name: Report Failure to Jules
         if: failure() && steps.gradle-build.outcome == 'failure'
@@ -196,66 +165,6 @@ jobs:
                 labels: ['jules', 'bug']
               });
             }
-
-      - name: Prepare Release Variables
-        if: success() && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
-        run: |
-          MAJOR=$(grep 'major=' version.properties | cut -d'=' -f2)
-          MINOR=$(grep 'minor=' version.properties | cut -d'=' -f2)
-          TAG_NAME="latest-v${MAJOR}.${MINOR}"
-
-          if [ -f "settings.gradle.kts" ]; then
-            APP_NAME=$(grep 'rootProject.name' settings.gradle.kts | sed -E "s/.*=.*[\"'](.*)[\"']/\1/")
-          elif [ -f "settings.gradle" ]; then
-            APP_NAME=$(grep 'rootProject.name' settings.gradle | sed -E "s/.*=.*[\"'](.*)[\"']/\1/")
-          else
-            APP_NAME="Lamplight"
-          fi
-
-          APK_ORIGINAL=$(find androidApp/build/outputs/apk/release -name "*.apk" | head -n 1)
-          if [ -z "$APK_ORIGINAL" ]; then
-            echo "Error: no signed release APK found"
-            exit 1
-          fi
-
-          # Deliberately version-free: this filename must stay identical build to build so
-          # `gh release upload --clobber` actually replaces the previous asset instead of
-          # accumulating a new one next to it every time (the release notes below already
-          # carry version_code/version_name for identification).
-          TARGET_NAME="${APP_NAME}-release.apk"
-          mv "$APK_ORIGINAL" "$TARGET_NAME"
-          echo "TAG_NAME=$TAG_NAME" >> "$GITHUB_ENV"
-          echo "APK_FILE=$TARGET_NAME" >> "$GITHUB_ENV"
-
-      - name: Publish Release
-        if: success() && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -fa "$TAG_NAME" -m "Latest signed build"
-          git push origin "$TAG_NAME" --force
-
-          # The app's in-app update check (UpdateChecker.kt) parses these two lines out of the
-          # release notes -- a release's tag only carries major.minor, not the full build number.
-          NOTES="Signed build from commit $GITHUB_SHA
-
-          version_code: $BUILD_NUMBER
-          version_name: $VERSION_NAME"
-
-          if gh release view "$TAG_NAME" > /dev/null 2>&1; then
-            gh release edit "$TAG_NAME" --prerelease \
-              --title "Latest Signed Build ($TAG_NAME)" \
-              --notes "$NOTES" \
-              --target "$GITHUB_SHA"
-            gh release upload "$TAG_NAME" "$APK_FILE" --clobber
-          else
-            gh release create "$TAG_NAME" "$APK_FILE" --prerelease \
-              --title "Latest Signed Build ($TAG_NAME)" \
-              --notes "$NOTES" \
-              --target "$GITHUB_SHA"
-          fi
 
   build-web:
     needs: fetch-places-data

@@ -242,8 +242,20 @@ export const EVENT_CONSUMERS = {
     ],
     "ci": [
       {
+        "path": ".github/workflows/android-ci.yml",
+        "name": "Android CI"
+      },
+      {
         "path": ".github/workflows/bitcos-engine.yml",
         "name": "BITCOS Engine"
+      },
+      {
+        "path": ".github/workflows/dependency-submission.yml",
+        "name": "Dependency Submission"
+      },
+      {
+        "path": ".github/workflows/multiplatform.yml",
+        "name": "Build and Deploy"
       }
     ]
   },

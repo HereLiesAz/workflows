@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-10-03T17:01:11+00:00",
+  "last_sync_at": "2026-10-06T03:31:51+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/aive",
@@ -8,7 +8,7 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
+  "worker_url_configured": false,
   "workflows": {
     ".github/workflows/android-ci.yml": {
       "ci": true,
@@ -18,7 +18,7 @@
       "required_secrets": [],
       "source_sha256": "da1e75955e287ed4935d2917bbb098a606825377b42a2bcec4cf27f4768d350f",
       "status": "local",
-      "updated_at": "2026-10-06T00:00:00+00:00"
+      "updated_at": "2026-10-06T03:31:45+00:00"
     },
     ".github/workflows/azp-package-release.yml": {
       "binding": "curated",
@@ -48,7 +48,7 @@
       "required_secrets": [],
       "source_sha256": "169f54123b281d3ee9adec83848cc2b7efa295f1cd25a3762bdce03f2c597546",
       "status": "local",
-      "updated_at": "2026-10-03T17:01:06+00:00"
+      "updated_at": "2026-10-06T03:31:45+00:00"
     },
     ".github/workflows/bitnet-benchmark.yml": {
       "binding": "repository",
@@ -79,7 +79,7 @@
       "required_secrets": [],
       "source_sha256": "3dc8c18ed6aef604bba6e90aca4d11518375ae5a8ec7b24f3fbb57a0a3ffb22f",
       "status": "local",
-      "updated_at": "2026-10-06T00:00:00+00:00"
+      "updated_at": "2026-10-06T03:31:46+00:00"
     },
     ".github/workflows/distributed-compute.yml": {
       "binding": "repository",
@@ -158,15 +158,16 @@
       "updated_at": "2026-09-29T01:21:48+00:00"
     },
     ".github/workflows/live-runtime-verification.yml": {
-      "binding": "repository",
+      "binding": "shared-variant",
       "central_workflow": ".github/workflows/aive-live-runtime-verification.yml",
       "centralized": true,
       "implementation_sha256": "f46ff1e64c1e28c36b8921918d66512068f85c42f6536f5c3bab5b372ec85115",
       "name": "Live Runtime Verification",
       "registry_source": "registry/1031039591/live-runtime-verification-914e86e3.source.yml",
+      "shared_variant": "f46ff1e64c1e28c3",
       "source_sha256": "dcde98c32b2ad86c469f225891ee5ac29fa2a6bf92dfce9b25361539f026b599",
       "status": "active",
-      "updated_at": "2026-10-03T17:01:07+00:00"
+      "updated_at": "2026-10-06T03:31:47+00:00"
     },
     ".github/workflows/multiplatform.yml": {
       "ci": true,
@@ -188,7 +189,7 @@
       ],
       "source_sha256": "3ec3d2de5d5cdfb74285e3ee43534c3dad7f3380b2625d8a90927d865347d2f3",
       "status": "local",
-      "updated_at": "2026-10-06T00:00:00+00:00"
+      "updated_at": "2026-10-06T03:31:48+00:00"
     },
     ".github/workflows/node-creature-engine.yml": {
       "binding": "repository",
@@ -209,7 +210,7 @@
       "registry_source": "registry/1031039591/orchestration-specialist-training-4ea3762d.source.yml",
       "source_sha256": "8d6665414985e370ab0f1227d15102696a92757585ddbb4266b5a4fe1f5c105b",
       "status": "active",
-      "updated_at": "2026-10-03T17:01:09+00:00"
+      "updated_at": "2026-10-06T03:31:49+00:00"
     },
     ".github/workflows/play-store-assets.yml": {
       "binding": "repository",
@@ -230,7 +231,7 @@
       "registry_source": "registry/1031039591/security-review-b21b9f89.source.yml",
       "source_sha256": "55f030125ce375812f93a4a36b512a7be7d7ddab055ee120c7f1148f9ad8273d",
       "status": "active",
-      "updated_at": "2026-10-03T17:01:11+00:00"
+      "updated_at": "2026-10-06T03:31:50+00:00"
     },
     ".github/workflows/sign-azp.yml": {
       "binding": "curated",

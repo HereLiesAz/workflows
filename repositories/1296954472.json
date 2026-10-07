@@ -4,11 +4,32 @@
     "id": 1296954472,
     "full_name": "HereLiesAz/azphalt"
   },
-  "updated_at": "2026-10-07T07:08:47.458Z",
+  "updated_at": "2026-10-07T07:08:48.521Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 37585546948,
+          "jobs": {
+            "storefront-compose": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/azphalt/actions/runs/37585546948/job/112674707982",
+              "started_at": "2026-10-07T07:08:44Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-10-07T07:08:48.521Z",
+          "sha": "f8666afe7b22ece62f21d1a0d4d5cd5d6d150983",
+          "branch": "main",
+          "status": "queued",
+          "updated_at": "2026-10-07T07:08:48.521Z"
+        },
         {
           "run_id": 37585535464,
           "jobs": {
@@ -891,53 +912,6 @@
           "html_url": "https://github.com/HereLiesAz/azphalt/actions/runs/37155195945",
           "started_at": "2026-10-03T21:28:01Z",
           "updated_at": "2026-10-03T21:48:30Z"
-        },
-        {
-          "run_id": 37154983996,
-          "jobs": {
-            "conformance-fixtures": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/azphalt/actions/runs/37154983996/job/111296426643",
-              "started_at": "2026-10-03T21:24:42Z",
-              "completed_at": "2026-10-03T21:24:59Z",
-              "steps_completed": 10,
-              "steps_total": 10,
-              "current_step": null
-            },
-            "storefront-compose": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/azphalt/actions/runs/37154983996/job/111296426633",
-              "started_at": "2026-10-03T21:24:30Z",
-              "completed_at": "2026-10-03T21:31:42Z",
-              "steps_completed": 8,
-              "steps_total": 8,
-              "current_step": null
-            },
-            "build-test": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/azphalt/actions/runs/37154983996/job/111296426565",
-              "started_at": "2026-10-03T21:25:44Z",
-              "completed_at": "2026-10-03T21:26:29Z",
-              "steps_completed": 10,
-              "steps_total": 10,
-              "current_step": null
-            }
-          },
-          "reports": {},
-          "created_at": "2026-10-03T21:24:20.566Z",
-          "run_number": 1396,
-          "run_attempt": 1,
-          "event": "push",
-          "branch": "main",
-          "sha": "3505f33f792a385afcbb766147c0731a747d1d73",
-          "status": "completed",
-          "conclusion": "success",
-          "html_url": "https://github.com/HereLiesAz/azphalt/actions/runs/37154983996",
-          "started_at": "2026-10-03T21:24:19Z",
-          "updated_at": "2026-10-03T21:31:42Z"
         }
       ]
     }

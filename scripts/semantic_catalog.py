@@ -734,7 +734,7 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
     "57b8630e4ef406195f2679abd1ce8165213ddddb1f068ccd47692c090b20d6d6": {"signing": "pem-chain", "chain_secret": "KEYSTORE_CHAIN", "java_version": "21", "google_services": "none", "inject_signing_args": True, "build_command": "./gradlew :app:assembleRelease --no-daemon --stacktrace", "artifact_glob": "app/build/outputs/apk/release/*.apk", "mapping_file": "app/build/outputs/mapping/release/mapping.txt", "persist_version": False, "app_name": "ReUp"},
     # HereLiesAz/Burning-iBridge Compose Desktop: native Linux + macOS releases on main merges.
     "fd6bc817807cbaf9fab75f5967941c6e54b27d6418cd6743c456b1a1074e6953": {
-      "serialize": true,
+      "serialize": True,
       "prepare_command": "set -euo pipefail\nvalue() { grep \"^$1=\" version.properties | cut -d= -f2 | tr -d \"\\r \"; }\nbase=\"$(value versionMajor).$(value versionMinor).$(value versionPatch)\"\nbuild=\"${TARGET_RUN_NUMBER:-$GITHUB_RUN_NUMBER}\"\nversion=\"$base.$build\"\necho \"version=$version\" >> \"$GITHUB_OUTPUT\"\necho \"tag=$version\" >> \"$GITHUB_OUTPUT\"",
       "matrix": {
         "include": [
@@ -762,10 +762,10 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
           }
         ]
       },
-      "allow_partial": false,
+      "allow_partial": False,
       "release_when": "always",
       "tag_mode": "prepare-output",
-      "prerelease": true,
+      "prerelease": True,
       "release_name_prefix": "Burning-iBridge",
       "title_template": "Burning-iBridge $VERSION",
       "body_template": "Burning-iBridge Linux and macOS desktop installers from commit $BUILD_SHA. Includes Linux (.deb) and macOS (.dmg) for Intel and Apple Silicon. Experimental unsigned builds; on macOS use System Settings to approve launch when necessary. palera1n/ipsw binaries are installed at runtime with SHA-256 verification."

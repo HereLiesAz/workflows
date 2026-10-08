@@ -257,6 +257,8 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
         "canonical_hash": "2150463fc5eba564d0d1a6069b40aef1f36333d8a30d0f2cd0ec8938000a802b",
         "generalized": True,
         "source_hashes": {
+            # HereLiesAz/Burning-iBridge:.github/workflows/desktop-release.yml — Kotlin/Compose Linux + macOS.
+            "fd6bc817807cbaf9fab75f5967941c6e54b27d6418cd6743c456b1a1074e6953",
             # HereLiesAz/sir-match-a-lot:.github/workflows/desktop-release.yml — Compose Desktop installers.
             "954da55c4f56dca0fff3cd1e01e7ca2fc3105be9ae6891e72cf005d7af5987f0",
             # HereLiesAz/illumera:.github/workflows/desktop-release.yml — Tauri desktop
@@ -730,6 +732,44 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
     "e8662ef790000809bc906ffab8f356009ea661d8cc6db99a64b94d7f0af2a533": {"signing": "pem-chain", "chain_secret": "KEYSTORE_CHAIN", "java_version": "21", "google_services": "none", "inject_signing_args": True, "build_command": "./gradlew :androidApp:assembleRelease --no-daemon --stacktrace", "artifact_glob": "androidApp/build/outputs/apk/release/*.apk", "mapping_file": "androidApp/build/outputs/mapping/release/mapping.txt", "persist_version": False, "app_name": "Lamplight"},
     "56aed18f0f8622ba8e2a36d4c9dfb07fb172e5eb87771aa2210cfc38f1ebe18a": {"signing": "pem-chain", "java_version": "21", "google_services": "none", "inject_signing_args": True, "package_name": "com.hereliesaz.reup", "build_command": "./gradlew :app:bundleRelease --no-daemon --stacktrace", "aab_glob": "app/build/outputs/bundle/release/*.aab", "mapping_file": "app/build/outputs/mapping/release/mapping.txt", "publish_on_push": True, "publish_default": True, "tracks": PLAY_TRACKS, "release_app_name": "ReUp"},
     "57b8630e4ef406195f2679abd1ce8165213ddddb1f068ccd47692c090b20d6d6": {"signing": "pem-chain", "chain_secret": "KEYSTORE_CHAIN", "java_version": "21", "google_services": "none", "inject_signing_args": True, "build_command": "./gradlew :app:assembleRelease --no-daemon --stacktrace", "artifact_glob": "app/build/outputs/apk/release/*.apk", "mapping_file": "app/build/outputs/mapping/release/mapping.txt", "persist_version": False, "app_name": "ReUp"},
+    # HereLiesAz/Burning-iBridge Compose Desktop: native Linux + macOS releases on main merges.
+    "fd6bc817807cbaf9fab75f5967941c6e54b27d6418cd6743c456b1a1074e6953": {
+      "serialize": true,
+      "prepare_command": "set -euo pipefail\nvalue() { grep \"^$1=\" version.properties | cut -d= -f2 | tr -d \"\\r \"; }\nbase=\"$(value versionMajor).$(value versionMinor).$(value versionPatch)\"\nbuild=\"${TARGET_RUN_NUMBER:-$GITHUB_RUN_NUMBER}\"\nversion=\"$base.$build\"\necho \"version=$version\" >> \"$GITHUB_OUTPUT\"\necho \"tag=$version\" >> \"$GITHUB_OUTPUT\"",
+      "matrix": {
+        "include": [
+          {
+            "os": "ubuntu-latest",
+            "java_version": "21",
+            "artifact_name": "burning-ibridge-linux-amd64",
+            "prepare": "sudo apt-get update && sudo apt-get install -y fakeroot binutils",
+            "build": "bash launch.sh test packageDeb --no-daemon --stacktrace && mkdir -p dist && for f in build/compose/binaries/main/deb/*.deb; do test -f \"$f\" && cp \"$f\" \"dist/Burning-iBridge-${RELEASE_VERSION}-linux-amd64.deb\"; done",
+            "artifact_path": "dist/*"
+          },
+          {
+            "os": "macos-latest",
+            "java_version": "21",
+            "artifact_name": "burning-ibridge-macos-arm64",
+            "build": "bash launch.sh test packageDmg --no-daemon --stacktrace && mkdir -p dist && for f in build/compose/binaries/main/dmg/*.dmg; do test -f \"$f\" && cp \"$f\" \"dist/Burning-iBridge-${RELEASE_VERSION}-macos-arm64.dmg\"; done",
+            "artifact_path": "dist/*"
+          },
+          {
+            "os": "macos-15-intel",
+            "java_version": "21",
+            "artifact_name": "burning-ibridge-macos-x86_64",
+            "build": "bash launch.sh test packageDmg --no-daemon --stacktrace && mkdir -p dist && for f in build/compose/binaries/main/dmg/*.dmg; do test -f \"$f\" && cp \"$f\" \"dist/Burning-iBridge-${RELEASE_VERSION}-macos-x86_64.dmg\"; done",
+            "artifact_path": "dist/*"
+          }
+        ]
+      },
+      "allow_partial": false,
+      "release_when": "always",
+      "tag_mode": "prepare-output",
+      "prerelease": true,
+      "release_name_prefix": "Burning-iBridge",
+      "title_template": "Burning-iBridge $VERSION",
+      "body_template": "Burning-iBridge Linux and macOS desktop installers from commit $BUILD_SHA. Includes Linux (.deb) and macOS (.dmg) for Intel and Apple Silicon. Experimental unsigned builds; on macOS use System Settings to approve launch when necessary. palera1n/ipsw binaries are installed at runtime with SHA-256 verification."
+    },
     # HereLiesAz/sir-match-a-lot desktop (Compose Desktop module :desktopApp): .msi, .dmg (arm64 + x86_64), .deb.
     "954da55c4f56dca0fff3cd1e01e7ca2fc3105be9ae6891e72cf005d7af5987f0": {"serialize": True, "prepare_command": "v() { grep \"^$1=\" version.properties | cut -d= -f2 | tr -d '\\r '; }\nbase=\"$(v versionMajor).$(v versionMinor).$(v versionPatch)\"\nversion=\"$base.${TARGET_RUN_NUMBER:-$GITHUB_RUN_NUMBER}\"\necho \"version=$version\" >> \"$GITHUB_OUTPUT\"\necho \"tag=v$base\" >> \"$GITHUB_OUTPUT\"", "matrix": {"include": [{"os": "ubuntu-latest", "java_version": "21", "gradle": True, "artifact_name": "sirmatchalot-desktop-linux", "prepare": "sudo apt-get update && sudo apt-get install -y fakeroot", "build": "chmod +x gradlew && ./gradlew :desktopApp:packageDeb --no-daemon --stacktrace && mkdir -p dist && for f in desktopApp/build/compose/binaries/main/deb/*.deb; do cp \"$f\" \"dist/SirMatchALot-$RELEASE_VERSION-linux-amd64.deb\"; done", "artifact_path": "dist/*"}, {"os": "macos-latest", "java_version": "21", "gradle": True, "artifact_name": "sirmatchalot-desktop-macos-arm64", "build": "chmod +x gradlew && ./gradlew :desktopApp:packageDmg --no-daemon --stacktrace && mkdir -p dist && for f in desktopApp/build/compose/binaries/main/dmg/*.dmg; do cp \"$f\" \"dist/SirMatchALot-$RELEASE_VERSION-macos-arm64.dmg\"; done", "artifact_path": "dist/*"}, {"os": "macos-15-intel", "java_version": "21", "gradle": True, "artifact_name": "sirmatchalot-desktop-macos-x86_64", "build": "chmod +x gradlew && ./gradlew :desktopApp:packageDmg --no-daemon --stacktrace && mkdir -p dist && for f in desktopApp/build/compose/binaries/main/dmg/*.dmg; do cp \"$f\" \"dist/SirMatchALot-$RELEASE_VERSION-macos-x86_64.dmg\"; done", "artifact_path": "dist/*"}, {"os": "windows-latest", "java_version": "21", "gradle": True, "shell": "pwsh", "artifact_name": "sirmatchalot-desktop-windows", "prepare": "choco install wixtoolset --no-progress -y", "build": "./gradlew.bat :desktopApp:packageMsi --no-daemon --stacktrace; if ($LASTEXITCODE) { exit $LASTEXITCODE }; New-Item -ItemType Directory -Force dist | Out-Null; Get-ChildItem desktopApp/build/compose/binaries/main/msi/*.msi | ForEach-Object { Copy-Item $_.FullName \"dist/SirMatchALot-$env:RELEASE_VERSION-windows-x64.msi\" }", "artifact_path": "dist/*"}]}, "allow_partial": True, "release_when": "always", "tag_mode": "prepare-output", "force_tag": False, "prerelease": False, "release_name_prefix": "Sir Match-a-Lot", "title_template": "Sir Match-a-Lot $VERSION", "body_template": "Sir Match-a-Lot desktop installers built from commit $BUILD_SHA: Windows (.msi), macOS (.dmg for Apple silicon and Intel), Linux (.deb). The builds are unsigned: on macOS right-click the app and choose Open the first time; on Windows choose More info then Run anyway if SmartScreen asks."},
 }

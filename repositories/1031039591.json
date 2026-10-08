@@ -4,7 +4,7 @@
     "id": 1031039591,
     "full_name": "HereLiesAz/aive"
   },
-  "updated_at": "2026-10-08T22:32:46.401Z",
+  "updated_at": "2026-10-08T22:33:16.672Z",
   "workflows": {
     ".github/workflows/bitcos-engine.yml": {
       "name": "BITCOS Engine",
@@ -863,6 +863,22 @@
     ".github/workflows/multiplatform.yml": {
       "name": "Build and Deploy",
       "runs": [
+        {
+          "run_id": 37854195713,
+          "jobs": {},
+          "reports": {},
+          "created_at": "2026-10-08T22:33:16.672Z",
+          "run_number": 2085,
+          "run_attempt": 1,
+          "event": "pull_request",
+          "branch": "fix/openai-compatible-truncation",
+          "sha": "ba4596ef4978d149b9feb0cea3598b10d6967ca1",
+          "status": "queued",
+          "conclusion": null,
+          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37854195713",
+          "started_at": "2026-10-08T22:33:15Z",
+          "updated_at": "2026-10-08T22:33:15Z"
+        },
         {
           "run_id": 37854125219,
           "jobs": {},
@@ -1882,73 +1898,6 @@
           "conclusion": "cancelled",
           "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37795386045",
           "started_at": "2026-10-08T14:47:43Z"
-        },
-        {
-          "run_id": 37795350444,
-          "jobs": {
-            "Resolve four-part version": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37795350444/job/113373256082",
-              "started_at": "2026-10-08T14:47:28Z",
-              "completed_at": "2026-10-08T14:47:44Z",
-              "steps_completed": 0,
-              "steps_total": 0,
-              "current_step": null
-            },
-            "publish-play": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37795350444/job/113373380070",
-              "started_at": "2026-10-08T14:47:44Z",
-              "completed_at": "2026-10-08T14:47:44Z",
-              "steps_completed": 0,
-              "steps_total": 0,
-              "current_step": null
-            },
-            "deploy-pages": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37795350444/job/113373380223",
-              "started_at": "2026-10-08T14:47:44Z",
-              "completed_at": "2026-10-08T14:47:44Z",
-              "steps_completed": 0,
-              "steps_total": 0,
-              "current_step": null
-            },
-            "Desktop installer (${{ matrix.platform }})": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37795350444/job/113373380073",
-              "started_at": "2026-10-08T14:47:44Z",
-              "completed_at": "2026-10-08T14:47:44Z",
-              "steps_completed": 0,
-              "steps_total": 0,
-              "current_step": null
-            },
-            "build": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37795350444/job/113373255546",
-              "started_at": "2026-10-08T14:47:28Z",
-              "completed_at": "2026-10-08T14:47:44Z",
-              "steps_completed": 0,
-              "steps_total": 0,
-              "current_step": null
-            }
-          },
-          "reports": {},
-          "created_at": "2026-10-08T14:47:34.011Z",
-          "run_number": 2065,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "feat/durable-relay-leases",
-          "sha": "5fafe10eeae02a40cbec8fd9595717d59b6c3b83",
-          "status": "completed",
-          "conclusion": "cancelled",
-          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37795350444",
-          "started_at": "2026-10-08T14:47:27Z",
-          "updated_at": "2026-10-08T14:47:56.302Z"
         }
       ]
     },

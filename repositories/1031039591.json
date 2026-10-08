@@ -4,7 +4,7 @@
     "id": 1031039591,
     "full_name": "HereLiesAz/aive"
   },
-  "updated_at": "2026-10-08T06:00:05.818Z",
+  "updated_at": "2026-10-08T06:00:07.049Z",
   "workflows": {
     ".github/workflows/bitcos-engine.yml": {
       "name": "BITCOS Engine",
@@ -1204,6 +1204,27 @@
     ".github/workflows/multiplatform.yml": {
       "name": "Build and Deploy",
       "runs": [
+        {
+          "run_id": 37735225970,
+          "jobs": {
+            "Resolve four-part version": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37735225970/job/113173140814",
+              "started_at": "2026-10-08T06:00:05Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-10-08T06:00:07.049Z",
+          "sha": "c11fe73abe1f0750f4b09b5644d4ef6de76e3973",
+          "branch": "feat/moyai-azp-provider",
+          "status": "queued",
+          "updated_at": "2026-10-08T06:00:07.049Z"
+        },
         {
           "run_id": 37734964815,
           "jobs": {
@@ -3143,118 +3164,6 @@
           "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37525512195",
           "started_at": "2026-10-06T20:19:02Z",
           "updated_at": "2026-10-06T20:44:17.311Z"
-        },
-        {
-          "run_id": 37457855440,
-          "jobs": {
-            "build": {
-              "status": "in_progress",
-              "conclusion": null,
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37457855440/job/112252625272",
-              "started_at": "2026-10-06T11:47:17Z",
-              "completed_at": null,
-              "steps_completed": 0,
-              "steps_total": 0,
-              "current_step": null
-            },
-            "Resolve four-part version": {
-              "status": "in_progress",
-              "conclusion": null,
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37457855440/job/112252625062",
-              "started_at": "2026-10-06T11:47:17Z",
-              "completed_at": null,
-              "steps_completed": 3,
-              "steps_total": 4,
-              "current_step": "Post Check out repository"
-            },
-            "Desktop installer (macos)": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37457855440/job/112252720800",
-              "started_at": "2026-10-06T11:47:36Z",
-              "completed_at": "2026-10-06T11:52:16Z",
-              "steps_completed": 21,
-              "steps_total": 21,
-              "current_step": null
-            },
-            "Desktop installer (windows)": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37457855440/job/112252720895",
-              "started_at": "2026-10-06T11:47:32Z",
-              "completed_at": "2026-10-06T11:54:45Z",
-              "steps_completed": 21,
-              "steps_total": 21,
-              "current_step": null
-            },
-            "Desktop installer (linux)": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37457855440/job/112252720728",
-              "started_at": "2026-10-06T11:47:32Z",
-              "completed_at": "2026-10-06T11:52:34Z",
-              "steps_completed": 21,
-              "steps_total": 21,
-              "current_step": null
-            },
-            "publish-play": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37457855440/job/112256771857",
-              "started_at": "2026-10-06T11:58:15Z",
-              "completed_at": "2026-10-06T11:59:42Z",
-              "steps_completed": 6,
-              "steps_total": 6,
-              "current_step": null
-            },
-            "deploy-pages": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37457855440/job/112256771882",
-              "started_at": "2026-10-06T11:58:17Z",
-              "completed_at": "2026-10-06T11:58:29Z",
-              "steps_completed": 3,
-              "steps_total": 3,
-              "current_step": null
-            },
-            "Publish patch-grouped release": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37457855440/job/112256771773",
-              "started_at": "2026-10-06T11:58:15Z",
-              "completed_at": "2026-10-06T12:00:22Z",
-              "steps_completed": 12,
-              "steps_total": 12,
-              "current_step": null
-            }
-          },
-          "reports": {
-            "desktop-packages": {
-              "status": "success",
-              "summary": "",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-10-06T11:54:18.005Z"
-            },
-            "build": {
-              "status": "success",
-              "summary": "",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-10-06T11:57:48.308Z"
-            }
-          },
-          "created_at": "2026-10-06T11:39:29.779Z",
-          "run_number": 2039,
-          "run_attempt": 1,
-          "event": "push",
-          "branch": "main",
-          "sha": "979ca6e4dba3cb9692ff751b34b65e1b1684a058",
-          "status": "completed",
-          "conclusion": "success",
-          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37457855440",
-          "started_at": "2026-10-06T11:39:28Z",
-          "updated_at": "2026-10-06T12:00:23Z"
         }
       ]
     },

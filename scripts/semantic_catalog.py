@@ -55,6 +55,7 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "f0b5d5091bb2d2372b65116ee9d154f0fe03ed641d3693436525ff618f47f22a",  # HereLiesAz/Graffux:.github/workflows/release-aab.yml
             "ce9522313a7992b2df23cc8d60707b5c19054f5d66f602b275937279b0acd2bb",  # HereLiesAz/LogKitty:.github/workflows/play-publish.yml (push to main + dispatch)
             "b34445bad4ec762db141d3264b75a0a42220d30d5a6093a768164411a9f7ed63",  # HereLiesAz/CaptureTheFlag:.github/workflows/android-release.yml (push to main + dispatch)
+            "cd3d4388f8a71e7a5a395cad6f1839503325b2bc3688e7b8d578795197e08274",  # HereLiesAz/morphont:.github/workflows/android-release.yml (push to main + dispatch)
         },
     },
     ".github/workflows/android-play-release.yml": {

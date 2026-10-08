@@ -739,25 +739,25 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
       "matrix": {
         "include": [
           {
-            "os": "ubuntu-latest",
+            "os": "ubuntu-22.04",
             "java_version": "21",
             "artifact_name": "burning-ibridge-linux-amd64",
             "prepare": "sudo apt-get update && sudo apt-get install -y fakeroot binutils",
-            "build": "bash launch.sh test packageDeb --no-daemon --stacktrace && mkdir -p dist && for f in build/compose/binaries/main/deb/*.deb; do test -f \"$f\" && cp \"$f\" \"dist/Burning-iBridge-${RELEASE_VERSION}-linux-amd64.deb\"; done",
+            "build": "bash launch.sh test packageDeb createDistributable -PdesktopPackageVersion=1.1.${RELEASE_VERSION##*.} --no-daemon --stacktrace && mkdir -p dist && for f in build/compose/binaries/main/deb/*.deb; do test -f \"$f\" && cp \"$f\" \"dist/Burning-iBridge-${RELEASE_VERSION}-linux-amd64.deb\"; done && test -d build/compose/binaries/main/app && tar -C build/compose/binaries/main/app -czf \"dist/Burning-iBridge-${RELEASE_VERSION}-linux-portable-amd64.tar.gz\" .",
             "artifact_path": "dist/*"
           },
           {
             "os": "macos-latest",
             "java_version": "21",
             "artifact_name": "burning-ibridge-macos-arm64",
-            "build": "bash launch.sh test packageDmg --no-daemon --stacktrace && mkdir -p dist && for f in build/compose/binaries/main/dmg/*.dmg; do test -f \"$f\" && cp \"$f\" \"dist/Burning-iBridge-${RELEASE_VERSION}-macos-arm64.dmg\"; done",
+            "build": "bash launch.sh test packageDmg -PdesktopPackageVersion=1.1.${RELEASE_VERSION##*.} --no-daemon --stacktrace && mkdir -p dist && for f in build/compose/binaries/main/dmg/*.dmg; do test -f \"$f\" && cp \"$f\" \"dist/Burning-iBridge-${RELEASE_VERSION}-macos-arm64.dmg\"; done",
             "artifact_path": "dist/*"
           },
           {
             "os": "macos-15-intel",
             "java_version": "21",
             "artifact_name": "burning-ibridge-macos-x86_64",
-            "build": "bash launch.sh test packageDmg --no-daemon --stacktrace && mkdir -p dist && for f in build/compose/binaries/main/dmg/*.dmg; do test -f \"$f\" && cp \"$f\" \"dist/Burning-iBridge-${RELEASE_VERSION}-macos-x86_64.dmg\"; done",
+            "build": "bash launch.sh test packageDmg -PdesktopPackageVersion=1.1.${RELEASE_VERSION##*.} --no-daemon --stacktrace && mkdir -p dist && for f in build/compose/binaries/main/dmg/*.dmg; do test -f \"$f\" && cp \"$f\" \"dist/Burning-iBridge-${RELEASE_VERSION}-macos-x86_64.dmg\"; done",
             "artifact_path": "dist/*"
           }
         ]
@@ -768,7 +768,7 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
       "prerelease": True,
       "release_name_prefix": "Burning-iBridge",
       "title_template": "Burning-iBridge $VERSION",
-      "body_template": "Burning-iBridge Linux and macOS desktop installers from commit $BUILD_SHA. Includes Linux (.deb) and macOS (.dmg) for Intel and Apple Silicon. Experimental unsigned builds; on macOS use System Settings to approve launch when necessary. palera1n/ipsw binaries are installed at runtime with SHA-256 verification."
+      "body_template": "Burning-iBridge Linux and macOS desktop installers from commit $BUILD_SHA. Includes Linux (.deb plus portable .tar.gz) and macOS (.dmg) for Intel and Apple Silicon. Experimental unsigned builds; on macOS use System Settings to approve launch when necessary. palera1n/ipsw binaries are installed at runtime with SHA-256 verification."
     },
     # HereLiesAz/sir-match-a-lot desktop (Compose Desktop module :desktopApp): .msi, .dmg (arm64 + x86_64), .deb.
     "954da55c4f56dca0fff3cd1e01e7ca2fc3105be9ae6891e72cf005d7af5987f0": {"serialize": True, "prepare_command": "v() { grep \"^$1=\" version.properties | cut -d= -f2 | tr -d '\\r '; }\nbase=\"$(v versionMajor).$(v versionMinor).$(v versionPatch)\"\nversion=\"$base.${TARGET_RUN_NUMBER:-$GITHUB_RUN_NUMBER}\"\necho \"version=$version\" >> \"$GITHUB_OUTPUT\"\necho \"tag=v$base\" >> \"$GITHUB_OUTPUT\"", "matrix": {"include": [{"os": "ubuntu-latest", "java_version": "21", "gradle": True, "artifact_name": "sirmatchalot-desktop-linux", "prepare": "sudo apt-get update && sudo apt-get install -y fakeroot", "build": "chmod +x gradlew && ./gradlew :desktopApp:packageDeb --no-daemon --stacktrace && mkdir -p dist && for f in desktopApp/build/compose/binaries/main/deb/*.deb; do cp \"$f\" \"dist/SirMatchALot-$RELEASE_VERSION-linux-amd64.deb\"; done", "artifact_path": "dist/*"}, {"os": "macos-latest", "java_version": "21", "gradle": True, "artifact_name": "sirmatchalot-desktop-macos-arm64", "build": "chmod +x gradlew && ./gradlew :desktopApp:packageDmg --no-daemon --stacktrace && mkdir -p dist && for f in desktopApp/build/compose/binaries/main/dmg/*.dmg; do cp \"$f\" \"dist/SirMatchALot-$RELEASE_VERSION-macos-arm64.dmg\"; done", "artifact_path": "dist/*"}, {"os": "macos-15-intel", "java_version": "21", "gradle": True, "artifact_name": "sirmatchalot-desktop-macos-x86_64", "build": "chmod +x gradlew && ./gradlew :desktopApp:packageDmg --no-daemon --stacktrace && mkdir -p dist && for f in desktopApp/build/compose/binaries/main/dmg/*.dmg; do cp \"$f\" \"dist/SirMatchALot-$RELEASE_VERSION-macos-x86_64.dmg\"; done", "artifact_path": "dist/*"}, {"os": "windows-latest", "java_version": "21", "gradle": True, "shell": "pwsh", "artifact_name": "sirmatchalot-desktop-windows", "prepare": "choco install wixtoolset --no-progress -y", "build": "./gradlew.bat :desktopApp:packageMsi --no-daemon --stacktrace; if ($LASTEXITCODE) { exit $LASTEXITCODE }; New-Item -ItemType Directory -Force dist | Out-Null; Get-ChildItem desktopApp/build/compose/binaries/main/msi/*.msi | ForEach-Object { Copy-Item $_.FullName \"dist/SirMatchALot-$env:RELEASE_VERSION-windows-x64.msi\" }", "artifact_path": "dist/*"}]}, "allow_partial": True, "release_when": "always", "tag_mode": "prepare-output", "force_tag": False, "prerelease": False, "release_name_prefix": "Sir Match-a-Lot", "title_template": "Sir Match-a-Lot $VERSION", "body_template": "Sir Match-a-Lot desktop installers built from commit $BUILD_SHA: Windows (.msi), macOS (.dmg for Apple silicon and Intel), Linux (.deb). The builds are unsigned: on macOS right-click the app and choose Open the first time; on Windows choose More info then Run anyway if SmartScreen asks."},

@@ -1614,7 +1614,8 @@ export const EVENT_CONSUMERS = {
   "1410760249": {
     "repository": "HereLiesAz/Burning-iBridge",
     "events": [
-      "push"
+      "push",
+      "workflow_dispatch"
     ]
   }
 };

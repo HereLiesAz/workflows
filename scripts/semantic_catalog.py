@@ -743,21 +743,21 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
             "java_version": "21",
             "artifact_name": "burning-ibridge-linux-amd64",
             "prepare": "sudo apt-get update && sudo apt-get install -y fakeroot binutils",
-            "build": "bash launch.sh test packageDeb createDistributable -PdesktopPackageVersion=1.1.${RELEASE_VERSION##*.} --no-daemon --stacktrace && mkdir -p dist && for f in build/compose/binaries/main/deb/*.deb; do test -f \"$f\" && cp \"$f\" \"dist/Burning-iBridge-${RELEASE_VERSION}-linux-amd64.deb\"; done && test -d build/compose/binaries/main/app && tar -C build/compose/binaries/main/app -czf \"dist/Burning-iBridge-${RELEASE_VERSION}-linux-portable-amd64.tar.gz\" .",
+            "build": "bash launch.sh test packageDeb createDistributable -PdesktopPackageVersion=1.1.${RELEASE_VERSION##*.} --no-daemon --stacktrace && bash scripts/verify-runtime-modules.sh && mkdir -p dist && for f in build/compose/binaries/main/deb/*.deb; do test -f \"$f\" && cp \"$f\" \"dist/Burning-iBridge-${RELEASE_VERSION}-linux-amd64.deb\"; done && test -d build/compose/binaries/main/app && tar -C build/compose/binaries/main/app -czf \"dist/Burning-iBridge-${RELEASE_VERSION}-linux-portable-amd64.tar.gz\" .",
             "artifact_path": "dist/*"
           },
           {
             "os": "macos-latest",
             "java_version": "21",
             "artifact_name": "burning-ibridge-macos-arm64",
-            "build": "bash launch.sh test packageDmg -PdesktopPackageVersion=1.1.${RELEASE_VERSION##*.} --no-daemon --stacktrace && mkdir -p dist && for f in build/compose/binaries/main/dmg/*.dmg; do test -f \"$f\" && cp \"$f\" \"dist/Burning-iBridge-${RELEASE_VERSION}-macos-arm64.dmg\"; done",
+            "build": "bash launch.sh test packageDmg -PdesktopPackageVersion=1.1.${RELEASE_VERSION##*.} --no-daemon --stacktrace && bash scripts/verify-runtime-modules.sh && mkdir -p dist && for f in build/compose/binaries/main/dmg/*.dmg; do test -f \"$f\" && cp \"$f\" \"dist/Burning-iBridge-${RELEASE_VERSION}-macos-arm64.dmg\"; done",
             "artifact_path": "dist/*"
           },
           {
             "os": "macos-15-intel",
             "java_version": "21",
             "artifact_name": "burning-ibridge-macos-x86_64",
-            "build": "bash launch.sh test packageDmg -PdesktopPackageVersion=1.1.${RELEASE_VERSION##*.} --no-daemon --stacktrace && mkdir -p dist && for f in build/compose/binaries/main/dmg/*.dmg; do test -f \"$f\" && cp \"$f\" \"dist/Burning-iBridge-${RELEASE_VERSION}-macos-x86_64.dmg\"; done",
+            "build": "bash launch.sh test packageDmg -PdesktopPackageVersion=1.1.${RELEASE_VERSION##*.} --no-daemon --stacktrace && bash scripts/verify-runtime-modules.sh && mkdir -p dist && for f in build/compose/binaries/main/dmg/*.dmg; do test -f \"$f\" && cp \"$f\" \"dist/Burning-iBridge-${RELEASE_VERSION}-macos-x86_64.dmg\"; done",
             "artifact_path": "dist/*"
           }
         ]

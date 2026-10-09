@@ -230,14 +230,12 @@
       "updated_at": "2026-10-03T07:45:21+00:00"
     },
     ".github/workflows/play-publish.yml": {
-      "binding": "curated",
-      "central_workflow": ".github/workflows/android-release.yml",
-      "centralized": true,
       "name": "Publish to Google Play",
+      "reason": "android-release retired; Android apps use android-play-release and android-github-release",
       "registry_source": "registry/1135328959/play-publish-9d7474e6.source.yml",
       "source_sha256": "ce9522313a7992b2df23cc8d60707b5c19054f5d66f602b275937279b0acd2bb",
-      "status": "active",
-      "updated_at": "2026-10-05T13:51:02+00:00"
+      "status": "obsolete",
+      "updated_at": "2026-10-09T00:00:00+00:00"
     },
     ".github/workflows/pr-contribution-guidelines-review.yml": {
       "blockers": [

@@ -46,23 +46,13 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "d457c0809e0b9d1cd9a70044eaab8f8e0aa11197ba25a0a9c97aab620f155afa",
         },
     },
-    ".github/workflows/android-release.yml": {
-        "name": "Android Release",
-        "canonical_hash": "60ac0b25cf88bcff28f3b5c31d1d9545e5a6ba10d9b80d1b7d35e540329b350e",
-        "generalized": True,
-        "source_hashes": {
-            "60ac0b25cf88bcff28f3b5c31d1d9545e5a6ba10d9b80d1b7d35e540329b350e",  # HereLiesAz/illumera:.github/workflows/release.yml
-            "f0b5d5091bb2d2372b65116ee9d154f0fe03ed641d3693436525ff618f47f22a",  # HereLiesAz/Graffux:.github/workflows/release-aab.yml
-            "ce9522313a7992b2df23cc8d60707b5c19054f5d66f602b275937279b0acd2bb",  # HereLiesAz/LogKitty:.github/workflows/play-publish.yml (push to main + dispatch)
-            "b34445bad4ec762db141d3264b75a0a42220d30d5a6093a768164411a9f7ed63",  # HereLiesAz/CaptureTheFlag:.github/workflows/android-release.yml (push to main + dispatch)
-            "cd3d4388f8a71e7a5a395cad6f1839503325b2bc3688e7b8d578795197e08274",  # HereLiesAz/morphont:.github/workflows/android-release.yml (push to main + dispatch)
-        },
-    },
     ".github/workflows/android-play-release.yml": {
         "name": "Android Play Release",
         "canonical_hash": "c7e435bc33db1508560b4f5e700570d3f9544ce3d2efa16b4b7df2a60ee3c1f4",
         "generalized": True,
         "source_hashes": {
+            # HereLiesAz/MeatPiety:.github/workflows/android-play-release.yml
+            "d6b05a5e8890cf72879a0e5347ae9f3b5b1f125e8df667ae48b0d1c9b2157a9f",
             # HereLiesAz/MadeMeDance:.github/workflows/android-play-release.yml
             "2a900a0c5f9e6a75390b11a60093529d4f775c379a04a96f307c909e57e1f95b",
             # HereLiesAz/QaRd:.github/workflows/android-play-release.yml (play flavor AAB)
@@ -122,6 +112,8 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
         "canonical_hash": "41ccb8c30d393fdc42a44d3b208b179f948ebc44e1c316c4e78b76f627f3bb3c",
         "generalized": True,
         "source_hashes": {
+            # HereLiesAz/MeatPiety:.github/workflows/android-github-release.yml
+            "3cd23c10466cf2e39495201851059130cebe05892298fbaa7fc1f996fc910c39",
             # HereLiesAz/Guillotine:.github/workflows/android-github-release.yml
             "0133e412c2a64c4edc936746849a00081d7bb7992d2fc2f257ac18f0fca67622",
             # HereLiesAz/MadeMeDance:.github/workflows/android-github-release.yml
@@ -391,6 +383,9 @@ PLAY_TRACKS: Final[list[dict[str, object]]] = [
 ]
 
 PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
+    # MeatPiety (Compose Multiplatform; app module reads -PversionCode / -PversionName).
+    "d6b05a5e8890cf72879a0e5347ae9f3b5b1f125e8df667ae48b0d1c9b2157a9f": {"signing": "raw-jks", "java_version": "21", "google_services": "none", "inject_signing_args": True, "version_arg": "versionCode", "package_name": "com.hereliesaz.meatpiety", "build_command": "./gradlew :app:bundleRelease --no-daemon --stacktrace", "aab_glob": "app/build/outputs/bundle/release/*.aab", "publish_on_push": True, "publish_default": True, "tracks": PLAY_TRACKS, "release_app_name": "MeatPiety"},
+    "3cd23c10466cf2e39495201851059130cebe05892298fbaa7fc1f996fc910c39": {"signing": "raw-jks", "java_version": "21", "google_services": "none", "inject_signing_args": True, "build_command": "./gradlew :app:assembleRelease --no-daemon --stacktrace -PversionCode=\"$ANDROID_VERSION_CODE\" -PversionName=\"$VERSION\"", "artifact_glob": "app/build/outputs/apk/release/*.apk", "persist_version": False, "app_name": "MeatPiety"},
     # azphalt's CodeQL: its Kotlin lives in apps/storefront-cmp, not at the root, so autobuild finds
     # nothing. The desktop target and the azp verifier are compiled under the tracer on Java 17, with
     # the version frozen; the other languages need no build.

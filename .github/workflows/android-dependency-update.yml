@@ -83,6 +83,11 @@ on:
         required: false
         type: string
         default: '{}'
+# One run per app per workflow: a newer dispatch waits for the running one (never cancels it
+# mid-publish; Play allows a single open Edit per app).
+concurrency:
+  group: android-dependency-update-${{ inputs.target_repository_name }}
+  cancel-in-progress: false
 jobs:
   central_check_start:
     runs-on: ubuntu-latest

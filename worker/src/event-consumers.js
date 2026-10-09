@@ -1566,7 +1566,8 @@ export const EVENT_CONSUMERS = {
   "1381987612": {
     "repository": "HereLiesAz/MeatPiety",
     "events": [
-      "push"
+      "push",
+      "workflow_dispatch"
     ]
   },
   "1387105735": {

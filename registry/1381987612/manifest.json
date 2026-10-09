@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-10-05T14:55:55+00:00",
+  "last_sync_at": "2026-10-09T03:21:56+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/MeatPiety",
@@ -8,6 +8,27 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
-  "workflows": {}
+  "worker_url_configured": false,
+  "workflows": {
+    ".github/workflows/android-github-release.yml": {
+      "binding": "curated",
+      "central_workflow": ".github/workflows/android-github-release.yml",
+      "centralized": true,
+      "name": "Android GitHub Release",
+      "registry_source": "registry/1381987612/android-github-release-57374b22.source.yml",
+      "source_sha256": "3cd23c10466cf2e39495201851059130cebe05892298fbaa7fc1f996fc910c39",
+      "status": "active",
+      "updated_at": "2026-10-09T03:21:54+00:00"
+    },
+    ".github/workflows/android-play-release.yml": {
+      "binding": "curated",
+      "central_workflow": ".github/workflows/android-play-release.yml",
+      "centralized": true,
+      "name": "Android Play Release",
+      "registry_source": "registry/1381987612/android-play-release-900abeb1.source.yml",
+      "source_sha256": "d6b05a5e8890cf72879a0e5347ae9f3b5b1f125e8df667ae48b0d1c9b2157a9f",
+      "status": "active",
+      "updated_at": "2026-10-09T03:21:55+00:00"
+    }
+  }
 }

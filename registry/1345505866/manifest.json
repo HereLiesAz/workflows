@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-10-08T22:57:30+00:00",
+  "last_sync_at": "2026-10-09T03:20:46+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/illumera",
@@ -8,7 +8,7 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
+  "worker_url_configured": false,
   "workflows": {
     ".github/workflows/android-github-release.yml": {
       "binding": "curated",
@@ -18,7 +18,7 @@
       "registry_source": "registry/1345505866/android-github-release-57374b22.source.yml",
       "source_sha256": "4104c9193e797a14d126b161d4bca1da9e373c8033eb7293f5a5d0583744374f",
       "status": "active",
-      "updated_at": "2026-10-08T22:57:28+00:00"
+      "updated_at": "2026-10-09T03:20:39+00:00"
     },
     ".github/workflows/android-play-release.yml": {
       "binding": "curated",
@@ -28,7 +28,7 @@
       "registry_source": "registry/1345505866/android-play-release-900abeb1.source.yml",
       "source_sha256": "2d029665f7809ab5218d583d5ad5b98ce5d85b9cc064831ed07a58bd3894af49",
       "status": "active",
-      "updated_at": "2026-10-08T22:57:29+00:00"
+      "updated_at": "2026-10-09T03:20:41+00:00"
     },
     ".github/workflows/ci.yml": {
       "binding": "curated",
@@ -48,12 +48,12 @@
       "registry_source": "registry/1345505866/desktop-release-1e558e6c.source.yml",
       "source_sha256": "7d870343f471c1c3f1a3d2e0a6712af45c74b500a3b0b32f6069ac3493eb09c0",
       "status": "active",
-      "updated_at": "2026-10-08T22:57:29+00:00"
+      "updated_at": "2026-10-09T03:20:42+00:00"
     },
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "😈 Glee Audit",
+      "name": "\ud83d\ude08 Glee Audit",
       "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/1345505866/jules-glee-0de23ac9.source.yml",
       "source_sha256": "9aa63d02927a5e790e34e579d446800e097a1f756daa8990e3f5dac1c2ff0203",
@@ -61,12 +61,16 @@
       "updated_at": "2026-09-22T12:22:10+00:00"
     },
     ".github/workflows/release.yml": {
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/illumera-release.yml",
+      "centralized": true,
+      "implementation_sha256": "804433ecc3659760d2be424464fc51afe9a62fc3f388c74e0826da7dced8c4f0",
       "name": "Build and Release APK + Play AAB",
-      "reason": "android-release retired; Android apps use android-play-release and android-github-release",
       "registry_source": "registry/1345505866/release-16911b98.source.yml",
+      "shared_variant": "804433ecc3659760",
       "source_sha256": "60ac0b25cf88bcff28f3b5c31d1d9545e5a6ba10d9b80d1b7d35e540329b350e",
-      "status": "obsolete",
-      "updated_at": "2026-10-09T00:00:00+00:00"
+      "status": "active",
+      "updated_at": "2026-10-09T03:20:43+00:00"
     },
     ".github/workflows/web-deploy.yml": {
       "binding": "curated",
@@ -76,7 +80,7 @@
       "registry_source": "registry/1345505866/web-deploy-0208aaef.source.yml",
       "source_sha256": "a90a3f56cdc247d4df2f4a53a7f68a18123e71759f2b88d0e5fa0bb97df18034",
       "status": "active",
-      "updated_at": "2026-10-08T22:57:30+00:00"
+      "updated_at": "2026-10-09T03:20:45+00:00"
     }
   }
 }

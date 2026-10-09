@@ -6,9 +6,9 @@ full history of the last 20 runs is in `repositories/<repository_id>.json`.
 
 | Repository | Workflow | State | Run | Branch | Commit | Updated | Report |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Android CI | ✅ success | [#2740](https://github.com/HereLiesAz/aive/actions/runs/37854204998) | main | `394225b` | 2026-10-08T23:12:40Z |  |
+| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Android CI | ❌ failure | [#2751](https://github.com/HereLiesAz/aive/actions/runs/37885637354) | feat/persistent-relay-state | `ac45ce4` | 2026-10-09T06:30:57.412Z |  |
 | [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | BITCOS Engine | ⏳ queued | #37106354284 | main | `09cccd4` | 2026-10-03T07:31:59.974Z |  |
 | [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Dependency Submission | ✅ success | [#78](https://github.com/HereLiesAz/aive/actions/runs/37633281682) | main | `23c9bc6` | 2026-10-07T14:04:49.097Z |  |
-| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Build and Deploy | ❌ failure | [#2086](https://github.com/HereLiesAz/aive/actions/runs/37854205053) | main | `394225b` | 2026-10-08T23:19:54Z |  |
+| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Build and Deploy | ⏳ queued (1/5 jobs) | [#2097](https://github.com/HereLiesAz/aive/actions/runs/37885637443) | feat/persistent-relay-state | `ac45ce4` | 2026-10-09T06:31:05.957Z |  |
 | [HereLiesAz/azphalt](https://github.com/HereLiesAz/azphalt) | CI | ⏳ in_progress (2/3 jobs) | [#1416](https://github.com/HereLiesAz/azphalt/actions/runs/37585546948) | main | `f8666af` | 2026-10-07T07:09:30.414Z |  |
 | [HereLiesAz/CaptureTheFlag](https://github.com/HereLiesAz/CaptureTheFlag) | CI | ✅ success | [#6](https://github.com/HereLiesAz/CaptureTheFlag/actions/runs/37403415729) | main | `f66ff9e` | 2026-10-06T02:18:41.894Z | test: Node and shared tests |

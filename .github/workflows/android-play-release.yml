@@ -467,7 +467,16 @@ jobs:
           )
           svc=build('androidpublisher','v3',http=AuthorizedHttp(creds, http=httplib2.Http(timeout=120)),cache_discovery=False)
           package=os.environ['PACKAGE_NAME']
-          edit=svc.edits().insert(packageName=package,body={}).execute(num_retries=3)['id']
+          from googleapiclient.errors import HttpError
+          try:
+              edit=svc.edits().insert(packageName=package,body={}).execute(num_retries=3)['id']
+          except HttpError as e:
+              # A package Play has never seen (a new app before its first manual upload) has no
+              # versionCode floor: report 0 so the AAB still builds and uploads as an artifact.
+              if e.resp.status != 404:
+                  raise
+              print(0)
+              raise SystemExit(0)
           try:
               codes=[int(item['versionCode']) for item in svc.edits().bundles().list(packageName=package,editId=edit).execute(num_retries=3).get('bundles', [])]
               codes+=[int(item['versionCode']) for item in svc.edits().apks().list(packageName=package,editId=edit).execute(num_retries=3).get('apks', [])]

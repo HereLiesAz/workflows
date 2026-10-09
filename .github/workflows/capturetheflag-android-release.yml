@@ -100,6 +100,11 @@ env:
   TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
   TARGET_WORKFLOW_REF: ${{ inputs.target_workflow_ref }}
   TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
+# One run per app per workflow: a newer dispatch waits for the running one (never cancels it
+# mid-publish; Play allows a single open Edit per app).
+concurrency:
+  group: capturetheflag-android-release
+  cancel-in-progress: false
 jobs:
   central_check_start:
     runs-on: ubuntu-latest

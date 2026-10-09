@@ -128,6 +128,8 @@ jobs:
       target_sha: ${{ inputs.target_sha }}
       target_ref_name: ${{ inputs.target_ref_name }}
       target_ref_type: ${{ inputs.target_ref_type }}
+      # Play and GitHub runs dispatched from one push share this, so they share one version.
+      trigger_id: ${{ inputs.target_run_id }}
     secrets:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
 

@@ -165,14 +165,17 @@ def render_properties(existing: str, version: Version) -> str:
     return "\n".join(out).rstrip() + "\n"
 
 
-def state_payload(source_sha: str, version: Version, run_id: str) -> str:
+def state_payload(source_sha: str, version: Version, run_id: str, trigger_id: str = "") -> str:
+    payload = {
+        "schema": 1,
+        "source_sha": source_sha,
+        "version": str(version),
+        "run_id": run_id,
+    }
+    if trigger_id:
+        payload["trigger_id"] = trigger_id
     return json.dumps(
-        {
-            "schema": 1,
-            "source_sha": source_sha,
-            "version": str(version),
-            "run_id": run_id,
-        },
+        payload,
         indent=2,
         sort_keys=True,
     ) + "\n"
@@ -188,6 +191,27 @@ def parse_state(text: str) -> tuple[str, Version | None]:
     source_sha = str(data.get("source_sha") or "")
     version = version_from_text(str(data.get("version") or ""))
     return source_sha, version
+
+
+def recorded_for_trigger(state_text: str, target_sha: str, trigger_id: str) -> Version | None:
+    """Version already recorded for this commit by this same triggering event.
+
+    One push can start several compilations of one commit (a Play bundle and a GitHub
+    APK), each dispatched from the same webhook delivery. The first to reach the contract
+    advances it; the rest reuse what it recorded, so every artifact from one event carries
+    one version. A new event on the same commit (a manual rebuild) still advances the build.
+    """
+    if not trigger_id:
+        return None
+    try:
+        data = json.loads(state_text)
+    except Exception:
+        return None
+    if not isinstance(data, dict):
+        return None
+    if str(data.get("source_sha") or "") != target_sha or str(data.get("trigger_id") or "") != trigger_id:
+        return None
+    return version_from_text(str(data.get("version") or ""))
 
 
 def git_show(ref: str, path: str) -> str:
@@ -268,6 +292,7 @@ def apply_contract(
     workspace: Path,
     run_id: str,
     max_attempts: int = 8,
+    trigger_id: str = "",
 ) -> tuple[Version, str]:
     os.chdir(workspace)
     state_branch = resolve_state_branch(repository, ref_name, ref_type)
@@ -281,6 +306,7 @@ def apply_contract(
         persisted_state = git_show(branch_ref, ".version-state.json")
         previous = version_from_properties(persisted_props)
         state_source, state_version = parse_state(persisted_state)
+        recorded = recorded_for_trigger(persisted_state, target_sha, trigger_id)
 
         source_props = git_show(target_sha, "version.properties")
         source_version = version_from_properties(source_props)
@@ -295,13 +321,16 @@ def apply_contract(
         if not state_source:
             state_source = target_sha
 
-        version, bump = classify_next(
-            previous,
-            state_source,
-            target_sha,
-            source_version,
-            commit_messages(state_source, target_sha),
-        )
+        if recorded is not None:
+            version, bump = recorded, "reuse"
+        else:
+            version, bump = classify_next(
+                previous,
+                state_source,
+                target_sha,
+                source_version,
+                commit_messages(state_source, target_sha),
+            )
 
         # Fail early if this build may need an Android versionCode.
         try:
@@ -309,44 +338,46 @@ def apply_contract(
         except ValueError:
             android_code = -1
 
-        run("git", "switch", "--detach", branch_ref)
-        Path("version.properties").write_text(
-            render_properties(persisted_props or source_props, version),
-            encoding="utf-8",
-        )
-        Path(".version-state.json").write_text(
-            state_payload(target_sha, version, run_id),
-            encoding="utf-8",
-        )
-        run("git", "config", "user.name", "github-actions[bot]")
-        run("git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com")
-        run("git", "add", "version.properties", ".version-state.json")
+        # A reused version is already recorded; nothing to commit.
+        if recorded is None:
+            run("git", "switch", "--detach", branch_ref)
+            Path("version.properties").write_text(
+                render_properties(persisted_props or source_props, version),
+                encoding="utf-8",
+            )
+            Path(".version-state.json").write_text(
+                state_payload(target_sha, version, run_id, trigger_id),
+                encoding="utf-8",
+            )
+            run("git", "config", "user.name", "github-actions[bot]")
+            run("git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com")
+            run("git", "add", "version.properties", ".version-state.json")
 
-        if run("git", "diff", "--cached", "--quiet", check=False) == "":
-            # diff --quiet writes no output on both success/failure; inspect return code instead.
-            pass
-        proc = subprocess.run(["git", "diff", "--cached", "--quiet"])
-        if proc.returncode != 0:
-            run(
-                "git",
-                "commit",
-                "-m",
-                f"chore(version): {version} ({bump}) [skip ci]",
-            )
-            push = subprocess.run(
-                ["git", "push", "origin", f"HEAD:refs/heads/{state_branch}"],
-                text=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-            if push.returncode != 0:
-                if attempt == max_attempts:
-                    raise RuntimeError(
-                        f"could not persist version after {max_attempts} attempts:\n"
-                        f"{push.stdout}{push.stderr}"
-                    )
-                time.sleep(min(attempt * 2, 10))
-                continue
+            if run("git", "diff", "--cached", "--quiet", check=False) == "":
+                # diff --quiet writes no output on both success/failure; inspect return code instead.
+                pass
+            proc = subprocess.run(["git", "diff", "--cached", "--quiet"])
+            if proc.returncode != 0:
+                run(
+                    "git",
+                    "commit",
+                    "-m",
+                    f"chore(version): {version} ({bump}) [skip ci]",
+                )
+                push = subprocess.run(
+                    ["git", "push", "origin", f"HEAD:refs/heads/{state_branch}"],
+                    text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+                if push.returncode != 0:
+                    if attempt == max_attempts:
+                        raise RuntimeError(
+                            f"could not persist version after {max_attempts} attempts:\n"
+                            f"{push.stdout}{push.stderr}"
+                        )
+                    time.sleep(min(attempt * 2, 10))
+                    continue
 
         outputs = {
             "version": str(version),
@@ -383,6 +414,11 @@ def main() -> int:
     parser.add_argument("--ref-type", default="")
     parser.add_argument("--workspace", default=".")
     parser.add_argument("--run-id", default=os.environ.get("GITHUB_RUN_ID", ""))
+    parser.add_argument(
+        "--trigger-id",
+        default="",
+        help="triggering event (webhook delivery); runs sharing one reuse one version",
+    )
     args = parser.parse_args()
 
     version, bump = apply_contract(
@@ -392,6 +428,7 @@ def main() -> int:
         ref_type=args.ref_type,
         workspace=Path(args.workspace).resolve(),
         run_id=args.run_id,
+        trigger_id=args.trigger_id,
     )
     print(f"{version} ({bump})")
     return 0

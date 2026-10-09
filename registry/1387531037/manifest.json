@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-10-06T02:18:01+00:00",
+  "last_sync_at": "2026-10-09T03:20:37+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/CaptureTheFlag",
@@ -8,7 +8,7 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
+  "worker_url_configured": false,
   "workflows": {
     ".github/workflows/android-release-aab.yml": {
       "binding": "curated",
@@ -18,7 +18,7 @@
       "registry_source": "registry/1387531037/android-release-aab-c7afaeed.source.yml",
       "source_sha256": "c7e435bc33db1508560b4f5e700570d3f9544ce3d2efa16b4b7df2a60ee3c1f4",
       "status": "active",
-      "updated_at": "2026-10-06T02:17:58+00:00"
+      "updated_at": "2026-10-09T03:20:34+00:00"
     },
     ".github/workflows/android-release-apk.yml": {
       "binding": "curated",
@@ -28,15 +28,19 @@
       "registry_source": "registry/1387531037/android-release-apk-f927747f.source.yml",
       "source_sha256": "41ccb8c30d393fdc42a44d3b208b179f948ebc44e1c316c4e78b76f627f3bb3c",
       "status": "active",
-      "updated_at": "2026-10-06T02:18:00+00:00"
+      "updated_at": "2026-10-09T03:20:35+00:00"
     },
     ".github/workflows/android-release.yml": {
+      "binding": "shared-variant",
+      "central_workflow": ".github/workflows/capturetheflag-android-release.yml",
+      "centralized": true,
+      "implementation_sha256": "9de590d71a7880b1ce221aa67fdd458d45e63f82d96fecc3157e773f828c5cfe",
       "name": "Android Release",
-      "reason": "android-release retired; Android apps use android-play-release and android-github-release",
       "registry_source": "registry/1387531037/android-release-e36f09c9.source.yml",
+      "shared_variant": "9de590d71a7880b1",
       "source_sha256": "b34445bad4ec762db141d3264b75a0a42220d30d5a6093a768164411a9f7ed63",
-      "status": "obsolete",
-      "updated_at": "2026-10-09T00:00:00+00:00"
+      "status": "active",
+      "updated_at": "2026-10-09T03:20:36+00:00"
     },
     ".github/workflows/ci.yml": {
       "ci": true,
@@ -46,7 +50,7 @@
       "required_secrets": [],
       "source_sha256": "666faa97ac97183eea03a05f2c724a383409b86194e027da16efa0eb92a248ab",
       "status": "local",
-      "updated_at": "2026-10-06T02:18:01+00:00"
+      "updated_at": "2026-10-09T03:20:37+00:00"
     }
   }
 }

@@ -4,7 +4,7 @@
     "id": 1031039591,
     "full_name": "HereLiesAz/aive"
   },
-  "updated_at": "2026-10-09T02:44:05.331Z",
+  "updated_at": "2026-10-09T02:44:06.283Z",
   "workflows": {
     ".github/workflows/bitcos-engine.yml": {
       "name": "BITCOS Engine",
@@ -1076,6 +1076,27 @@
     ".github/workflows/multiplatform.yml": {
       "name": "Build and Deploy",
       "runs": [
+        {
+          "run_id": 37875959884,
+          "jobs": {
+            "build": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37875959884/job/113644504615",
+              "started_at": "2026-10-09T02:44:04Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-10-09T02:44:06.283Z",
+          "sha": "7cc303020d136e077cfb4994a93195dd71c3d64a",
+          "branch": "claude/register-decision-model",
+          "status": "queued",
+          "updated_at": "2026-10-09T02:44:06.283Z"
+        },
         {
           "run_id": 37874406579,
           "jobs": {
@@ -2570,53 +2591,6 @@
           "conclusion": null,
           "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37795635662",
           "started_at": "2026-10-08T14:49:32Z"
-        },
-        {
-          "run_id": 37795627978,
-          "jobs": {
-            "Resolve four-part version": {
-              "status": "queued",
-              "conclusion": null,
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37795627978/job/113374230600",
-              "started_at": "2026-10-08T14:49:32Z",
-              "completed_at": null,
-              "steps_completed": 0,
-              "steps_total": 0,
-              "current_step": null
-            },
-            "Desktop installer (${{ matrix.platform }})": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37795627978/job/113374244949",
-              "started_at": "2026-10-08T14:49:34Z",
-              "completed_at": "2026-10-08T14:49:33Z",
-              "steps_completed": 0,
-              "steps_total": 0,
-              "current_step": null
-            },
-            "Publish patch-grouped release": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37795627978/job/113374245739",
-              "started_at": "2026-10-08T14:49:34Z",
-              "completed_at": "2026-10-08T14:49:34Z",
-              "steps_completed": 0,
-              "steps_total": 0,
-              "current_step": null
-            }
-          },
-          "reports": {},
-          "created_at": "2026-10-08T14:49:30.528Z",
-          "run_number": 2068,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "feat/durable-relay-leases",
-          "sha": "5cf75e553f4361ca49d5bea28349fd431840dc1a",
-          "status": "queued",
-          "conclusion": null,
-          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37795627978",
-          "started_at": "2026-10-08T14:49:29Z",
-          "updated_at": "2026-10-08T14:49:50.274Z"
         }
       ]
     },

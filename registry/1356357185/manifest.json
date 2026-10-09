@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-10-05T18:56:17+00:00",
+  "last_sync_at": "2026-10-09T03:20:32+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/morphont",
@@ -8,8 +8,28 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
+  "worker_url_configured": false,
   "workflows": {
+    ".github/workflows/android-github-release.yml": {
+      "binding": "curated",
+      "central_workflow": ".github/workflows/android-github-release.yml",
+      "centralized": true,
+      "name": "Android GitHub Release",
+      "registry_source": "registry/1356357185/android-github-release-57374b22.source.yml",
+      "source_sha256": "ecf7abccfbe523d0ebf901d4f64f7cfb462532f16a7b8b49daff5b53feaf5c31",
+      "status": "active",
+      "updated_at": "2026-10-09T03:20:28+00:00"
+    },
+    ".github/workflows/android-play-release.yml": {
+      "binding": "curated",
+      "central_workflow": ".github/workflows/android-play-release.yml",
+      "centralized": true,
+      "name": "Android Play Release",
+      "registry_source": "registry/1356357185/android-play-release-900abeb1.source.yml",
+      "source_sha256": "00b778f4976e1d25ba89bec60971e5ff4031a5df976534ef0d2dfd8aa36b33ed",
+      "status": "active",
+      "updated_at": "2026-10-09T03:20:30+00:00"
+    },
     ".github/workflows/android-release.yml": {
       "name": "Android Release",
       "reason": "android-release retired; Android apps use android-play-release and android-github-release",
@@ -36,12 +56,12 @@
       "registry_source": "registry/1356357185/desktop-release-1e558e6c.source.yml",
       "source_sha256": "00754654f0cb1d3d98f9e7152bcc9575aacbb6d35bbb6e285e7287b0f5ea68dd",
       "status": "active",
-      "updated_at": "2026-10-05T18:56:15+00:00"
+      "updated_at": "2026-10-09T03:20:31+00:00"
     },
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "😈 Glee Audit",
+      "name": "\ud83d\ude08 Glee Audit",
       "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/1356357185/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
@@ -67,7 +87,7 @@
       "registry_source": "registry/1356357185/pages-80c02bfb.source.yml",
       "source_sha256": "fdd258527b6e1aa043d31f3337237802da8a77dbdd74aee9773f1976442f620a",
       "status": "local",
-      "updated_at": "2026-10-05T18:56:17+00:00"
+      "updated_at": "2026-10-09T03:20:32+00:00"
     },
     ".github/workflows/platform-parity.yml": {
       "binding": "repository",

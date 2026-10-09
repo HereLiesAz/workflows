@@ -18,6 +18,10 @@ inputs:
   token:
     description: token with write access to the target repository
     required: true
+  trigger_id:
+    description: triggering event (webhook delivery); runs sharing one reuse one version
+    required: false
+    default: ""
 outputs:
   version:
     value: ${{ steps.version.outputs.version }}
@@ -48,4 +52,5 @@ runs:
           --target-sha "${{ inputs.target_sha }}" \
           --ref-name "${{ inputs.target_ref_name }}" \
           --ref-type "${{ inputs.target_ref_type }}" \
-          --workspace "$GITHUB_WORKSPACE"
+          --workspace "$GITHUB_WORKSPACE" \
+          --trigger-id "${{ inputs.trigger_id }}"

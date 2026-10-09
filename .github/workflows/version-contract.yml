@@ -17,6 +17,10 @@ on:
         required: false
         type: string
         default: ""
+      trigger_id:
+        required: false
+        type: string
+        default: ""
     secrets:
       GH_TOKEN:
         required: true
@@ -65,4 +69,5 @@ jobs:
           target_sha: ${{ inputs.target_sha }}
           target_ref_name: ${{ inputs.target_ref_name }}
           target_ref_type: ${{ inputs.target_ref_type }}
+          trigger_id: ${{ inputs.trigger_id }}
           token: ${{ secrets.GH_TOKEN }}

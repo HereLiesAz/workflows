@@ -11,14 +11,12 @@
   "worker_url_configured": true,
   "workflows": {
     ".github/workflows/android-release.yml": {
-      "binding": "curated",
-      "central_workflow": ".github/workflows/android-release.yml",
-      "centralized": true,
       "name": "Android Release",
+      "reason": "android-release retired; Android apps use android-play-release and android-github-release",
       "registry_source": "registry/1356357185/android-release-e36f09c9.source.yml",
       "source_sha256": "cd3d4388f8a71e7a5a395cad6f1839503325b2bc3688e7b8d578795197e08274",
-      "status": "active",
-      "updated_at": "2026-10-05T18:56:14+00:00"
+      "status": "obsolete",
+      "updated_at": "2026-10-09T00:00:00+00:00"
     },
     ".github/workflows/ci.yml": {
       "binding": "curated",

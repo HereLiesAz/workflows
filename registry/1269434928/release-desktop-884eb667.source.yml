@@ -1,20 +1,18 @@
 name: Release Desktop Installers
 
-# Normally piggy-backs on the existing Android release tags — `release-apk.yml` and
-# `merged-build.yml` force-push `latest-release-v<MAJOR>.<MINOR>` and
-# `latest-debug-v<MAJOR>.<MINOR>` respectively, each creating (or updating) a GitHub Release with
-# the APK/AAB. This workflow attaches the matching desktop installers to the SAME release, so a
-# v0.9 tag ends up with the Android artifacts + macOS DMG + Windows MSI + Linux DEB in one place.
+# Restored from the central registry snapshot (HereLiesAz/workflows
+# registry/1269434928/release-desktop-884eb667.source.yml) after the 2026-09-20 centralization
+# removed this file and the registry then marked the binding obsolete, so no desktop installer was
+# attached to any release after that. Runs locally again, per the catalog's documented rollback.
 #
-# It's also self-sufficient when run on its own (workflow_dispatch with no `tag` input): the
-# `resolve-tag` job derives `latest-release-v<major>.<minor>` from version.properties and creates
-# that tag at the current commit if it doesn't exist yet, instead of requiring the caller to
-# already know (or another workflow to have already pushed) a matching tag.
+# Normally piggy-backs on the Android release tags: `latest-release-v<MAJOR>.<MINOR>` and
+# `latest-debug-v<MAJOR>.<MINOR>` each create (or update) a GitHub Release with the APK/AAB, and this
+# workflow attaches the desktop installers to the SAME release. Run on its own (workflow_dispatch
+# with no `tag`), `resolve-tag` derives `latest-release-v<major>.<minor>` from version.properties and
+# creates that tag if needed. softprops/action-gh-release upserts, so re-runs replace the installers.
 #
-# Force-pushing an existing tag still fires push:tags — softprops/action-gh-release@v3 upserts,
-# so re-runs cleanly replace the installers on the release.
-#
-# `v*` is kept for future proper semver releases; `latest-release-v*` is the current cadence.
+# Installers: macOS DMG for Apple Silicon and for Intel (separate runners, because the bundled
+# JavaCPP/FFmpeg natives are host-arch only), Windows MSI, Linux DEB, RPM and AppImage.
 
 on:
   push:
@@ -36,14 +34,6 @@ permissions:
   contents: write
 
 jobs:
-  # Figures out which tag this run should attach installers to, once, so the three OS jobs below
-  # don't each race to create/push the same tag. Three cases:
-  #   1. Triggered by a tag push (the common case) → that tag, already real.
-  #   2. workflow_dispatch with an explicit `tag` input → that tag (must already exist).
-  #   3. workflow_dispatch with no input → derive `latest-release-v<major>.<minor>` from
-  #      version.properties (the same convention release-apk.yml's manual release uses) and create
-  #      it at the current commit if it doesn't exist yet, so this workflow is self-sufficient
-  #      instead of depending on another workflow having tagged first.
   resolve-tag:
     runs-on: ubuntu-latest
     outputs:
@@ -57,11 +47,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           INPUT_TAG: ${{ github.event.inputs.tag }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           if [ -n "$INPUT_TAG" ]; then
             TAG_NAME="$INPUT_TAG"
-          elif [ "${{ github.ref_type }}" = "tag" ]; then
-            TAG_NAME="${{ github.ref_name }}"
+          elif [ "$REF_TYPE" = "tag" ]; then
+            TAG_NAME="$REF_NAME"
           else
             MAJOR=$(grep 'versionMajor=' version.properties | cut -d'=' -f2 | tr -d '\r ')
             MINOR=$(grep 'versionMinor=' version.properties | cut -d'=' -f2 | tr -d '\r ')
@@ -89,9 +81,20 @@ jobs:
           - os: ubuntu-latest
             task: packageDeb
             path: desktop/build/compose/binaries/main/deb/*.deb
+          - os: ubuntu-latest
+            task: packageRpm
+            path: desktop/build/compose/binaries/main/rpm/*.rpm
+          - os: ubuntu-latest
+            task: packageAppImage
+            path: desktop/build/dist/*.AppImage
           - os: macos-latest
             task: packageDmg
-            path: desktop/build/compose/binaries/main/dmg/*.dmg
+            arch: arm64
+            path: desktop/build/dist/*.dmg
+          - os: macos-15-intel
+            task: packageDmg
+            arch: x86_64
+            path: desktop/build/dist/*.dmg
           - os: windows-latest
             task: packageMsi
             path: desktop/build/compose/binaries/main/msi/*.msi
@@ -118,13 +121,38 @@ jobs:
         if: runner.os != 'Windows'
         run: chmod +x gradlew
 
+      # jpackage builds RPMs with rpmbuild, which the Ubuntu runner doesn't ship.
+      - name: Install rpmbuild
+        if: matrix.task == 'packageRpm'
+        run: sudo apt-get update && sudo apt-get install -y rpm
+
       - name: ${{ matrix.task }}
         shell: bash
         run: ./gradlew :desktop:${{ matrix.task }} --build-cache --stacktrace
 
-      # softprops/action-gh-release@v3 upserts assets on the release matching the tag ref
-      # (or the workflow_dispatch input). Unsigned installers show scary OS prompts on
-      # first launch — that's called out in the release body.
+      # Both macOS runners produce the same DMG file name; suffix the architecture so the two
+      # uploads don't overwrite each other on the release.
+      - name: Name the DMG by architecture
+        if: matrix.task == 'packageDmg'
+        shell: bash
+        run: |
+          mkdir -p desktop/build/dist
+          for f in desktop/build/compose/binaries/main/dmg/*.dmg; do
+            base="$(basename "$f" .dmg)"
+            cp "$f" "desktop/build/dist/${base}-${{ matrix.arch }}.dmg"
+          done
+
+      # Compose's AppImage target emits the application directory; appimagetool turns it into a
+      # single runnable .AppImage. The tool is pinned by checksum and fails closed if upstream
+      # replaces the file (its only published build is the rolling "continuous" release).
+      - name: Assemble the AppImage
+        if: matrix.task == 'packageAppImage'
+        shell: bash
+        env:
+          APPIMAGETOOL_URL: https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          APPIMAGETOOL_SHA256: a6d71e2b6cd66f8e8d16c37ad164658985e0cf5fcaa950c90a482890cb9d13e0
+        run: bash desktop/packaging/build-appimage.sh
+
       - name: Attach installer to release
         uses: softprops/action-gh-release@v3
         with:
@@ -136,6 +164,6 @@ jobs:
 
             Unsigned builds. First-launch instructions:
 
-            - **macOS**: Right-click the app in `/Applications` → **Open** → **Open** on the "unidentified developer" dialog.
+            - **macOS**: pick `-arm64` for Apple Silicon, `-x86_64` for Intel. Right-click the app in `/Applications` → **Open** → **Open** on the "unidentified developer" dialog.
             - **Windows**: If SmartScreen blocks the installer, click **More info** → **Run anyway**.
-            - **Linux**: `sudo apt install ./guillotine_*.deb`.
+            - **Linux**: `sudo apt install ./guillotine_*.deb`, `sudo dnf install ./guillotine-*.rpm`, or `chmod +x Guillotine-*.AppImage` and run it.

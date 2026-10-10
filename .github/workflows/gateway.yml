@@ -48,9 +48,19 @@ permissions:
   contents: read
   actions: write
 
-# The gateway itself is intentionally unconstrained. It validates/routes events
-# and then exits; resource-specific serialization belongs in the destination
-# workflow (for example one Google Play edit per app), never at account scope.
+# The gateway validates/routes events and then exits; resource-specific
+# serialization belongs in the destination workflow (for example one Google
+# Play edit per app), never at account scope.
+#
+# One exception: a per-repository (and per-workflow) group. Each repository
+# gets at most one running and one pending gateway run; a newer event replaces
+# the pending one. Webhook bursts (GraffitiXR, 2026-10-09: ~30 dispatches in an
+# hour, each queued for hours under the account's concurrent-job limit) then
+# collapse to a single run instead of starving every other repository.
+# Trade-off: a superseded pending event is dropped, not routed.
+concurrency:
+  group: gateway-${{ inputs.repository || github.event.schedule || 'manual' }}-${{ inputs.source_workflow_path }}
+  cancel-in-progress: false
 
 jobs:
   route:

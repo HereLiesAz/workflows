@@ -130,7 +130,9 @@ OPTIONAL_TRACKS=('beta', 'production')
 
 def is_track_unavailable_error(exc):
     # Play's answers when a track exists in name only: never set up, or the app is still a
-    # draft app (only draft releases allowed). Anything else is a real publish failure.
+    # draft app (only draft releases allowed), or a track whose prerequisites are unmet
+    # (open testing not yet set up answers 400 "Precondition check failed"). Only optional
+    # tracks consult this. Anything else is a real publish failure.
     status=getattr(getattr(exc, 'resp', None), 'status', None)
     if status == 404:
         return True
@@ -140,6 +142,7 @@ def is_track_unavailable_error(exc):
     text=(str(exc) + ' ' + str(content)).lower()
     return (
         'draft app' in text
+        or 'precondition check failed' in text
         or ('track' in text and any(phrase in text for phrase in (
             'not found', 'does not exist', 'not available', 'not been set up', 'not set up',
         )))

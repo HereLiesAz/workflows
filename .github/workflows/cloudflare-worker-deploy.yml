@@ -5,6 +5,7 @@
 # required-secret: CLOUDFLARE_ACCOUNT_ID | Identifies the Cloudflare account that hosts the target repository's Worker.
 # required-secret: TRAKT_CLIENT_ID | Trakt OAuth client id, set on Workers whose profile lists it in worker_secrets.
 # required-secret: TRAKT_CLIENT_SECRET | Trakt OAuth client secret, set on Workers whose profile lists it in worker_secrets.
+# required-secret: BLS_KEY | U.S. Bureau of Labor Statistics API key, set on Workers whose profile lists it in worker_secrets.
 # The repository supplies wrangler.toml/wrangler.jsonc; nothing Worker-specific lives here.
 # Optional purpose-profile keys: working_directory (default "."), node_version
 # (default "22"), install_command (default: npm ci / npm install in working_directory; run in a
@@ -103,6 +104,7 @@ jobs:
       REQUIRED_CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       REQUIRED_TRAKT_CLIENT_ID: ${{ secrets.TRAKT_CLIENT_ID }}
       REQUIRED_TRAKT_CLIENT_SECRET: ${{ secrets.TRAKT_CLIENT_SECRET }}
+      REQUIRED_BLS_KEY: ${{ secrets.BLS_KEY }}
       PROFILE_JSON: ${{ inputs.purpose_profile_json }}
     steps:
       - name: Validate required secrets
@@ -133,6 +135,12 @@ jobs:
           if wants TRAKT_CLIENT_SECRET; then
             test -n "${REQUIRED_TRAKT_CLIENT_SECRET:-}" || {
               echo "::error::Missing required secret TRAKT_CLIENT_SECRET — Trakt OAuth client secret, set on Workers whose profile lists it in worker_secrets."
+              exit 1
+            }
+          fi
+          if wants BLS_KEY; then
+            test -n "${REQUIRED_BLS_KEY:-}" || {
+              echo "::error::Missing required secret BLS_KEY — U.S. Bureau of Labor Statistics API key, set on Workers whose profile lists it in worker_secrets."
               exit 1
             }
           fi
@@ -246,6 +254,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           FORWARD_TRAKT_CLIENT_ID: ${{ secrets.TRAKT_CLIENT_ID }}
           FORWARD_TRAKT_CLIENT_SECRET: ${{ secrets.TRAKT_CLIENT_SECRET }}
+          FORWARD_BLS_KEY: ${{ secrets.BLS_KEY }}
         shell: bash
         run: |
           set -euo pipefail

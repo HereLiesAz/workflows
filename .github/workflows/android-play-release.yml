@@ -879,6 +879,14 @@ jobs:
               text=(str(exc) + ' ' + str(content)).lower()
               return 'existing users' in text and 'upgrade' in text
 
+          def is_draft_app_error(exc):
+              # An app never published in the Play Console is a draft app: Play accepts only draft
+              # releases on every track until its first release is rolled out by hand.
+              content=getattr(exc, 'content', b'') or b''
+              if isinstance(content, bytes):
+                  content=content.decode('utf-8', 'ignore')
+              return 'draft app' in (str(exc) + ' ' + str(content)).lower()
+
           OPTIONAL_TRACKS=('beta', 'production')
 
           # Profiles opting in (live_rollout_draft_fallback) stage the same bundle as a draft when
@@ -956,6 +964,14 @@ jobs:
                       print(
                           f'::warning::Play refused the live rollout: {exc}. Staging this versionCode as a '
                           'draft instead; review device targeting and roll it out in the Play Console.',
+                          flush=True,
+                      )
+                      downgrade_live=True
+                      continue
+                  if not downgrade_live and attempt < EDIT_ATTEMPTS and is_draft_app_error(exc):
+                      print(
+                          f'::warning::{package} is a draft app on Play: {exc}. Staging this versionCode as '
+                          'a draft; roll out its first release in the Play Console.',
                           flush=True,
                       )
                       downgrade_live=True

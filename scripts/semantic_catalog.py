@@ -355,6 +355,9 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             # deploys the azphalt.store / azphalt.org Worker in apps/storefront-worker from the
             # pnpm workspace, then verifies it on its deployment URL (purpose profile below).
             "270461827e058812404e79e1f6741b59888a5add8c36388e1e61f645a65eaf7d",
+            # HereLiesAz/MeatPiety:.github/workflows/worker-deploy.yml — tests and deploys the
+            # price / exchange-rate / follower-count worker in worker/ (purpose profile below).
+            "da493be094cc21116b49dd988a62ba66d89c803681a5b1c7d6f3bbb5e3664a58",
         },
     },
     # Security-reviews a repository's pull requests with the OpenCode agent (read-only) and posts one
@@ -410,6 +413,8 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
     "a90a3f56cdc247d4df2f4a53a7f68a18123e71759f2b88d0e5fa0bb97df18034": {"working_directory": "web", "test_command": "npm test && npm run build", "worker_secrets": ["TRAKT_CLIENT_ID", "TRAKT_CLIENT_SECRET"]},
     # CueDetat's training-capture relay: a Worker in ml/capture-relay with its own npm test.
     "cc3b3d2f63a2ff31d475af991e561c7ff8003b432b51c8b1c41a084ad82c0171": {"working_directory": "ml/capture-relay", "test_command": "npm test"},
+    # MeatPiety data worker (worker/; no npm dependencies).
+    "da493be094cc21116b49dd988a62ba66d89c803681a5b1c7d6f3bbb5e3664a58": {"working_directory": "worker", "test_command": "npm test"},
     # azphalt's storefront Worker: a pnpm-workspace member, so it installs and builds from the repo
     # root (install_command runs in a subshell; test_command changes directory itself). The build
     # assembles the React storefront and the docs into the Worker's assets; verify-deployment.mjs

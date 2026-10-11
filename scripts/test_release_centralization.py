@@ -106,7 +106,9 @@ assert 'sleep' not in handoff_run and 'gh api' not in handoff_run
 assert 'curl ' not in handoff_run and 'dispatches' not in handoff_run
 assert handoff['steps'][0]['env']['STATUS_CONTEXT'] == '.github/workflows/release-aab.yml', handoff['steps'][0]['env']
 
-# The Play publisher lives in shared actions the workflow calls; check the contract across all of them.
+# The Play publisher is inline in the one central workflow; mapping resolution is the shared action it calls.
+# There is no second publisher: the old google-play-publish action duplicated this workflow.
+assert not Path('.github/actions/google-play-publish').exists()
 play_workflow = Path('.github/workflows/android-play-release.yml').read_text(encoding='utf-8')
 play_contract = "\n".join(
     Path(path).read_text(encoding='utf-8')
@@ -114,12 +116,11 @@ play_contract = "\n".join(
         '.github/workflows/android-play-release.yml',
         '.github/actions/resolve-android-mapping/action.yml',
         '.github/actions/resolve-android-mapping/resolve.sh',
-        '.github/actions/google-play-publish/action.yml',
-        '.github/actions/google-play-publish/publish.py',
     )
 )
 assert "uses: HereLiesAz/workflows/.github/actions/resolve-android-mapping@main" in play_contract
-assert "uses: HereLiesAz/workflows/.github/actions/google-play-publish@main" in play_contract
+assert "google-play-publish" not in play_workflow
+assert "Publish bundle to configured Play tracks" in play_workflow
 assert "HTTP_TIMEOUT_SECONDS=120" in play_contract
 assert "httplib2.Http(timeout=HTTP_TIMEOUT_SECONDS)" in play_contract
 assert "timeout 1800 python" in play_contract  # hard wall-clock cap on the whole publish step
@@ -158,13 +159,18 @@ assert "media_body=MediaFileUpload(mapping,mimetype='text/plain')" not in play_c
 assert "def is_retriable(exc):" in play_contract
 assert "not is_retriable(exc):" in play_contract
 assert "'not completed yet' in content" in play_contract
+# beta/production are best-effort; internal/alpha still fail the release.
+assert "OPTIONAL_TRACKS=('beta', 'production')" in play_workflow
+assert "def assign_track(edit, spec, code):" in play_workflow
+assert "def is_upgrade_path_error(exc):" in play_workflow
+assert "DRAFT_FALLBACK: ${{ fromJSON(inputs.purpose_profile_json || '{}').live_rollout_draft_fallback == true }}" in play_workflow
+assert "RELEASE_NOTES_DIR: ${{ env.RELEASE_NOTES_DIR }}" in play_workflow
+assert "PLAY_NOTES_LIMIT=500" in play_workflow
 
 for play_path, required in {
     ".github/workflows/android-play-release.yml": (
         "Upload mapping.txt artifact",
-        "google-play-publish@main",
-    ),
-    ".github/actions/google-play-publish/publish.py": (
+        "Publish bundle to configured Play tracks",
         "deobfuscationfiles().upload",
         "release['releaseNotes']=release_notes",
     ),

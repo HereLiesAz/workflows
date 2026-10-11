@@ -1,0 +1,18 @@
+# Built, signed and published by HereLiesAz/workflows (.github/workflows/android-play-release.yml):
+# Google Play internal track, on every push to main (manual runs publish only with publish_play).
+# This file is the trigger contract; the central sync replaces it with a tracker.
+name: Android Play Release
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      publish_play:
+        description: "Publish the Android bundle to the Google Play internal track"
+        type: boolean
+        default: false
+jobs:
+  hand-off:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Android Play Release runs centrally in HereLiesAz/workflows."

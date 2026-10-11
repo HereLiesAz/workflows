@@ -55,10 +55,12 @@ When a project uses `MAJOR.MINOR.PATCH.BUILD` versions:
 - never use clobber semantics to replace different bytes under an existing grouped asset name; and
 - preserve exact-build tags when legacy one-build-per-Release objects are migrated.
 
-Google Play publication uses `.github/actions/google-play-publish`: it uploads the App Bundle and its
-R8 `mapping.txt` (resolved by `.github/actions/resolve-android-mapping`, which fails when none exists),
-releases to the requested tracks, and attaches optional localized "What's new" notes. Target workflows
-publish to Play through this action rather than third-party upload actions.
+Google Play publication goes through one workflow: the central `.github/workflows/android-play-release.yml`.
+It builds and signs the App Bundle from the app's purpose profile, uploads it with its R8 `mapping.txt`
+(resolved by `.github/actions/resolve-android-mapping`, which fails when none exists), releases to the
+profile's tracks, and attaches optional localized "What's new" notes (`release_notes_dir`). Every Android
+app publishes to Play by binding to that workflow; there is no separate Play publishing action, and
+target workflows never upload to Play themselves or through third-party upload actions.
 
 Generalized Android, multi-platform, and artifact release families apply this automatically when the
 resolved version is four-part. Non-four-part profiles retain their existing release behavior.

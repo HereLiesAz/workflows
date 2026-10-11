@@ -161,7 +161,7 @@ assert "not is_retriable(exc):" in play_contract
 assert "'not completed yet' in content" in play_contract
 # beta/production are best-effort; internal/alpha still fail the release.
 assert "OPTIONAL_TRACKS=('beta', 'production')" in play_workflow
-assert "drop_optional=True" in play_workflow
+assert "def assign_track(edit, spec, code):" in play_workflow
 assert "def is_upgrade_path_error(exc):" in play_workflow
 assert "DRAFT_FALLBACK: ${{ fromJSON(inputs.purpose_profile_json || '{}').live_rollout_draft_fallback == true }}" in play_workflow
 assert "RELEASE_NOTES_DIR: ${{ env.RELEASE_NOTES_DIR }}" in play_workflow

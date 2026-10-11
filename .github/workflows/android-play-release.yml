@@ -879,10 +879,6 @@ jobs:
               text=(str(exc) + ' ' + str(content)).lower()
               return 'existing users' in text and 'upgrade' in text
 
-          # Open testing (beta) and production are best-effort: a failure there, whether Play does not
-          # offer the track, refuses the release on it (a brand-new app answers a bare 400
-          # "Precondition check failed."), or rejects the edit at commit, is a warning, never a failed
-          # release. internal and alpha, which every app has, still fail the release.
           OPTIONAL_TRACKS=('beta', 'production')
 
           # Profiles opting in (live_rollout_draft_fallback) stage the same bundle as a draft when
@@ -891,14 +887,37 @@ jobs:
           # original publish_play.py, which carried this fallback before centralization.
           draft_fallback=os.environ.get('DRAFT_FALLBACK', 'false').strip().lower() == 'true'
           downgrade_live=False
-          # Set when edits.commit refused an edit carrying optional tracks; the next attempt omits them.
-          drop_optional=False
+
+          def assign_track(edit, spec, code):
+              status=spec['status']
+              if downgrade_live and status == 'completed':
+                  status='draft'
+              release={'versionCodes':[code],'status':status}
+              if release_notes:
+                  release['releaseNotes']=release_notes
+              if spec.get('name'):
+                  release['name']=os.path.expandvars(str(spec['name']))
+              releases=[release]
+              if spec.get('preserve_existing'):
+                  current=execute(svc.edits().tracks().get(
+                      packageName=package,
+                      editId=edit,
+                      track=spec['track'],
+                  ))
+                  releases=[
+                      item for item in current.get('releases', [])
+                      if item.get('status') != 'draft'
+                      and code not in [str(value) for value in item.get('versionCodes', [])]
+                  ] + [release]
+              execute(svc.edits().tracks().update(
+                  packageName=package,
+                  editId=edit,
+                  track=spec['track'],
+                  body={'track':spec['track'],'releases':releases},
+              ))
 
           for attempt in range(1,EDIT_ATTEMPTS + 1):
               edit=None
-              committing=False
-              staged_optional=[]
-              published_tracks=[]
               try:
                   edit=execute(svc.edits().insert(packageName=package,body={}))['id']
                   bundle=upload_bundle(edit)
@@ -914,69 +933,18 @@ jobs:
                       media_body=MediaFileUpload(mapping,mimetype='application/octet-stream'),
                   ))
                   print(f'Uploaded mapping.txt for versionCode {code}')
-                  available_tracks={
-                      item.get('track') for item in execute(svc.edits().tracks().list(
-                          packageName=package,
-                          editId=edit,
-                      )).get('tracks', [])
-                  }
+                  # Required tracks (internal, alpha) share the upload edit and fail the release.
+                  # Optional tracks (beta, production) are published afterwards, one edit each.
                   for spec in tracks:
-                      optional_track=spec.get('track') in OPTIONAL_TRACKS
-                      if optional_track and drop_optional:
-                          print(f'::warning::Play track {spec["track"]!r} omitted after Play refused it at commit; skipped.', flush=True)
+                      if spec.get('track') in OPTIONAL_TRACKS:
                           continue
-                      if optional_track and spec['track'] not in available_tracks:
-                          print(
-                              f'::warning::Play track {spec["track"]!r} is not available for {package}; skipped.',
-                              flush=True,
-                          )
-                          continue
-                      try:
-                          status=spec['status']
-                          if downgrade_live and status == 'completed':
-                              status='draft'
-                          release={'versionCodes':[code],'status':status}
-                          if release_notes:
-                              release['releaseNotes']=release_notes
-                          if spec.get('name'):
-                              release['name']=os.path.expandvars(str(spec['name']))
-                          releases=[release]
-                          if spec.get('preserve_existing'):
-                              current=execute(svc.edits().tracks().get(
-                                  packageName=package,
-                                  editId=edit,
-                                  track=spec['track'],
-                              ))
-                              releases=[
-                                  item for item in current.get('releases', [])
-                                  if item.get('status') != 'draft'
-                                  and code not in [str(value) for value in item.get('versionCodes', [])]
-                              ] + [release]
-                          body={'track':spec['track'],'releases':releases}
-                          execute(svc.edits().tracks().update(
-                              packageName=package,
-                              editId=edit,
-                              track=spec['track'],
-                              body=body,
-                          ))
-                      except transient as exc:
-                          if optional_track and not is_retriable(exc):
-                              print(
-                                  f'::warning::Play refused track {spec["track"]!r} for {package}; '
-                                  f'skipped: {exc}',
-                                  flush=True,
-                              )
-                              continue
-                          raise
-                      published_tracks.append(spec['track'])
-                      if optional_track:
-                          staged_optional.append(spec['track'])
-                  committing=True
+                      assign_track(edit, spec, code)
                   execute(svc.edits().commit(packageName=package,editId=edit))
+                  required=[spec for spec in tracks if spec.get('track') not in OPTIONAL_TRACKS]
                   if downgrade_live:
-                      print(f'Published versionCode {code} to {published_tracks} with live rollouts staged as drafts', flush=True)
+                      print(f'Published versionCode {code} to {required} with live rollouts staged as drafts', flush=True)
                   else:
-                      print(f'Published versionCode {code} to {published_tracks}')
+                      print(f'Published versionCode {code} to {required}')
                   break
               except transient as exc:
                   if edit:
@@ -992,14 +960,6 @@ jobs:
                       )
                       downgrade_live=True
                       continue
-                  if committing and staged_optional and not is_retriable(exc) and attempt < EDIT_ATTEMPTS:
-                      print(
-                          f'::warning::Play refused the edit with {staged_optional}: {exc}. '
-                          'Retrying without beta/production.',
-                          flush=True,
-                      )
-                      drop_optional=True
-                      continue
                   if attempt == EDIT_ATTEMPTS or not is_retriable(exc):
                       raise
                   wait=min(60, 5 * 2 ** (attempt-1))
@@ -1009,6 +969,38 @@ jobs:
                       flush=True,
                   )
                   time.sleep(wait)
+
+          # Open testing (beta) and production may not be ready for an app: never set up, still a
+          # draft app, prerequisites unmet, or refused for any other reason. Each optional track
+          # gets its own edit, so its failure is a warning that never touches the required tracks
+          # already committed above, nor the other optional track.
+          for spec in tracks:
+              if spec.get('track') not in OPTIONAL_TRACKS:
+                  continue
+              edit=None
+              try:
+                  edit=execute(svc.edits().insert(packageName=package,body={}))['id']
+                  available={
+                      item.get('track') for item in execute(svc.edits().tracks().list(
+                          packageName=package,
+                          editId=edit,
+                      )).get('tracks', [])
+                  }
+                  if spec['track'] not in available:
+                      raise RuntimeError('track is not set up')
+                  assign_track(edit, spec, code)
+                  execute(svc.edits().commit(packageName=package,editId=edit))
+                  print(f'Published versionCode {code} to {spec}', flush=True)
+              except Exception as exc:
+                  print(
+                      f'::warning::Play track {spec["track"]!r} not published for {package}; skipped: {exc}',
+                      flush=True,
+                  )
+                  if edit:
+                      try:
+                          execute(svc.edits().delete(packageName=package,editId=edit), retries=2)
+                      except Exception as cleanup_exc:
+                          print(f'Warning: could not discard Play edit {edit}: {cleanup_exc}', flush=True)
           PY
 
       - name: Publish built release assets to GitHub

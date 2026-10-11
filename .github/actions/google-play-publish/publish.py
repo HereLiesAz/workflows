@@ -126,24 +126,11 @@ def is_upgrade_path_error(exc):
     text=(str(exc) + ' ' + str(content)).lower()
     return 'existing users' in text and 'upgrade' in text
 
+# Open testing (beta) and production are best-effort: a failure there, whether Play does not
+# offer the track, refuses the release on it (a brand-new app answers a bare 400
+# "Precondition check failed."), or rejects the edit at commit, is a warning, never a failed
+# release. internal and alpha, which every app has, still fail the release.
 OPTIONAL_TRACKS=('beta', 'production')
-
-def is_track_unavailable_error(exc):
-    # Play's answers when a track exists in name only: never set up, or the app is still a
-    # draft app (only draft releases allowed). Anything else is a real publish failure.
-    status=getattr(getattr(exc, 'resp', None), 'status', None)
-    if status == 404:
-        return True
-    content=getattr(exc, 'content', b'') or b''
-    if isinstance(content, bytes):
-        content=content.decode('utf-8', 'ignore')
-    text=(str(exc) + ' ' + str(content)).lower()
-    return (
-        'draft app' in text
-        or ('track' in text and any(phrase in text for phrase in (
-            'not found', 'does not exist', 'not available', 'not been set up', 'not set up',
-        )))
-    )
 
 # Profiles opting in (live_rollout_draft_fallback) stage the same bundle as a draft when
 # Play refuses the live rollout, so a targeting regression costs a manual rollout click
@@ -151,9 +138,14 @@ def is_track_unavailable_error(exc):
 # original publish_play.py, which carried this fallback before centralization.
 draft_fallback=os.environ.get('DRAFT_FALLBACK', 'false').strip().lower() == 'true'
 downgrade_live=False
+# Set when edits.commit refused an edit carrying optional tracks; the next attempt omits them.
+drop_optional=False
 
 for attempt in range(1,EDIT_ATTEMPTS + 1):
     edit=None
+    committing=False
+    staged_optional=[]
+    published_tracks=[]
     try:
         edit=execute(svc.edits().insert(packageName=package,body={}))['id']
         bundle=upload_bundle(edit)
@@ -176,11 +168,10 @@ for attempt in range(1,EDIT_ATTEMPTS + 1):
             )).get('tracks', [])
         }
         for spec in tracks:
-            # Open testing (beta) and production may not be set up for an app yet. A track
-            # Play does not offer, or refuses as unavailable, is skipped with a warning.
-            # Any other failure on an available track fails the release, as do internal
-            # and alpha, which every app has.
             optional_track=spec.get('track') in OPTIONAL_TRACKS
+            if optional_track and drop_optional:
+                print(f'::warning::Play track {spec["track"]!r} omitted after Play refused it at commit; skipped.', flush=True)
+                continue
             if optional_track and spec['track'] not in available_tracks:
                 print(
                     f'::warning::Play track {spec["track"]!r} is not available for {package}; skipped.',
@@ -215,20 +206,24 @@ for attempt in range(1,EDIT_ATTEMPTS + 1):
                     track=spec['track'],
                     body=body,
                 ))
-            except Exception as exc:
-                if optional_track and is_track_unavailable_error(exc):
+            except transient as exc:
+                if optional_track and not is_retriable(exc):
                     print(
-                        f'::warning::Play track {spec["track"]!r} is not available for {package}; '
+                        f'::warning::Play refused track {spec["track"]!r} for {package}; '
                         f'skipped: {exc}',
                         flush=True,
                     )
                     continue
                 raise
+            published_tracks.append(spec['track'])
+            if optional_track:
+                staged_optional.append(spec['track'])
+        committing=True
         execute(svc.edits().commit(packageName=package,editId=edit))
         if downgrade_live:
-            print(f'Published versionCode {code} to {tracks} with live rollouts staged as drafts', flush=True)
+            print(f'Published versionCode {code} to {published_tracks} with live rollouts staged as drafts', flush=True)
         else:
-            print(f'Published versionCode {code} to {tracks}')
+            print(f'Published versionCode {code} to {published_tracks}')
         break
     except transient as exc:
         if edit:
@@ -243,6 +238,14 @@ for attempt in range(1,EDIT_ATTEMPTS + 1):
                 flush=True,
             )
             downgrade_live=True
+            continue
+        if committing and staged_optional and not is_retriable(exc) and attempt < EDIT_ATTEMPTS:
+            print(
+                f'::warning::Play refused the edit with {staged_optional}: {exc}. '
+                'Retrying without beta/production.',
+                flush=True,
+            )
+            drop_optional=True
             continue
         if attempt == EDIT_ATTEMPTS or not is_retriable(exc):
             raise

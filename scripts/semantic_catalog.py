@@ -414,7 +414,7 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
     # CueDetat's training-capture relay: a Worker in ml/capture-relay with its own npm test.
     "cc3b3d2f63a2ff31d475af991e561c7ff8003b432b51c8b1c41a084ad82c0171": {"working_directory": "ml/capture-relay", "test_command": "npm test"},
     # MeatPiety data worker (worker/; no npm dependencies).
-    "da493be094cc21116b49dd988a62ba66d89c803681a5b1c7d6f3bbb5e3664a58": {"working_directory": "worker", "test_command": "npm test"},
+    "da493be094cc21116b49dd988a62ba66d89c803681a5b1c7d6f3bbb5e3664a58": {"working_directory": "worker", "test_command": "npm test", "worker_secrets": ["BLS_KEY"]},
     # azphalt's storefront Worker: a pnpm-workspace member, so it installs and builds from the repo
     # root (install_command runs in a subshell; test_command changes directory itself). The build
     # assembles the React storefront and the docs into the Worker's assets; verify-deployment.mjs

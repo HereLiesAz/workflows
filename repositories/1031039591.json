@@ -4,7 +4,7 @@
     "id": 1031039591,
     "full_name": "HereLiesAz/aive"
   },
-  "updated_at": "2026-10-12T18:22:59.746Z",
+  "updated_at": "2026-10-12T18:23:46.181Z",
   "workflows": {
     ".github/workflows/bitcos-engine.yml": {
       "name": "BITCOS Engine",
@@ -155,6 +155,22 @@
     ".github/workflows/android-ci.yml": {
       "name": "Android CI",
       "runs": [
+        {
+          "run_id": 38290609243,
+          "jobs": {},
+          "reports": {},
+          "created_at": "2026-10-12T18:23:46.181Z",
+          "run_number": 2785,
+          "run_attempt": 1,
+          "event": "pull_request",
+          "branch": "ccr-af242955-qwlt84",
+          "sha": "6cc390b3c246955d7bf92e5a5b41344b0a42ae3e",
+          "status": "queued",
+          "conclusion": null,
+          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/38290609243",
+          "started_at": "2026-10-12T18:23:44Z",
+          "updated_at": "2026-10-12T18:23:44Z"
+        },
         {
           "run_id": 38289937793,
           "jobs": {
@@ -1318,68 +1334,6 @@
           "conclusion": "success",
           "html_url": "https://github.com/HereLiesAz/aive/actions/runs/38246699800",
           "started_at": "2026-10-12T12:04:10Z"
-        },
-        {
-          "run_id": 38246666926,
-          "jobs": {
-            "unit-tests": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/38246666926/job/114802587138",
-              "started_at": "2026-10-12T12:05:10Z",
-              "completed_at": "2026-10-12T12:09:28Z",
-              "steps_completed": 12,
-              "steps_total": 12,
-              "current_step": null
-            },
-            "dependency-submission": {
-              "status": "completed",
-              "conclusion": "skipped",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/38246666926/job/114804150335",
-              "started_at": "2026-10-12T12:09:28Z",
-              "completed_at": "2026-10-12T12:09:28Z",
-              "steps_completed": 0,
-              "steps_total": 0,
-              "current_step": null
-            },
-            "build-and-release": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/38246666926/job/114804149104",
-              "started_at": "2026-10-12T12:09:30Z",
-              "completed_at": "2026-10-12T12:14:36Z",
-              "steps_completed": 15,
-              "steps_total": 15,
-              "current_step": null
-            }
-          },
-          "reports": {
-            "unit-tests": {
-              "status": "success",
-              "summary": "",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-10-12T12:09:09.109Z"
-            },
-            "build-and-release": {
-              "status": "success",
-              "summary": "",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-10-12T12:14:19.335Z"
-            }
-          },
-          "created_at": "2026-10-12T12:03:55.346Z",
-          "run_number": 2765,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "ccr-af242955-qwlt84",
-          "sha": "25e97067671470f7524eb729a31c3d2e8ce04ed0",
-          "status": "completed",
-          "conclusion": "success",
-          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/38246666926",
-          "started_at": "2026-10-12T12:03:52Z",
-          "updated_at": "2026-10-12T12:14:41.703Z"
         }
       ]
     },

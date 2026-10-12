@@ -1,0 +1,54 @@
+# Publishes convey to GitHub Packages on every push to main, under that commit's own short
+# SHA -- not JitPack. JitPack's coordinate-relocation step rewrites Gradle Module Metadata's
+# `files[].url` for a classified artifact (this module's wasmJs Compose-resources zip,
+# published as `<artifact>-<version>-kotlin_resources.kotlin_resources.zip`) down to a
+# generic `<artifact>-<version>.zip` that doesn't actually exist -- Gradle trusts that
+# metadata and never even requests the real file, so a JitPack-resolved consumer's Compose
+# resources (this library's own bundled Azrienoch font, for instance) silently never get
+# bundled. GitHub Packages publishes exactly what this build produces, with no relocation
+# step to mangle it.
+#
+# Only kotlinMultiplatform (the root module a plain `convey:<version>` coordinate resolves
+# against) and wasmJs (the only target this library's known consumer, Morphont, actually
+# uses) are published -- not android/desktop/ios, which nothing currently depends on through
+# this pipeline and which would otherwise need their own SDK/toolchain setup here for no
+# consumer.
+name: Publish to GitHub Packages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-packages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ./gradlew \
+            :convey:publishKotlinMultiplatformPublicationToGitHubPackagesRepository \
+            :convey:publishWasmJsPublicationToGitHubPackagesRepository \
+            -PconveyVersion=$(git rev-parse --short HEAD) \
+            --no-daemon --stacktrace

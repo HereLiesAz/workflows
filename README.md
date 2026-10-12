@@ -76,8 +76,10 @@ limits and sanitizing):
 - `POST /crash-report/<repo>` (`worker/src/crash-report.js`): ACRA crash/ANR reports, deduplicated
   into one issue per crash signature.
 - `POST /test-report/<repo>` (`worker/src/test-report.js`): on-device test runs. One issue per
-  tested build (`device-test-<build>`), one comment per run, updated in place when the same run
-  reports again. Allowlisted apps: `TEST_REPORT_APPS`.
+  tested build (`device-test-<build>`, found through the issues listing, not the lagging search
+  index; when two first reports race, the newer issue closes as a duplicate of the older), one
+  comment per run, updated in place when the same run reports again; the log keeps its newest lines.
+  Allowlisted apps: `TEST_REPORT_APPS`.
 
 ## Workflow policy and repository templates
 

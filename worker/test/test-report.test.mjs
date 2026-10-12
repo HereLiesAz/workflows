@@ -36,15 +36,16 @@ function post(body, headers = {}) {
 }
 
 /** A fake GitHub holding issues and comments, recording every call. */
-function fakeGitHub() {
+function fakeGitHub(afterCreate) {
   const issues = [];
   const comments = [];
   const calls = [];
   const api = async (path, method, body) => {
     calls.push({ path, method, body });
-    if (path.startsWith("/search/issues")) {
-      const label = decodeURIComponent(path).match(/label:(\S+)/)[1];
-      return { items: issues.filter((i) => i.labels.includes(label)) };
+    let l = path.match(/\/issues\?labels=([^&]+)/);
+    if (l && method === "GET") {
+      const label = decodeURIComponent(l[1]);
+      return issues.filter((i) => i.state === "open" && i.labels.includes(label)).sort((a, b) => a.number - b.number);
     }
     let m = path.match(/\/issues\/(\d+)\/comments/);
     if (m && method === "GET") return comments.filter((c) => c.issue === Number(m[1]));
@@ -60,8 +61,15 @@ function fakeGitHub() {
       return c;
     }
     if (path.endsWith("/issues") && method === "POST") {
-      const i = { number: issues.length + 1, labels: body.labels, title: body.title };
+      const i = { number: issues.length + 1, labels: body.labels, title: body.title, state: "open" };
       issues.push(i);
+      await afterCreate?.(i);
+      return i;
+    }
+    m = path.match(/\/issues\/(\d+)$/);
+    if (m && method === "PATCH") {
+      const i = issues.find((x) => x.number === Number(m[1]));
+      Object.assign(i, body);
       return i;
     }
     throw new Error(`unexpected ${method} ${path}`);
@@ -107,4 +115,46 @@ test("table cells cannot break the table and URLs are redacted", () => {
   assert.match(body, /no lock in 30 s &#124; elevation -88/);
   assert.doesNotMatch(body, /token=abc/);
   assert.ok(body.startsWith("<!-- device-test-run:run-12345678 -->"));
+});
+
+test("a build's second report finds the issue its first just opened (no search-index lag)", async () => {
+  const gh = fakeGitHub();
+  await receiveTestReport(post(report()), "SphereSLAM", gh.api);
+  await receiveTestReport(post(report({ runId: "run-abcdefgh" })), "SphereSLAM", gh.api);
+  assert.equal(gh.issues.length, 1);
+  assert.equal(gh.comments.length, 2);
+  assert.ok(gh.calls.every((c) => !c.path.startsWith("/search/")));
+});
+
+test("two first reports racing: the newer issue closes as a duplicate and the run lands on the older", async () => {
+  // While this report creates its issue, another report has already opened #1.
+  let raced = false;
+  const gh = fakeGitHub(async (created) => {
+    if (raced) return;
+    raced = true;
+    created.number = 2;
+    gh.issues.unshift({ number: 1, labels: created.labels, title: created.title, state: "open" });
+  });
+  await receiveTestReport(post(report()), "SphereSLAM", gh.api);
+  const newer = gh.issues.find((i) => i.number === 2);
+  assert.equal(newer.state, "closed");
+  assert.equal(newer.state_reason, "duplicate");
+  assert.equal(gh.comments.length, 1);
+  assert.equal(gh.comments[0].issue, 1);
+});
+
+test("a long log keeps its newest lines", () => {
+  const lines = Array.from({ length: 2000 }, (_, i) => `line ${i} ${"x".repeat(40)}`);
+  const r = normalizeTestReport(report({ log: lines.join("\n") + "\n--- crash ---\ntrace" }));
+  assert.ok(r.log.startsWith("… earlier lines cut\nline "));
+  assert.ok(r.log.endsWith("--- crash ---\ntrace"));
+  assert.ok(r.log.length <= 50_000 + 30);
+});
+
+test("a run near the comment limit still closes its log markup", () => {
+  const lines = Array.from({ length: 2000 }, (_, i) => `line ${i} <tag> & ${"y".repeat(40)}`);
+  const body = renderRun(normalizeTestReport(report({ log: lines.join("\n"), notes: "n".repeat(4_000) })));
+  assert.ok(body.length <= 60_000);
+  assert.ok(body.endsWith("</pre>\n</details>"));
+  assert.match(body, /line 1999 &lt;tag&gt;/);
 });

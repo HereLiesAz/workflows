@@ -156,6 +156,29 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # Profiles opting in (version_contract: true) take the canonical major.minor.patch.build
+      # version, keyed to the same trigger the android-play/github releases use, so all three
+      # runs dispatched from one push share one version. VERSION / VERSION_MAJOR / _MINOR /
+      # _PATCH / _BUILD land in the environment for prepare_command.
+      - name: Resolve canonical version
+        if: ${{ fromJSON(inputs.purpose_profile_json).version_contract == true }}
+        uses: HereLiesAz/workflows/.github/actions/version-contract@main
+        with:
+          target_repository: ${{ inputs.target_repository }}
+          target_sha: ${{ inputs.target_sha }}
+          target_ref_name: ${{ inputs.target_ref_name }}
+          target_ref_type: ${{ inputs.target_ref_type }}
+          trigger_id: ${{ inputs.target_run_id }}
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Return to the source revision
+        # A version bump leaves the workspace on the version-state commit; build from the source.
+        if: ${{ fromJSON(inputs.purpose_profile_json).version_contract == true }}
+        env:
+          TARGET_SHA: ${{ inputs.target_sha }}
+        shell: bash
+        run: git switch --detach "$TARGET_SHA"
+
       - name: Set up Node
         if: ${{ fromJSON(inputs.purpose_profile_json).prepare_node_version != null && fromJSON(inputs.purpose_profile_json).prepare_node_version != '' }}
         uses: actions/setup-node@v4

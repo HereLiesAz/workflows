@@ -294,6 +294,9 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
         "source_hashes": {
             "968458e29535134b77927dbc8ec6c653ad070e0b6e9cd30f7ac9063544eb14e9",
             "03e2f1e420d12d9cc0a7cdbd64594ac76c6f5025b064f43083b57b0714cf087a",
+            # HereLiesAz/convey:.github/workflows/publish-packages.yml (push to main + dispatch) —
+            # Compose Multiplatform library to its own GitHub Packages under the commit's short SHA.
+            "215e8d0a4edb6b84b3bb8540240e82560de074b24b06b424da07771c49b06bc7",
         },
     },
     ".github/workflows/node-package-publish.yml": {
@@ -438,6 +441,14 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
     "1606a824a8bd29eb3c6dbd9ca74f88692ee0abd248e910d9a1ee69acb279766c": {"kind": "flutter", "java_version": "17", "flutter_version": "3.16.0", "command": "flutter pub get\nflutter build apk --debug\nVERSION=$(grep '^version:' pubspec.yaml | head -n 1 | sed 's/^version:[[:space:]]*//' | tr -d '\\r ')\nif [ -z \"$VERSION\" ]; then VERSION=1.0.0; fi\nmv build/app/outputs/flutter-apk/app-debug.apk \"build/app/outputs/flutter-apk/IDEaz-$VERSION-debug.apk\"", "report_path": "build/app/outputs/flutter-apk/IDEaz-*-debug.apk", "report_when": "always", "retention_days": 7},
     "968458e29535134b77927dbc8ec6c653ad070e0b6e9cd30f7ac9063544eb14e9": {"tool": "maven", "java_version": "17", "publish_command": "mvn --batch-mode deploy"},
     "03e2f1e420d12d9cc0a7cdbd64594ac76c6f5025b064f43083b57b0714cf087a": {"tool": "gradle", "java_version": "21", "jitpack": True, "build_command": "./gradlew assemble", "publish_command": "./gradlew publish"},
+    # HereLiesAz/convey: publishes EVERY publication (root kotlinMultiplatform, android release,
+    # desktop jvm, wasmJs) to https://maven.pkg.github.com/HereLiesAz/convey as version = the
+    # commit's short SHA. The original source published only kotlinMultiplatform + wasmJs, which
+    # left consumers' desktop/android variants (compose.conveyance:convey-desktop:<sha>) missing.
+    # Linux runner: the iosArm64/iosSimulatorArm64 targets are disabled off macOS, so their
+    # publications are not created and not published. convey/build.gradle.kts reads the
+    # GitHubPackages credentials from GITHUB_ACTOR/GITHUB_TOKEN; TOKEN is the environment's GH_TOKEN.
+    "215e8d0a4edb6b84b3bb8540240e82560de074b24b06b424da07771c49b06bc7": {"tool": "gradle", "java_version": "21", "publish_command": "chmod +x gradlew\nGITHUB_ACTOR=\"$USERNAME\" GITHUB_TOKEN=\"$TOKEN\" ./gradlew :convey:publishAllPublicationsToGitHubPackagesRepository -PconveyVersion=\"$(git rev-parse --short HEAD)\" --no-daemon --stacktrace"},
     # azphalt's PR/push CI: builds and tests the pnpm workspace (Node 24, pnpm via corepack), fails on
     # drifted conformance fixtures, then builds the Compose storefront (Wasm, Android) and runs the
     # shared-model and Kotlin .azp verifier tests. FROZEN: CI never bumps version.properties.

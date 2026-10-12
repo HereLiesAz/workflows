@@ -16,6 +16,10 @@ const MAX_FIELD_CHARS = 300;
 const MAX_EVIDENCE_CHARS = 1_000;
 const MAX_LOG_CHARS = 50_000;
 const MAX_GITHUB_BODY_CHARS = 60_000;
+const MAX_TABLES = 6;
+const MAX_TABLE_COLUMNS = 16;
+const MAX_TABLE_ROWS = 60;
+const MAX_CELL_CHARS = 120;
 const STATUSES = { PASS: "✅ pass", FAIL: "❌ fail", UNTESTED: "⬜ not run", SKIPPED: "➖ skipped" };
 
 // repository name -> the app allowed to report into it.
@@ -93,8 +97,29 @@ export function normalizeTestReport(parsed) {
     updatedAt: clean(parsed.updatedAt, 40),
     notes: clean(parsed.notes, 4_000),
     checks,
+    tables: normalizeTables(parsed.tables),
     log: tail(redact(typeof parsed.log === "string" ? parsed.log : ""), MAX_LOG_CHARS),
   };
+}
+
+/**
+ * Optional result tables (a tuning sweep): title, column names, rows of plain-text cells. Bounded,
+ * single-line, redacted; rendered escaped like every other field. A malformed table is dropped.
+ */
+function normalizeTables(tables) {
+  if (!Array.isArray(tables)) return [];
+  const out = [];
+  for (const t of tables.slice(0, MAX_TABLES)) {
+    if (!t || typeof t !== "object" || !Array.isArray(t.columns) || !Array.isArray(t.rows)) continue;
+    const columns = t.columns.slice(0, MAX_TABLE_COLUMNS).map((c) => clean(c, MAX_CELL_CHARS));
+    if (columns.length === 0) continue;
+    const rows = t.rows
+      .slice(0, MAX_TABLE_ROWS)
+      .filter((r) => Array.isArray(r))
+      .map((r) => columns.map((_, i) => clean(r[i], MAX_CELL_CHARS)));
+    out.push({ title: clean(t.title, MAX_FIELD_CHARS), columns, rows });
+  }
+  return out;
 }
 
 /** The run's comment body; the marker lets a later report of the same run replace it. */
@@ -103,17 +128,26 @@ export function renderRun(report) {
   for (const c of report.checks) counts[c.status] = (counts[c.status] || 0) + 1;
   const summary = Object.keys(STATUSES).filter((s) => counts[s]).map((s) => `${STATUSES[s]} ${counts[s]}`).join(" · ");
   const d = report.device;
+  const tablesOnly = report.checks.length === 0 && (report.tables || []).length > 0;
   const lines = [
     marker(report.runId),
     `**Run** \`${report.runId}\` — ${markdownText(d.brand)} ${markdownText(d.model)}, Android ${markdownText(d.android)} (SDK ${markdownText(d.sdk)})`,
     `- Library ${markdownText(report.libraryVersion)}, build \`${report.build}\`, app ${markdownText(report.appVersion)}`,
     `- Started ${markdownText(report.startedAt)}, last update ${markdownText(report.updatedAt)}`,
-    `- ${summary || "no checks"}`,
-    "",
-    "| Check | Result | Evidence |",
-    "|---|---|---|",
-    ...report.checks.map((c) => `| ${cell(c.title || c.id)} | ${STATUSES[c.status]} | ${cell(c.evidence)} |`),
+    tablesOnly ? "- Tuning sweep" : `- ${summary || "no checks"}`,
   ];
+  if (!tablesOnly) {
+    lines.push(
+      "",
+      "| Check | Result | Evidence |",
+      "|---|---|---|",
+      ...report.checks.map((c) => `| ${cell(c.title || c.id)} | ${STATUSES[c.status]} | ${cell(c.evidence)} |`),
+    );
+  }
+  for (const t of report.tables || []) {
+    lines.push("", `**${cell(t.title)}**`, "", `| ${t.columns.map(cell).join(" | ")} |`, `|${t.columns.map(() => "---").join("|")}|`);
+    for (const r of t.rows) lines.push(`| ${r.map(cell).join(" | ")} |`);
+  }
   if (report.notes) lines.push("", "**Notes**", "", `<pre>${escapeHtml(report.notes)}</pre>`);
   const head = lines.join("\n").slice(0, MAX_GITHUB_BODY_CHARS);
   if (!report.log) return head;

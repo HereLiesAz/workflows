@@ -158,3 +158,19 @@ test("a run near the comment limit still closes its log markup", () => {
   assert.ok(body.endsWith("</pre>\n</details>"));
   assert.match(body, /line 1999 &lt;tag&gt;/);
 });
+
+test("a sweep's tables render escaped, bounded and in place of the checks table", () => {
+  const body = renderRun(normalizeTestReport(report({
+    checks: [],
+    tables: [
+      { title: "Configurations", columns: ["#", "Configuration", "Locked %"], rows: [["1", "Rectify from 25° | x", "81"], ["2", "<b>baseline</b>", "64", "extra"]] },
+      { title: "bad", columns: "nope", rows: [] },
+    ],
+  })));
+  assert.match(body, /- Tuning sweep/);
+  assert.doesNotMatch(body, /\| Check \| Result/);
+  assert.match(body, /\*\*Configurations\*\*/);
+  assert.match(body, /\| 1 \| Rectify from 25° &#124; x \| 81 \|/);
+  assert.match(body, /&lt;b&gt;baseline&lt;\/b&gt; \| 64 \|$/m);
+  assert.doesNotMatch(body, /bad/);
+});

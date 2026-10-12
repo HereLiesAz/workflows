@@ -79,6 +79,8 @@ limits and sanitizing):
   tested build (`device-test-<build>`, found through the issues listing, not the lagging search
   index; when two first reports race, the newer issue closes as a duplicate of the older), one
   comment per run, updated in place when the same run reports again; the log keeps its newest lines.
+  A report may carry `tables` (title, columns, rows of plain text; bounded and escaped), rendered in
+  place of the checks table when it has no checks (a tuning sweep).
   Allowlisted apps: `TEST_REPORT_APPS`.
 
 ## Workflow policy and repository templates

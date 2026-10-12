@@ -67,6 +67,18 @@ steps:
       data: '{"passed": 128, "failed": 0}'
 ~~~
 
+## App reports
+
+Apps report into their own repository's issues through the Worker, authenticated by a per-app key
+that ships in the APK (a spam filter, not a secret; the bounds are the allowlist, package match, size
+limits and sanitizing):
+
+- `POST /crash-report/<repo>` (`worker/src/crash-report.js`): ACRA crash/ANR reports, deduplicated
+  into one issue per crash signature.
+- `POST /test-report/<repo>` (`worker/src/test-report.js`): on-device test runs. One issue per
+  tested build (`device-test-<build>`), one comment per run, updated in place when the same run
+  reports again. Allowlisted apps: `TEST_REPORT_APPS`.
+
 ## Workflow policy and repository templates
 
 New workflow implementations must be submitted to this repository and generalized for reuse before they are allowed into a target repository. See **[Generalized workflow policy](docs/WORKFLOW_POLICY.md)**.

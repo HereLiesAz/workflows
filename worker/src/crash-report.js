@@ -134,11 +134,11 @@ function field(value, fallback = "unknown", max = MAX_FIELD_CHARS) {
   return (t || fallback).slice(0, max);
 }
 
-function singleLine(value, max) {
+export function singleLine(value, max) {
   return stringify(value).replace(/[\r\n\u0000-\u001f\u007f]+/g, " ").trim().slice(0, max);
 }
 
-function markdownText(value) {
+export function markdownText(value) {
   return singleLine(value, MAX_FIELD_CHARS).replace(/[\\`*_{}\[\]()#+.!|>-]/g, "\\$&");
 }
 
@@ -146,7 +146,7 @@ function markdownCode(value) {
   return singleLine(value, MAX_FIELD_CHARS).replace(/`/g, "'");
 }
 
-function escapeHtml(value) {
+export function escapeHtml(value) {
   return stringify(value)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -163,7 +163,7 @@ function text(body, status) {
   return new Response(body, { status });
 }
 
-async function constantTimeEqual(left, right) {
+export async function constantTimeEqual(left, right) {
   const enc = new TextEncoder();
   const [a, b] = await Promise.all([
     crypto.subtle.digest("SHA-256", enc.encode(left)),

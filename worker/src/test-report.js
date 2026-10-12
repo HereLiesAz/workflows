@@ -14,7 +14,7 @@ const MAX_REPORT_BYTES = 128 * 1024;
 const MAX_CHECKS = 100;
 const MAX_FIELD_CHARS = 300;
 const MAX_EVIDENCE_CHARS = 1_000;
-const MAX_LOG_CHARS = 40_000;
+const MAX_LOG_CHARS = 50_000;
 const MAX_GITHUB_BODY_CHARS = 60_000;
 const STATUSES = { PASS: "✅ pass", FAIL: "❌ fail", UNTESTED: "⬜ not run", SKIPPED: "➖ skipped" };
 
@@ -93,7 +93,7 @@ export function normalizeTestReport(parsed) {
     updatedAt: clean(parsed.updatedAt, 40),
     notes: clean(parsed.notes, 4_000),
     checks,
-    log: redact(typeof parsed.log === "string" ? parsed.log : "").slice(0, MAX_LOG_CHARS),
+    log: tail(redact(typeof parsed.log === "string" ? parsed.log : ""), MAX_LOG_CHARS),
   };
 }
 
@@ -115,35 +115,66 @@ export function renderRun(report) {
     ...report.checks.map((c) => `| ${cell(c.title || c.id)} | ${STATUSES[c.status]} | ${cell(c.evidence)} |`),
   ];
   if (report.notes) lines.push("", "**Notes**", "", `<pre>${escapeHtml(report.notes)}</pre>`);
-  if (report.log) lines.push("", "<details><summary>Log</summary>", "", `<pre>${escapeHtml(report.log)}</pre>`, "</details>");
-  return lines.join("\n").slice(0, MAX_GITHUB_BODY_CHARS);
+  const head = lines.join("\n").slice(0, MAX_GITHUB_BODY_CHARS);
+  if (!report.log) return head;
+  // The log gets what room is left, newest lines kept, so the markup around it always closes.
+  const open = "\n\n<details><summary>Log</summary>\n\n<pre>";
+  const close = "</pre>\n</details>";
+  const room = MAX_GITHUB_BODY_CHARS - head.length - open.length - close.length;
+  if (room < 200) return head;
+  let log = escapeHtml(report.log);
+  if (log.length > room) log = escapeHtml(tail(report.log, Math.floor(room / 2)));
+  while (log.length > room) log = log.slice(log.indexOf("\n") + 1 || log.length);
+  return head + open + log + close;
 }
 
 async function fileRun(report, repoPath, githubRequest) {
   const label = `device-test-${report.build}`.slice(0, 50);
   const body = renderRun(report);
-  const query = encodeURIComponent(`repo:${repoPath} label:${label} is:issue`);
-  const found = await githubRequest(`/search/issues?q=${query}`, "GET");
-  const existing = found?.items?.[0];
-  if (existing && Number.isSafeInteger(Number(existing.number))) {
-    const number = Number(existing.number);
-    const comments = await githubRequest(`/repos/${repoPath}/issues/${number}/comments?per_page=100`, "GET");
-    const mine = Array.isArray(comments) ? comments.find((c) => typeof c?.body === "string" && c.body.startsWith(marker(report.runId))) : null;
-    if (mine && Number.isSafeInteger(Number(mine.id))) {
-      await githubRequest(`/repos/${repoPath}/issues/comments/${Number(mine.id)}`, "PATCH", { body });
-    } else {
-      await githubRequest(`/repos/${repoPath}/issues/${number}/comments`, "POST", { body });
+  let number = await oldestIssue(repoPath, label, githubRequest);
+  if (number == null) {
+    const issue = await githubRequest(`/repos/${repoPath}/issues`, "POST", {
+      title: `Device test: ${singleLine(report.libraryVersion || "unversioned", 40)} (${report.build})`,
+      body: `Automatically reported on-device test runs of build \`${report.build}\`. One comment per run, updated as the run progresses.`,
+      labels: ["device-test", label],
+    });
+    if (!issue || !Number.isSafeInteger(Number(issue.number))) return;
+    number = Number(issue.number);
+    // Two first reports of one build can both get here; the older issue wins and the newer closes.
+    const oldest = await oldestIssue(repoPath, label, githubRequest);
+    if (oldest != null && oldest < number) {
+      await githubRequest(`/repos/${repoPath}/issues/${number}`, "PATCH", {
+        state: "closed",
+        state_reason: "duplicate",
+        body: `Duplicate of #${oldest}: reports of build \`${report.build}\` go there.`,
+      });
+      number = oldest;
     }
-    return;
   }
-  const issue = await githubRequest(`/repos/${repoPath}/issues`, "POST", {
-    title: `Device test: ${singleLine(report.libraryVersion || "unversioned", 40)} (${report.build})`,
-    body: `Automatically reported on-device test runs of build \`${report.build}\`. One comment per run, updated as the run progresses.`,
-    labels: ["device-test", label],
-  });
-  if (issue && Number.isSafeInteger(Number(issue.number))) {
-    await githubRequest(`/repos/${repoPath}/issues/${Number(issue.number)}/comments`, "POST", { body });
+  const comments = await githubRequest(`/repos/${repoPath}/issues/${number}/comments?per_page=100`, "GET");
+  const mine = Array.isArray(comments) ? comments.find((c) => typeof c?.body === "string" && c.body.startsWith(marker(report.runId))) : null;
+  if (mine && Number.isSafeInteger(Number(mine.id))) {
+    await githubRequest(`/repos/${repoPath}/issues/comments/${Number(mine.id)}`, "PATCH", { body });
+  } else {
+    await githubRequest(`/repos/${repoPath}/issues/${number}/comments`, "POST", { body });
   }
+}
+
+/**
+ * The build's issue (the lowest-numbered open one with [label]), or null. Read from the issues
+ * listing, not search: the search index lags by seconds to a minute, so a run's second report used
+ * to miss the issue its first had just opened and open another.
+ */
+async function oldestIssue(repoPath, label, githubRequest) {
+  const listed = await githubRequest(
+    `/repos/${repoPath}/issues?labels=${encodeURIComponent(label)}&state=open&sort=created&direction=asc&per_page=10`,
+    "GET",
+  );
+  const numbers = (Array.isArray(listed) ? listed : [])
+    .filter((i) => !i?.pull_request)
+    .map((i) => Number(i?.number))
+    .filter((n) => Number.isSafeInteger(n));
+  return numbers.length ? Math.min(...numbers) : null;
 }
 
 function marker(runId) {
@@ -153,6 +184,14 @@ function marker(runId) {
 function clean(value, max) {
   if (value == null) return "";
   return redact(singleLine(typeof value === "string" ? value : String(value), max));
+}
+
+/** The last [max] characters from a line start: the newest log lines (and a crash trace, appended last). */
+function tail(log, max) {
+  if (log.length <= max) return log;
+  const cut = log.slice(-max);
+  const nl = cut.indexOf("\n");
+  return "… earlier lines cut\n" + (nl >= 0 ? cut.slice(nl + 1) : cut);
 }
 
 function cell(value) {

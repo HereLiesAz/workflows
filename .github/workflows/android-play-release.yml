@@ -209,7 +209,10 @@ jobs:
             git -C "$path" init -q
             git -C "$path" -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" \
               fetch -q --depth 1 "https://github.com/$repository.git" "$ref"
-            git -C "$path" checkout -q --detach FETCH_HEAD
+            # The caller may commit a copy of the dependency at this path; replace it with the
+            # pinned tree, as actions/checkout does (force, then clean).
+            git -C "$path" checkout -q -f --detach FETCH_HEAD
+            git -C "$path" clean -ffdxq
           done
 
       - name: Apply canonical version to checkout

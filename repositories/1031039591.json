@@ -4,7 +4,7 @@
     "id": 1031039591,
     "full_name": "HereLiesAz/aive"
   },
-  "updated_at": "2026-10-12T12:57:31.050Z",
+  "updated_at": "2026-10-12T12:57:32.931Z",
   "workflows": {
     ".github/workflows/bitcos-engine.yml": {
       "name": "BITCOS Engine",
@@ -155,6 +155,27 @@
     ".github/workflows/android-ci.yml": {
       "name": "Android CI",
       "runs": [
+        {
+          "run_id": 38252348636,
+          "jobs": {
+            "unit-tests": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/38252348636/job/114821601178",
+              "started_at": "2026-10-12T12:57:29Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-10-12T12:57:32.931Z",
+          "sha": "6815e13eb8fdba67bad8154b91d6e812db8c70ad",
+          "branch": "main",
+          "status": "queued",
+          "updated_at": "2026-10-12T12:57:32.931Z"
+        },
         {
           "run_id": 38246699800,
           "jobs": {
@@ -1139,43 +1160,6 @@
           "branch": "feat/persistent-relay-state",
           "status": "queued",
           "updated_at": "2026-10-09T04:40:18.915Z"
-        },
-        {
-          "run_id": 37884851889,
-          "jobs": {
-            "unit-tests": {
-              "status": "queued",
-              "conclusion": null,
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37884851889/job/113672442911",
-              "started_at": "2026-10-09T04:38:51Z",
-              "completed_at": null,
-              "steps_completed": 0,
-              "steps_total": 0,
-              "current_step": null
-            },
-            "build-and-release": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37884851889/job/113672459131",
-              "started_at": "2026-10-09T04:38:55Z",
-              "completed_at": "2026-10-09T04:38:55Z",
-              "steps_completed": 0,
-              "steps_total": 0,
-              "current_step": null
-            }
-          },
-          "reports": {},
-          "created_at": "2026-10-09T04:38:51.314Z",
-          "run_number": 2747,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "feat/persistent-relay-state",
-          "sha": "036fdbb9e0459b0112859c631e8e21c5eba7595a",
-          "status": "in_progress",
-          "conclusion": null,
-          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/37884851889",
-          "started_at": "2026-10-09T04:38:50Z",
-          "updated_at": "2026-10-09T04:39:06.199Z"
         }
       ]
     },

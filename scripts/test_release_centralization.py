@@ -229,6 +229,37 @@ assert 'Source run SHA $run_sha does not match target SHA $TARGET_SHA' in multi_
 assert '--prerelease="$prerelease"' in multi_platform_release
 assert 'git tag -fa "$TAG"' in multi_platform_release  # retained only for explicit force_tag profiles
 
+
+
+# Graffux publishes only via the shared release workflows. The archived original
+# release-aab source is retained for history, but its binding must never be routed.
+import json as _json
+from semantic_catalog import PURPOSE_PROFILES as _PURPOSE_PROFILES
+
+_graffux_manifest = _json.loads(
+    Path("registry/1305186158/manifest.json").read_text(encoding="utf-8")
+)
+_graffux_flows = _graffux_manifest["workflows"]
+assert _graffux_flows[".github/workflows/release-aab.yml"]["status"] == "obsolete"
+assert "central_workflow" not in _graffux_flows[".github/workflows/release-aab.yml"]
+assert _graffux_flows[".github/workflows/android-play-release.yml"]["status"] == "active"
+assert _graffux_flows[".github/workflows/android-github-release.yml"]["status"] == "active"
+assert not Path(".github/workflows/graffux-release-aab.yml").exists()
+
+for _path in (".github/workflows/android-play-release.yml", ".github/workflows/android-github-release.yml"):
+    _wf = Path(_path).read_text(encoding="utf-8")
+    assert "require_google_services // false" in _wf
+    assert "The target-named central environment is missing GOOGLE_SERVICES" in _wf
+    assert "GOOGLE_SERVICES is not valid Firebase JSON for $expected_package" in _wf
+    assert "client_info.android_client_info.package_name == $package" in _wf
+
+for _path in (".github/workflows/android-play-release.yml", ".github/workflows/android-github-release.yml"):
+    _source = next(v for k, v in _graffux_flows.items() if k == _path)
+    _profile = _PURPOSE_PROFILES[_source["source_sha256"]]
+    assert _profile["google_services"] == "raw"
+    assert _profile["require_google_services"] is True
+    assert _profile["package_name"] == "com.hereliesaz.graffux"
+
 print('release centralization regression test passed')
 
 # Every active binding gets a tracker; other entries get none.

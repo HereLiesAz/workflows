@@ -275,6 +275,17 @@ jobs:
             echo "replay=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # The validate job has its own Python environment; dependencies do not carry
+      # across jobs. replay_failed_play imports ruamel.yaml through dispatch_manual.
+      - uses: actions/setup-python@v5
+        if: ${{ steps.changes.outputs.replay == 'true' }}
+        with:
+          python-version: '3.12'
+
+      - name: Install Play recovery Python dependencies
+        if: ${{ steps.changes.outputs.replay == 'true' }}
+        run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
+
       - name: Mint target repository inspection token
         if: ${{ steps.changes.outputs.replay == 'true' }}
         id: app-token

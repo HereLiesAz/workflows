@@ -157,4 +157,30 @@ with tempfile.TemporaryDirectory() as scratch:
     finally:
         replay_module.ROOT = original_root
 
+# The controller's recovery is a separate runner job; the validation job's
+# installed Python packages are not present in that job. A green test job does
+# not prove recovery can import dispatch_manual (and hence ruamel.yaml).
+from sync_repository_catalog import load_yaml
+
+controller = load_yaml(
+    (Path(__file__).resolve().parents[1] / ".github/workflows/validate-controller.yml")
+    .read_text(encoding="utf-8")
+)
+recovery_steps = controller["jobs"]["replay-failed-play"]["steps"]
+install_idx, install_step = next(
+    (i, step) for i, step in enumerate(recovery_steps)
+    if step.get("name") == "Install Play recovery Python dependencies"
+)
+python_idx = next(
+    i for i, step in enumerate(recovery_steps)
+    if str(step.get("uses") or "").startswith("actions/setup-python@")
+)
+run_idx = next(
+    i for i, step in enumerate(recovery_steps)
+    if step.get("name") == "Replay verified prior Play checkout failures"
+)
+assert python_idx < install_idx < run_idx
+assert "ruamel.yaml==0.18.15" in install_step["run"]
+assert install_step["if"] == recovery_steps[run_idx]["if"]
+
 print("Play checkout replay regression test passed")

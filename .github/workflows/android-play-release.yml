@@ -675,6 +675,9 @@ jobs:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           ACRA_URL: ${{ secrets.ACRA_URL }}
           ACRA_TOKEN: ${{ secrets.ACRA_TOKEN }}
+          # Opt-in hosted ARCore API key from the target-named environment; only
+          # this build step receives it, and local/unconfigured builds remain valid.
+          ARCORE_API_KEY: ${{ fromJSON(inputs.purpose_profile_json || '{}').arcore_manifest_api_key == true && secrets.ARCORE_API_KEY || '' }}
           # GitHub Packages dependencies (e.g. CueDetat's Meta Wearables SDK) need credentials:
           # this repo's own token, and its owner as the user.
           GH_TOKEN: ${{ secrets.GH_TOKEN }}

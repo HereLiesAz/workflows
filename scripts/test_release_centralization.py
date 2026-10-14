@@ -300,3 +300,29 @@ assert list(_staged) == ['.github/workflows/release-aab.yml'], _staged
 _restored = _staged['.github/workflows/release-aab.yml'][0]
 assert _restored is not None and TRACKER_MARKER in _restored
 assert list(load_yaml(_restored)['jobs']) == ['central']
+
+
+# Hosted ARCore API authorization is passed only to opted-in release builds.
+from semantic_catalog import PURPOSE_PROFILES as _PURPOSE_PROFILES
+
+_CUEDETAT_RELEASE_PROFILES = (
+    "c99c3eed02d6deb557eaba891c904d3fcdabde1c27a518dee8c7e8e422b92b98",
+    "cfe3be78c9ec54d03bd41fc0798ba444749746cb398380dd4e160d40e7c3d88b",
+)
+for _hash in _CUEDETAT_RELEASE_PROFILES:
+    assert _PURPOSE_PROFILES[_hash]["arcore_manifest_api_key"] is True
+    assert _PURPOSE_PROFILES[_hash].get("arcore_local_properties") is not True
+
+_arcore_expression = expression(
+    "fromJSON(inputs.purpose_profile_json || '{}').arcore_manifest_api_key == true && secrets.ARCORE_API_KEY || ''"
+)
+for _path, _job_name, _step_name in (
+    (".github/workflows/android-play-release.yml", "build_and_publish", "Build signed AAB"),
+    (".github/workflows/android-github-release.yml", "build_and_release", "Build signed release APK"),
+):
+    _workflow = load_yaml(Path(_path).read_text(encoding="utf-8"))
+    _build_job = _workflow["jobs"][_job_name]
+    assert _build_job["environment"] == expression("inputs.target_repository_name")
+    _build_step = next(s for s in _build_job["steps"] if s.get("name") == _step_name)
+    assert _build_step["env"]["ARCORE_API_KEY"] == _arcore_expression
+    assert "ARCORE_API_KEY" not in _build_step["run"]

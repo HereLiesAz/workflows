@@ -23,7 +23,8 @@ def _push_on_default_branch(source_doc: dict, default_branch: str) -> bool:
     branches = push.get("branches") if isinstance(push, dict) else None
     if not branches:
         return not (isinstance(push, dict) and push.get("tags"))
-    return any(fnmatch.fnmatch(default_branch, str(pattern)) for pattern in branches)
+    patterns = [branches] if isinstance(branches, str) else branches
+    return any(fnmatch.fnmatch(default_branch, str(pattern)) for pattern in patterns)
 
 
 def _resolve_workflows(active: dict, requested: str) -> list[str]:

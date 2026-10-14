@@ -70,6 +70,17 @@ the runner's own `github.token` (Actions read permission), while Gradle's GitHub
 dependencies keep their separate configured package credential. Play signing and service-account
 credentials remain in the target-specific environment.
 
+On a validated central `android-play-release.yml` publisher repair, the controller
+examines recent failed Play statuses for active registered public repositories. It
+replays **only failures at the source checkout step** through the existing gateway,
+pinned to the current default-branch commit. Generated version-only `[skip ci]`
+commits may intervene; a newer real code change, pending/successful Play status,
+stale failure, or failure later in the release pipeline prevents replay. This
+limits recovery to cases where the failed run never reached signing or Play.
+The recovery script's own first merge also triggers this check. No new target
+workflow or independent Play publisher is introduced.
+
+
 
 Generalized Android, multi-platform, and artifact release families apply this automatically when the
 resolved version is four-part. Non-four-part profiles retain their existing release behavior.

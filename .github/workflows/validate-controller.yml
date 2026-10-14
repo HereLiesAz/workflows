@@ -205,6 +205,9 @@ jobs:
       - name: Regression-test release centralization
         run: python scripts/test_release_centralization.py
 
+      - name: Regression-test Play checkout recovery
+        run: python scripts/test_replay_failed_play.py
+
       - name: Regression-test private repository exclusion
         run: python scripts/test_private_repository_exclusion.py
 
@@ -238,6 +241,55 @@ jobs:
 
       - name: Unit-test Worker gateway
         run: npm --prefix worker test
+
+  # A central publisher repair does not generate another event in target repositories.
+  # Recover *checkout-only* failures from the last week after validated central changes;
+  # successful/pending releases and failures after checkout are never replayed.
+  replay-failed-play:
+    name: Replay failed Play checkouts after publisher repair
+    needs: validate
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Detect publisher or recovery changes
+        id: changes
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$BEFORE_SHA" =~ ^[0-9a-f]{40}$ ]] && git cat-file -e "${BEFORE_SHA}^{commit}" && \
+            git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- \
+              .github/workflows/android-play-release.yml scripts/replay_failed_play.py \
+            | grep -q .; then
+            echo "replay=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "replay=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Mint target repository inspection token
+        if: ${{ steps.changes.outputs.replay == 'true' }}
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v2
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_PRIVATE_KEY }}
+          owner: HereLiesAz
+
+      - name: Replay verified prior Play checkout failures
+        if: ${{ steps.changes.outputs.replay == 'true' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CENTRAL_GITHUB_TOKEN: ${{ github.token }}
+        run: python scripts/replay_failed_play.py
 
   deploy-gateway-worker:
     name: Deploy central gateway Worker

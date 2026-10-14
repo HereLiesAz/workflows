@@ -16,6 +16,9 @@ def doc(text: str) -> dict:
 
 # Catch-up runs only workflows that fire on pushes to the default branch.
 assert _push_on_default_branch(doc("on:\n  push:\n    branches: [main]\n"), "main")
+# The registered CueDetat Play source uses a scalar branch, not a YAML list.
+assert _push_on_default_branch(doc("on:\n  push:\n    branches: 'main'\n"), "main")
+assert not _push_on_default_branch(doc("on:\n  push:\n    branches: 'main'\n"), "develop")
 assert _push_on_default_branch(doc("on: [push, pull_request]\n"), "main")
 assert _push_on_default_branch(doc("on:\n  push:\n    branches: ['releases/**', 'ma*']\n"), "main")
 assert not _push_on_default_branch(doc("on:\n  push:\n    branches: [develop]\n"), "main")

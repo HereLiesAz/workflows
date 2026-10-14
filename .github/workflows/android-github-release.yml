@@ -378,6 +378,9 @@ jobs:
           # GitHub Packages dependencies need credentials, as in android-play-release.yml.
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           GH_ACTOR: ${{ github.repository_owner }}
+          # Opt-in hosted ARCore API key from the target-named environment; only
+          # this build step receives it, and local/unconfigured builds remain valid.
+          ARCORE_API_KEY: ${{ fromJSON(inputs.purpose_profile_json || '{}').arcore_manifest_api_key == true && secrets.ARCORE_API_KEY || '' }}
         shell: bash
         run: |
           set -euo pipefail

@@ -121,6 +121,33 @@ play_contract = "\n".join(
 assert "uses: HereLiesAz/workflows/.github/actions/resolve-android-mapping@main" in play_contract
 assert "google-play-publish" not in play_workflow
 assert "Publish bundle to configured Play tracks" in play_workflow
+
+# A job's repository-named environment can override GH_TOKEN, even when the reusable
+# version-contract job successfully checks out exactly the same commit. The build job
+# must use a separately minted installation token for target-repository operations.
+# This fixture checks the actual YAML structure, not reconstructed shell expressions.
+play_jobs = load_yaml(play_workflow)['jobs']
+publish_job = play_jobs['build_and_publish']
+assert publish_job['permissions']['actions'] == 'read'
+publish_steps = publish_job['steps']
+token_step = next(step for step in publish_steps if step.get('name') == 'Mint target repository token')
+assert token_step['uses'].startswith('actions/create-github-app-token@')
+assert token_step['with']['owner'] == expression('inputs.target_repository_owner')
+assert token_step['with']['repositories'] == expression('inputs.target_repository_name')
+assert token_step['with']['app-id'] == expression('secrets.GH_APP_ID')
+assert token_step['with']['private-key'] == expression('secrets.GH_PRIVATE_KEY')
+checkout = next(step for step in publish_steps if step.get('name') == 'Checkout repository')
+assert publish_steps.index(token_step) < publish_steps.index(checkout)
+assert checkout['with']['ref'] == expression('inputs.target_sha')
+assert checkout['with']['token'] == expression('steps.target-token.outputs.token')
+assert checkout['with']['persist-credentials'] is False
+queue = next(step for step in publish_steps if step.get('name') == 'Wait for earlier Play publish for this repository')
+assert queue['env']['GH_TOKEN'] == expression('github.token')
+guard = next(step for step in publish_steps if step.get('name') == 'Guard Play publish to default branch')
+assert guard['env']['GH_TOKEN'] == expression('steps.target-token.outputs.token')
+bundle = next(step for step in publish_steps if step.get('name') == 'Build signed AAB')
+assert bundle['env']['GH_TOKEN'] == expression('secrets.GH_TOKEN')  # GitHub Packages has different credentials
+
 assert "HTTP_TIMEOUT_SECONDS=120" in play_contract
 assert "httplib2.Http(timeout=HTTP_TIMEOUT_SECONDS)" in play_contract
 assert "timeout 1800 python" in play_contract  # hard wall-clock cap on the whole publish step

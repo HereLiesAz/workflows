@@ -62,6 +62,15 @@ profile's tracks, and attaches optional localized "What's new" notes (`release_n
 app publishes to Play by binding to that workflow; there is no separate Play publishing action, and
 target workflows never upload to Play themselves or through third-party upload actions.
 
+The central publisher's target-environment build job mints a **repository-scoped GitHub App
+installation token** for source checkout and target-repository GitHub operations. Its version-contract
+job runs outside that environment; using `secrets.GH_TOKEN` for both can silently select different
+credentials because environment secrets override repository secrets. The central Play queue uses
+the runner's own `github.token` (Actions read permission), while Gradle's GitHub Packages
+dependencies keep their separate configured package credential. Play signing and service-account
+credentials remain in the target-specific environment.
+
+
 Generalized Android, multi-platform, and artifact release families apply this automatically when the
 resolved version is four-part. Non-four-part profiles retain their existing release behavior.
 

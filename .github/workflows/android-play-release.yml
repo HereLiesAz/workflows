@@ -145,6 +145,7 @@ jobs:
     timeout-minutes: 90
     permissions:
       contents: write
+      actions: read # Read the central Play queue with this workflow's own GITHUB_TOKEN.
     environment: ${{ inputs.target_repository_name }}
     env:
       TARGET_REPOSITORY: ${{ inputs.target_repository }}
@@ -161,13 +162,26 @@ jobs:
       VERSION_BUILD: ${{ needs.version_contract.outputs.build }}
       ANDROID_VERSION_CODE: ${{ needs.version_contract.outputs.android_version_code }}
     steps:
+      # This job has a target-named environment. Environment secrets take precedence over
+      # repository secrets, so secrets.GH_TOKEN can differ from the working token used by
+      # version_contract (which has no target environment). Mint a fresh, narrowly scoped
+      # installation token for source checkout and target-repository GitHub operations.
+      - name: Mint target repository token
+        id: target-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v2
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_PRIVATE_KEY }}
+          owner: ${{ inputs.target_repository_owner }}
+          repositories: ${{ inputs.target_repository_name }}
+
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}
-          token: ${{ secrets.GH_TOKEN }}
+          token: ${{ steps.target-token.outputs.token }}
           persist-credentials: false
 
       - name: Restore trusted build dependency cache
@@ -363,7 +377,8 @@ jobs:
       - name: Wait for earlier Play publish for this repository
         if: ${{ env.PUBLISH_PLAY == 'true' }}
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          # This queue lives in the central workflows repository, not the target.
+          GH_TOKEN: ${{ github.token }}
           CURRENT_RUN: ${{ github.run_id }}
           QUEUE_TITLE: ${{ inputs.target_repository_name }} · Android Play Release
         shell: bash
@@ -385,7 +400,7 @@ jobs:
       - name: Guard Play publish to default branch
         if: ${{ env.PUBLISH_PLAY == 'true' }}
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ steps.target-token.outputs.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1025,7 +1040,7 @@ jobs:
       - name: Publish built release assets to GitHub
         if: ${{ env.PUBLISH_BUILT_GITHUB_RELEASE == 'true' }}
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ steps.target-token.outputs.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1125,7 +1140,7 @@ jobs:
         if: ${{ env.PUBLISH_GITHUB_RELEASE == 'true' }}
         uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@main
         with:
-          github-token: ${{ secrets.GH_TOKEN }}
+          github-token: ${{ steps.target-token.outputs.token }}
           target-repository: ${{ env.TARGET_REPOSITORY }}
           target-sha: ${{ env.TARGET_SHA }}
           build-version: ${{ env.VERSION }}

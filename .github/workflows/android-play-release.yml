@@ -419,6 +419,19 @@ jobs:
           set -euo pipefail
           case "$GOOGLE_SERVICES_MODE" in
             raw)
+              if [ "$(jq -r '.require_google_services // false' <<<"$PROFILE_JSON")" = true ]; then
+                test -n "${GOOGLE_SERVICES//[[:space:]]/}" || {
+                  echo "::error::The target-named central environment is missing GOOGLE_SERVICES (Firebase google-services.json)." >&2
+                  exit 1
+                }
+                expected_package="$(jq -r '.package_name // empty' <<<"$PROFILE_JSON")"
+                test -n "$expected_package" || { echo "::error::require_google_services needs package_name in its release profile" >&2; exit 1; }
+                jq -e --arg package "$expected_package" '.client | any(.[]; .client_info.android_client_info.package_name == $package)' \
+                  <<<"$GOOGLE_SERVICES" >/dev/null || {
+                  echo "::error::GOOGLE_SERVICES is not valid Firebase JSON for $expected_package" >&2
+                  exit 1
+                }
+              fi
               if [ -n "$GOOGLE_SERVICES" ]; then printf '%s' "$GOOGLE_SERVICES" > app/google-services.json; fi
               ;;
             template)

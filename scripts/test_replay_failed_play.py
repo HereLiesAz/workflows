@@ -183,4 +183,12 @@ assert python_idx < install_idx < run_idx
 assert "ruamel.yaml==0.18.15" in install_step["run"]
 assert install_step["if"] == recovery_steps[run_idx]["if"]
 
+# A repair to the recovery job itself must trigger recovery on the next merge.
+# Previously only edits to the publisher/script were checked; the dependency
+# installation fix changed validate-controller.yml and silently skipped replay.
+detect_step = next(step for step in recovery_steps if step.get("name") == "Detect publisher or recovery runner changes")
+assert ".github/workflows/validate-controller.yml" in detect_step["run"]
+assert "scripts/replay_failed_play.py" in detect_step["run"]
+assert ".github/workflows/android-play-release.yml" in detect_step["run"]
+
 print("Play checkout replay regression test passed")

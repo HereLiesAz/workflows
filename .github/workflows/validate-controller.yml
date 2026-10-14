@@ -259,7 +259,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Detect publisher or recovery changes
+      - name: Detect publisher or recovery runner changes
         id: changes
         env:
           BEFORE_SHA: ${{ github.event.before }}
@@ -268,7 +268,8 @@ jobs:
           set -euo pipefail
           if [[ "$BEFORE_SHA" =~ ^[0-9a-f]{40}$ ]] && git cat-file -e "${BEFORE_SHA}^{commit}" && \
             git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- \
-              .github/workflows/android-play-release.yml scripts/replay_failed_play.py \
+              .github/workflows/android-play-release.yml \
+              .github/workflows/validate-controller.yml scripts/replay_failed_play.py \
             | grep -q .; then
             echo "replay=true" >> "$GITHUB_OUTPUT"
           else

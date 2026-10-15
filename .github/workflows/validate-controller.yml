@@ -205,6 +205,9 @@ jobs:
       - name: Regression-test release centralization
         run: python scripts/test_release_centralization.py
 
+      - name: Test grouped GitHub tag publication fallback
+        run: python scripts/test_grouped_release_tag_fallback.py
+
       - name: Regression-test Play checkout recovery
         run: python scripts/test_replay_failed_play.py
 

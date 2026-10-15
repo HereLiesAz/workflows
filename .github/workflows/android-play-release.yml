@@ -921,6 +921,36 @@ jobs:
                   content=content.decode('utf-8', 'ignore')
               return 'draft app' in (str(exc) + ' ' + str(content)).lower()
 
+          def commit_edit(edit):
+              # Google Play can block automatic review submission for apps with
+              # outstanding policy/review requirements. In that case it explicitly
+              # asks for changesNotSentForReview=true, so commit the SAME edit as
+              # pending review rather than throwing away a successfully uploaded AAB.
+              # Keep normal automatic submission for every other app/release.
+              try:
+                  execute(svc.edits().commit(packageName=package, editId=edit))
+                  return False
+              except HttpError as exc:
+                  content=getattr(exc, 'content', b'') or b''
+                  if isinstance(content, bytes):
+                      content=content.decode('utf-8', 'ignore')
+                  message=(str(exc) + ' ' + str(content)).lower()
+                  status=getattr(getattr(exc, 'resp', None), 'status', None)
+                  if status != 400 or 'changesnotsentforreview' not in message:
+                      raise
+                  execute(svc.edits().commit(
+                      packageName=package,
+                      editId=edit,
+                      changesNotSentForReview=True,
+                  ))
+                  print(
+                      f'::warning::Play accepted versionCode for {package}, but could not '
+                      'submit the changes for review automatically. Open Google Play '
+                      'Console > Publishing overview and send the pending changes for review.',
+                      flush=True,
+                  )
+                  return True
+
           OPTIONAL_TRACKS=('beta', 'production')
 
           # Profiles opting in (live_rollout_draft_fallback) stage the same bundle as a draft when
@@ -981,12 +1011,13 @@ jobs:
                       if spec.get('track') in OPTIONAL_TRACKS:
                           continue
                       assign_track(edit, spec, code)
-                  execute(svc.edits().commit(packageName=package,editId=edit))
+                  needs_manual_review=commit_edit(edit)
                   required=[spec for spec in tracks if spec.get('track') not in OPTIONAL_TRACKS]
+                  verb='Committed pending manual review for' if needs_manual_review else 'Published'
                   if downgrade_live:
-                      print(f'Published versionCode {code} to {required} with live rollouts staged as drafts', flush=True)
+                      print(f'{verb} versionCode {code} to {required} with live rollouts staged as drafts', flush=True)
                   else:
-                      print(f'Published versionCode {code} to {required}')
+                      print(f'{verb} versionCode {code} to {required}', flush=True)
                   break
               except transient as exc:
                   if edit:
@@ -1039,8 +1070,9 @@ jobs:
                   if spec['track'] not in available:
                       raise RuntimeError('track is not set up')
                   assign_track(edit, spec, code)
-                  execute(svc.edits().commit(packageName=package,editId=edit))
-                  print(f'Published versionCode {code} to {spec}', flush=True)
+                  needs_manual_review=commit_edit(edit)
+                  verb='Committed pending manual review for' if needs_manual_review else 'Published'
+                  print(f'{verb} versionCode {code} to {spec}', flush=True)
               except Exception as exc:
                   print(
                       f'::warning::Play track {spec["track"]!r} not published for {package}; skipped: {exc}',

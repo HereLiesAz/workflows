@@ -45,6 +45,15 @@ is not moved later. The GitHub Release attached to the patch tag is an **accumul
 container**: it may receive additional uniquely named build artifacts and updated notes as new builds
 in that patch line ship.
 
+If GitHub rejects a Git transport push while creating the grouped tag (including an
+unexplained `[remote rejected] ... (failed)`), the shared publisher first checks for
+an **exact** pre-existing tag (not a prefix match to a four-part build tag). If
+absent, it creates the same annotated tag via GitHub's Git Database API, then
+creates its immutable ref. A concurrent publisher that creates the tag is
+accepted; tags are never force-pushed or replaced. An API failure with no tag
+present remains a hard release failure. This fallback affects only the grouped
+tag; exact-build tags retain their immutable Git-push contract.
+
 Artifact filenames must be collision-safe. The action either requires the four-part version in the
 name or injects it before upload. An existing release asset is never replaced by different bytes.
 

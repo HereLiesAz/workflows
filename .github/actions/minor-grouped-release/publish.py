@@ -159,7 +159,64 @@ def ensure_group_tag() -> None:
     if tag_target(group_tag) is not None:
         return
     git("tag", "-a", group_tag, target_sha, "-m", f"{group_title} grouped release")
-    git("push", "origin", f"refs/tags/{group_tag}")
+    ref = f"refs/tags/{group_tag}"
+    push = subprocess.run(
+        ["git", "push", "origin", ref],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if push.returncode == 0:
+        return
+
+    # GitHub can reject an otherwise valid grouped tag push with only "(failed)".
+    # Do not force-push or move a grouped tag: first check whether a concurrent
+    # publisher created it, then try the Git database API with the same token.
+    print(f"Git push of {ref} was rejected: {push.stderr.strip()}", flush=True)
+
+    def exists_remotely() -> bool:
+        result = subprocess.run(
+            ["gh", "api", f"repos/{repo}/git/ref/tags/{group_tag}"],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        if result.returncode != 0:
+            return False
+        response = json.loads(result.stdout)
+        # GitHub's single-ref GET also returns prefix matches. An exact match
+        # is required, or 0.12.35.1 would impersonate missing 0.12.35.
+        return isinstance(response, dict) and response.get("ref") == ref
+
+    if exists_remotely():
+        print(f"Grouped tag {group_tag} already exists; retaining it.", flush=True)
+        return
+
+    try:
+        # Preserve the existing annotated-tag contract, even when using REST
+        # to create the ref rather than Git transport.
+        tag_object = json.loads(
+            gh(
+                "api", "--method", "POST", f"repos/{repo}/git/tags",
+                "-f", f"tag={group_tag}",
+                "-f", f"message={group_title} grouped release",
+                "-f", f"object={target_sha}",
+                "-f", "type=commit",
+                capture=True,
+            )
+        )
+        tag_sha = tag_object.get("sha")
+        if not isinstance(tag_sha, str) or not re.fullmatch(r"[0-9a-f]{40}", tag_sha):
+            fail(f"GitHub returned no valid annotated tag object for {group_tag}")
+        gh(
+            "api", "--method", "POST", f"repos/{repo}/git/refs",
+            "-f", f"ref={ref}", "-f", f"sha={tag_sha}",
+        )
+    except subprocess.CalledProcessError:
+        if exists_remotely():
+            print(f"Grouped tag {group_tag} appeared concurrently; retaining it.", flush=True)
+            return
+        fail(f"Could not create grouped tag {group_tag} via Git push or GitHub API")
 
 
 def release_json(tag: str) -> dict | None:

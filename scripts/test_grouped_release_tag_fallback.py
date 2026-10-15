@@ -30,11 +30,11 @@ def scenario(*, push_success=False, remote_exists=False, api_ref_conflict=False,
 
     def fake_gh(*args, capture=False):
         calls.append(("gh", *args))
-        if "git/tags" in args[2]:
+        if "git/tags" in args[3]:
             if api_tag_failure:
                 raise subprocess.CalledProcessError(422, args)
             return json.dumps({"sha": TAG_SHA})
-        assert args[2] == "repos/HereLiesAz/illumera/git/refs"
+        assert args[3] == "repos/HereLiesAz/illumera/git/refs"
         assert args[-2:] == ("-f", "sha=" + TAG_SHA)
         if api_ref_conflict:
             remote[0] = True

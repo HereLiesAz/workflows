@@ -9,6 +9,11 @@ Only **public** repositories owned by HereLiesAz are registered, synced, and ser
 refuses to sync one directly even when targeted by hand. A private repository stays entirely off the
 shared catalog; make it public first if it needs centralized workflows.
 
+One narrow exception does not change that: the Worker's `/web-deploy` route builds a single commit
+of a private repository when someone whose token can push to it asks, through `web-deploy.yml`, and
+publishes only the build output. The repository is never registered, synced or given a webhook. See
+[Web deploy (IDEaz)](../README.md#web-deploy-ideaz).
+
 ## Admission rules
 
 A new target-repository workflow file is rejected by repository synchronization unless that workflow path is already registered. New capabilities must be submitted here first.

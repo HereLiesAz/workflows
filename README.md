@@ -83,6 +83,38 @@ limits and sanitizing):
   place of the checks table when it has no checks (a tuning sweep).
   Allowlisted apps: `TEST_REPORT_APPS`.
 
+## Web deploy (IDEaz)
+
+IDEaz publishes a web project without the project carrying any workflow, and without its
+repository being public or registered:
+
+~~~text
+IDEaz: write .gitignore → commit → push to the project's own private repository
+   └─ POST /web-deploy {repository, sha}   Authorization: Bearer <the user's GitHub token>
+          ▼
+Worker · worker/src/web-deploy.js
+   checks the token can push to the repository (one read, never stored or forwarded),
+   that the repository is owned by HereLiesAz and reachable by the App, and that the commit exists
+          ▼
+web-deploy.yml (workflow_dispatch here)
+   build job:  check out the commit, npm ci/install + npm run build (or copy a no-build site),
+               strip secret-shaped files, upload only the output (no deploy credential in this job)
+   deploy job: wrangler pages deploy → https://<pages_project>.pages.dev
+          ▼
+commit status `ideaz/web-deploy` on the pushed SHA (target_url = the site), which IDEaz polls
+~~~
+
+- The route answers `202 {ok, repository, sha, status_context, site_url}`; `site_url` is known
+  before the build finishes because the Pages project name is derived from the repository
+  (`pagesProjectName`: `ideaz-<slug>-<repository id in base 36>`).
+- Cloudflare Pages, not GitHub Pages: GitHub Pages cannot serve a private repository on a free
+  plan, and publishing from the repository itself is what used to expose `.env` files and history.
+  Only the build output leaves the runner.
+- Only repositories owned by HereLiesAz are served (the central credentials and App are the owner's);
+  anyone else gets `403` and IDEaz says so. The App must be installed on the private repository.
+- This does not register or sync the repository; see the scope note in
+  [Generalized workflow policy](docs/WORKFLOW_POLICY.md#scope).
+
 ## Workflow policy and repository templates
 
 New workflow implementations must be submitted to this repository and generalized for reuse before they are allowed into a target repository. See **[Generalized workflow policy](docs/WORKFLOW_POLICY.md)**.
@@ -155,6 +187,7 @@ shell logic into target repositories.
 
 - `sync-repository.yml` — manually scans and binds one target repository to the shared catalog.
 - `gateway.yml` — receives verified dispatches from the Worker and routes them to the registered shared workflow.
+- `web-deploy.yml` — dispatched by the Worker's `/web-deploy` route; builds one commit and publishes its output to Cloudflare Pages.
 - `validate-controller.yml` also redeploys the Worker (`wrangler deploy --config wrangler.jsonc`) on a push to `main` that changes `worker/` or `wrangler.jsonc`, including a regenerated event-consumer map.
 - `validate-controller.yml` — validates controller code and generated workflow behavior.
 - `ci-status-dashboard.yml` — renders the `ci-status` branch dashboard from what target CI reported.

@@ -4,11 +4,32 @@
     "id": 1387531037,
     "full_name": "HereLiesAz/CaptureTheFlag"
   },
-  "updated_at": "2026-10-16T05:47:43.024Z",
+  "updated_at": "2026-10-16T05:47:44.311Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 38857635802,
+          "jobs": {
+            "test": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/CaptureTheFlag/actions/runs/38857635802/job/116832563249",
+              "started_at": "2026-10-16T05:47:43Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-10-16T05:47:44.311Z",
+          "sha": "6ce01bccec847b7e12e8be5d859f52c74d8e19c9",
+          "branch": "dependabot/gradle/org.jetbrains.kotlin.jvm-2.4.21",
+          "status": "queued",
+          "updated_at": "2026-10-16T05:47:44.311Z"
+        },
         {
           "run_id": 38857629575,
           "jobs": {
@@ -665,41 +686,6 @@
           "html_url": "https://github.com/HereLiesAz/CaptureTheFlag/actions/runs/37403415729",
           "started_at": "2026-10-06T02:17:36Z",
           "updated_at": "2026-10-06T02:18:41.894Z"
-        },
-        {
-          "run_id": 37369830267,
-          "jobs": {
-            "test": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/CaptureTheFlag/actions/runs/37369830267/job/111963938030",
-              "started_at": "2026-10-05T20:37:32Z",
-              "completed_at": "2026-10-05T20:38:20Z",
-              "steps_completed": 10,
-              "steps_total": 10,
-              "current_step": null
-            }
-          },
-          "reports": {
-            "test": {
-              "status": "success",
-              "summary": "Node and shared tests",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-10-05T20:38:16.790Z"
-            }
-          },
-          "created_at": "2026-10-05T20:27:18.938Z",
-          "run_number": 5,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "claude/wizardly-archimedes-105nqh",
-          "sha": "f4e993b30e1887195b18cbc17950119f0145207b",
-          "status": "completed",
-          "conclusion": "success",
-          "html_url": "https://github.com/HereLiesAz/CaptureTheFlag/actions/runs/37369830267",
-          "started_at": "2026-10-05T20:27:17Z",
-          "updated_at": "2026-10-05T20:38:23.792Z"
         }
       ]
     }

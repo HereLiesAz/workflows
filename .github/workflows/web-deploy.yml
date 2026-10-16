@@ -1,0 +1,207 @@
+# workflow-policy: generalized-v1
+# workflow-purpose: Build one commit of a (possibly private) web project and publish only its build output to Cloudflare Pages, on request from the Worker's /web-deploy route.
+# required-secret: GH_TOKEN | Central GitHub token used to check out the target repository and report its commit status.
+# required-secret: CLOUDFLARE_API_TOKEN | Authorizes Wrangler to create the target's Cloudflare Pages project and upload its build output.
+# required-secret: CLOUDFLARE_ACCOUNT_ID | Identifies the Cloudflare account that hosts the target's Cloudflare Pages project.
+#
+# Dispatched only by worker/src/web-deploy.js, which has already checked that the caller's token
+# can push to the target and that the target belongs to the central owner. The target carries no
+# workflow of its own. The build job holds no deploy credential: it runs the project's own
+# install/build scripts, so it only produces an artifact, and the deploy job (which never runs
+# project code) publishes that artifact. Result: commit status `ideaz/web-deploy` on target_sha,
+# whose target_url is the site on success.
+name: Web Deploy
+run-name: ${{ inputs.target_repository }} · Web Deploy · ${{ inputs.target_sha }}
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      pages_project:
+        required: true
+        type: string
+
+concurrency:
+  group: web-deploy-${{ inputs.target_repository_id }}
+  cancel-in-progress: false
+
+env:
+  TARGET_REPOSITORY: ${{ inputs.target_repository }}
+  TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+  TARGET_SHA: ${{ inputs.target_sha }}
+  PAGES_PROJECT: ${{ inputs.pages_project }}
+  STATUS_CONTEXT: ideaz/web-deploy
+  DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+jobs:
+  policy_secret_preflight:
+    runs-on: ubuntu-latest
+    env:
+      REQUIRED_GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      REQUIRED_CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      REQUIRED_CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${REQUIRED_GH_TOKEN:-}" || {
+            echo "::error::Missing required secret GH_TOKEN — Central GitHub token used to check out the target repository and report its commit status."
+            exit 1
+          }
+          test -n "${REQUIRED_CLOUDFLARE_API_TOKEN:-}" || {
+            echo "::error::Missing required secret CLOUDFLARE_API_TOKEN — Authorizes Wrangler to create the target's Cloudflare Pages project and upload its build output."
+            exit 1
+          }
+          test -n "${REQUIRED_CLOUDFLARE_ACCOUNT_ID:-}" || {
+            echo "::error::Missing required secret CLOUDFLARE_ACCOUNT_ID — Identifies the Cloudflare account that hosts the target's Cloudflare Pages project."
+            exit 1
+          }
+
+  central_check_start:
+    needs: policy_secret_preflight
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Validate inputs and immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::target_sha is not a commit SHA" >&2; exit 1; }
+          [[ "$PAGES_PROJECT" =~ ^ideaz-[a-z0-9]+(-[a-z0-9]+)*$ && ${#PAGES_PROJECT} -le 58 ]] || { echo "::error::pages_project is invalid" >&2; exit 1; }
+          repo_json="$(gh api "repos/${TARGET_REPOSITORY}")"
+          [[ "$(jq -r '.id' <<<"$repo_json")" == "$TARGET_REPOSITORY_ID" ]] || { echo "Repository ID mismatch" >&2; exit 1; }
+          [[ "$(jq -r '.owner.id' <<<"$repo_json")" == "103241502" ]] || { echo "Repository is not owned by HereLiesAz" >&2; exit 1; }
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -n --arg context "$STATUS_CONTEXT" --arg target_url "$DETAILS_URL" \
+            '{state:"pending",context:$context,description:"Building and publishing centrally.",target_url:$target_url}' \
+            | gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_SHA}" --input -
+
+  build:
+    needs: central_check_start
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out target
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+          path: target
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # A project with a build script publishes what it built (dist/, build/ or out/). One without
+      # (plain HTML/CSS/JS) publishes its files minus dotfiles, dependencies and secret-shaped
+      # files. Either way, secret-shaped names are removed from the output before it is uploaded.
+      - name: Build
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          site="$RUNNER_TEMP/site"
+          mkdir -p "$site"
+          if [[ -f package.json ]] && jq -e '.scripts.build // empty' package.json >/dev/null; then
+            if [[ -f package-lock.json ]]; then npm ci; else npm install --no-audit --no-fund; fi
+            npm run build
+            out=""
+            for candidate in dist build out; do
+              if [[ -d "$candidate" ]]; then out="$candidate"; break; fi
+            done
+            [[ -n "$out" ]] || { echo "::error::npm run build produced none of dist/, build/ or out/"; exit 1; }
+            cp -R "$out/." "$site/"
+          else
+            rsync -a --exclude='.*' --exclude='node_modules/' --exclude='*.jks' --exclude='*.keystore' \
+              --exclude='*.p12' --exclude='*.pem' --exclude='*.key' ./ "$site/"
+          fi
+          mapfile -d '' leaked < <(find "$site" -mindepth 1 \( -name '.env*' -o -name '.git' -o -name '.ideaz' \
+            -o -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -prune -print0)
+          if (( ${#leaked[@]} )); then
+            for path in "${leaked[@]}"; do echo "::warning::Not published: ${path#"$site"/}"; done
+            rm -rf -- "${leaked[@]}"
+          fi
+          [[ -f "$site/index.html" ]] || { echo "::error::The site has no index.html at its root"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: ${{ runner.temp }}/site
+          retention-days: 1
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      site_url: ${{ steps.publish.outputs.site_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: ${{ runner.temp }}/site
+
+      # Runs from an empty directory, so npx resolves Wrangler from the registry, never from
+      # anything the project's build could have left behind.
+      - name: Publish to Cloudflare Pages
+        id: publish
+        working-directory: ${{ runner.temp }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! created="$(npx --yes wrangler@4 pages project create "$PAGES_PROJECT" --production-branch main 2>&1)"; then
+            grep -qi 'already exists' <<<"$created" || { echo "$created"; exit 1; }
+          fi
+          npx --yes wrangler@4 pages deploy site --project-name "$PAGES_PROJECT" --branch main \
+            --commit-hash "$TARGET_SHA" --commit-dirty=true
+          echo "site_url=https://${PAGES_PROJECT}.pages.dev" >> "$GITHUB_OUTPUT"
+
+  central_check_finish:
+    if: ${{ always() && needs.central_check_start.result == 'success' }}
+    needs:
+      - central_check_start
+      - build
+      - deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          DEPLOYED: ${{ needs.deploy.result == 'success' }}
+          SITE_URL: ${{ needs.deploy.outputs.site_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$DEPLOYED" == "true" && -n "$SITE_URL" ]]; then
+            state="success"; description="Published $SITE_URL"; target_url="$SITE_URL"
+          else
+            state="failure"; description="Build or publish failed; see the run."; target_url="$DETAILS_URL"
+          fi
+          jq -n --arg state "$state" --arg context "$STATUS_CONTEXT" --arg description "$description" --arg target_url "$target_url" \
+            '{state:$state,context:$context,description:$description,target_url:$target_url}' \
+            | gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_SHA}" --input -

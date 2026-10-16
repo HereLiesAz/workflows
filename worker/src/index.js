@@ -5,6 +5,7 @@ import { receiveTestReport } from "./test-report.js";
 import { EVENT_CONSUMERS } from "./event-consumers.js";
 import { pushDropReason, webhookDropReason } from "./event-filter.js";
 import { createRemoteRunToken, normalizeRemoteRunState, sanitizeStatusDescription, verifyRemoteRunToken } from "./remote-run.js";
+import { receiveWebDeploy } from "./web-deploy.js";
 
 const GITHUB_ISSUER = "https://token.actions.githubusercontent.com";
 const GITHUB_JWKS = "https://token.actions.githubusercontent.com/.well-known/jwks";
@@ -111,6 +112,12 @@ export default {
       }
       if (request.method === "POST" && url.pathname === "/remote-run/callback") {
         return await receiveRemoteRunCallback(request, env);
+      }
+      if (request.method === "POST" && url.pathname === "/web-deploy") {
+        return await receiveWebDeploy(request, {
+          appApi: (path, method, body, allowEmpty) => githubApi(env, path, method, body, allowEmpty),
+          callerApi: callerGitHubApi,
+        });
       }
       if (request.method === "POST" && url.pathname === "/dispatch") {
         return await receiveLegacyOidcDispatch(request, env);
@@ -791,6 +798,21 @@ async function githubApi(env, path, method = "GET", body = undefined, allowEmpty
   }
   if (response.status === 204 || allowEmpty) return null;
   return response.json();
+}
+
+// GitHub as the caller of /web-deploy sees it. Returns the status instead of throwing, so the
+// route can tell a bad token from a repository the token cannot reach.
+async function callerGitHubApi(token, path) {
+  const response = await fetch(`https://api.github.com${path}`, {
+    headers: {
+      "Accept": "application/vnd.github+json",
+      "Authorization": `Bearer ${token}`,
+      "User-Agent": "HereLiesAz-workflows-cloudflare-gateway",
+      "X-GitHub-Api-Version": API_VERSION,
+    },
+  });
+  const body = response.ok ? await response.json() : null;
+  return { status: response.status, body };
 }
 
 async function githubInstallationToken(env) {

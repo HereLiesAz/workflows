@@ -30,6 +30,8 @@ CONTROLLER = {
     ".github/workflows/gateway.yml",
     ".github/workflows/kaggle-session-diagnostics.yml",
     ".github/workflows/remote-run-result.yml",
+    # Dispatched by the Worker's /web-deploy route, not bound to a manifest entry.
+    ".github/workflows/web-deploy.yml",
     ".github/workflows/sync-repository.yml",
     ".github/workflows/sync-all-repositories.yml",
     ".github/workflows/sync-registry-changes.yml",

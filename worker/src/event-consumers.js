@@ -372,7 +372,14 @@ export const EVENT_CONSUMERS = {
   "1085343418": {
     "repository": "HereLiesAz/IDEaz",
     "events": [
-      "push"
+      "push",
+      "workflow_dispatch"
+    ],
+    "ci": [
+      {
+        "path": ".github/workflows/pr-ci.yml",
+        "name": "PR CI"
+      }
     ]
   },
   "1104765084": {

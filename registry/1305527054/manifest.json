@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-09-23T21:46:20+00:00",
+  "last_sync_at": "2026-10-17T06:29:29+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/MCPserved",
@@ -8,7 +8,7 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
+  "worker_url_configured": false,
   "workflows": {
     ".github/workflows/codeql.yml": {
       "binding": "curated",
@@ -34,48 +34,48 @@
       "blockers": [
         "job 'triage' is depended on downstream and expands to 2 jobs; only single-job dependency aliasing is supported"
       ],
-      "name": "🔀 Gemini Dispatch",
+      "name": "\ud83d\udd00 Gemini Dispatch",
       "registry_source": "registry/1305527054/gemini-dispatch-b7ca9237.source.yml",
-      "source_sha256": "087c5dcb89192795be5c3e5465b5577f97daa2a84ec013fcf433c56d7aa6c1e5",
+      "source_sha256": "4c38ed6b02e5f5bc72753cb18d920011e2e9e8438493ea097ee0ba2fac2b2849",
       "status": "local",
-      "updated_at": "2026-09-23T21:46:18+00:00"
+      "updated_at": "2026-10-17T06:29:22+00:00"
     },
     ".github/workflows/gemini-invoke.yml": {
-      "name": "▶️ Gemini Invoke",
+      "name": "\u25b6\ufe0f Gemini Invoke",
       "registry_source": "registry/1305527054/gemini-invoke-12affba2.source.yml",
-      "source_sha256": "a9b5a6dde34fd7eb2ea8f297b3b2cefc7535d941bba0920df36a59320d47377a",
+      "source_sha256": "c21e588226cec70d980add0e63e1bc007df8f791577d69644cea2769a0d27fa9",
       "status": "library",
-      "updated_at": "2026-09-23T21:46:18+00:00"
+      "updated_at": "2026-10-17T06:29:23+00:00"
     },
     ".github/workflows/gemini-review.yml": {
-      "name": "🔎 Gemini Review",
+      "name": "\ud83d\udd0e Gemini Review",
       "registry_source": "registry/1305527054/gemini-review-a68afd01.source.yml",
-      "source_sha256": "98850f5e87d78f3106fbae7ffb93f5d89e5781a6bba3f2c712a3882f75874c82",
+      "source_sha256": "122298d880dfa515c78a5b8095cfa26d68a20d519f2d3555a209634f5f91e7bb",
       "status": "library",
-      "updated_at": "2026-09-23T21:46:18+00:00"
+      "updated_at": "2026-10-17T06:29:24+00:00"
     },
     ".github/workflows/gemini-scheduled-triage.yml": {
       "blockers": [
         "job 'label' step 2 uses actions/github-script with runner-repository context",
         "job 'triage' step 1 uses actions/github-script with runner-repository context"
       ],
-      "name": "📋 Gemini Scheduled Issue Triage",
+      "name": "\ud83d\udccb Gemini Scheduled Issue Triage",
       "registry_source": "registry/1305527054/gemini-scheduled-triage-cdff38b9.source.yml",
-      "source_sha256": "334564d620ff43443db621376f91a008dd88551fad0662138267dffdbd922d3d",
+      "source_sha256": "1590491211e5d85ef69c82e5ceb66e3e2c34a8fefca07c7d2dab22784521c500",
       "status": "local",
-      "updated_at": "2026-09-23T21:46:19+00:00"
+      "updated_at": "2026-10-17T06:29:25+00:00"
     },
     ".github/workflows/gemini-triage.yml": {
-      "name": "🔀 Gemini Triage",
+      "name": "\ud83d\udd00 Gemini Triage",
       "registry_source": "registry/1305527054/gemini-triage-734cf9ba.source.yml",
-      "source_sha256": "99b6fa43be961bcd2a28c8e994f5a78bcc6fd4d42b97dde7d56724d8cf8897d1",
+      "source_sha256": "5881314c3b8d59faff6102a0ec1d821f76af545ba78bdd15a02f9bc6047158cb",
       "status": "library",
-      "updated_at": "2026-09-23T21:46:19+00:00"
+      "updated_at": "2026-10-17T06:29:27+00:00"
     },
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "😈 Glee Audit",
+      "name": "\ud83d\ude08 Glee Audit",
       "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/1305527054/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
@@ -88,9 +88,9 @@
       ],
       "name": "Merged Build & Release",
       "registry_source": "registry/1305527054/merged-build-7328551a.source.yml",
-      "source_sha256": "03ca104e9198401c9bc4c3f3ee7717ec1727ce473c00dbe6ed89a295e7caa499",
+      "source_sha256": "9a757b91659a74ec61b251a359bd5184f397dd94e38210dfa387413bf157f414",
       "status": "local",
-      "updated_at": "2026-09-23T21:46:19+00:00"
+      "updated_at": "2026-10-17T06:29:28+00:00"
     },
     ".github/workflows/release-aab.yml": {
       "binding": "curated",
@@ -111,7 +111,7 @@
       "registry_source": "registry/1305527054/static-876bb641.source.yml",
       "source_sha256": "8d2cf0a167b2b2b5c1ac7ed44dcf5aafb16c96bfbcddcb93b0e295ae359ee8ea",
       "status": "local",
-      "updated_at": "2026-09-23T21:46:19+00:00"
+      "updated_at": "2026-10-17T06:29:29+00:00"
     }
   }
 }

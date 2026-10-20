@@ -27,6 +27,8 @@ let azphaltPublishTokenCache = "";
 let azphaltPublishTokenExpiresAt = 0;
 let nolawalletIdTokenCache = "";
 let nolawalletIdTokenExpiresAt = 0;
+let graffuxStrokeDataTokenCache = "";
+let graffuxStrokeDataTokenExpiresAt = 0;
 // GitHub API traffic uses short-lived App installation tokens, never DISPATCH_TOKEN.
 
 /**
@@ -52,6 +54,27 @@ export class RepositoryTokens extends WorkerEntrypoint {
     return {
       token: azphaltPublishTokenCache,
       expiresAt: new Date(azphaltPublishTokenExpiresAt * 1000).toISOString(),
+    };
+  }
+
+  /**
+   * For the `graffux` Worker's stroke relay (HereLiesAz/Graffux workers/stroke-relay): it commits
+   * opted-in training sessions to the `stroke-data` branch of HereLiesAz/Graffux. Contents only, on
+   * that one repository, so the relay holds no GitHub secret and a leaked token is short-lived.
+   */
+  async graffuxStrokeDataToken() {
+    const now = Math.floor(Date.now() / 1000);
+    if (!graffuxStrokeDataTokenCache || now >= graffuxStrokeDataTokenExpiresAt - 300) {
+      const minted = await mintInstallationToken(this.env, {
+        repositories: ["Graffux"],
+        permissions: { contents: "write" },
+      });
+      graffuxStrokeDataTokenCache = minted.token;
+      graffuxStrokeDataTokenExpiresAt = minted.expiresAt;
+    }
+    return {
+      token: graffuxStrokeDataTokenCache,
+      expiresAt: new Date(graffuxStrokeDataTokenExpiresAt * 1000).toISOString(),
     };
   }
 

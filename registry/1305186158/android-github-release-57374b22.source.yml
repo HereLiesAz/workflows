@@ -3,6 +3,16 @@
 # This file is the trigger contract; the central sync replaces it with a tracker.
 name: Graffux Android GitHub Release
 on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "core/**"
+      - "feature/**"
+      - "gradle/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
+      - "version.properties"
   workflow_dispatch:
 permissions: {}
 jobs:

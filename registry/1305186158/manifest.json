@@ -16,7 +16,7 @@
       "centralized": true,
       "name": "Graffux Android GitHub Release",
       "registry_source": "registry/1305186158/android-github-release-57374b22.source.yml",
-      "source_sha256": "97e2b8b6472956f02d536fbcc54690e537691dfecf6034cb5ae95c6ea1af9562",
+      "source_sha256": "cfe7dd1864cf73f23cbd4f295fc87e0ee8e66e479c0339289834d3743bd3905b",
       "status": "active",
       "updated_at": "2026-10-19T23:52:50+00:00"
     },
@@ -158,13 +158,11 @@
     },
     ".github/workflows/release-aab.yml": {
       "binding": "repository",
-      "central_workflow": ".github/workflows/graffux-release-aab.yml",
-      "centralized": true,
-      "implementation_sha256": "1003b8ff1ea31195c0791d67f319ed18fc0c293138e6914003a5653ec72b5cdf",
       "name": "Release AAB to Play",
+      "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/1305186158/release-aab-b108bf8f.source.yml",
       "source_sha256": "f0b5d5091bb2d2372b65116ee9d154f0fe03ed641d3693436525ff618f47f22a",
-      "status": "active",
+      "status": "obsolete",
       "updated_at": "2026-10-17T03:33:45+00:00"
     },
     ".github/workflows/release-apk.yml": {

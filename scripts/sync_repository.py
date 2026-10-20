@@ -594,6 +594,23 @@ def _stage_trackers(
         )
 
 
+def _stage_retired_removals(
+    manifest: dict,
+    staged: dict[str, tuple[str | None, str]],
+) -> None:
+    """Stage the deletion of every `retired` workflow's file in the target repository.
+
+    `retired` is the durable "this workflow is gone for good" state. Unlike `obsolete`, which only
+    records that a file went missing and is revived if one reappears, a retired entry is never
+    re-registered and its file is removed whenever it is found. The commit step only deletes paths
+    that exist, so listing one that is already gone is a no-op.
+    """
+
+    for path, entry in sorted((manifest.get("workflows") or {}).items()):
+        if isinstance(entry, dict) and entry.get("status") == "retired":
+            staged[path] = (None, f"Remove retired workflow {path}")
+
+
 def _prune_rebound_repository_workflows(
     gh,
     repository: str,
@@ -1036,6 +1053,7 @@ def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
         result = _base_sync_repository(gh, repository, "", dry_run)
         finalize_manifest(gh, core, int(result["repository_id"]), dry_run=dry_run)
         _stage_trackers(gh, core.load_manifest(gh, repository_id), staged_target_files)
+        _stage_retired_removals(core.load_manifest(gh, repository_id), staged_target_files)
     finally:
         gh.put_file = original_put_file
 

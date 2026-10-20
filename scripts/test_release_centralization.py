@@ -240,7 +240,7 @@ _graffux_manifest = _json.loads(
     Path("registry/1305186158/manifest.json").read_text(encoding="utf-8")
 )
 _graffux_flows = _graffux_manifest["workflows"]
-assert _graffux_flows[".github/workflows/release-aab.yml"]["status"] == "obsolete"
+assert _graffux_flows[".github/workflows/release-aab.yml"]["status"] == "retired"
 assert "central_workflow" not in _graffux_flows[".github/workflows/release-aab.yml"]
 assert _graffux_flows[".github/workflows/android-play-release.yml"]["status"] == "active"
 assert _graffux_flows[".github/workflows/android-github-release.yml"]["status"] == "active"
@@ -300,6 +300,26 @@ assert list(_staged) == ['.github/workflows/release-aab.yml'], _staged
 _restored = _staged['.github/workflows/release-aab.yml'][0]
 assert _restored is not None and TRACKER_MARKER in _restored
 assert list(load_yaml(_restored)['jobs']) == ['central']
+
+
+# A retired workflow never gets a tracker, and its file is staged for removal wherever it reappears.
+_retired_staged = {}
+_sync._stage_trackers(
+    _FakeGitHub({}),
+    {'workflows': {'.github/workflows/release-aab.yml': {'status': 'retired', 'central_workflow': '.github/workflows/x.yml', 'registry_source': 'r', 'source_sha256': 's'}}},
+    _retired_staged,
+)
+assert _retired_staged == {}, _retired_staged
+_sync._stage_retired_removals(
+    {'workflows': {
+        '.github/workflows/release-aab.yml': {'status': 'retired'},
+        '.github/workflows/android-play-release.yml': {'status': 'active'},
+        '.github/workflows/old.yml': {'status': 'obsolete'},
+    }},
+    _retired_staged,
+)
+assert list(_retired_staged) == ['.github/workflows/release-aab.yml'], _retired_staged
+assert _retired_staged['.github/workflows/release-aab.yml'][0] is None
 
 
 # Hosted ARCore API authorization is passed only to opted-in release builds.

@@ -37,6 +37,7 @@ Project-local scripts and composite actions remain in the project. A central exe
 - **local / ci** — target CI (`ci: true`). Runs in the target repository by design and reports progress centrally; never centralized. See [CI runs in its own repository](../README.md#ci-runs-in-its-own-repository).
 - **local** — not yet safe to centralize. The blocker is explicit and must be fixed; this is a migration state, not the desired endpoint.
 - **blocked/disabled** — intentionally prevented from executing.
+- **retired** — deliberately removed for good. The sync never re-registers it and deletes its file from the target repository whenever one appears (a tracker restored while the entry was still active, a hand-made copy). Use it instead of `obsolete`, which only records that a file went missing and is revived if one comes back.
 
 A workflow that combines `workflow_call` with real triggers such as `push` is not automatically a library. Its automatic behavior is centralized; only pure `workflow_call` helpers receive library treatment.
 

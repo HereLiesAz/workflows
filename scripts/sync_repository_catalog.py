@@ -1117,8 +1117,14 @@ def sync_repository(gh: GitHub, full_name: str, worker_url: str, dry_run: bool =
         if item.get("type") != "file" or not path.endswith((".yml", ".yaml")):
             continue
 
-        visible_text, _ = gh.get_file(repo["full_name"], path)
         prior_state = workflows_manifest.get(path)
+        # A retired workflow is never re-registered, even though a file for it is back in the
+        # target (a tracker restored while the entry was still active, or a hand-made copy).
+        # `sync_repository` removes that file; nothing here may revive the entry.
+        if isinstance(prior_state, dict) and prior_state.get("status") == "retired":
+            results.append({"path": path, "status": "retired"})
+            continue
+        visible_text, _ = gh.get_file(repo["full_name"], path)
         is_proxy = visible_text.startswith(PROXY_MARKER)
         source_text = visible_text
         if is_proxy:

@@ -48,7 +48,8 @@ OBSOLETE_RUNTIME = {
     ".github/workflows/migrate-semantic-library.yml",
     ".github/workflows/repair-release-centralization.yml",
 }
-GLOBAL_SECRETS = {"GH_TOKEN", "GITHUB_TOKEN"}
+# Central-repository secrets, never per-target: GH_APP_ID / GH_PRIVATE_KEY mint the App token for target Check Runs.
+GLOBAL_SECRETS = {"GH_TOKEN", "GITHUB_TOKEN", "GH_APP_ID", "GH_PRIVATE_KEY"}
 HASH_JOB_RE = re.compile(r"^v_[0-9a-f]{16}__")
 SECRET_RE = re.compile(r"secrets\.([A-Za-z_][A-Za-z0-9_]*)")
 _yaml = YAML(typ="safe")

@@ -26,6 +26,11 @@ except ImportError:
     import generate_event_consumers as event_consumers
 
 try:
+    from .target_check_run import add_target_check_steps
+except ImportError:
+    from target_check_run import add_target_check_steps
+
+try:
     from .version_contract import (
         Version,
         parse_state,
@@ -358,6 +363,9 @@ payload="$(jq -n --arg state "$state" --arg context "$STATUS_CONTEXT" --arg desc
 gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input - <<<"$payload"''',
         }
     ]
+
+    # Statuses stay authoritative; Check Runs mirror them so watchers of the target wake on check_run.
+    add_target_check_steps(jobs)
 
     return dump_yaml(doc)
 

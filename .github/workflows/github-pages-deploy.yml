@@ -1,0 +1,279 @@
+# workflow-policy: generalized-v1
+# workflow-purpose: Build a repository's static site with a profile-defined command and publish the output to that repository's own GitHub Pages, from a branch the workflow manages.
+# required-secret: GH_TOKEN | Central GitHub token used to push the built site to the target's Pages branch, configure the target's Pages source, and report its commit status.
+# required-secret: GH_APP_ID | GitHub App that writes the Check Run mirroring this run onto the target commit.
+# required-secret: GH_PRIVATE_KEY | Private key of that GitHub App, used to mint its installation token.
+#
+# actions/deploy-pages can only publish to the repository the run lives in, so a central run
+# publishes the classic way: it force-pushes the build output as the single commit of the
+# target's Pages branch and points the target's Pages source at that branch.
+#
+# Purpose profile (semantic_catalog.PURPOSE_PROFILES, keyed by the target source hash):
+#   build_command  required  shell command run at the target checkout root
+#   site_dir       required  directory, relative to the checkout, that the command writes the site to
+#   java_version   optional  sets up Temurin + Gradle when present
+#   node_version   optional  sets up Node when present
+#   pages_branch   optional  branch that holds the published site (default gh-pages)
+#
+# The build job runs the project's own code and holds no credential; the publish job holds the
+# token and never runs project code.
+name: GitHub Pages Deploy
+run-name: ${{ inputs.target_repository }} · GitHub Pages Deploy · ${{ inputs.target_sha }}
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        required: true
+        type: string
+      target_repository_id:
+        required: true
+        type: string
+      target_repository_owner_id:
+        required: true
+        type: string
+      target_sha:
+        required: true
+        type: string
+      target_check_sha:
+        required: true
+        type: string
+      target_workflow_name:
+        required: true
+        type: string
+      source_workflow_path:
+        required: true
+        type: string
+      target_repository_name:
+        required: true
+        type: string
+      purpose_profile_json:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages-deploy-${{ inputs.target_repository_id }}
+  cancel-in-progress: false
+
+env:
+  TARGET_REPOSITORY: ${{ inputs.target_repository }}
+  TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
+  TARGET_SHA: ${{ inputs.target_sha }}
+  TARGET_CHECK_SHA: ${{ inputs.target_check_sha }}
+  STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
+  DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+jobs:
+  policy_secret_preflight:
+    runs-on: ubuntu-latest
+    env:
+      REQUIRED_GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      REQUIRED_GH_APP_ID: ${{ secrets.GH_APP_ID }}
+      REQUIRED_GH_PRIVATE_KEY: ${{ secrets.GH_PRIVATE_KEY }}
+    steps:
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${REQUIRED_GH_TOKEN:-}" || {
+            echo "::error::Missing required secret GH_TOKEN — Central GitHub token used to push the built site to the target's Pages branch, configure the target's Pages source, and report its commit status."
+            exit 1
+          }
+          test -n "${REQUIRED_GH_APP_ID:-}" || {
+            echo "::error::Missing required secret GH_APP_ID — GitHub App that writes the Check Run mirroring this run onto the target commit."
+            exit 1
+          }
+          test -n "${REQUIRED_GH_PRIVATE_KEY:-}" || {
+            echo "::error::Missing required secret GH_PRIVATE_KEY — Private key of that GitHub App, used to mint its installation token."
+            exit 1
+          }
+
+  central_check_start:
+    needs: policy_secret_preflight
+    runs-on: ubuntu-latest
+    outputs:
+      build_command: ${{ steps.profile.outputs.build_command }}
+      site_dir: ${{ steps.profile.outputs.site_dir }}
+      java_version: ${{ steps.profile.outputs.java_version }}
+      node_version: ${{ steps.profile.outputs.node_version }}
+      pages_branch: ${{ steps.profile.outputs.pages_branch }}
+    steps:
+      - name: Validate inputs and immutable target identity
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          OWNER_ID: ${{ inputs.target_repository_owner_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::target_sha is not a commit SHA"; exit 1; }
+          repo_json="$(gh api "repos/${TARGET_REPOSITORY}")"
+          [[ "$(jq -r '.id' <<<"$repo_json")" == "$TARGET_REPOSITORY_ID" ]] || { echo "::error::Repository ID mismatch"; exit 1; }
+          [[ "$(jq -r '.owner.id' <<<"$repo_json")" == "103241502" && "$OWNER_ID" == "103241502" ]] || { echo "::error::Repository is not owned by HereLiesAz"; exit 1; }
+          [[ "$(jq -r '.private' <<<"$repo_json")" == "false" ]] || { echo "::error::Only public repositories are served"; exit 1; }
+
+      - name: Resolve deploy profile
+        id: profile
+        env:
+          PROFILE_JSON: ${{ inputs.purpose_profile_json }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_command="$(jq -r '.build_command // empty' <<<"$PROFILE_JSON")"
+          site_dir="$(jq -r '.site_dir // empty' <<<"$PROFILE_JSON")"
+          java_version="$(jq -r '.java_version // empty' <<<"$PROFILE_JSON")"
+          node_version="$(jq -r '.node_version // empty' <<<"$PROFILE_JSON")"
+          pages_branch="$(jq -r '.pages_branch // "gh-pages"' <<<"$PROFILE_JSON")"
+          [[ -n "$build_command" ]] || { echo "::error::Profile has no build_command"; exit 1; }
+          [[ "$site_dir" =~ ^[A-Za-z0-9._/-]+$ && "$site_dir" != /* && "/$site_dir/" != */../* ]] || { echo "::error::site_dir must be a relative path inside the repository"; exit 1; }
+          [[ -z "$java_version" || "$java_version" =~ ^[0-9]+$ ]] || { echo "::error::java_version is invalid"; exit 1; }
+          [[ -z "$node_version" || "$node_version" =~ ^[0-9.x]+$ ]] || { echo "::error::node_version is invalid"; exit 1; }
+          [[ "$pages_branch" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "::error::pages_branch is invalid"; exit 1; }
+          {
+            echo "build_command<<__PROFILE_EOF__"
+            echo "$build_command"
+            echo "__PROFILE_EOF__"
+            echo "site_dir=$site_dir"
+            echo "java_version=$java_version"
+            echo "node_version=$node_version"
+            echo "pages_branch=$pages_branch"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set target status pending
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -n --arg context "$STATUS_CONTEXT" --arg target_url "$DETAILS_URL" \
+            '{state:"pending",context:$context,description:"Building and publishing to GitHub Pages centrally.",target_url:$target_url}' \
+            | gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input -
+
+  build:
+    needs: central_check_start
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out target
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          persist-credentials: false
+
+      - if: ${{ needs.central_check_start.outputs.java_version != '' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ needs.central_check_start.outputs.java_version }}
+
+      - if: ${{ needs.central_check_start.outputs.java_version != '' }}
+        uses: gradle/actions/setup-gradle@v4
+
+      - if: ${{ needs.central_check_start.outputs.node_version != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ needs.central_check_start.outputs.node_version }}
+
+      - name: Build
+        env:
+          BUILD_COMMAND: ${{ needs.central_check_start.outputs.build_command }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -euo pipefail -c "$BUILD_COMMAND"
+
+      # Secret-shaped names never leave the runner, whatever the build wrote.
+      - name: Stage site
+        env:
+          SITE_DIR: ${{ needs.central_check_start.outputs.site_dir }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -d "$SITE_DIR" ]] || { echo "::error::The build did not produce $SITE_DIR"; exit 1; }
+          site="$RUNNER_TEMP/site"
+          mkdir -p "$site"
+          cp -R "$SITE_DIR/." "$site/"
+          mapfile -d '' leaked < <(find "$site" -mindepth 1 \( -name '.env*' -o -name '.git' \
+            -o -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -prune -print0)
+          if (( ${#leaked[@]} )); then
+            for path in "${leaked[@]}"; do echo "::warning::Not published: ${path#"$site"/}"; done
+            rm -rf -- "${leaked[@]}"
+          fi
+          [[ -f "$site/index.html" ]] || { echo "::error::The site has no index.html at its root"; exit 1; }
+          # Served as-is: underscore-prefixed paths and bundles must not go through Jekyll.
+          touch "$site/.nojekyll"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: ${{ runner.temp }}/site
+          include-hidden-files: true
+          retention-days: 1
+
+  publish:
+    needs: [central_check_start, build]
+    runs-on: ubuntu-latest
+    outputs:
+      site_url: ${{ steps.pages.outputs.site_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: ${{ runner.temp }}/site
+
+      - name: Push site to the Pages branch
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          PAGES_BRANCH: ${{ needs.central_check_start.outputs.pages_branch }}
+        working-directory: ${{ runner.temp }}/site
+        shell: bash
+        run: |
+          set -euo pipefail
+          # One orphan commit per deploy: the branch is output, not history.
+          git init -q -b "$PAGES_BRANCH"
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -qm "Deploy ${TARGET_SHA}"
+          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" \
+            push -q --force "https://github.com/${TARGET_REPOSITORY}.git" "HEAD:refs/heads/${PAGES_BRANCH}"
+
+      - name: Point Pages at the branch
+        id: pages
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          PAGES_BRANCH: ${{ needs.central_check_start.outputs.pages_branch }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$(jq -n --arg branch "$PAGES_BRANCH" '{build_type:"legacy",source:{branch:$branch,path:"/"}}')"
+          if current="$(gh api "repos/${TARGET_REPOSITORY}/pages" 2>/dev/null)"; then
+            if [[ "$(jq -r '.build_type' <<<"$current")" != "legacy" || "$(jq -r '.source.branch' <<<"$current")" != "$PAGES_BRANCH" || "$(jq -r '.source.path' <<<"$current")" != "/" ]]; then
+              gh api --method PUT "repos/${TARGET_REPOSITORY}/pages" --input - <<<"$body" >/dev/null
+            fi
+          else
+            gh api --method POST "repos/${TARGET_REPOSITORY}/pages" --input - <<<"$body" >/dev/null
+          fi
+          echo "site_url=$(gh api "repos/${TARGET_REPOSITORY}/pages" --jq '.html_url')" >> "$GITHUB_OUTPUT"
+
+  central_check_finish:
+    if: ${{ always() && needs.central_check_start.result == 'success' }}
+    needs: [central_check_start, build, publish]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete target status
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          PUBLISHED: ${{ needs.publish.result == 'success' }}
+          SITE_URL: ${{ needs.publish.outputs.site_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$PUBLISHED" == "true" ]]; then
+            state="success"; description="Published ${SITE_URL:-to GitHub Pages}"; target_url="${SITE_URL:-$DETAILS_URL}"
+          else
+            state="failure"; description="Build or publish failed; see the run."; target_url="$DETAILS_URL"
+          fi
+          jq -n --arg state "$state" --arg context "$STATUS_CONTEXT" --arg description "$description" --arg target_url "$target_url" \
+            '{state:$state,context:$context,description:$description,target_url:$target_url}' \
+            | gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" --input -

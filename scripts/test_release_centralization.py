@@ -346,3 +346,36 @@ for _path, _job_name, _step_name in (
     _build_step = next(s for s in _build_job["steps"] if s.get("name") == _step_name)
     assert _build_step["env"]["ARCORE_API_KEY"] == _arcore_expression
     assert "ARCORE_API_KEY" not in _build_step["run"]
+
+pages_source = '''
+name: bake
+on:
+  workflow_dispatch:
+jobs:
+  bake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to art-data
+        uses: peaceiris/actions-gh-pages@373f7f263a76c20808c831209c920827a82a2847
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public/data
+          publish_branch: art-data
+          keep_files: true
+'''
+pages_doc = load_yaml(compile_central(
+    pages_source,
+    {'full_name': 'HereLiesAz/fixture', 'private': False},
+    '.github/workflows/bake.yml',
+    'bake',
+))
+pages_step = next(
+    step for step in pages_doc['jobs']['bake']['steps']
+    if isinstance(step, dict)
+    and str(step.get('uses') or '').startswith('peaceiris/actions-gh-pages@')
+)
+assert pages_step['with']['external_repository'] == expression('inputs.target_repository')
+assert pages_step['with']['personal_token'] == expression('secrets.GH_TOKEN')
+assert 'github_token' not in pages_step['with']
+assert pages_step['with']['publish_branch'] == 'art-data'

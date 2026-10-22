@@ -183,7 +183,8 @@ jobs:
       - name: Deploy to art-data
         uses: peaceiris/actions-gh-pages@373f7f263a76c20808c831209c920827a82a2847
         with:
-          github_token: ${{ secrets.GH_TOKEN }}
+          external_repository: ${{ inputs.target_repository }}
+          personal_token: ${{ secrets.GH_TOKEN }}
           publish_dir: ./public/data
           publish_branch: art-data
           keep_files: true

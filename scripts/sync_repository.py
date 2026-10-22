@@ -277,6 +277,23 @@ def compile_central(source_text: str, target: dict, source_path: str, check_name
                     })
                     with_values["tag_name"] = central_expression("inputs.target_ref_name")
                 step["with"] = with_values
+            elif (
+                isinstance(step, dict)
+                and str(step.get("uses") or "").startswith("peaceiris/actions-gh-pages@")
+            ):
+                # Without external_repository the action publishes into the runner's own
+                # repository (this controller), so a centralized deploy would land on the
+                # controller's branch instead of the source repository's. Publishing to
+                # another repository needs a personal token, not github_token.
+                with_values = step.get("with")
+                if with_values is None:
+                    with_values = {}
+                if not isinstance(with_values, dict):
+                    raise ValueError("peaceiris/actions-gh-pages has non-mapping with: configuration")
+                with_values.pop("github_token", None)
+                with_values["external_repository"] = central_expression("inputs.target_repository")
+                with_values["personal_token"] = central_expression("secrets.GH_TOKEN")
+                step["with"] = with_values
             rewritten_steps.append(step)
         compiled_job["steps"] = rewritten_steps
 

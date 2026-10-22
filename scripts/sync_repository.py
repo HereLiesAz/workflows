@@ -26,9 +26,9 @@ except ImportError:
     import generate_event_consumers as event_consumers
 
 try:
-    from .target_check_run import add_target_check_steps
+    from .target_check_run import ISSUE_WORKFLOW_RE, add_target_check_steps
 except ImportError:
-    from target_check_run import add_target_check_steps
+    from target_check_run import ISSUE_WORKFLOW_RE, add_target_check_steps
 
 try:
     from .version_contract import (
@@ -365,7 +365,7 @@ gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}" -
     ]
 
     # Statuses stay authoritative; Check Runs mirror them so watchers of the target wake on check_run.
-    add_target_check_steps(jobs)
+    add_target_check_steps(jobs, bool(ISSUE_WORKFLOW_RE.search(f"{source_path} {check_name}")))
 
     return dump_yaml(doc)
 

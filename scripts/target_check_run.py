@@ -17,6 +17,7 @@ Usage (re-apply to every committed central workflow; idempotent):
 """
 from __future__ import annotations
 
+import re
 import sys
 from io import StringIO
 from pathlib import Path
@@ -62,11 +63,40 @@ else
 fi
 # Each phase posts its own Check Run under the same name; GitHub shows the latest one,
 # so the finish phase needs no id handed over from the start job.
-gh api --method POST "repos/${TARGET_REPOSITORY}/check-runs" --input - <<<"$body" >/dev/null || warn "GitHub refused the check run"
+gh api --method POST "repos/${TARGET_REPOSITORY}/check-runs" --input - <<<"$body" >/dev/null \
+  || echo "::warning::Target check run skipped: GitHub refused the check run"
+
+# Release/deploy workflows also keep one open issue per workflow while it fails:
+# opened on the first failure, commented on each repeat, closed by the next success.
+[[ "$CHECK_PHASE" == "finish" && "${FILE_ISSUES:-}" == "true" ]] || exit 0
+label="central-run-failure"
+issue_title="Central run failing: $CHECK_NAME"
+issue="$(gh api "repos/${TARGET_REPOSITORY}/issues?state=open&labels=${label}&per_page=100" 2>/dev/null \
+  | jq -r --arg t "$issue_title" '[.[] | select(.title == $t)][0].number // empty')"
+if [[ "$conclusion" == "failure" ]]; then
+  report="$(printf '%s\n\nCommit: %s\n\n%s\n' "$summary" "$TARGET_CHECK_SHA" "$text")"
+  if [[ -n "$issue" ]]; then
+    gh api --method POST "repos/${TARGET_REPOSITORY}/issues/${issue}/comments" -f body="$report" >/dev/null \
+      || warn "could not comment on issue #$issue"
+  else
+    gh api --method POST "repos/${TARGET_REPOSITORY}/labels" -f name="$label" -f color="000000" \
+      -f description="A release or deploy run in HereLiesAz/workflows failed for this repository." >/dev/null 2>&1
+    gh api --method POST "repos/${TARGET_REPOSITORY}/issues" -f title="$issue_title" -f body="$report" -f "labels[]=$label" >/dev/null \
+      || warn "could not open a failure issue"
+  fi
+elif [[ -n "$issue" ]]; then
+  gh api --method POST "repos/${TARGET_REPOSITORY}/issues/${issue}/comments" -f body="Fixed: $summary (commit $TARGET_CHECK_SHA)." >/dev/null
+  gh api --method PATCH "repos/${TARGET_REPOSITORY}/issues/${issue}" -f state=closed -f state_reason=completed >/dev/null \
+    || warn "could not close issue #$issue"
+fi
 '''
 
 
-def target_check_steps(phase: str) -> list[dict]:
+# Workflows whose failures also open an issue in the target repository.
+ISSUE_WORKFLOW_RE = re.compile(r"release|deploy", re.I)
+
+
+def target_check_steps(phase: str, file_issues: bool = False) -> list[dict]:
     """The two steps appended to central_check_start (phase=start) or central_check_finish (phase=finish)."""
     if phase not in {"start", "finish"}:
         raise ValueError(f"unknown phase {phase!r}")
@@ -79,6 +109,8 @@ def target_check_steps(phase: str) -> list[dict]:
     }
     if phase == "finish":
         env["FAILED"] = "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}"
+        if file_issues:
+            env["FILE_ISSUES"] = "true"
     return [
         {
             "name": MINT_STEP_NAME,
@@ -102,7 +134,7 @@ def target_check_steps(phase: str) -> list[dict]:
     ]
 
 
-def add_target_check_steps(jobs: dict) -> bool:
+def add_target_check_steps(jobs: dict, file_issues: bool = False) -> bool:
     """Append (or refresh) the check-run steps on a compiled workflow's reporting jobs. Returns True if changed."""
     changed = False
     for job_id, phase in (("central_check_start", "start"), ("central_check_finish", "finish")):
@@ -110,7 +142,7 @@ def add_target_check_steps(jobs: dict) -> bool:
         if not isinstance(job, dict):
             continue
         steps = [s for s in (job.get("steps") or []) if not (isinstance(s, dict) and s.get("name") in {MINT_STEP_NAME, POST_STEP_NAME})]
-        new_steps = steps + target_check_steps(phase)
+        new_steps = steps + target_check_steps(phase, file_issues)
         if list(job.get("steps") or []) != new_steps:
             job["steps"] = new_steps
             changed = True
@@ -177,7 +209,7 @@ def main(paths: list[str]) -> int:
         doc = y.load(text)
         updated = text
         jobs = doc.get("jobs") or {}
-        steps_changed = add_target_check_steps(jobs)
+        steps_changed = add_target_check_steps(jobs, bool(ISSUE_WORKFLOW_RE.search(path.name)))
         if add_preflight_checks(jobs) or steps_changed:
             out = StringIO()
             y.dump(doc, out)

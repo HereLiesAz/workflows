@@ -66,28 +66,22 @@ fi
 gh api --method POST "repos/${TARGET_REPOSITORY}/check-runs" --input - <<<"$body" >/dev/null \
   || echo "::warning::Target check run skipped: GitHub refused the check run"
 
-# Release/deploy workflows also keep one open issue per workflow while it fails:
-# opened on the first failure, commented on each repeat, closed by the next success.
-[[ "$CHECK_PHASE" == "finish" && "${FILE_ISSUES:-}" == "true" ]] || exit 0
+# Release/deploy failures also go to one open issue per workflow: opened on the
+# first failure, commented on each repeat. Successes never touch issues.
+[[ "$CHECK_PHASE" == "finish" && "${FILE_ISSUES:-}" == "true" && "${conclusion:-}" == "failure" ]] || exit 0
 label="central-run-failure"
 issue_title="Central run failing: $CHECK_NAME"
 issue="$(gh api "repos/${TARGET_REPOSITORY}/issues?state=open&labels=${label}&per_page=100" 2>/dev/null \
   | jq -r --arg t "$issue_title" '[.[] | select(.title == $t)][0].number // empty')"
-if [[ "$conclusion" == "failure" ]]; then
-  report="$(printf '%s\n\nCommit: %s\n\n%s\n' "$summary" "$TARGET_CHECK_SHA" "$text")"
-  if [[ -n "$issue" ]]; then
-    gh api --method POST "repos/${TARGET_REPOSITORY}/issues/${issue}/comments" -f body="$report" >/dev/null \
-      || warn "could not comment on issue #$issue"
-  else
-    gh api --method POST "repos/${TARGET_REPOSITORY}/labels" -f name="$label" -f color="000000" \
-      -f description="A release or deploy run in HereLiesAz/workflows failed for this repository." >/dev/null 2>&1
-    gh api --method POST "repos/${TARGET_REPOSITORY}/issues" -f title="$issue_title" -f body="$report" -f "labels[]=$label" >/dev/null \
-      || warn "could not open a failure issue"
-  fi
-elif [[ -n "$issue" ]]; then
-  gh api --method POST "repos/${TARGET_REPOSITORY}/issues/${issue}/comments" -f body="Fixed: $summary (commit $TARGET_CHECK_SHA)." >/dev/null
-  gh api --method PATCH "repos/${TARGET_REPOSITORY}/issues/${issue}" -f state=closed -f state_reason=completed >/dev/null \
-    || warn "could not close issue #$issue"
+report="$(printf '%s\n\nCommit: %s\n\n%s\n' "$summary" "$TARGET_CHECK_SHA" "$text")"
+if [[ -n "$issue" ]]; then
+  gh api --method POST "repos/${TARGET_REPOSITORY}/issues/${issue}/comments" -f body="$report" >/dev/null \
+    || warn "could not comment on issue #$issue"
+else
+  gh api --method POST "repos/${TARGET_REPOSITORY}/labels" -f name="$label" -f color="000000" \
+    -f description="A release or deploy run in HereLiesAz/workflows failed for this repository." >/dev/null 2>&1
+  gh api --method POST "repos/${TARGET_REPOSITORY}/issues" -f title="$issue_title" -f body="$report" -f "labels[]=$label" >/dev/null \
+    || warn "could not open a failure issue"
 fi
 '''
 

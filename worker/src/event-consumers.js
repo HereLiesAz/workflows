@@ -345,6 +345,12 @@ export const EVENT_CONSUMERS = {
       "push"
     ]
   },
+  "1051919467": {
+    "repository": "HereLiesAz/BarCodeNcrypt",
+    "events": [
+      "push"
+    ]
+  },
   "1058883325": {
     "repository": "HereLiesAz/HandJob",
     "events": [

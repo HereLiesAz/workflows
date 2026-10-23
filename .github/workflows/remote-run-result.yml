@@ -90,7 +90,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: python -m pip install --disable-pip-version-check kaggle 'ruamel.yaml==0.18.15'
+        run: python -m pip install --disable-pip-version-check 'kaggle==2.2.4' 'ruamel.yaml==0.18.15'
 
       - name: Resolve the purpose profile
         id: profile

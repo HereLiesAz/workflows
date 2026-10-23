@@ -1633,5 +1633,11 @@ export const EVENT_CONSUMERS = {
       "push",
       "workflow_dispatch"
     ]
+  },
+  "1429950641": {
+    "repository": "HereLiesAz/photo-unroll",
+    "events": [
+      "push"
+    ]
   }
 };

@@ -186,7 +186,7 @@ jobs:
       - name: Mint target check token
         id: target-check-token
         continue-on-error: true
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_PRIVATE_KEY }}
@@ -236,7 +236,7 @@ jobs:
       contents: read
     steps:
       - name: Check out target
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}
@@ -259,7 +259,7 @@ jobs:
             echo "EOF_OUTPUTS"
           } >> "$GITHUB_ENV"
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -300,7 +300,7 @@ jobs:
       deployment_url: ${{ steps.deploy.outputs.deployment_url }}
     steps:
       - name: Check out target
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}
@@ -320,7 +320,7 @@ jobs:
             echo "HAS_BUILD_OUTPUTS=$(jq -r '(.build_outputs // []) | length > 0' <<<"$PROFILE_JSON")"
           } >> "$GITHUB_ENV"
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -460,7 +460,7 @@ jobs:
       - name: Mint target check token
         id: target-check-token
         continue-on-error: true
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_PRIVATE_KEY }}

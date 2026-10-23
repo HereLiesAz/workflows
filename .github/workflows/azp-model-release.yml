@@ -108,7 +108,7 @@ jobs:
       - name: Mint target check token
         id: target-check-token
         continue-on-error: true
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_PRIVATE_KEY }}
@@ -157,13 +157,22 @@ jobs:
       TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
       TARGET_REF_NAME: ${{ inputs.target_ref_name }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      # Before any target code (npm install / build scripts) runs.
+      - name: Validate target release ref
+        if: ${{ inputs.target_ref_type != 'tag' }}
+        shell: bash
+        env:
+          TARGET_REF: ${{ inputs.target_ref }}
+        run: |
+          echo "::error::AZP model release requires a tag ref; got ${TARGET_REF}" >&2
+          exit 1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}
           token: ${{ secrets.GH_TOKEN }}
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '20'
       - name: Resolve model profile
@@ -214,11 +223,15 @@ jobs:
       - name: Validate target release ref
         if: ${{ inputs.target_ref_type != 'tag' }}
         shell: bash
+        env:
+          # Passed through the environment: a branch name can contain $( ), backticks and
+          # quotes, and ${{ }} is substituted into the script text before the shell parses it.
+          TARGET_REF: ${{ inputs.target_ref }}
         run: |
           echo "::error::AZP model release requires a tag ref; got ${TARGET_REF}" >&2
           exit 1
       - name: Publish release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           files: |
             *.azp
@@ -244,7 +257,7 @@ jobs:
       - name: Mint target check token
         id: target-check-token
         continue-on-error: true
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_PRIVATE_KEY }}

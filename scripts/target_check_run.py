@@ -25,7 +25,7 @@ from pathlib import Path
 from ruamel.yaml import YAML
 from ruamel.yaml.scalarstring import LiteralScalarString
 
-APP_TOKEN_ACTION = "actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1"
+APP_TOKEN_ACTION = "actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510"  # v3.3.0
 MINT_STEP_NAME = "Mint target check token"
 POST_STEP_NAME = "Post target check run"
 

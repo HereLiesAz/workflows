@@ -200,3 +200,30 @@ shell logic into target repositories.
 - `ci-status-dashboard.yml` — renders the `ci-status` branch dashboard from what target CI reported.
 
 Always run a **dry sync first** for a new repository. A repository is not considered converted until every classification has been reviewed and at least one centralized runtime path has been proven end to end.
+## Secret exposure and what protects it
+
+Repository-level secrets of this repository (`GH_TOKEN`, `GH_APP_ID`, `GH_PRIVATE_KEY`,
+`CLOUDFLARE_API_TOKEN`, …) are readable by **any workflow run on any branch** of it. Anyone who can
+push a branch here can add an `on: push` workflow on that branch, or dispatch an existing workflow at
+that branch with modified scripts, and read every repository-level secret. No workflow file can
+prevent that, because the attacker controls the file. Only repository settings can:
+
+1. **Rulesets** (Settings → Rules → Rulesets): restrict branch creation and updates to the owner
+   (or require pull requests for every branch, not only `main`), and block force-pushes and deletion
+   of `main`. That keeps untrusted code from ever running with this repository's secrets.
+2. **Environments with deployment branch policies** (Settings → Environments): move a secret out of
+   the repository level into an environment that allows only `main` (or protected branches). A job
+   then gets it only when it declares that `environment:` **and** runs from an allowed branch.
+   `android-play-release.yml`, `android-github-release.yml`, `azp-package-release.yml`,
+   `azphalt-registry-sync.yml` (signing) and `cloudflare-worker-deploy.yml` already run their
+   privileged jobs in a per-target environment; set a branch policy on each and keep Play, signing
+   and deploy credentials there, not at repository level.
+3. Keep the gateway, version-contract and check-start credentials (`GH_TOKEN`, `GH_APP_ID`,
+   `GH_PRIVATE_KEY`) scoped as narrowly as the PAT/App allows. Those jobs deliberately run without
+   an environment: environment secrets override repository secrets of the same name, which once
+   made the version-contract job silently pick a different `GH_TOKEN` (see
+   [Generalized workflow policy](docs/WORKFLOW_POLICY.md)). Adding `environment:` to them without
+   also moving the secrets and setting a branch policy would protect nothing.
+
+Every central dispatch (Worker, gateway, sync) targets `ref: main`, so a branch policy of "`main`
+only" does not affect normal operation.

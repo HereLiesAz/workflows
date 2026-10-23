@@ -38,7 +38,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Check out central controller
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install centralizer dependency
         run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
@@ -99,9 +99,9 @@ jobs:
       - name: Register webhooks and sync
         if: ${{ steps.targets.outputs.targets != '[]' && steps.targets.outputs.targets != '' }}
         env:
+          DRY_RUN: ${{ inputs.dry_run }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           TARGETS: ${{ steps.targets.outputs.targets }}
-          DRY_RUN: ${{ inputs.dry_run }}
         shell: bash
         run: |
           set -euo pipefail
@@ -125,7 +125,7 @@ jobs:
               --arg repository_id "$repository_id" \
               '{repository:$repository,repository_id:$repository_id}')"
 
-            if [[ "$DRY_RUN" == "true" ]]; then
+            if [[ "${DRY_RUN}" == "true" ]]; then
               echo "[dry-run] Would POST to ${WORKER_URL}/register with payload: ${payload}"
             else
               curl --fail-with-body --silent --show-error \
@@ -137,7 +137,7 @@ jobs:
 
             out="${RUNNER_TEMP}/sync-result-${repository##*/}.json"
             sync_args=(--repository "$repository" --worker-url "$WORKER_URL")
-            [[ "$DRY_RUN" == "true" ]] && sync_args+=(--dry-run)
+            [[ "${DRY_RUN}" == "true" ]] && sync_args+=(--dry-run)
 
             # Remember whether this is the repository's first registration: its pushes so
             # far never reached the gateway, so its push workflows are run once afterwards.
@@ -157,7 +157,7 @@ jobs:
               # fetched the file just before that other commit landed. Retry with a
               # fresh GET each attempt instead of failing the whole sync on a
               # transient, self-inflicted race.
-              if [[ "$DRY_RUN" != "true" ]]; then
+              if [[ "${DRY_RUN}" != "true" ]]; then
                 manifest_path="registry/${repository_id}/manifest.json"
                 stamped="false"
                 for stamp_attempt in 1 2 3 4 5; do
@@ -189,7 +189,7 @@ jobs:
                 fi
               fi
 
-              if [[ "$first_registration" == "true" && "$DRY_RUN" != "true" ]]; then
+              if [[ "$first_registration" == "true" && "${DRY_RUN}" != "true" ]]; then
                 if python scripts/dispatch_manual.py --repository "$repository" --catch-up; then
                   echo "Started first run of ${repository}'s push workflows"
                 else

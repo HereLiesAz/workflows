@@ -1,12 +1,12 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { applyReport, applyWebhookEvent, ciWorkflowForEvent, reportFromClaims, updateLedger } from "./ci-status.js";
 import { receiveCrashReport } from "./crash-report.js";
+import { claimOnce } from "./once.js";
 import { receiveTestReport } from "./test-report.js";
 import { EVENT_CONSUMERS } from "./event-consumers.js";
 import { pushDropReason, webhookDropReason } from "./event-filter.js";
 import { createRemoteRunToken, markRemoteRunJtiUsed, remoteRunJtiIsFresh, newRemoteRunJti, normalizeRemoteRunState, sanitizeStatusDescription, verifyRemoteRunToken } from "./remote-run.js";
 import { receiveWebDeploy } from "./web-deploy.js";
-import { isDuplicateDelivery, markDelivery } from "./webhook-dedupe.js";
 
 const GITHUB_ISSUER = "https://token.actions.githubusercontent.com";
 const GITHUB_JWKS = "https://token.actions.githubusercontent.com/.well-known/jwks";
@@ -125,6 +125,13 @@ export default {
       }
       const crashRoute = url.pathname.match(/^\/crash-report\/([A-Za-z0-9_.-]{1,100})$/);
       if (request.method === "POST" && crashRoute) {
+        // The report keys are public constants ("spam filter, not a secret"), and each new
+        // stack signature files a GitHub issue through the shared App token. With a
+        // WEBHOOK_SEEN KV bound, allow one report per client per 10 s window.
+        const client = request.headers.get("CF-Connecting-IP") || "unknown";
+        if (!(await claimOnce(env.WEBHOOK_SEEN, `crash:${client}:${Math.floor(Date.now() / 10000)}`, 60))) {
+          return json({ ok: false, error: "Too many crash reports; try again shortly" }, 429);
+        }
         return await receiveCrashReport(request, crashRoute[1], (path, method, body) =>
           githubApi(env, path, method, body));
       }
@@ -321,11 +328,13 @@ async function receiveRepositoryWebhook(request, env) {
     return json({ ok: true, pong: true, zen: event.zen || "" });
   }
 
-  // GitHub redelivers the same body. Best effort (per data center): a replayed signed
-  // body is not forwarded twice. A delivery is marked only after it was handled, so a failed one
-  // can still be redelivered.
-  if (await isDuplicateDelivery(replayKey)) {
-    return json({ ok: true, duplicate: true, delivery }, 202);
+  // A validly signed delivery can be replayed by anyone who captured it, and each replay
+  // would dispatch the same (possibly paid) central run again. With a WEBHOOK_SEEN KV
+  // namespace bound, a signed body is accepted once per day; without one, behaviour is
+  // unchanged. The key is the body's digest, never the X-GitHub-Delivery header: the signature
+  // covers the body only, so a replay could otherwise change or drop the header to get a fresh key.
+  if (!(await claimOnce(env.WEBHOOK_SEEN, `body:${replayKey}`, 86400))) {
+    return json({ ok: true, duplicate: true, delivery });
   }
 
   // Target-repository CI runs locally; its run/job lifecycle is recorded on the ci-status ledger.
@@ -405,7 +414,6 @@ async function receiveRepositoryWebhook(request, env) {
   };
 
   await dispatchGateway(env, body);
-  await markDelivery(replayKey);
   return json({
     ok: true,
     repository: body.repository,

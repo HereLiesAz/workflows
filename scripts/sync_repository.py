@@ -193,7 +193,7 @@ def _version_contract_job() -> dict:
         "steps": [
             {
                 "name": "Checkout source revision",
-                "uses": "actions/checkout@v7",
+                "uses": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",  # v7.0.1
                 "with": {
                     "repository": "${{ inputs.target_repository }}",
                     "ref": "${{ inputs.target_sha }}",
@@ -249,6 +249,9 @@ def compile_central(source_text: str, target: dict, source_path: str, check_name
     def central_expression(body: str) -> str:
         return "${" + "{ " + body + " }}"
 
+    # Jobs whose peaceiris publish now authenticates with the personal token.
+    pages_publish_jobs: set[int] = set()
+
     # Repo-aware release actions must target the source repository, never the
     # controller repository.
     for compiled_job in jobs.values():
@@ -290,12 +293,36 @@ def compile_central(source_text: str, target: dict, source_path: str, check_name
                     with_values = {}
                 if not isinstance(with_values, dict):
                     raise ValueError("peaceiris/actions-gh-pages has non-mapping with: configuration")
-                with_values.pop("github_token", None)
-                with_values["external_repository"] = central_expression("inputs.target_repository")
-                with_values["personal_token"] = central_expression("secrets.GH_TOKEN")
+                if "external_repository" not in with_values:
+                    with_values.pop("github_token", None)
+                    with_values["external_repository"] = central_expression("inputs.target_repository")
+                    with_values["personal_token"] = central_expression("secrets.GH_TOKEN")
+                    pages_publish_jobs.add(id(compiled_job))
                 step["with"] = with_values
             rewritten_steps.append(step)
         compiled_job["steps"] = rewritten_steps
+
+    # The publish no longer uses the controller's GITHUB_TOKEN, so a job that kept
+    # `contents: write` only for it would hand that write scope to every other step
+    # (including target-repository scripts). Drop it when nothing else in the job
+    # pushes or releases.
+    for compiled_job in jobs.values():
+        if not isinstance(compiled_job, dict) or id(compiled_job) not in pages_publish_jobs:
+            continue
+        permissions = compiled_job.get("permissions")
+        if not isinstance(permissions, dict) or permissions.get("contents") != "write":
+            continue
+        other_writes = any(
+            isinstance(step, dict)
+            and (
+                str(step.get("uses") or "").startswith("softprops/action-gh-release@")
+                or "git push" in str(step.get("run") or "")
+                or "git commit" in str(step.get("run") or "")
+            )
+            for step in compiled_job.get("steps") or []
+        )
+        if not other_writes:
+            permissions["contents"] = "read"
 
     compiling_job_ids = [
         job_id
@@ -928,7 +955,19 @@ def _initial_repository_version(gh, repository: str, default_branch: str) -> tup
     return version, existing
 
 
+# Repositories whose version.properties has its own documented single writer. The sync never
+# normalizes or initializes their version files; that writer (run by their release workflow)
+# is the only one. Keyed by lower-cased owner/name.
+SELF_VERSIONED_REPOSITORIES = {
+    # RELEASING.md: tools/version.mjs is the only writer; app-release.yml's version job runs it.
+    "hereliesaz/azphalt": "tools/version.mjs",
+}
+
+
 def _ensure_version_contract(gh, repository: str, default_branch: str, dry_run: bool) -> dict:
+    writer = SELF_VERSIONED_REPOSITORIES.get(repository.casefold())
+    if writer:
+        return {"status": "self-versioned", "writer": writer, "properties_changed": False, "state_initialized": False}
     version, existing = _initial_repository_version(gh, repository, default_branch)
     normalized = render_properties(existing, version)
 

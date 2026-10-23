@@ -122,7 +122,7 @@ jobs:
       - name: Mint target check token
         id: target-check-token
         continue-on-error: true
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_PRIVATE_KEY }}
@@ -151,14 +151,14 @@ jobs:
       XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}
           token: ${{ secrets.GH_TOKEN }}
           persist-credentials: false
       - name: Check out pinned h2g2
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: HereLiesAz/conveyance-h2g2
           ref: 060231873e51d64082c43208a585a6ebb4a71ed5
@@ -166,7 +166,7 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           persist-credentials: false
       - name: Check out pinned Conveyance
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: HereLiesAz/Conveyance
           ref: ec32af47a3dbe36fc87cd4643c54121ed702579d
@@ -177,12 +177,12 @@ jobs:
         shell: bash
         run: "set -euo pipefail\n\nrequested=\"${AIVE_LIVE_PROVIDER:-}\"\nuse_ollama=false\n\nif [ -n \"$requested\" ] && [ \"$requested\" != \"ollama\" ]; then\n  case \"$requested\" in\n    openai) required=\"${OPENAI_API_KEY:-}\" ;;\n    anthropic) required=\"${ANTHROPIC_API_KEY:-}\" ;;\n    gemini) required=\"${GEMINI_API_KEY:-}\" ;;\n    xai) required=\"${XAI_API_KEY:-}\" ;;\n    # Keyless hosted providers: the test links them without a credential.\n    kilo|llm7|ovhcloud) required=\"keyless\" ;;\n    *)\n      echo \"::error::AIVE_LIVE_PROVIDER must be one of: openai, anthropic, gemini, xai, ollama, kilo, llm7, ovhcloud\"\n      exit 1\n      ;;\n  esac\n  test -n \"$required\" || {\n    echo \"::error::The requested provider '$requested' has no configured credential.\"\n    exit 1\n  }\nelif [ \"$requested\" = \"ollama\" ]; then\n  use_ollama=true\nelif [ -z \"${OPENAI_API_KEY:-}\" ] && [ -z \"${ANTHROPIC_API_KEY:-}\" ] && [ -z \"${GEMINI_API_KEY:-}\" ] && [ -z \"${XAI_API_KEY:-}\" ]; then\n  use_ollama=true\nfi\n\nif [ \"$use_ollama\" = true ]; then\n  echo \"No hosted-provider credential selected; bootstrapping real local Ollama inference.\"\n  curl -fsSL https://ollama.com/install.sh | sh\n  nohup env OLLAMA_HOST=127.0.0.1:11434 ollama serve >\"${RUNNER_TEMP}/ollama.log\" 2>&1 &\n  for attempt in $(seq 1 60); do\n    if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null; then\n      break\n    fi\n    if [ \"$attempt\" -eq 60 ]; then\n      cat \"${RUNNER_TEMP}/ollama.log\" || true\n      echo \"::error::Ollama did not become ready.\"\n      exit 1\n    fi\n    sleep 1\n  done\n  ollama pull smollm2:135m-instruct-q2_K\n\n  echo \"AIVE_LIVE_PROVIDER=ollama\" >> \"$GITHUB_ENV\"\n  echo \"AIVE_LIVE_OLLAMA_BASE_URL=http://127.0.0.1:11434/v1\" >> \"$GITHUB_ENV\"\n  echo \"AIVE_LIVE_OLLAMA_MODEL=smollm2:135m-instruct-q2_K\" >> \"$GITHUB_ENV\"\n\n  response=\"$(curl -fsS http://127.0.0.1:11434/v1/chat/completions \\\n    -H 'Content-Type: application/json' \\\n    -d '{\"model\":\"smollm2:135m-instruct-q2_K\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with OK.\"}],\"stream\":false}')\"\n  python - \"$response\" <<'PY'\nimport json\nimport sys\n\npayload = json.loads(sys.argv[1])\ntext = payload[\"choices\"][0][\"message\"][\"content\"].strip()\nif not text:\n    raise SystemExit(\"Ollama smoke response contained no assistant text\")\nprint(\"Ollama live provider ready:\", text[:120])\nPY\nfi\n"
       - name: Set up JDK 21
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: '21'
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
       - name: Run live runtime lifecycle verification
         run: "./gradlew \\\n  :providers:llm:desktopTest \\\n  --tests com.hereliesaz.geministrator.providers.llm.ProviderNeutralLiveRuntimeVerificationTest \\\n  --no-daemon \\\n  --stacktrace\n"
       - name: Print live verification report on failure
@@ -211,7 +211,7 @@ jobs:
       - name: Mint target check token
         id: target-check-token
         continue-on-error: true
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_PRIVATE_KEY }}

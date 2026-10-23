@@ -15,9 +15,14 @@ short TTL is the only bound on replay.
 
 ## Webhook de-duplication
 
-`/webhook` skips a repeated `X-GitHub-Delivery` id using the Workers Cache API. It is per data
-center and lasts an hour, a best-effort guard rather than exactly-once delivery. A delivery is
-marked only after it was handled.
+With a `WEBHOOK_SEEN` KV namespace bound, `/webhook` accepts a given signed body once per day. The
+key is the SHA-256 of the body, not the `X-GitHub-Delivery` header, which the signature does not cover.
+KV has no compare-and-swap, so this stops replays and floods, not races, and a body is claimed before it
+is dispatched. Without the binding nothing is deduplicated.
+
+The remote-run callback token is single-use when `REMOTE_RUN_JTI` is bound: it is checked first and
+recorded only after the finalizer dispatch succeeded, so a malformed or failed first attempt does not
+burn it.
 
 ## Error bodies
 

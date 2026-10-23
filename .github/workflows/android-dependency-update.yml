@@ -85,6 +85,10 @@ on:
         default: '{}'
 # One run per app per workflow: a newer dispatch waits for the running one (never cancels it
 # mid-publish; Play allows a single open Edit per app).
+# Least privilege: jobs that need more declare it themselves.
+permissions:
+  contents: read
+
 concurrency:
   group: android-dependency-update-${{ inputs.target_repository_name }}
   cancel-in-progress: false

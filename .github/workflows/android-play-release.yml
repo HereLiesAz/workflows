@@ -85,9 +85,16 @@ on:
         default: '{}'
 # One run per app per workflow: a newer dispatch waits for the running one (never cancels it
 # mid-publish; Play allows a single open Edit per app).
+# Least privilege: jobs that need more declare it themselves.
+permissions:
+  contents: read
+
 concurrency:
   group: android-play-release-${{ inputs.target_repository_name }}
   cancel-in-progress: false
+env:
+  TARGET_REPOSITORY_NAME: ${{ inputs.target_repository_name }}
+
 jobs:
   central_check_start:
     runs-on: ubuntu-latest
@@ -475,6 +482,7 @@ jobs:
           fi
 
       - name: Prepare signing keystore
+        if: ${{ inputs.target_event_name != 'pull_request' }}
         env:
           KEYSTORE_RAW: ${{ secrets.KEYSTORE_RAW }}
           KEYSTORE_PRIVATE: ${{ secrets.KEYSTORE_PRIVATE }}
@@ -668,7 +676,7 @@ jobs:
       # target ships symbols inside the AAB (BUNDLE-METADATA), which Play reads on upload.
       # Profile key native_debug_symbols: FULL (default), SYMBOL_TABLE or NONE.
       - name: Package native debug symbols
-        if: ${{ env.NATIVE_DEBUG_SYMBOL_LEVEL != 'NONE' }}
+        if: ${{ inputs.target_event_name != 'pull_request' && (env.NATIVE_DEBUG_SYMBOL_LEVEL != 'NONE') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -688,6 +696,7 @@ jobs:
           GRADLE
 
       - name: Build signed AAB
+        if: ${{ inputs.target_event_name != 'pull_request' }}
         env:
           KEYSTORE_FILE: ${{ github.workspace }}/app/keystore.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -747,11 +756,12 @@ jobs:
       # Profile key post_build_command: project-specific checks on the built bundle (AAB_PATH is set)
       # before anything is uploaded or published.
       - name: Verify project-specific release outputs
-        if: ${{ env.POST_BUILD_COMMAND != '' }}
+        if: ${{ inputs.target_event_name != 'pull_request' && (env.POST_BUILD_COMMAND != '') }}
         shell: bash
         run: bash -eo pipefail -c "$POST_BUILD_COMMAND"
 
       - name: Resolve required mapping.txt
+        if: ${{ inputs.target_event_name != 'pull_request' }}
         id: mapping
         uses: HereLiesAz/workflows/.github/actions/resolve-android-mapping@main
         with:
@@ -775,7 +785,7 @@ jobs:
           if-no-files-found: error
 
       - name: Verify bundle declares no AD_ID permission
-        if: ${{ env.AD_ID_CHECK == 'true' }}
+        if: ${{ inputs.target_event_name != 'pull_request' && (env.AD_ID_CHECK == 'true') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -795,7 +805,7 @@ jobs:
 
       - name: Publish bundle to configured Play tracks
         id: play
-        if: ${{ env.PUBLISH_PLAY == 'true' }}
+        if: ${{ inputs.target_event_name != 'pull_request' && (env.PUBLISH_PLAY == 'true') }}
         env:
           PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           PACKAGE_NAME: ${{ steps.meta.outputs.package_name }}
@@ -1122,7 +1132,7 @@ jobs:
           github-token: ${{ steps.target-token.outputs.token }}
 
       - name: Publish built release assets to GitHub
-        if: ${{ env.PUBLISH_BUILT_GITHUB_RELEASE == 'true' }}
+        if: ${{ inputs.target_event_name != 'pull_request' && (env.PUBLISH_BUILT_GITHUB_RELEASE == 'true') }}
         env:
           TARGET_REPOSITORY_NAME: ${{ inputs.target_repository_name }}
           GH_TOKEN: ${{ steps.target-token.outputs.token }}
@@ -1175,7 +1185,7 @@ jobs:
             gh release create "$tag" "${assets[@]}" --repo "$TARGET_REPOSITORY" --target "$TARGET_SHA" --title "$title" --notes "$notes"
           fi
       - name: Build universal APK from published bundle
-        if: ${{ env.PUBLISH_GITHUB_RELEASE == 'true' }}
+        if: ${{ inputs.target_event_name != 'pull_request' && (env.PUBLISH_GITHUB_RELEASE == 'true') }}
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -1196,7 +1206,7 @@ jobs:
 
       - name: Stage immutable release for Play build
         id: play_release
-        if: ${{ env.PUBLISH_GITHUB_RELEASE == 'true' }}
+        if: ${{ inputs.target_event_name != 'pull_request' && (env.PUBLISH_GITHUB_RELEASE == 'true') }}
         shell: bash
         env:
           TARGET_REPOSITORY_NAME: ${{ inputs.target_repository_name }}
@@ -1224,7 +1234,7 @@ jobs:
           echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
 
       - name: Publish patch-grouped GitHub release for Play build
-        if: ${{ env.PUBLISH_GITHUB_RELEASE == 'true' }}
+        if: ${{ inputs.target_event_name != 'pull_request' && (env.PUBLISH_GITHUB_RELEASE == 'true') }}
         uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@main
         with:
           github-token: ${{ steps.target-token.outputs.token }}

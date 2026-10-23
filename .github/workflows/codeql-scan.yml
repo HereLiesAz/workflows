@@ -83,6 +83,10 @@ on:
         required: false
         type: string
         default: '{}'
+# Least privilege: jobs that need more declare it themselves.
+permissions:
+  contents: read
+
 jobs:
   central_check_start:
     runs-on: ubuntu-latest

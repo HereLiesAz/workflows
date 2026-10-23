@@ -424,7 +424,7 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
     # illumera desktop and TV packages (HereLiesAz/illumera:.github/workflows/desktop-release.yml).
     "7d870343f471c1c3f1a3d2e0a6712af45c74b500a3b0b32f6069ac3493eb09c0": {"serialize": False, "prepare_node_version": "22", "prepare_command": "version=\"$(node -p \"require('./desktop/package.json').version.split('.').slice(0, 2).join('.')\").${TARGET_RUN_NUMBER:-$GITHUB_RUN_NUMBER}\"\ntest -n \"$version\" || { echo \"::error::could not read desktop/package.json version\" >&2; exit 1; }\necho \"version=$version\" >> \"$GITHUB_OUTPUT\"\necho \"tag=desktop-v$version\" >> \"$GITHUB_OUTPUT\"", "matrix": {"include": [{"os": "ubuntu-latest", "node_version": "22", "artifact_name": "desktop-linux", "prepare": "sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf", "build": "cd desktop && npm ci && npm run fetch-torrserver && npx tauri build --bundles deb,appimage", "artifact_path": "desktop/src-tauri/target/release/bundle/deb/*.deb\ndesktop/src-tauri/target/release/bundle/appimage/*.AppImage"}, {"os": "macos-latest", "node_version": "22", "artifact_name": "desktop-macos", "build": "cd desktop && npm ci && npm run fetch-torrserver && npx tauri build --bundles dmg", "artifact_path": "desktop/src-tauri/target/release/bundle/dmg/*.dmg"}, {"os": "windows-latest", "node_version": "22", "shell": "pwsh", "artifact_name": "desktop-windows", "build": "$ErrorActionPreference = 'Stop'; Set-Location desktop; npm ci; if ($LASTEXITCODE) { exit $LASTEXITCODE }; npm run fetch-torrserver; if ($LASTEXITCODE) { exit $LASTEXITCODE }; npx tauri build --bundles nsis; exit $LASTEXITCODE", "artifact_path": "desktop/src-tauri/target/release/bundle/nsis/*.exe"}, {"os": "ubuntu-latest", "node_version": "22", "artifact_name": "tv-packages", "build": "cd web && npm ci && npm run package:webos && npm run package:tizen && cd ../roku && npm ci && npm test && npm run package", "artifact_path": "web/packages/*\nroku/packages/*"}]}, "allow_partial": True, "release_when": "always", "tag_mode": "prepare-output", "force_tag": False, "prerelease": True, "title_template": "illumera desktop & TV $VERSION", "body_template": "Desktop (Windows .exe, macOS Apple-silicon .dmg, Linux .deb/.AppImage) and TV (LG webOS .ipk, unsigned Samsung Tizen .wgt, sideloadable Roku .zip) builds from commit $BUILD_SHA. The desktop app bundles TorrServer (GPL-3.0, https://github.com/YouROK/TorrServer) for torrent playback. The macOS build is unsigned: right-click the app and choose Open the first time."},
     # illumera's web app: a Vite build in web/ served as Worker static assets.
-    "a90a3f56cdc247d4df2f4a53a7f68a18123e71759f2b88d0e5fa0bb97df18034": {"working_directory": "web", "test_command": "npm test && npm run build", "worker_secrets": ["TRAKT_CLIENT_ID", "TRAKT_CLIENT_SECRET"]},
+    "a90a3f56cdc247d4df2f4a53a7f68a18123e71759f2b88d0e5fa0bb97df18034": {"working_directory": "web", "test_command": "npm test && npm run build", "build_outputs": ["web/dist"], "worker_secrets": ["TRAKT_CLIENT_ID", "TRAKT_CLIENT_SECRET"]},
     # CueDetat's training-capture relay: a Worker in ml/capture-relay with its own npm test.
     "cc3b3d2f63a2ff31d475af991e561c7ff8003b432b51c8b1c41a084ad82c0171": {"working_directory": "ml/capture-relay", "test_command": "npm test"},
     # MeatPiety data worker (worker/; no npm dependencies).
@@ -436,6 +436,7 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
     "270461827e058812404e79e1f6741b59888a5add8c36388e1e61f645a65eaf7d": {
         "working_directory": "apps/storefront-worker",
         "node_version": "24",
+        "build_outputs": ["apps/storefront-worker/dist"],
         "install_command": "corepack enable && cd ../.. && pnpm install --frozen-lockfile",
         "test_command": "cd ../.. && pnpm --filter \"@azphalt/storefront-worker...\" build && pnpm --filter @azphalt/storefront-worker typecheck && pnpm --filter @azphalt/storefront-worker test && jq -e 'any(.[]; .id == \"com.hereliesaz.haive.feature-delivery\" and .kind == \"workflow\") and any(.[]; .id == \"com.hereliesaz.haive.role.ux-researcher\" and .kind == \"role\")' apps/storefront-worker/dist/catalog.json >/dev/null",
         "verify_command": "node scripts/verify-deployment.mjs \"$DEPLOYMENT_URL\"",
@@ -588,7 +589,7 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
         "setup_command": "python -m pip install --upgrade pip\npip install -e \".[train,test]\"",
         "command": "pytest -q\nonwordly-kaggle",
         "async_callback": True,
-        "callback_ttl_seconds": 43200,
+        "callback_ttl_seconds": 28800,
         "kaggle_timeout_seconds": 21600,
         "retention_days": 30,
         "timeout_minutes": 20,
@@ -602,7 +603,7 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
         "setup_command": "python -m pip install --upgrade pip\npython -m pip install jupyter nbconvert",
         "command": "jupyter nbconvert --to notebook --execute tools/orchestration_training/aive_orchestration_specialists.ipynb --output orchestration-v3-run.ipynb --output-dir /kaggle/working --ExecutePreprocessor.timeout=-1",
         "async_callback": True,
-        "callback_ttl_seconds": 43200,
+        "callback_ttl_seconds": 28800,
         "kaggle_timeout_seconds": 21600,
         "retention_days": 30,
         "timeout_minutes": 20,

@@ -33,6 +33,48 @@ export async function verifyRemoteRunToken(secret, token, now = Math.floor(Date.
   return payload;
 }
 
+/**
+ * Single-use enforcement. `store` is an optional Workers KV namespace (binding REMOTE_RUN_JTI).
+ * The Worker has no storage binding today, so without one this is a no-op and the short TTL is the
+ * only bound; with one, the first callback consumes the token's jti and later ones are refused.
+ * KV is eventually consistent, so this narrows replay rather than making it atomic.
+ * Returns true when the token may be used.
+ */
+function jtiKey(claims) {
+  const jti = String(claims?.jti || "");
+  return /^[A-Za-z0-9_-]{16,64}$/.test(jti) ? `remote-run-jti:${jti}` : null;
+}
+
+/** True when the token may still be used: single-use is off, or its jti was not recorded yet. */
+export async function remoteRunJtiIsFresh(store, claims) {
+  if (!store) return true;
+  const key = jtiKey(claims);
+  return key !== null && !(await store.get(key));
+}
+
+/** Records the jti as used. Call it only once the callback was accepted and the finalizer dispatched. */
+export async function markRemoteRunJtiUsed(store, claims, now = Math.floor(Date.now() / 1000)) {
+  const key = store ? jtiKey(claims) : null;
+  if (!key) return;
+  const ttl = Math.max(60, Math.trunc(Number(claims.exp) - now) + 60);
+  await store.put(key, "1", { expirationTtl: ttl });
+}
+
+/**
+ * Check-and-record in one call, for callers that have nothing to do in between.
+ * Returns true when the token may be used.
+ */
+export async function consumeRemoteRunJti(store, claims, now = Math.floor(Date.now() / 1000)) {
+  if (!(await remoteRunJtiIsFresh(store, claims))) return false;
+  await markRemoteRunJtiUsed(store, claims, now);
+  return true;
+}
+
+export function newRemoteRunJti() {
+  const bytes = crypto.getRandomValues(new Uint8Array(18));
+  return base64UrlEncodeBytes(bytes);
+}
+
 export function normalizeRemoteRunState(value) {
   const state = String(value || "").toLowerCase();
   if (state === "success" || state === "completed" || state === "complete") return "success";

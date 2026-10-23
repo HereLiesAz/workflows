@@ -94,6 +94,10 @@ on:
         required: false
         type: string
         default: '{}'
+# Least privilege: jobs that need more declare it themselves.
+permissions:
+  contents: read
+
 jobs:
   policy_secret_preflight:
     runs-on: ubuntu-latest

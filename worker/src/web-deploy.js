@@ -99,10 +99,11 @@ export async function receiveWebDeploy(request, { appApi, callerApi }) {
     {
       ref: "main",
       inputs: {
-        target_repository: repo.full_name,
+        // Opaque on purpose: this central repository is public, and dispatch inputs and the run
+        // name are world-readable. The workflow resolves the name from the ID and derives the
+        // Pages project itself (same pagesProjectName() algorithm).
         target_repository_id: String(repo.id),
         target_sha: sha,
-        pages_project: project,
       },
     },
     true,

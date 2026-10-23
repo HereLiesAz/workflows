@@ -82,6 +82,10 @@ on:
       target_repository_name:
         required: true
         type: string
+# Least privilege: jobs that need more declare it themselves.
+permissions:
+  contents: read
+
 jobs:
   central_check_start:
     runs-on: ubuntu-latest

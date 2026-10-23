@@ -81,6 +81,14 @@ on:
         required: false
         type: string
         default: '{}'
+# Least privilege: jobs that need more declare it themselves.
+permissions:
+  contents: read
+
+env:
+  TARGET_REPOSITORY_NAME: ${{ inputs.target_repository_name }}
+  TARGET_REF: ${{ inputs.target_ref }}
+
 jobs:
   central_check_start:
     runs-on: ubuntu-latest

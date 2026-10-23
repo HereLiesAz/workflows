@@ -66,6 +66,7 @@ permissions:
   contents: read
 
 env:
+  TARGET_REPOSITORY_NAME: ${{ inputs.target_repository_name }}
   TARGET_REPOSITORY: ${{ inputs.target_repository }}
   TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
   TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}

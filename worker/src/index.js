@@ -5,7 +5,7 @@ import { claimOnce } from "./once.js";
 import { receiveTestReport } from "./test-report.js";
 import { EVENT_CONSUMERS } from "./event-consumers.js";
 import { pushDropReason, webhookDropReason } from "./event-filter.js";
-import { createRemoteRunToken, normalizeRemoteRunState, sanitizeStatusDescription, verifyRemoteRunToken } from "./remote-run.js";
+import { createRemoteRunToken, markRemoteRunJtiUsed, remoteRunJtiIsFresh, newRemoteRunJti, normalizeRemoteRunState, sanitizeStatusDescription, verifyRemoteRunToken } from "./remote-run.js";
 import { receiveWebDeploy } from "./web-deploy.js";
 
 const GITHUB_ISSUER = "https://token.actions.githubusercontent.com";
@@ -17,6 +17,11 @@ const CENTRAL_REPOSITORY = "HereLiesAz/workflows";
 const GATEWAY_WORKFLOW = "gateway.yml";
 const API_VERSION = "2026-03-10";
 const MAX_REQUEST_JSON_BYTES = 5 * 1024 * 1024;
+// Remote-run callback tokens: the remote compute reports once, when it finishes, so the token is
+// short-lived (it used to default to 12 h and cap at 24 h). Raise a run's ttl_seconds up to the cap
+// for a longer job.
+const REMOTE_RUN_DEFAULT_TTL_SECONDS = 4 * 3600;
+const REMOTE_RUN_MAX_TTL_SECONDS = 8 * 3600;
 const MAX_WORKFLOW_DISPATCH_INPUT_CHARS = 60000;
 const IGNORED_WEBHOOK_EVENTS = new Set(["check_run", "check_suite", "workflow_job", "status"]);
 
@@ -308,6 +313,8 @@ async function receiveRepositoryWebhook(request, env) {
 
   const eventName = request.headers.get("X-GitHub-Event") || "";
   const delivery = request.headers.get("X-GitHub-Delivery") || crypto.randomUUID();
+  // The replay key comes from the signed body, never from a header the signature does not cover.
+  const replayKey = await sha256Hex(rawBody);
   if (!eventName) throw new HttpError(400, "Missing X-GitHub-Event");
 
   let event;
@@ -323,9 +330,10 @@ async function receiveRepositoryWebhook(request, env) {
 
   // A validly signed delivery can be replayed by anyone who captured it, and each replay
   // would dispatch the same (possibly paid) central run again. With a WEBHOOK_SEEN KV
-  // namespace bound, a delivery id is accepted once per day; without one, behaviour is
-  // unchanged. GitHub's own "Redeliver" gets a new delivery id, so it still works.
-  if (!(await claimOnce(env.WEBHOOK_SEEN, `delivery:${delivery}`, 86400))) {
+  // namespace bound, a signed body is accepted once per day; without one, behaviour is
+  // unchanged. The key is the body's digest, never the X-GitHub-Delivery header: the signature
+  // covers the body only, so a replay could otherwise change or drop the header to get a fresh key.
+  if (!(await claimOnce(env.WEBHOOK_SEEN, `body:${replayKey}`, 86400))) {
     return json({ ok: true, duplicate: true, delivery });
   }
 
@@ -564,9 +572,9 @@ async function issueRemoteRunCallback(request, env, url) {
   const detailsUrl = String(body.details_url || "");
   const centralRunId = String(body.central_run_id || "");
   const publishRelease = body.publish_release === true;
-  const requestedTtl = Number(body.ttl_seconds || 43200);
+  const requestedTtl = Number(body.ttl_seconds || REMOTE_RUN_DEFAULT_TTL_SECONDS);
   if (!Number.isFinite(requestedTtl)) throw new HttpError(400, "ttl_seconds is invalid");
-  const ttl = Math.max(300, Math.min(Math.trunc(requestedTtl), 86400));
+  const ttl = Math.max(300, Math.min(Math.trunc(requestedTtl), REMOTE_RUN_MAX_TTL_SECONDS));
 
   if (!/^HereLiesAz\/[A-Za-z0-9_.-]+$/.test(targetRepository)) {
     throw new HttpError(400, "target_repository is invalid");
@@ -605,6 +613,7 @@ async function issueRemoteRunCallback(request, env, url) {
   const now = Math.floor(Date.now() / 1000);
   const token = await createRemoteRunToken(env.DISPATCH_TOKEN, {
     kind: "remote-compute",
+    jti: newRemoteRunJti(),
     provider,
     iat: now,
     exp: now + ttl,
@@ -641,6 +650,11 @@ async function receiveRemoteRunCallback(request, env) {
   }
   if (claims.kind !== "remote-compute") throw new HttpError(400, "Unsupported remote-run kind");
   if (!claims.provider || !claims.run_ref) throw new HttpError(400, "Remote-run token is missing provider identity");
+  // Checked now, recorded only after the finalizer was dispatched: a malformed first request or a
+  // transient GitHub failure must not burn the only token the runner has, so its retry can succeed.
+  if (!(await remoteRunJtiIsFresh(env.REMOTE_RUN_JTI, claims))) {
+    throw new HttpError(409, "Remote-run callback token was already used");
+  }
 
   const body = await readJsonBody(request);
   let state;
@@ -676,6 +690,7 @@ async function receiveRemoteRunCallback(request, env) {
     },
     true,
   );
+  await markRemoteRunJtiUsed(env.REMOTE_RUN_JTI, claims);
 
   return json({
     ok: true,
@@ -833,7 +848,10 @@ async function githubApi(env, path, method = "GET", body = undefined, allowEmpty
       githubInstallationTokenCache = "";
       githubInstallationTokenExpiresAt = 0;
     }
-    throw new HttpError(502, `GitHub API failed (${response.status}): ${detail}`);
+    // GitHub's body can carry App-side detail; keep it in the Worker log, not in the response.
+    // The status stays in the message: ci-status.js branches on "(404)", "(409)" and "(422)".
+    console.error(`GitHub API ${method} ${path.split("?")[0]} failed (${response.status}): ${detail.slice(0, 2000)}`);
+    throw new HttpError(502, `GitHub API failed (${response.status})`);
   }
   if (response.status === 204 || allowEmpty) return null;
   return response.json();
@@ -1081,6 +1099,11 @@ async function verifyWebhookSignature(env, rawBody, suppliedHex) {
 
 function bytesToHex(bytes) {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function sha256Hex(text) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function hexToBytes(hex) {

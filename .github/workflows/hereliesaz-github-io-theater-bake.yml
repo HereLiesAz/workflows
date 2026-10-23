@@ -1,7 +1,7 @@
 # Generated for HereLiesAz/hereliesaz.github.io:.github/workflows/theater_bake.yml.
 # Edit the registered source or synchronizer, not this compiled workflow.
 # Generated shared catalog workflow. Do not edit by hand.
-# catalog-source: shared/ec133b779e8bbb5767d811d96a501ebfe01b6bfc3dee42b0a2f2c66efbcccc16
+# catalog-source: shared/003247fa953c0e04c8c1182a2270e025ff8236b73b91cb048f3c42a688d0bcde
 name: hereliesaz.github.io · Theater Bake
 on:
   workflow_dispatch:
@@ -81,7 +81,6 @@ on:
 permissions:
   contents: read
 env:
-  DEFAULT_IDS: 2020-12-02(10),2023-10-15(24),2023-10-15(38),2023-10-15(5),20231129_043102~2,IMG_20210611_073221_746,PXL_20230323_234854707~2,PXL_20230613_074956361.NIGHT~2,PXL_20250124_105205423.RAW-01.COVER,PXL_20260113_131045314.RAW-01.COVER,20220803_152450~2(1),2023-10-15(28),IMG_0607,IMG_20230414_062745_265,PXL_20230107_104032885-01(1),PXL_20251003_003642766,PXL_20260113_070911696.RAW-01.COVER
   TARGET_REPOSITORY: ${{ inputs.target_repository }}
   TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
   TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
@@ -147,14 +146,15 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}
           token: ${{ secrets.GH_TOKEN }}
       - name: Seed existing bakes from art-data (cache the expensive stages)
-        uses: actions/checkout@v4
+        id: seed
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: art-data
           path: _artdata
@@ -162,10 +162,15 @@ jobs:
           repository: ${{ inputs.target_repository }}
           token: ${{ secrets.GH_TOKEN }}
         continue-on-error: true
+      - name: Require the seed when art-data exists
+        if: steps.seed.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: "if gh api \"repos/$TARGET_REPOSITORY/branches/art-data\" --silent 2>/dev/null; then\n  echo \"::error::art-data exists but could not be checked out; refusing to bake from scratch and overwrite it.\"\n  exit 1\nfi\necho \"art-data does not exist yet; this is the first bake.\"\n"
       - name: Stage cached bakes into public/data
         run: "mkdir -p public/data\nif [ -d _artdata ] && [ -n \"$(ls -A _artdata 2>/dev/null | grep -v '^\\.git$')\" ]; then\n  rsync -a --exclude='.git' _artdata/ public/data/\n  echo \"seeded $(find public/data/theater -type f 2>/dev/null | wc -l) cached files\"\nelse\n  echo \"no art-data seed; every painting bakes from scratch\"\nfi\n"
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: '3.10'
           cache: pip
@@ -175,11 +180,13 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           IDS_INPUT: ${{ fromJSON(inputs.target_event_json).inputs.ids }}
-        run: "IDS=\"$IDS_INPUT\"\nif [ -z \"$IDS\" ]; then IDS=\"$DEFAULT_IDS\"; fi\necho \"Baking: $IDS\"\npython scripts/theater_baker.py \\\n  --input  public/assets/ \\\n  --output public/data/theater/ \\\n  --ids \"$IDS\"\n"
+        run: "IDS=\"$IDS_INPUT\"\nif [ -n \"$IDS\" ]; then\n  echo \"Baking: $IDS\"\n  python scripts/theater_baker.py \\\n    --input  public/assets/ \\\n    --output public/data/theater/ \\\n    --ids \"$IDS\"\nelse\n  # No ids (a crops.json push or a blank dispatch): bake up to 20\n  # paintings that are unbaked or whose crop box changed. Bounded cost,\n  # and a dispatch that was dropped by Actions' one-pending-run\n  # concurrency limit is picked up by the next run.\n  echo \"No ids given: baking up to 20 pending paintings\"\n  python scripts/theater_baker.py \\\n    --input  public/assets/ \\\n    --output public/data/theater/ \\\n    --pending 20\nfi\n"
       - name: Build hinge graph
         run: python scripts/pareidolia_index.py --data public/data/theater/
       - name: Validate baked theater output
         run: python scripts/validate_output.py --dir public/data/theater
+      - name: Refuse to shrink the published corpus
+        run: python scripts/check_no_shrink.py --before _artdata/theater/_manifest.json --after public/data/theater/_manifest.json
       - name: Deploy to art-data
         uses: peaceiris/actions-gh-pages@373f7f263a76c20808c831209c920827a82a2847
         with:

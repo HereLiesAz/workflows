@@ -434,4 +434,14 @@ assert 'scripts/pareidolia_index.py' in _bake_runs
 assert 'scripts/validate_output.py' in _bake_runs
 _names = [s.get('name') for s in _bake_steps]
 assert _names.index(next(n for n in _names if n and 'alidate' in n)) < _names.index(_bake_publish.get('name'))
+_names = [s.get('name') for s in _bake_steps]
+assert _names.index('Refuse to shrink the published corpus') < _names.index(_bake_publish.get('name'))
+assert 'check_no_shrink.py' in _bake_runs
+assert 'steps.seed.outcome' in _json.dumps(_bake_steps)          # a failed seed is fatal once art-data exists
+assert 'DEFAULT_IDS' not in _json.dumps(_bake)                    # blank ids use --pending, not a stale list
+assert '--pending 20' in _bake_runs
+for _step in _bake_steps:
+    _uses = str(_step.get('uses') or '')
+    if _uses:
+        assert '@' in _uses and len(_uses.split('@')[1].split()[0]) == 40, f'unpinned action: {_uses}'
 print('bake publish contract ok')

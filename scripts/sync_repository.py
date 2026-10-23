@@ -743,6 +743,11 @@ REPOSITORY_REVIEWED_WORKFLOW_BLOBS = {
     "hereliesaz/conveyance-bacterium": {
         ".github/workflows/ci.yml": "8b32d6357f4b1c826d7f9bcea208df7ea29b7a86",
     },
+    # Installed by The Aive: runs the OpenCode agent on an Aive-dispatched task, isolated from the
+    # runner's token, and reports through a check run and an aive-result artifact.
+    "hereliesaz/hahapewpew": {
+        ".github/workflows/aive-opencode-agent.yml": "b76393356024a256154ca5f62db211d3d56b7126",
+    },
 }
 
 def _enforce_new_workflow_submission_policy(

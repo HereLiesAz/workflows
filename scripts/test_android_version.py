@@ -26,4 +26,17 @@ text = "# header\nversionMajor=1\nversionBuild=9\nversionName=old\nother=x\n"
 out = v.render_recorded(text, 58, "1.2.3.10")
 assert out == "# header\nversionMajor=1\nversionBuild=10\nversionName=1.2.3.10\nother=x\nversionCode=58\n", out
 assert v.render_recorded("", 1, "0.0.0.1") == "versionCode=1\nversionName=0.0.0.1\nversionBuild=1\n"
+assert v.render_recorded("versionCode=90\nversionName=1.2.3.9\n", 58, "") == "versionCode=90\nversionName=1.2.3.9\n", \
+    "a recorded versionCode is never lowered"
+assert v.render_recorded("versionCode=57\nversionName=1.2.3.9\nversionBuild=9\n", 58) == \
+    "versionCode=58\nversionName=1.2.3.9\nversionBuild=9\n", "code-only record leaves the name alone"
+
+# Both Android release workflows take versionCode from this rule and nothing else: no version-name
+# encoding, no fallback when Play can't be read.
+root = Path(__file__).resolve().parents[1]
+for name in ("android-play-release.yml", "android-github-release.yml"):
+    text = (root / ".github/workflows" / name).read_text(encoding="utf-8")
+    assert "HereLiesAz/workflows/.github/actions/android-version@" in text, f"{name} must use the android-version action"
+    assert "outputs.android_version_code" not in text, f"{name} must not use the version-name encoding"
+    assert "falling back" not in text, f"{name} must fail rather than fall back"
 print("android version tests passed")

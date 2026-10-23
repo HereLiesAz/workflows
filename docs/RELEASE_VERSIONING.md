@@ -110,3 +110,25 @@ The centralized workflow repository owns:
 
 Do not reimplement these rules in a target workflow. If the account-wide policy changes, update the
 shared action/family here and let registered repositories consume that policy.
+
+## Android versionCode and default-branch publishing
+
+Every Android release (`android-play-release.yml` and `android-github-release.yml`) takes its
+versionCode from one rule, implemented once in `.github/actions/android-version`:
+
+`versionCode = max(versionCode in the target's version.properties, every versionCode Google Play has
+ever accepted for the package) + 1`
+
+"Every versionCode Play has accepted" means every release on every track whatever its status
+(drafts included) plus every uploaded bundle and APK. There is no offset, multiplier or
+version-name encoding. If Play cannot be queried the job fails; it never guesses. The GitHub APK
+uses the same rule, so sideloaded and Play builds share one sequence; an app with no Play
+credentials uses `version.properties` + 1. The code is passed to Gradle as `-PversionCode` and
+`-PversionCodeOverride` (and as `ORG_GRADLE_PROJECT_*`), and after a successful default-branch
+publish it is recorded back into `version.properties` (`versionCode`, never lowered) with a
+`[skip ci]` commit.
+
+Only the target repository's **default branch** publishes to Play (any track) or records version
+state. A build of any other ref, including a dispatch at a feature branch, builds and uploads its
+workflow artifacts but publishes nothing and writes nothing back; its version is computed from the
+default branch's state.

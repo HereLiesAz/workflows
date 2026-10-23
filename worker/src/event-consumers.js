@@ -527,7 +527,8 @@ export const EVENT_CONSUMERS = {
   "1223020502": {
     "repository": "HereLiesAz/hahapewpew",
     "events": [
-      "push"
+      "push",
+      "workflow_dispatch"
     ]
   },
   "1228954520": {

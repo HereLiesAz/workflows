@@ -4,11 +4,27 @@
     "id": 1085343418,
     "full_name": "HereLiesAz/IDEaz"
   },
-  "updated_at": "2026-10-23T07:09:09.140Z",
+  "updated_at": "2026-10-23T07:09:35.858Z",
   "workflows": {
     ".github/workflows/pr-ci.yml": {
       "name": "PR CI",
       "runs": [
+        {
+          "run_id": 39915984312,
+          "jobs": {},
+          "reports": {},
+          "created_at": "2026-10-23T07:09:35.858Z",
+          "run_number": 36,
+          "run_attempt": 1,
+          "event": "pull_request",
+          "branch": "ccr-d2868f4a-v1sk8i",
+          "sha": "aa2163b2bbaf1376990fba194d28f9c4381c8b8a",
+          "status": "queued",
+          "conclusion": null,
+          "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/39915984312",
+          "started_at": "2026-10-23T07:09:34Z",
+          "updated_at": "2026-10-23T07:09:34Z"
+        },
         {
           "run_id": 39915467334,
           "jobs": {
@@ -673,41 +689,6 @@
           "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/39889024951",
           "started_at": "2026-10-23T02:20:24Z",
           "updated_at": "2026-10-23T02:25:12Z"
-        },
-        {
-          "run_id": 39889012249,
-          "jobs": {
-            "build": {
-              "status": "completed",
-              "conclusion": "failure",
-              "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/39889012249/job/120203988361",
-              "started_at": "2026-10-23T02:21:01Z",
-              "completed_at": "2026-10-23T02:25:47Z",
-              "steps_completed": 10,
-              "steps_total": 10,
-              "current_step": null
-            }
-          },
-          "reports": {
-            "build": {
-              "status": "failure",
-              "summary": ":app:testDebugUnitTest :app:assembleDebug failure",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-10-23T02:25:40.779Z"
-            }
-          },
-          "created_at": "2026-10-23T02:20:17.665Z",
-          "run_number": 16,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "dependabot/npm_and_yarn/templates/react/tanstack/react-query-5.104.5",
-          "sha": "f5a0a3673c6be5a976930c6d778b62d863e4c5a2",
-          "status": "completed",
-          "conclusion": "failure",
-          "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/39889012249",
-          "started_at": "2026-10-23T02:20:16Z",
-          "updated_at": "2026-10-23T02:25:51.702Z"
         }
       ]
     }

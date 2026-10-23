@@ -102,7 +102,7 @@ jobs:
       - name: Mint target check token
         id: target-check-token
         continue-on-error: true
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_PRIVATE_KEY }}
@@ -154,7 +154,7 @@ jobs:
       TARGET_SHA: ${{ inputs.target_sha }}
     steps:
       - name: Check out source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}
@@ -175,7 +175,7 @@ jobs:
 
       - name: Set up Node
         if: ${{ fromJSON(inputs.purpose_profile_json).build_mode == 'node' }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
 
@@ -190,11 +190,11 @@ jobs:
 
       - name: Setup Pages
         if: ${{ fromJSON(inputs.purpose_profile_json).build_mode == 'jekyll' }}
-        uses: actions/configure-pages@v6
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
       - name: Build with Jekyll
         if: ${{ fromJSON(inputs.purpose_profile_json).build_mode == 'jekyll' }}
-        uses: actions/jekyll-build-pages@v1
+        uses: actions/jekyll-build-pages@44a6e6beabd48582f863aeeb6cb2151cc1716697 # v1.0.13
         with:
           source: ./docs/
           destination: ./_site
@@ -246,7 +246,7 @@ jobs:
       - name: Mint target check token
         id: target-check-token
         continue-on-error: true
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_PRIVATE_KEY }}

@@ -68,7 +68,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Check out central controller
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Skip schedule ticks nothing registered uses
         # A cheap textual pre-filter (no token, no dependencies): every frequent tick used to mint a
@@ -93,7 +93,7 @@ jobs:
       - name: Mint GitHub App installation token
         if: ${{ steps.due.outputs.run == 'true' }}
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v2
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_PRIVATE_KEY }}

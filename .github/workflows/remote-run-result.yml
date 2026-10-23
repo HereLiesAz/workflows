@@ -83,9 +83,9 @@ jobs:
       PUBLISH_RELEASE: ${{ inputs.publish_release }}
       KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_TOKEN }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
 
@@ -135,7 +135,7 @@ jobs:
         run: kaggle kernels output "$KERNEL_REF" -p kaggle-output -o
 
       - name: Upload Kaggle outputs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: kaggle-${{ github.run_id }}
           path: kaggle-output/

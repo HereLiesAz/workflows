@@ -470,6 +470,7 @@ export const EVENT_CONSUMERS = {
   "1148736516": {
     "repository": "HereLiesAz/hereliesaz.github.io",
     "events": [
+      "pull_request",
       "push",
       "workflow_dispatch"
     ]

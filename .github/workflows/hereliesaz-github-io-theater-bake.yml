@@ -147,14 +147,14 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}
           token: ${{ secrets.GH_TOKEN }}
       - name: Seed existing bakes from art-data (cache the expensive stages)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: art-data
           path: _artdata
@@ -165,7 +165,7 @@ jobs:
       - name: Stage cached bakes into public/data
         run: "mkdir -p public/data\nif [ -d _artdata ] && [ -n \"$(ls -A _artdata 2>/dev/null | grep -v '^\\.git$')\" ]; then\n  rsync -a --exclude='.git' _artdata/ public/data/\n  echo \"seeded $(find public/data/theater -type f 2>/dev/null | wc -l) cached files\"\nelse\n  echo \"no art-data seed; every painting bakes from scratch\"\nfi\n"
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4
         with:
           python-version: '3.10'
           cache: pip

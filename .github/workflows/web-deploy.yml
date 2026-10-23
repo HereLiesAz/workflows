@@ -31,6 +31,10 @@ on:
         required: true
         type: string
 
+# Least privilege: jobs that need more declare it themselves.
+permissions:
+  contents: read
+
 concurrency:
   group: web-deploy-${{ inputs.target_repository_id }}
   cancel-in-progress: false
@@ -167,7 +171,7 @@ jobs:
             fetch -q --depth 1 "https://github.com/${TARGET_REPOSITORY}.git" "$TARGET_SHA"
           git -c advice.detachedHead=false checkout -q --detach FETCH_HEAD
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
 
@@ -222,7 +226,7 @@ jobs:
           fi
           [[ -f "$site/index.html" ]] || { echo "::error::The site has no index.html at its root"; exit 1; }
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: site
           path: ${{ runner.temp }}/site
@@ -269,7 +273,7 @@ jobs:
             echo "TARGET_SHA=$sha"
             echo "PAGES_PROJECT=$project"
           } >> "$GITHUB_ENV"
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: site
           path: ${{ runner.temp }}/site

@@ -39,9 +39,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
 
@@ -73,7 +73,7 @@ jobs:
 
       - name: Upload workflow purpose audit
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: workflow-purpose-audit
           path: |
@@ -141,7 +141,7 @@ jobs:
                 group: fixture-build
                 cancel-in-progress: false
               steps:
-                - uses: actions/checkout@v7
+                - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
                 - run: echo ok
           '''
           source_doc = load_yaml(source)
@@ -258,7 +258,7 @@ jobs:
       contents: read
       actions: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
@@ -281,7 +281,7 @@ jobs:
 
       # The validate job has its own Python environment; dependencies do not carry
       # across jobs. replay_failed_play imports ruamel.yaml through dispatch_manual.
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         if: ${{ steps.changes.outputs.replay == 'true' }}
         with:
           python-version: '3.12'
@@ -315,7 +315,7 @@ jobs:
       contents: read
       actions: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
@@ -361,7 +361,7 @@ jobs:
 
       - name: Deploy central workflows Worker
         if: ${{ steps.changes.outputs.deploy == 'true' }}
-        uses: cloudflare/wrangler-action@v4
+        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

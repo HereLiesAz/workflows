@@ -82,6 +82,10 @@ on:
       target_repository_name:
         required: true
         type: string
+# Least privilege: jobs that need more declare it themselves.
+permissions:
+  contents: read
+
 jobs:
   central_check_start:
     runs-on: ubuntu-latest
@@ -147,7 +151,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}
@@ -155,7 +159,7 @@ jobs:
           persist-credentials: false
       - name: Run AI inference
         id: inference
-        uses: actions/ai-inference@v3
+        uses: actions/ai-inference@2c43c91ae16266ca159d311430343c67a5ffa222 # v3
         with:
           prompt: "Summarize the following GitHub issue in one paragraph:\nTitle: ${{ fromJSON(inputs.target_event_json).issue.title }}\nBody: ${{ fromJSON(inputs.target_event_json).issue.body }}\n"
       - name: Comment with AI summary

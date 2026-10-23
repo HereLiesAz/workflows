@@ -7,7 +7,6 @@ import { EVENT_CONSUMERS } from "./event-consumers.js";
 import { pushDropReason, webhookDropReason } from "./event-filter.js";
 import { consumeRemoteRunJti, createRemoteRunToken, newRemoteRunJti, normalizeRemoteRunState, sanitizeStatusDescription, verifyRemoteRunToken } from "./remote-run.js";
 import { receiveWebDeploy } from "./web-deploy.js";
-import { isDuplicateDelivery, markDelivery } from "./webhook-dedupe.js";
 
 const GITHUB_ISSUER = "https://token.actions.githubusercontent.com";
 const GITHUB_JWKS = "https://token.actions.githubusercontent.com/.well-known/jwks";
@@ -412,7 +411,6 @@ async function receiveRepositoryWebhook(request, env) {
   };
 
   await dispatchGateway(env, body);
-  await markDelivery(delivery);
   return json({
     ok: true,
     repository: body.repository,

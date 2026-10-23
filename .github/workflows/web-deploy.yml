@@ -117,25 +117,6 @@ jobs:
             '{state:"pending",context:$context,description:"Building and publishing centrally.",target_url:$target_url}' \
             | gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_SHA}" --input - >/dev/null
 
-      - name: Mint target check token
-        id: target-check-token
-        continue-on-error: true
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        with:
-          app-id: ${{ secrets.GH_APP_ID }}
-          private-key: ${{ secrets.GH_PRIVATE_KEY }}
-          owner: HereLiesAz
-      - name: Post target check run
-        if: ${{ always() && steps.target-check-token.outputs.token != '' }}
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ steps.target-check-token.outputs.token }}
-          RUN_READ_TOKEN: ${{ secrets.GH_TOKEN }}
-          CHECK_PHASE: start
-          CHECK_NAME: ${{ inputs.target_workflow_name || inputs.source_workflow_path }}
-          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        shell: bash
-        run: "set +e\nwarn() { echo \"::warning::Target check run skipped: $1\"; exit 0; }\n[[ -n \"${TARGET_REPOSITORY:-}\" && -n \"${TARGET_CHECK_SHA:-}\" ]] || warn \"no target commit\"\ntitle=\"$CHECK_NAME\"\ntext=\"\"\nif [[ \"$CHECK_PHASE\" == \"start\" ]]; then\n  body=\"$(jq -n --arg name \"$CHECK_NAME\" --arg sha \"$TARGET_CHECK_SHA\" --arg url \"$DETAILS_URL\" --arg ext \"$GITHUB_RUN_ID\" \\\n    '{name:$name,head_sha:$sha,status:\"in_progress\",details_url:$url,external_id:$ext,output:{title:$name,summary:(\"Running in HereLiesAz/workflows: \" + $url)}}')\"\nelse\n  if [[ \"$FAILED\" == \"true\" ]]; then\n    conclusion=\"failure\"\n    jobs=\"$(GH_TOKEN=\"$RUN_READ_TOKEN\" gh api --paginate \"repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}/jobs\" --jq '.jobs[]' 2>/dev/null | jq -s '.')\"\n    [[ -n \"$jobs\" ]] || jobs=\"[]\"\n    failed=\"$(jq -r '[.[] | select(.conclusion == \"failure\" or .conclusion == \"cancelled\")\n      | \"- **\\(.name)** (\\(.conclusion)): \" + ([.steps[]? | select(.conclusion == \"failure\") | .name] | join(\", \") | if . == \"\" then \"no failed step reported\" else . end)\n      + \" — [log](\\(.html_url))\"] | join(\"\\n\")' <<<\"$jobs\")\"\n    first_id=\"$(jq -r '[.[] | select(.conclusion == \"failure\")][0].id // empty' <<<\"$jobs\")\"\n    if [[ -n \"$first_id\" ]]; then\n      tail_log=\"$(GH_TOKEN=\"$RUN_READ_TOKEN\" gh api \"repos/${GITHUB_REPOSITORY}/actions/jobs/${first_id}/logs\" 2>/dev/null \\\n        | sed -E 's/^[0-9T:.-]+Z //' | grep -v '^##\\[group\\]\\|^##\\[endgroup\\]' | tail -n 60)\"\n      [[ -n \"$tail_log\" ]] && text=\"$(printf 'Last lines of the first failed job:\\n\\n~~~text\\n%s\\n~~~\\n' \"${tail_log:0:60000}\")\"\n    fi\n    summary=\"$(printf 'Central run failed: %s\\n\\n%s\\n' \"$DETAILS_URL\" \"${failed:-No failed job reported.}\")\"\n    title=\"$CHECK_NAME failed\"\n  else\n    conclusion=\"success\"\n    summary=\"Central run succeeded: $DETAILS_URL\"\n  fi\n  body=\"$(jq -n --arg name \"$CHECK_NAME\" --arg sha \"$TARGET_CHECK_SHA\" --arg url \"$DETAILS_URL\" --arg ext \"$GITHUB_RUN_ID\" \\\n    --arg conclusion \"$conclusion\" --arg title \"$title\" --arg summary \"${summary:0:65000}\" --arg text \"$text\" \\\n    '{name:$name,head_sha:$sha,status:\"completed\",conclusion:$conclusion,details_url:$url,external_id:$ext,output:({title:$title,summary:$summary} + (if $text == \"\" then {} else {text:$text} end))}')\"\nfi\n# Each phase posts its own Check Run under the same name; GitHub shows the latest one,\n# so the finish phase needs no id handed over from the start job.\ngh api --method POST \"repos/${TARGET_REPOSITORY}/check-runs\" --input - <<<\"$body\" >/dev/null \\\n  || echo \"::warning::Target check run skipped: GitHub refused the check run\"\n\n# Release/deploy failures also go to one open issue per workflow: opened on the\n# first failure, commented on each repeat. Successes never touch issues.\n[[ \"$CHECK_PHASE\" == \"finish\" && \"${FILE_ISSUES:-}\" == \"true\" && \"${conclusion:-}\" == \"failure\" ]] || exit 0\nlabel=\"central-run-failure\"\nissue_title=\"Central run failing: $CHECK_NAME\"\nissue=\"$(gh api \"repos/${TARGET_REPOSITORY}/issues?state=open&labels=${label}&per_page=100\" 2>/dev/null \\\n  | jq -r --arg t \"$issue_title\" '[.[] | select(.title == $t)][0].number // empty')\"\nreport=\"$(printf '%s\\n\\nCommit: %s\\n\\n%s\\n' \"$summary\" \"$TARGET_CHECK_SHA\" \"$text\")\"\nif [[ -n \"$issue\" ]]; then\n  gh api --method POST \"repos/${TARGET_REPOSITORY}/issues/${issue}/comments\" -f body=\"$report\" >/dev/null \\\n    || warn \"could not comment on issue #$issue\"\nelse\n  gh api --method POST \"repos/${TARGET_REPOSITORY}/labels\" -f name=\"$label\" -f color=\"000000\" \\\n    -f description=\"A release or deploy run in HereLiesAz/workflows failed for this repository.\" >/dev/null 2>&1\n  gh api --method POST \"repos/${TARGET_REPOSITORY}/issues\" -f title=\"$issue_title\" -f body=\"$report\" -f \"labels[]=$label\" >/dev/null \\\n    || warn \"could not open a failure issue\"\nfi\n"
   build:
     needs: central_check_start
     runs-on: ubuntu-latest
@@ -177,13 +158,18 @@ jobs:
           } >> "$GITHUB_ENV"
       # Not actions/checkout: it logs its repository and ref inputs, and this log is public.
       - name: Check out target
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: ${{ inputs.target_repository }}
-          ref: ${{ inputs.target_sha }}
-          token: ${{ secrets.GH_TOKEN }}
-          persist-credentials: false
-          path: target
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          basic="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          echo "::add-mask::$basic"
+          git init -q target
+          cd target
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic ${basic}" \
+            fetch -q --depth 1 "https://github.com/${TARGET_REPOSITORY}.git" "$TARGET_SHA"
+          git -c advice.detachedHead=false checkout -q --detach FETCH_HEAD
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -254,6 +240,39 @@ jobs:
     outputs:
       site_url: ${{ steps.publish.outputs.site_url }}
     steps:
+      - name: Resolve target (names and SHA are masked)
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Read the inputs from the event payload rather than env:/with:, which logs echo.
+          id="$(jq -r '.inputs.target_repository_id' "$GITHUB_EVENT_PATH")"
+          sha="$(jq -r '.inputs.target_sha' "$GITHUB_EVENT_PATH")"
+          echo "::add-mask::$sha"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::target_sha is not a commit SHA" >&2; exit 1; }
+          [[ "$id" =~ ^[0-9]{1,20}$ ]] || { echo "::error::target_repository_id is not numeric" >&2; exit 1; }
+          repo_json="$(gh api "repositories/${id}")"
+          full="$(jq -r '.full_name' <<<"$repo_json")"
+          name="$(jq -r '.name' <<<"$repo_json")"
+          echo "::add-mask::$full"
+          echo "::add-mask::$name"
+          [[ "$(jq -r '.id' <<<"$repo_json")" == "$id" ]] || { echo "::error::Repository ID mismatch" >&2; exit 1; }
+          [[ "$(jq -r '.owner.id' <<<"$repo_json")" == "103241502" ]] || { echo "::error::Repository is not owned by HereLiesAz" >&2; exit 1; }
+          # Same derivation as pagesProjectName() in worker/src/web-deploy.js.
+          project="$(node -e '
+            const [name, id] = process.argv.slice(1);
+            const suffix = "-" + Number(id).toString(36);
+            const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+            console.log(("ideaz-" + slug).slice(0, 58 - suffix.length).replace(/-+$/g, "") + suffix);
+          ' "$name" "$id")"
+          [[ "$project" =~ ^ideaz-[a-z0-9]+(-[a-z0-9]+)*$ && ${#project} -le 58 ]] || { echo "::error::derived Pages project is invalid" >&2; exit 1; }
+          {
+            echo "TARGET_REPOSITORY=$full"
+            echo "TARGET_REPOSITORY_ID=$id"
+            echo "TARGET_SHA=$sha"
+            echo "PAGES_PROJECT=$project"
+          } >> "$GITHUB_ENV"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: site
@@ -337,25 +356,4 @@ jobs:
           fi
           jq -n --arg state "$state" --arg context "$STATUS_CONTEXT" --arg description "$description" --arg target_url "$target_url" \
             '{state:$state,context:$context,description:$description,target_url:$target_url}' \
-            | gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_SHA}" --input -
-      - name: Mint target check token
-        id: target-check-token
-        continue-on-error: true
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        with:
-          app-id: ${{ secrets.GH_APP_ID }}
-          private-key: ${{ secrets.GH_PRIVATE_KEY }}
-          owner: HereLiesAz
-      - name: Post target check run
-        if: ${{ always() && steps.target-check-token.outputs.token != '' }}
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ steps.target-check-token.outputs.token }}
-          RUN_READ_TOKEN: ${{ secrets.GH_TOKEN }}
-          CHECK_PHASE: finish
-          CHECK_NAME: ${{ inputs.target_workflow_name || inputs.source_workflow_path }}
-          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
-          FILE_ISSUES: 'true'
-        shell: bash
-        run: "set +e\nwarn() { echo \"::warning::Target check run skipped: $1\"; exit 0; }\n[[ -n \"${TARGET_REPOSITORY:-}\" && -n \"${TARGET_CHECK_SHA:-}\" ]] || warn \"no target commit\"\ntitle=\"$CHECK_NAME\"\ntext=\"\"\nif [[ \"$CHECK_PHASE\" == \"start\" ]]; then\n  body=\"$(jq -n --arg name \"$CHECK_NAME\" --arg sha \"$TARGET_CHECK_SHA\" --arg url \"$DETAILS_URL\" --arg ext \"$GITHUB_RUN_ID\" \\\n    '{name:$name,head_sha:$sha,status:\"in_progress\",details_url:$url,external_id:$ext,output:{title:$name,summary:(\"Running in HereLiesAz/workflows: \" + $url)}}')\"\nelse\n  if [[ \"$FAILED\" == \"true\" ]]; then\n    conclusion=\"failure\"\n    jobs=\"$(GH_TOKEN=\"$RUN_READ_TOKEN\" gh api --paginate \"repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}/jobs\" --jq '.jobs[]' 2>/dev/null | jq -s '.')\"\n    [[ -n \"$jobs\" ]] || jobs=\"[]\"\n    failed=\"$(jq -r '[.[] | select(.conclusion == \"failure\" or .conclusion == \"cancelled\")\n      | \"- **\\(.name)** (\\(.conclusion)): \" + ([.steps[]? | select(.conclusion == \"failure\") | .name] | join(\", \") | if . == \"\" then \"no failed step reported\" else . end)\n      + \" — [log](\\(.html_url))\"] | join(\"\\n\")' <<<\"$jobs\")\"\n    first_id=\"$(jq -r '[.[] | select(.conclusion == \"failure\")][0].id // empty' <<<\"$jobs\")\"\n    if [[ -n \"$first_id\" ]]; then\n      tail_log=\"$(GH_TOKEN=\"$RUN_READ_TOKEN\" gh api \"repos/${GITHUB_REPOSITORY}/actions/jobs/${first_id}/logs\" 2>/dev/null \\\n        | sed -E 's/^[0-9T:.-]+Z //' | grep -v '^##\\[group\\]\\|^##\\[endgroup\\]' | tail -n 60)\"\n      [[ -n \"$tail_log\" ]] && text=\"$(printf 'Last lines of the first failed job:\\n\\n~~~text\\n%s\\n~~~\\n' \"${tail_log:0:60000}\")\"\n    fi\n    summary=\"$(printf 'Central run failed: %s\\n\\n%s\\n' \"$DETAILS_URL\" \"${failed:-No failed job reported.}\")\"\n    title=\"$CHECK_NAME failed\"\n  else\n    conclusion=\"success\"\n    summary=\"Central run succeeded: $DETAILS_URL\"\n  fi\n  body=\"$(jq -n --arg name \"$CHECK_NAME\" --arg sha \"$TARGET_CHECK_SHA\" --arg url \"$DETAILS_URL\" --arg ext \"$GITHUB_RUN_ID\" \\\n    --arg conclusion \"$conclusion\" --arg title \"$title\" --arg summary \"${summary:0:65000}\" --arg text \"$text\" \\\n    '{name:$name,head_sha:$sha,status:\"completed\",conclusion:$conclusion,details_url:$url,external_id:$ext,output:({title:$title,summary:$summary} + (if $text == \"\" then {} else {text:$text} end))}')\"\nfi\n# Each phase posts its own Check Run under the same name; GitHub shows the latest one,\n# so the finish phase needs no id handed over from the start job.\ngh api --method POST \"repos/${TARGET_REPOSITORY}/check-runs\" --input - <<<\"$body\" >/dev/null \\\n  || echo \"::warning::Target check run skipped: GitHub refused the check run\"\n\n# Release/deploy failures also go to one open issue per workflow: opened on the\n# first failure, commented on each repeat. Successes never touch issues.\n[[ \"$CHECK_PHASE\" == \"finish\" && \"${FILE_ISSUES:-}\" == \"true\" && \"${conclusion:-}\" == \"failure\" ]] || exit 0\nlabel=\"central-run-failure\"\nissue_title=\"Central run failing: $CHECK_NAME\"\nissue=\"$(gh api \"repos/${TARGET_REPOSITORY}/issues?state=open&labels=${label}&per_page=100\" 2>/dev/null \\\n  | jq -r --arg t \"$issue_title\" '[.[] | select(.title == $t)][0].number // empty')\"\nreport=\"$(printf '%s\\n\\nCommit: %s\\n\\n%s\\n' \"$summary\" \"$TARGET_CHECK_SHA\" \"$text\")\"\nif [[ -n \"$issue\" ]]; then\n  gh api --method POST \"repos/${TARGET_REPOSITORY}/issues/${issue}/comments\" -f body=\"$report\" >/dev/null \\\n    || warn \"could not comment on issue #$issue\"\nelse\n  gh api --method POST \"repos/${TARGET_REPOSITORY}/labels\" -f name=\"$label\" -f color=\"000000\" \\\n    -f description=\"A release or deploy run in HereLiesAz/workflows failed for this repository.\" >/dev/null 2>&1\n  gh api --method POST \"repos/${TARGET_REPOSITORY}/issues\" -f title=\"$issue_title\" -f body=\"$report\" -f \"labels[]=$label\" >/dev/null \\\n    || warn \"could not open a failure issue\"\nfi\n"
+            | gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_SHA}" --input - >/dev/null

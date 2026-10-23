@@ -118,6 +118,14 @@ def main() -> int:
     expect(rsb("o/r", "1.2.3", "tag", True), ("main", False, False))
     expect(rsb("o/r", "feature", "branch"), ("feature", True, False))
     expect(rsb("o/r", "1.2.3", "tag"), ("main", True, False))
+    # A self-versioned repository keeps its own single writer: the sync writes nothing.
+    import sync_repository
+
+    class NoWrites:
+        def __getattr__(self, name):
+            raise AssertionError(f"self-versioned repository touched GitHub via {name}")
+
+    expect(sync_repository._ensure_version_contract(NoWrites(), "HereLiesAz/azphalt", "main", False)["status"], "self-versioned")
     return 0
 
 

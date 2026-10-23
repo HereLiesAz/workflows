@@ -34,6 +34,10 @@ on:
   # it's on the default branch). A crop-box change is picked up per-id by the
   # baker's crop-change detection, so only the moved crops re-photorealize.
   push:
+    # Default branch only. A push to any other branch would otherwise run that
+    # branch's own scripts with HF_TOKEN and the publish PAT.
+    branches:
+      - main
     paths:
       - '.github/workflows/theater_bake.yml'
       - 'scripts/crops.json'

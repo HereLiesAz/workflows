@@ -52,14 +52,15 @@ permissions:
 # serialization belongs in the destination workflow (for example one Google
 # Play edit per app), never at account scope.
 #
-# One exception: a per-repository (and per-workflow) group. Each repository
-# gets at most one running and one pending gateway run; a newer event replaces
-# the pending one. Webhook bursts (GraffitiXR, 2026-10-09: ~30 dispatches in an
-# hour, each queued for hours under the account's concurrent-job limit) then
-# collapse to a single run instead of starving every other repository.
-# Trade-off: a superseded pending event is dropped, not routed.
+# Every dispatched event gets its own run: a concurrency group with a pending
+# slot silently replaced (dropped) a queued event whenever a third one arrived,
+# so a burst of pushes or a tag event could never be routed. Only schedule ticks
+# share a group, because a superseded tick is repeated by the next one.
+# Per-repository ordering is kept by the "Wait for earlier events" step below
+# instead: a run routes only after every earlier gateway run for the same
+# repository has finished, so destination workflows are dispatched in event order.
 concurrency:
-  group: gateway-${{ inputs.repository || github.event.schedule || 'manual' }}-${{ inputs.source_workflow_path }}
+  group: gateway-${{ github.event_name == 'schedule' && github.event.schedule || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -89,6 +90,26 @@ jobs:
           done <<<"$sources"
           echo "No active registered workflow uses '$SCHEDULE'; nothing to route."
           echo "run=false" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for earlier events of this repository
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.repository != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT_RUN: ${{ github.run_id }}
+          QUEUE_TITLE: gateway · ${{ inputs.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Gateway runs only dispatch and exit, so the wait is normally seconds.
+          for attempt in $(seq 1 150); do
+            gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/gateway.yml/runs?per_page=100" > "$RUNNER_TEMP/gateway-runs.json"
+            blockers="$(jq --argjson current "$CURRENT_RUN" --arg title "$QUEUE_TITLE" '[.workflow_runs[] | select((.status != "completed") and .id < $current and .display_title == $title)] | length' "$RUNNER_TEMP/gateway-runs.json")"
+            if [ "$blockers" -eq 0 ]; then exit 0; fi
+            echo "Waiting behind $blockers earlier gateway run(s) for this repository..."
+            sleep 10
+          done
+          echo "::error::Timed out waiting for earlier gateway runs of this repository" >&2
+          exit 1
 
       - name: Mint GitHub App installation token
         if: ${{ steps.due.outputs.run == 'true' }}

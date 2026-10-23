@@ -176,13 +176,17 @@ jobs:
           [[ "$pr_number" =~ ^[0-9]+$ ]] || { echo "Glee requires an existing pull request number" >&2; exit 1; }
 
           echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
+          # A random delimiter per value: a PR body containing a line "EOF" must not be able to
+          # end the value early and set arbitrary environment variables for later steps.
+          delim_title="GLEE_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+          delim_body="GLEE_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
           {
-            echo "PR_TITLE<<EOF"
+            echo "PR_TITLE<<${delim_title}"
             echo "$title"
-            echo "EOF"
-            echo "PR_BODY<<EOF"
+            echo "${delim_title}"
+            echo "PR_BODY<<${delim_body}"
             echo "$body"
-            echo "EOF"
+            echo "${delim_body}"
             echo "BASE_REF=$base_ref"
             echo "HEAD_REF=$head_ref"
             echo "HEAD_REPO=$head_repo"

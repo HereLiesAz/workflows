@@ -88,6 +88,9 @@ on:
 concurrency:
   group: android-github-release-${{ inputs.target_repository_name }}
   cancel-in-progress: false
+env:
+  TARGET_REPOSITORY_NAME: ${{ inputs.target_repository_name }}
+
 jobs:
   central_check_start:
     runs-on: ubuntu-latest
@@ -419,7 +422,7 @@ jobs:
           PATCH="$VERSION_PATCH"
           BUILD="$VERSION_BUILD"
           TAG="$VERSION"
-          APP_NAME="${APP_NAME_OVERRIDE:-${{ inputs.target_repository_name }}}"
+          APP_NAME="${APP_NAME_OVERRIDE:-${TARGET_REPOSITORY_NAME}}"
           APK="$(compgen -G "$ARTIFACT_GLOB" | sort | head -1 || true)"
           test -n "$APK" && test -s "$APK" || { echo "::error::No release APK matched $ARTIFACT_GLOB" >&2; exit 1; }
           case "$ASSET_NAME_MODE" in

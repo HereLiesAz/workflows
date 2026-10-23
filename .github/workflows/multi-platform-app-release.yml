@@ -66,6 +66,7 @@ permissions:
   contents: read
 
 env:
+  TARGET_REPOSITORY_NAME: ${{ inputs.target_repository_name }}
   TARGET_REPOSITORY: ${{ inputs.target_repository }}
   TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
   TARGET_REPOSITORY_OWNER_ID: ${{ inputs.target_repository_owner_id }}
@@ -370,7 +371,7 @@ jobs:
           esac
           test -n "$tag" || { echo "::error::Release tag is empty" >&2; exit 1; }
           title_template="$(jq -r '.title_template // "$REPO $VERSION"' <<<"$PROFILE_JSON")"
-          export REPO="${{ inputs.target_repository_name }}" TAG="$tag"
+          export REPO="$TARGET_REPOSITORY_NAME" TAG="$tag"
           title="$(envsubst <<<"$title_template")"
           echo "publish=true" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
@@ -474,7 +475,7 @@ jobs:
           fi
           cd ..
           body_template="$(jq -r '.body_template // "Built from $BUILD_SHA."' <<<"$PROFILE_JSON")"
-          export BUILD_SHA="${{ needs.prepare.outputs.build_sha }}" REPO="${{ inputs.target_repository_name }}"
+          export BUILD_SHA="${{ needs.prepare.outputs.build_sha }}" REPO="$TARGET_REPOSITORY_NAME"
           body="$(envsubst <<<"$body_template")"
           prerelease="$(jq -r '.prerelease // false' <<<"$PROFILE_JSON")"
           generate_notes="$(jq -r '.generate_notes // false' <<<"$PROFILE_JSON")"
@@ -531,7 +532,7 @@ jobs:
           mapfile -t assets < <(find artifacts -type f -print | sort)
           test "${#assets[@]}" -gt 0 || { echo "::error::No rolling release artifacts were produced." >&2; exit 1; }
           body_template="$(jq -r '.body_template // "Built from $BUILD_SHA."' <<<"$PROFILE_JSON")"
-          export BUILD_SHA="${{ needs.prepare.outputs.build_sha }}" REPO="${{ inputs.target_repository_name }}"
+          export BUILD_SHA="${{ needs.prepare.outputs.build_sha }}" REPO="$TARGET_REPOSITORY_NAME"
           body="$(envsubst <<<"$body_template")"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

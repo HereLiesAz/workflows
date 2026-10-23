@@ -323,6 +323,7 @@ jobs:
         id: changes
         shell: bash
         env:
+          EVENT_BEFORE: ${{ github.event.before }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -336,7 +337,7 @@ jobs:
           # Worker change in a cancelled push would otherwise never be deployed.
           before="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/validate-controller.yml/runs?branch=main&event=push&status=success&per_page=1" --jq '.workflow_runs[0].head_sha // empty' 2>/dev/null || true)"
           if [[ -z "$before" ]] || ! git cat-file -e "${before}^{commit}" 2>/dev/null; then
-            before="${{ github.event.before }}"
+            before="$EVENT_BEFORE"
           fi
           if [[ -z "$before" || "$before" == "0000000000000000000000000000000000000000" ]]; then
             before="$(git rev-parse HEAD^ 2>/dev/null || true)"

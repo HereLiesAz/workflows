@@ -80,6 +80,7 @@ on:
 permissions:
   contents: read
 env:
+  TARGET_REPOSITORY_NAME: ${{ inputs.target_repository_name }}
   TARGET_REPOSITORY: ${{ inputs.target_repository }}
   TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
   TARGET_REPOSITORY_OWNER: ${{ inputs.target_repository_owner }}
@@ -337,7 +338,7 @@ jobs:
           [ ${#files[@]} -gt 0 ] || { echo "::error::No desktop packages were downloaded" >&2; exit 1; }
           title="$(jq -r '.release_title // empty' <<<"$PROFILE_JSON")"
           body="$(jq -r '.release_body // "Native desktop installers."' <<<"$PROFILE_JSON")"
-          [ -n "$title" ] || title="${{ inputs.target_repository_name }} Desktop $TAG"
+          [ -n "$title" ] || title="${TARGET_REPOSITORY_NAME} Desktop $TAG"
           prerelease_flag=()
           if [ "$PRERELEASE" = "true" ]; then prerelease_flag=(--prerelease); fi
           if gh release view "$TAG" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then

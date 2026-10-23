@@ -81,6 +81,10 @@ on:
         required: false
         type: string
         default: '{}'
+env:
+  TARGET_REPOSITORY_NAME: ${{ inputs.target_repository_name }}
+  TARGET_REF: ${{ inputs.target_ref }}
+
 jobs:
   central_check_start:
     runs-on: ubuntu-latest
@@ -207,7 +211,7 @@ jobs:
         if: ${{ inputs.target_ref_type != 'tag' }}
         shell: bash
         run: |
-          echo "::error::AZP model release requires a tag ref; got ${{ inputs.target_ref }}" >&2
+          echo "::error::AZP model release requires a tag ref; got ${TARGET_REF}" >&2
           exit 1
       - name: Publish release
         uses: softprops/action-gh-release@v2

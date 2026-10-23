@@ -214,7 +214,9 @@ jobs:
       TARGET_RUN_ATTEMPT: ${{ inputs.target_run_attempt }}
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
 
-  test_and_deploy:
+  # The target's own code (install scripts, tests) runs in this job, which holds no Cloudflare
+  # credential and no forwarded secret: only the central GH_TOKEN, used once to check out.
+  test:
     needs: central_check_start
     # Deploy only from the default branch (push or manual run); never from pull requests.
     if: ${{ inputs.target_event_name == 'push' || inputs.target_event_name == 'workflow_dispatch' }}
@@ -222,9 +224,6 @@ jobs:
     environment: ${{ inputs.target_repository_name }}
     permissions:
       contents: read
-    concurrency:
-      group: worker-deploy-${{ inputs.target_repository_name }}
-      cancel-in-progress: false
     steps:
       - name: Check out target
         uses: actions/checkout@v7
@@ -244,7 +243,6 @@ jobs:
             echo "WORKER_DIR=$(jq -r '.working_directory // "."' <<<"$PROFILE_JSON")"
             echo "NODE_VERSION=$(jq -r '.node_version // "22"' <<<"$PROFILE_JSON")"
             echo "TEST_COMMAND=$(jq -r '.test_command // "npm test --if-present"' <<<"$PROFILE_JSON")"
-            echo "WORKER_SECRETS=$(jq -r '(.worker_secrets // []) | join(" ")' <<<"$PROFILE_JSON")"
           } >> "$GITHUB_ENV"
 
       - uses: actions/setup-node@v4
@@ -267,19 +265,100 @@ jobs:
           fi
           eval "$TEST_COMMAND"
 
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target_repository_name }}
+    permissions:
+      contents: read
+    concurrency:
+      group: worker-deploy-${{ inputs.target_repository_name }}
+      cancel-in-progress: false
+    outputs:
+      deployment_url: ${{ steps.deploy.outputs.deployment_url }}
+    steps:
+      - name: Check out target
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+
+      - name: Resolve profile
+        env:
+          PROFILE_JSON: ${{ inputs.purpose_profile_json }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "WORKER_DIR=$(jq -r '.working_directory // "."' <<<"$PROFILE_JSON")"
+            echo "NODE_VERSION=$(jq -r '.node_version // "22"' <<<"$PROFILE_JSON")"
+            echo "WORKER_SECRETS=$(jq -r '(.worker_secrets // []) | join(" ")' <<<"$PROFILE_JSON")"
+          } >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # Dependencies are needed to bundle the Worker, but their lifecycle scripts must not run
+      # here: this job later holds the Cloudflare token. No credential is in this step's env.
+      - name: Install dependencies without lifecycle scripts
+        working-directory: ${{ env.WORKER_DIR }}
+        env:
+          PROFILE_JSON: ${{ inputs.purpose_profile_json }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          profile="${PROFILE_JSON:-}"; [[ -n "$profile" ]] || profile='{}'
+          install_command="$(jq -r '.install_command // ""' <<<"$profile")"
+          if [[ -n "$install_command" ]]; then
+            ( eval "$install_command" )
+          elif [[ -f package-lock.json ]]; then npm ci --ignore-scripts
+          elif [[ -f package.json ]]; then npm install --no-audit --no-fund --ignore-scripts
+          fi
+
+      # Wrangler is an exact, pinned version installed outside the checkout and run from a clean
+      # directory, so a node_modules/.bin/wrangler (or a wrangler.* shim) in the target can never
+      # be the program that receives the Cloudflare token.
+      - name: Install pinned Wrangler
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/wrangler-tool" --no-audit --no-fund --ignore-scripts wrangler@4.150.0
+          echo "WRANGLER_BIN=$RUNNER_TEMP/wrangler-tool/node_modules/.bin/wrangler" >> "$GITHUB_ENV"
+
       - name: Deploy with Wrangler
         id: deploy
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: ${{ env.WORKER_DIR }}
+        working-directory: ${{ runner.temp }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir="$GITHUB_WORKSPACE/$WORKER_DIR"
+          config=""
+          for candidate in wrangler.jsonc wrangler.json wrangler.toml; do
+            if [[ -f "$dir/$candidate" ]]; then config="$dir/$candidate"; break; fi
+          done
+          [[ -n "$config" ]] || { echo "::error::The target has no wrangler.jsonc, wrangler.json or wrangler.toml"; exit 1; }
+          # A [build] command in the config would run target-controlled shell with the token.
+          if grep -Eq '^[[:space:]]*\[build\]|"build"[[:space:]]*:' "$config"; then
+            echo "::error::The Wrangler config declares a build step; central deploys do not run target build commands with the Cloudflare token. Bundle in the test step or remove it."
+            exit 1
+          fi
+          export WRANGLER_OUTPUT_FILE_PATH="$RUNNER_TEMP/wrangler-output.ndjson"
+          : > "$WRANGLER_OUTPUT_FILE_PATH"
+          "$WRANGLER_BIN" deploy --config "$config"
+          url="$(jq -rs '[.[] | select(.type == "deploy")] | last | (.targets // [])[0] // empty' "$WRANGLER_OUTPUT_FILE_PATH" 2>/dev/null || true)"
+          echo "deployment_url=$url" >> "$GITHUB_OUTPUT"
 
       # Central secrets a Worker needs at runtime, named by its profile. Each forwardable
       # secret is mapped here explicitly; a name the profile lists without a mapping fails.
       - name: Set Worker secrets
         if: ${{ env.WORKER_SECRETS != '' }}
-        working-directory: ${{ env.WORKER_DIR }}
+        working-directory: ${{ runner.temp }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -303,18 +382,22 @@ jobs:
             payload="$(jq --arg k "$name" --arg v "${!var}" '. + {($k): $v}' <<<"$payload")"
           done
           if [[ "$payload" == '{}' ]]; then exit 0; fi
+          config=""
+          for candidate in wrangler.jsonc wrangler.json wrangler.toml; do
+            if [[ -f "$GITHUB_WORKSPACE/$WORKER_DIR/$candidate" ]]; then config="$GITHUB_WORKSPACE/$WORKER_DIR/$candidate"; break; fi
+          done
           printf '%s' "$payload" > "$RUNNER_TEMP/worker-env.json"
-          npx --yes wrangler@4 secret bulk "$RUNNER_TEMP/worker-env.json"
+          "$WRANGLER_BIN" secret bulk "$RUNNER_TEMP/worker-env.json" --config "$config"
           rm -f "$RUNNER_TEMP/worker-env.json"
 
       # A Worker whose profile names a verify_command proves the new version is serving before the
       # run reports success. DEPLOYMENT_URL is the version's own address (workers.dev), so the check
-      # does not depend on where the public domain points.
+      # does not depend on where the public domain points. No credential is in this step's env.
       - name: Verify deployment
         working-directory: ${{ env.WORKER_DIR }}
         env:
           PROFILE_JSON: ${{ inputs.purpose_profile_json }}
-          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment_url }}
         shell: bash
         run: |
           set -euo pipefail
@@ -328,7 +411,8 @@ jobs:
     if: ${{ always() }}
     needs:
       - central_check_start
-      - test_and_deploy
+      - test
+      - deploy
     runs-on: ubuntu-latest
     steps:
       - name: Complete target status

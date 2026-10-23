@@ -101,6 +101,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           TARGETS: ${{ steps.targets.outputs.targets }}
+          DRY_RUN: ${{ inputs.dry_run }}
         shell: bash
         run: |
           set -euo pipefail
@@ -124,7 +125,7 @@ jobs:
               --arg repository_id "$repository_id" \
               '{repository:$repository,repository_id:$repository_id}')"
 
-            if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
               echo "[dry-run] Would POST to ${WORKER_URL}/register with payload: ${payload}"
             else
               curl --fail-with-body --silent --show-error \
@@ -136,7 +137,7 @@ jobs:
 
             out="${RUNNER_TEMP}/sync-result-${repository##*/}.json"
             sync_args=(--repository "$repository" --worker-url "$WORKER_URL")
-            [[ "${{ inputs.dry_run }}" == "true" ]] && sync_args+=(--dry-run)
+            [[ "$DRY_RUN" == "true" ]] && sync_args+=(--dry-run)
 
             # Remember whether this is the repository's first registration: its pushes so
             # far never reached the gateway, so its push workflows are run once afterwards.
@@ -156,7 +157,7 @@ jobs:
               # fetched the file just before that other commit landed. Retry with a
               # fresh GET each attempt instead of failing the whole sync on a
               # transient, self-inflicted race.
-              if [[ "${{ inputs.dry_run }}" != "true" ]]; then
+              if [[ "$DRY_RUN" != "true" ]]; then
                 manifest_path="registry/${repository_id}/manifest.json"
                 stamped="false"
                 for stamp_attempt in 1 2 3 4 5; do
@@ -188,7 +189,7 @@ jobs:
                 fi
               fi
 
-              if [[ "$first_registration" == "true" && "${{ inputs.dry_run }}" != "true" ]]; then
+              if [[ "$first_registration" == "true" && "$DRY_RUN" != "true" ]]; then
                 if python scripts/dispatch_manual.py --repository "$repository" --catch-up; then
                   echo "Started first run of ${repository}'s push workflows"
                 else

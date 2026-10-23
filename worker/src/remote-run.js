@@ -40,14 +40,33 @@ export async function verifyRemoteRunToken(secret, token, now = Math.floor(Date.
  * KV is eventually consistent, so this narrows replay rather than making it atomic.
  * Returns true when the token may be used.
  */
-export async function consumeRemoteRunJti(store, claims, now = Math.floor(Date.now() / 1000)) {
-  if (!store) return true;
+function jtiKey(claims) {
   const jti = String(claims?.jti || "");
-  if (!/^[A-Za-z0-9_-]{16,64}$/.test(jti)) return false;
-  const key = `remote-run-jti:${jti}`;
-  if (await store.get(key)) return false;
+  return /^[A-Za-z0-9_-]{16,64}$/.test(jti) ? `remote-run-jti:${jti}` : null;
+}
+
+/** True when the token may still be used: single-use is off, or its jti was not recorded yet. */
+export async function remoteRunJtiIsFresh(store, claims) {
+  if (!store) return true;
+  const key = jtiKey(claims);
+  return key !== null && !(await store.get(key));
+}
+
+/** Records the jti as used. Call it only once the callback was accepted and the finalizer dispatched. */
+export async function markRemoteRunJtiUsed(store, claims, now = Math.floor(Date.now() / 1000)) {
+  const key = store ? jtiKey(claims) : null;
+  if (!key) return;
   const ttl = Math.max(60, Math.trunc(Number(claims.exp) - now) + 60);
   await store.put(key, "1", { expirationTtl: ttl });
+}
+
+/**
+ * Check-and-record in one call, for callers that have nothing to do in between.
+ * Returns true when the token may be used.
+ */
+export async function consumeRemoteRunJti(store, claims, now = Math.floor(Date.now() / 1000)) {
+  if (!(await remoteRunJtiIsFresh(store, claims))) return false;
+  await markRemoteRunJtiUsed(store, claims, now);
   return true;
 }
 

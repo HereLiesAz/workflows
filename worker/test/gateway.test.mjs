@@ -201,18 +201,22 @@ test("/remote-run/callback validates kind and state before touching GitHub", asy
   assert.equal(badState.status, 400);
 });
 
-test("/remote-run/callback consumes the token's jti once when a KV store is bound", async () => {
+test("/remote-run/callback leaves the token's jti unused when the request fails before the finalizer is dispatched", async () => {
   const now = Math.floor(Date.now() / 1000);
   const claims = { kind: "remote-compute", provider: "kaggle", run_ref: "a/b", iat: now, exp: now + 600, jti: "A".repeat(24) };
   const token = await createRemoteRunToken(ENV.DISPATCH_TOKEN, claims);
   const data = new Map();
   const env = { ...ENV, REMOTE_RUN_JTI: { get: async (k) => data.get(k) ?? null, put: async (k, v) => { data.set(k, v); } } };
-  const send = () => worker.fetch(new Request(`${ORIGIN}/remote-run/callback`, {
+  const send = (state) => worker.fetch(new Request(`${ORIGIN}/remote-run/callback`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ state: "bogus" }),
+    body: JSON.stringify({ state }),
   }), env);
-  // The first use consumes the jti (then fails state validation with 400); the replay is a 409.
-  assert.equal((await send()).status, 400);
-  assert.equal((await send()).status, 409);
+  // A malformed first request, then one that reaches the GitHub call and fails there (this test
+  // env has no GitHub App credentials): neither may burn the only token the runner has.
+  assert.equal((await send("bogus")).status, 400);
+  assert.equal((await send("success")).status >= 500, true);
+  assert.equal(data.size, 0);
+  assert.equal((await send("bogus")).status, 400, "so the retry is not answered 409");
 });
+

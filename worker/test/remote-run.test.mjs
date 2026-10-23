@@ -32,7 +32,7 @@ test("remote-run state and description normalization are bounded", () => {
   assert.equal(sanitizeStatusDescription("x".repeat(200), "fallback").length, 140);
 });
 
-import { consumeRemoteRunJti, newRemoteRunJti } from "../src/remote-run.js";
+import { consumeRemoteRunJti, markRemoteRunJtiUsed, newRemoteRunJti, remoteRunJtiIsFresh } from "../src/remote-run.js";
 
 const CLAIMS = { iat: 1_000, exp: 2_000, provider: "kaggle", run_ref: "a/b", publish_release: false };
 
@@ -79,4 +79,16 @@ test("jti is single-use when a store is bound, and a no-op without one", async (
   assert.equal(await consumeRemoteRunJti(store, claims, 1_501), false);
   assert.equal(await consumeRemoteRunJti(store, { exp: 2_000 }, 1_500), false, "a token without a jti is refused when single-use is on");
   assert.equal(await consumeRemoteRunJti(store, { jti: "short", exp: 2_000 }, 1_500), false);
+});
+
+test("a jti stays usable until it is marked, so a failed first attempt can be retried", async () => {
+  const entries = new Map();
+  const store = { get: async (k) => entries.get(k), put: async (k, v) => { entries.set(k, v); } };
+  const claims = { jti: newRemoteRunJti(), exp: 2_000 };
+  assert.equal(await remoteRunJtiIsFresh(store, claims), true);
+  assert.equal(await remoteRunJtiIsFresh(store, claims), true, "checking does not consume it");
+  await markRemoteRunJtiUsed(store, claims, 1_500);
+  assert.equal(await remoteRunJtiIsFresh(store, claims), false);
+  assert.equal(await remoteRunJtiIsFresh(store, { exp: 2_000 }), false, "no jti: refused when single-use is on");
+  assert.equal(await remoteRunJtiIsFresh(undefined, claims), true);
 });

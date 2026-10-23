@@ -4,7 +4,7 @@ import { receiveCrashReport } from "./crash-report.js";
 import { receiveTestReport } from "./test-report.js";
 import { EVENT_CONSUMERS } from "./event-consumers.js";
 import { pushDropReason, webhookDropReason } from "./event-filter.js";
-import { consumeRemoteRunJti, createRemoteRunToken, newRemoteRunJti, normalizeRemoteRunState, sanitizeStatusDescription, verifyRemoteRunToken } from "./remote-run.js";
+import { createRemoteRunToken, markRemoteRunJtiUsed, remoteRunJtiIsFresh, newRemoteRunJti, normalizeRemoteRunState, sanitizeStatusDescription, verifyRemoteRunToken } from "./remote-run.js";
 import { receiveWebDeploy } from "./web-deploy.js";
 import { isDuplicateDelivery, markDelivery } from "./webhook-dedupe.js";
 
@@ -306,6 +306,8 @@ async function receiveRepositoryWebhook(request, env) {
 
   const eventName = request.headers.get("X-GitHub-Event") || "";
   const delivery = request.headers.get("X-GitHub-Delivery") || crypto.randomUUID();
+  // The replay key comes from the signed body, never from a header the signature does not cover.
+  const replayKey = await sha256Hex(rawBody);
   if (!eventName) throw new HttpError(400, "Missing X-GitHub-Event");
 
   let event;
@@ -319,10 +321,10 @@ async function receiveRepositoryWebhook(request, env) {
     return json({ ok: true, pong: true, zen: event.zen || "" });
   }
 
-  // GitHub redelivers with the same delivery id. Best effort (per data center): a replayed signed
+  // GitHub redelivers the same body. Best effort (per data center): a replayed signed
   // body is not forwarded twice. A delivery is marked only after it was handled, so a failed one
   // can still be redelivered.
-  if (request.headers.get("X-GitHub-Delivery") && await isDuplicateDelivery(delivery)) {
+  if (await isDuplicateDelivery(replayKey)) {
     return json({ ok: true, duplicate: true, delivery }, 202);
   }
 
@@ -403,7 +405,7 @@ async function receiveRepositoryWebhook(request, env) {
   };
 
   await dispatchGateway(env, body);
-  await markDelivery(delivery);
+  await markDelivery(replayKey);
   return json({
     ok: true,
     repository: body.repository,
@@ -640,7 +642,9 @@ async function receiveRemoteRunCallback(request, env) {
   }
   if (claims.kind !== "remote-compute") throw new HttpError(400, "Unsupported remote-run kind");
   if (!claims.provider || !claims.run_ref) throw new HttpError(400, "Remote-run token is missing provider identity");
-  if (!(await consumeRemoteRunJti(env.REMOTE_RUN_JTI, claims))) {
+  // Checked now, recorded only after the finalizer was dispatched: a malformed first request or a
+  // transient GitHub failure must not burn the only token the runner has, so its retry can succeed.
+  if (!(await remoteRunJtiIsFresh(env.REMOTE_RUN_JTI, claims))) {
     throw new HttpError(409, "Remote-run callback token was already used");
   }
 
@@ -678,6 +682,7 @@ async function receiveRemoteRunCallback(request, env) {
     },
     true,
   );
+  await markRemoteRunJtiUsed(env.REMOTE_RUN_JTI, claims);
 
   return json({
     ok: true,
@@ -1086,6 +1091,11 @@ async function verifyWebhookSignature(env, rawBody, suppliedHex) {
 
 function bytesToHex(bytes) {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function sha256Hex(text) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function hexToBytes(hex) {

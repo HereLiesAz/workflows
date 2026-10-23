@@ -1,8 +1,9 @@
 // Best-effort webhook delivery de-duplication on the Workers Cache API.
 //
 // The Worker has no durable storage binding, so this is per data center and expires after an hour:
-// it stops the common replay (GitHub or a proxy redelivering the same X-GitHub-Delivery, or a
-// captured signed body replayed soon after) without claiming exactly-once delivery. Where `caches`
+// it stops the common replay (GitHub or a proxy redelivering the same signed body, or a captured
+// one replayed soon after; the key is the body's digest, because the signature covers the body and
+// not the X-GitHub-Delivery header) without claiming exactly-once delivery. Where `caches`
 // does not exist (tests, other runtimes) nothing is deduplicated.
 
 const TTL_SECONDS = 3600;

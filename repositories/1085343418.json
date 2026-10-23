@@ -4,11 +4,27 @@
     "id": 1085343418,
     "full_name": "HereLiesAz/IDEaz"
   },
-  "updated_at": "2026-10-23T02:36:43.241Z",
+  "updated_at": "2026-10-23T02:37:23.251Z",
   "workflows": {
     ".github/workflows/pr-ci.yml": {
       "name": "PR CI",
       "runs": [
+        {
+          "run_id": 39890571963,
+          "jobs": {},
+          "reports": {},
+          "created_at": "2026-10-23T02:37:23.251Z",
+          "run_number": 22,
+          "run_attempt": 1,
+          "event": "pull_request",
+          "branch": "dependabot/gradle/dev.chrisbanes.haze-haze-2.0.1",
+          "sha": "b68975a4ac3467da2d97bebfc14512c51393ad3c",
+          "status": "queued",
+          "conclusion": null,
+          "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/39890571963",
+          "started_at": "2026-10-23T02:37:21Z",
+          "updated_at": "2026-10-23T02:37:21Z"
+        },
         {
           "run_id": 39890505805,
           "jobs": {
@@ -632,24 +648,6 @@
           "event": "pull_request",
           "branch": "refs/pull/910/merge",
           "updated_at": "2026-10-16T11:15:46.451Z"
-        },
-        {
-          "run_id": 38890949397,
-          "jobs": {},
-          "reports": {
-            "build": {
-              "status": "failure",
-              "summary": ":app:testDebugUnitTest :app:assembleDebug failure",
-              "data": null,
-              "run_attempt": "2",
-              "reported_at": "2026-10-16T11:07:30.784Z"
-            }
-          },
-          "created_at": "2026-10-16T11:01:28.143Z",
-          "sha": "0577bc6db1ba8c6719a3c033f598c9aef6012d9e",
-          "event": "pull_request",
-          "branch": "refs/pull/910/merge",
-          "updated_at": "2026-10-16T11:07:30.784Z"
         }
       ]
     }

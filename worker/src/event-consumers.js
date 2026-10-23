@@ -1552,6 +1552,12 @@ export const EVENT_CONSUMERS = {
     "events": [
       "push",
       "workflow_dispatch"
+    ],
+    "ci": [
+      {
+        "path": ".github/workflows/ci.yml",
+        "name": "CI"
+      }
     ]
   },
   "1377725263": {

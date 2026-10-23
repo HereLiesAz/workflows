@@ -1633,6 +1633,16 @@ export const EVENT_CONSUMERS = {
     "repository": "HereLiesAz/SphereSLAM",
     "events": [
       "push"
+    ],
+    "ci": [
+      {
+        "path": ".github/workflows/ci.yml",
+        "name": "CI"
+      },
+      {
+        "path": ".github/workflows/testapp.yml",
+        "name": "Test app"
+      }
     ]
   },
   "1410760249": {

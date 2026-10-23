@@ -76,11 +76,12 @@ jobs:
         # applies the exact cron match.
         id: due
         env:
+          EVENT_NAME: ${{ github.event_name }}
           SCHEDULE: ${{ github.event.schedule }}
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "${{ github.event_name }}" != "schedule" ]]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [[ "${EVENT_NAME}" != "schedule" ]]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
           sources="$(jq -r '.workflows // {} | to_entries[] | select(.value.status == "active") | .value.registry_source // empty' registry/*/manifest.json)"
           while IFS= read -r source; do
             [[ -n "$source" && -f "$source" ]] || continue

@@ -126,11 +126,13 @@ jobs:
 
       - name: Synchronize affected repository
         shell: bash
+        env:
+          MATRIX_TARGET_REPOSITORY: ${{ matrix.target_repository }}
         run: |
           set -euo pipefail
           out="${RUNNER_TEMP}/sync-result.json"
           python scripts/retry_repository_sync.py \
-            --repository "${{ matrix.target_repository }}" \
+            --repository "${MATRIX_TARGET_REPOSITORY}" \
             --worker-url "$WORKER_URL" \
             --json-output "$out"
           cat "$out"

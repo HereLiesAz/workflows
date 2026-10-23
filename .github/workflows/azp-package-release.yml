@@ -220,8 +220,10 @@ jobs:
       - name: Validate target release ref
         if: ${{ inputs.target_ref_type != 'tag' }}
         shell: bash
+        env:
+          TARGET_REF: ${{ inputs.target_ref }}
         run: |
-          echo "::error::AZP package release requires a tag ref; got ${{ inputs.target_ref }}" >&2
+          echo "::error::AZP package release requires a tag ref; got ${TARGET_REF}" >&2
           exit 1
       - name: Publish release
         uses: softprops/action-gh-release@v2

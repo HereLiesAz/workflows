@@ -1107,6 +1107,7 @@ jobs:
       - name: Publish built release assets to GitHub
         if: ${{ env.PUBLISH_BUILT_GITHUB_RELEASE == 'true' }}
         env:
+          TARGET_REPOSITORY_NAME: ${{ inputs.target_repository_name }}
           GH_TOKEN: ${{ steps.target-token.outputs.token }}
         shell: bash
         run: |
@@ -1124,7 +1125,7 @@ jobs:
           if [ "$BUILT_RELEASE_INCLUDE_AAB" = true ]; then assets+=("$AAB_PATH"); fi
           if [ -n "${APK_PATH:-}" ]; then assets+=("$APK_PATH"); fi
           test "${#assets[@]}" -gt 0 || { echo "::error::No GitHub release assets selected" >&2; exit 1; }
-          title="${RELEASE_APP_NAME:-${{ inputs.target_repository_name }}} ${version:-$tag}"
+          title="${RELEASE_APP_NAME:-${TARGET_REPOSITORY_NAME}} ${version:-$tag}"
           notes="Built from commit $TARGET_SHA."
           if [ "$BUILT_RELEASE_CHANGES" = true ]; then
             previous="$(git describe --tags --abbrev=0 "$TARGET_SHA^" 2>/dev/null || true)"
@@ -1180,6 +1181,8 @@ jobs:
         id: play_release
         if: ${{ env.PUBLISH_GITHUB_RELEASE == 'true' }}
         shell: bash
+        env:
+          TARGET_REPOSITORY_NAME: ${{ inputs.target_repository_name }}
         run: |
           set -euo pipefail
           version="$VERSION"
@@ -1190,7 +1193,7 @@ jobs:
           if [ -z "$app_name" ] && [ -f settings.gradle ]; then
             app_name="$(sed -nE "s/.*rootProject\.name[[:space:]]*=[[:space:]]*['\"]([^'\"]+)['\"].*/\\1/p" settings.gradle | head -1)"
           fi
-          app_name="${app_name:-${{ inputs.target_repository_name }}}"
+          app_name="${app_name:-${TARGET_REPOSITORY_NAME}}"
           asset="$app_name-$version.apk"
           rm -rf play-release-files
           mkdir -p play-release-files

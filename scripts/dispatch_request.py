@@ -365,6 +365,22 @@ def _repository_vars(gh: GitHub, repository: str) -> dict[str, str]:
     }
 
 
+def _untrusted_pull_request_head(event: dict, repository: str) -> bool:
+    """True unless the pull request's head lives in the target repository itself.
+
+    Fails closed: GitHub nulls head.repo when the fork was deleted, and a head
+    repository other than the target is never trusted with secrets.
+    """
+
+    head_repo = (((event.get("pull_request") or {}).get("head") or {}).get("repo") or {})
+    head_name = str(head_repo.get("full_name") or "").casefold()
+    return (
+        not head_repo
+        or head_repo.get("fork") is True
+        or (bool(head_name) and head_name != repository.casefold())
+    )
+
+
 def _dispatch_entry(
     central_gh: GitHub,
     request: dict,
@@ -395,8 +411,7 @@ def _dispatch_entry(
         }
 
     if effective_event_name in {"pull_request", "pull_request_target"}:
-        head_repo = (((event.get("pull_request") or {}).get("head") or {}).get("repo") or {})
-        if head_repo.get("fork") is True:
+        if _untrusted_pull_request_head(event, repository):
             return {
                 "status": "ignored",
                 "reason": "fork pull requests cannot enter the central secret-bearing executor",

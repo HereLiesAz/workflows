@@ -202,6 +202,15 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "8b42bbc29b2f1b8ab416a72cd6b2ed04c37811d4ec358ea24c5a4640773474fc",
         },
     },
+    ".github/workflows/github-pages-deploy.yml": {
+        "name": "GitHub Pages Deploy",
+        "canonical_hash": "9bd5fb364cd651740b033f1ecb695a2d30320c49855e4d4adb8a0db0304c964a",
+        "generalized": True,
+        "source_hashes": {
+            # HereLiesAz/photo-unroll:.github/workflows/github-pages-deploy.yml (wasm PWA)
+            "9bd5fb364cd651740b033f1ecb695a2d30320c49855e4d4adb8a0db0304c964a",
+        },
+    },
     ".github/workflows/jules-scheduled-triage.yml": {
         "name": "Jules Scheduled Issue Triage",
         "canonical_hash": "c5795302751261681062afb2384c0a30807517ee87a9246fcc46f874d0b0f7f1",
@@ -391,6 +400,8 @@ PLAY_TRACKS: Final[list[dict[str, object]]] = [
 ]
 
 PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
+    # HereLiesAz/photo-unroll: Compose Multiplatform wasm build published as a PWA.
+    "9bd5fb364cd651740b033f1ecb695a2d30320c49855e4d4adb8a0db0304c964a": {"java_version": "17", "build_command": "./gradlew :composeApp:wasmJsBrowserDistribution --no-daemon", "site_dir": "composeApp/build/dist/wasmJs/productionExecutable"},
     # MeatPiety (Compose Multiplatform; app module reads -PversionCode / -PversionName).
     "d6b05a5e8890cf72879a0e5347ae9f3b5b1f125e8df667ae48b0d1c9b2157a9f": {"signing": "raw-jks", "java_version": "21", "google_services": "none", "inject_signing_args": True, "version_arg": "versionCode", "package_name": "com.hereliesaz.meatpiety", "build_command": "./gradlew :app:bundleRelease --no-daemon --stacktrace", "aab_glob": "app/build/outputs/bundle/release/*.aab", "publish_on_push": True, "publish_default": True, "tracks": PLAY_TRACKS, "release_app_name": "MeatPiety"},
     "3cd23c10466cf2e39495201851059130cebe05892298fbaa7fc1f996fc910c39": {"signing": "raw-jks", "java_version": "21", "google_services": "none", "inject_signing_args": True, "build_command": "./gradlew :app:assembleRelease --no-daemon --stacktrace -PversionCode=\"$ANDROID_VERSION_CODE\" -PversionName=\"$VERSION\"", "artifact_glob": "app/build/outputs/apk/release/*.apk", "persist_version": False, "app_name": "MeatPiety"},

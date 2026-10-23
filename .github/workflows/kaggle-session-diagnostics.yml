@@ -20,7 +20,7 @@ jobs:
       KAGGLE_JSON: ${{ secrets.KAGGLE_JSON }}
     steps:
       - name: Install Kaggle CLI
-        run: python -m pip install --quiet --upgrade kaggle
+        run: python -m pip install --quiet --upgrade "kaggle==2.2.4"
 
       - name: Configure credentials
         shell: bash

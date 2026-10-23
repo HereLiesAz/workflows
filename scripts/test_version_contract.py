@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import version_contract
 from version_contract import (
     Version,
     classify_next,
@@ -108,6 +109,15 @@ def main() -> int:
     expect((version, bump), (Version(3, 4, 6, 1), "patch"))
 
     print("version contract regression test passed")
+    # Default-branch-only families (Android releases) read and write state on the default
+    # branch alone; any other ref computes a version but persists nothing.
+    version_contract.default_branch = lambda repository: "main"
+    rsb = version_contract.resolve_state_branch
+    expect(rsb("o/r", "main", "branch", True), ("main", True, True))
+    expect(rsb("o/r", "feature", "branch", True), ("main", False, False))
+    expect(rsb("o/r", "1.2.3", "tag", True), ("main", False, False))
+    expect(rsb("o/r", "feature", "branch"), ("feature", True, False))
+    expect(rsb("o/r", "1.2.3", "tag"), ("main", True, False))
     return 0
 
 

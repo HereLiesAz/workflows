@@ -22,6 +22,10 @@ inputs:
     description: triggering event (webhook delivery); runs sharing one reuse one version
     required: false
     default: ""
+  default_branch_only:
+    description: "true: version state lives only on the default branch; other refs compute a version and write nothing"
+    required: false
+    default: "false"
 outputs:
   version:
     value: ${{ steps.version.outputs.version }}
@@ -37,6 +41,10 @@ outputs:
     value: ${{ steps.version.outputs.bump }}
   android_version_code:
     value: ${{ steps.version.outputs.android_version_code }}
+  persisted:
+    value: ${{ steps.version.outputs.persisted }}
+  on_default_branch:
+    value: ${{ steps.version.outputs.on_default_branch }}
 runs:
   using: composite
   steps:
@@ -52,6 +60,7 @@ runs:
         TARGET_REF_NAME: ${{ inputs.target_ref_name }}
         TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
         TRIGGER_ID: ${{ inputs.trigger_id }}
+        DEFAULT_BRANCH_ONLY: ${{ inputs.default_branch_only }}
       run: |
         set -euo pipefail
         python "$GITHUB_ACTION_PATH/../../../scripts/version_contract.py" \
@@ -60,4 +69,5 @@ runs:
           --ref-name "$TARGET_REF_NAME" \
           --ref-type "$TARGET_REF_TYPE" \
           --workspace "$GITHUB_WORKSPACE" \
-          --trigger-id "$TRIGGER_ID"
+          --trigger-id "$TRIGGER_ID" \
+          --default-branch-only "$DEFAULT_BRANCH_ONLY"

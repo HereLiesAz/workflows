@@ -154,6 +154,8 @@ jobs:
       target_ref_type: ${{ inputs.target_ref_type }}
       # Play and GitHub runs dispatched from one push share this, so they share one version.
       trigger_id: ${{ inputs.target_run_id }}
+      # Only the default branch publishes, so only it records version state.
+      default_branch_only: true
     secrets:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
@@ -179,7 +181,7 @@ jobs:
       VERSION_MINOR: ${{ needs.version_contract.outputs.minor }}
       VERSION_PATCH: ${{ needs.version_contract.outputs.patch }}
       VERSION_BUILD: ${{ needs.version_contract.outputs.build }}
-      ANDROID_VERSION_CODE: ${{ needs.version_contract.outputs.android_version_code }}
+      ON_DEFAULT_BRANCH: ${{ needs.version_contract.outputs.on_default_branch }}
     steps:
       # This job has a target-named environment. Environment secrets take precedence over
       # repository secrets, so secrets.GH_TOKEN can differ from the working token used by
@@ -371,7 +373,6 @@ jobs:
             echo "VERSION_ARG=$version_arg"
             echo "INJECT_SIGNING_ARGS=$inject_signing"
             echo "PEM_LEGACY=$pem_legacy"
-            echo "PUBLISH_PLAY=$publish"
             echo "TRACKS_JSON=$tracks"
             echo "TEST_COMMAND=$test_command"
             echo "AD_ID_CHECK=$ad_id_check"
@@ -381,13 +382,21 @@ jobs:
             echo "RELEASE_APP_NAME=$release_app_name"
             echo "RELEASE_NOTES_DIR=$release_notes_dir"
             echo "POST_BUILD_COMMAND=$post_build_command"
+            # Publishing is the default branch's alone. Any other ref (a branch, a tag, a
+            # dispatch at a feature branch) still builds and uploads its artifacts, but never
+            # reaches a Play track and never records a version.
+            if [ "$publish" = true ] && [ "$ON_DEFAULT_BRANCH" != true ]; then
+              echo "::notice::$TARGET_REF_TYPE $TARGET_REF_NAME is not the default branch: building without publishing to Play" >&2
+              publish=false
+            fi
+            echo "PUBLISH_PLAY=$publish"
             release=false
             if [ "$publish" = true ] && { [ "$github_release_after_play" = always ] || { [ "$github_release_after_play" = manual ] && [ "$TARGET_EVENT_NAME" = workflow_dispatch ]; }; }; then
               release=true
             fi
             echo "PUBLISH_GITHUB_RELEASE=$release"
             built_release=false
-            if [ "$built_release_always" = true ] || { [ "$built_release_on_tag" = true ] && [ "$TARGET_REF_TYPE" = tag ]; }; then
+            if { [ "$built_release_always" = true ] && [ "$ON_DEFAULT_BRANCH" = true ]; } || { [ "$built_release_on_tag" = true ] && [ "$TARGET_REF_TYPE" = tag ]; }; then
               built_release=true
             fi
             echo "PUBLISH_BUILT_GITHUB_RELEASE=$built_release"
@@ -424,7 +433,7 @@ jobs:
         run: |
           set -euo pipefail
           default_branch="$(gh api "repos/$TARGET_REPOSITORY" --jq .default_branch)"
-          test "$TARGET_REF_NAME" = "$default_branch" || { echo "::error::Play publishing is only allowed from the default branch ($default_branch); got $TARGET_REF_NAME" >&2; exit 1; }
+          test "$TARGET_REF_TYPE" = branch && test "$TARGET_REF_NAME" = "$default_branch" || { echo "::error::Play publishing is only allowed from the default branch ($default_branch); got $TARGET_REF_NAME" >&2; exit 1; }
 
       - name: Inject Google services
         env:
@@ -592,11 +601,10 @@ jobs:
         shell: bash
         run: bash -eo pipefail -c "$TEST_COMMAND"
 
-      - name: Resolve package and version arguments
+      - name: Resolve package name
         id: meta
         env:
           TARGET_VARS_JSON: ${{ inputs.target_vars_json }}
-          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
         shell: bash
         run: |
           set -euo pipefail
@@ -608,47 +616,41 @@ jobs:
           fi
           test -n "$package" || { echo "::error::Could not determine Android applicationId" >&2; exit 1; }
           echo "package_name=$package" >> "$GITHUB_OUTPUT"
-          # versionCode: one above the highest code live on any Play track, skipping codes Play
-          # already holds as uploads. The version-name encoding (major*10^8 + minor*10^6 +
-          # patch*10^4 + build) jumped codes by the ten thousand and moved apps off their own
-          # sequence, so it is only the fallback when Play can't be asked (no service account,
-          # or not publishing). RELEASE_VERSION_CODE, when a profile sets it, still wins.
-          play_next_code=""
-          if [ -z "${RELEASE_VERSION_CODE:-}" ] && [ "$PUBLISH_PLAY" = true ] && [ -n "$PLAY_SERVICE_ACCOUNT_JSON" ]; then
-            python -m pip install --quiet google-api-python-client google-auth google-auth-httplib2
-            play_next_code="$(PACKAGE_NAME="$package" timeout 300 python - <<'PY'
-          import json, os
-          import httplib2
-          from google.oauth2 import service_account
-          from google_auth_httplib2 import AuthorizedHttp
-          from googleapiclient.discovery import build
 
-          creds=service_account.Credentials.from_service_account_info(
-              json.loads(os.environ['PLAY_SERVICE_ACCOUNT_JSON']),
-              scopes=['https://www.googleapis.com/auth/androidpublisher'],
-          )
-          svc=build('androidpublisher','v3',http=AuthorizedHttp(creds, http=httplib2.Http(timeout=120)),cache_discovery=False)
-          package=os.environ['PACKAGE_NAME']
-          edit=svc.edits().insert(packageName=package,body={}).execute(num_retries=3)['id']
-          try:
-              uploaded={int(b['versionCode']) for b in svc.edits().bundles().list(packageName=package,editId=edit).execute(num_retries=3).get('bundles', [])}
-              uploaded|={int(a['versionCode']) for a in svc.edits().apks().list(packageName=package,editId=edit).execute(num_retries=3).get('apks', [])}
-              live=[int(c) for t in svc.edits().tracks().list(packageName=package,editId=edit).execute(num_retries=3).get('tracks', [])
-                    for r in t.get('releases', []) if r.get('status') in ('completed','inProgress','halted')
-                    for c in r.get('versionCodes', [])]
-          finally:
-              svc.edits().delete(packageName=package,editId=edit).execute(num_retries=3)
-          nxt=max(live, default=0)+1
-          while nxt in uploaded:
-              nxt+=1
-          print(nxt)
-          PY
-            )" || play_next_code=""
-            if [[ "$play_next_code" =~ ^[0-9]+$ ]]; then echo "Next Play versionCode: $play_next_code"; else echo "::warning::Could not read Play versionCodes; falling back to the version-name encoding"; play_next_code=""; fi
+      # versionCode = max(versionCode recorded in the target's version.properties, every code Play
+      # has ever accepted for the package: every track and status, drafts included, and every
+      # uploaded bundle and APK) + 1. Nothing else. A Play query that fails fails the job.
+      - name: Check Play credentials for versionCode
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$PUBLISH_PLAY" = true ] && [ -z "$PLAY_SERVICE_ACCOUNT_JSON" ]; then
+            echo "::error::PLAY_SERVICE_ACCOUNT_JSON is required to publish, and to read the versionCodes Play holds" >&2
+            exit 1
           fi
-          release_version_code="${RELEASE_VERSION_CODE:-${play_next_code:-$ANDROID_VERSION_CODE}}"
+
+      - name: Resolve next versionCode
+        id: android_version
+        uses: HereLiesAz/workflows/.github/actions/android-version@main
+        with:
+          mode: next
+          service-account-json: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          package-name: ${{ steps.meta.outputs.package_name }}
+
+      - name: Resolve version arguments
+        env:
+          NEXT_VERSION_CODE: ${{ steps.android_version.outputs.version-code }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$NEXT_VERSION_CODE" =~ ^[0-9]+$ ]] || { echo "::error::Could not resolve the next versionCode" >&2; exit 1; }
+          # A profile's own RELEASE_VERSION_CODE is accepted only above that floor.
+          release_version_code="${RELEASE_VERSION_CODE:-$NEXT_VERSION_CODE}"
+          [[ "$release_version_code" =~ ^[0-9]+$ ]] && [ "$release_version_code" -ge "$NEXT_VERSION_CODE" ] || {
+            echo "::error::RELEASE_VERSION_CODE=$release_version_code is not above every recorded and Play versionCode (next is $NEXT_VERSION_CODE)" >&2; exit 1; }
           release_version_name="${RELEASE_VERSION_NAME:-$VERSION}"
-          test "$release_version_code" -ge 0 || { echo "::error::Release version cannot be encoded as Android versionCode: $release_version_name" >&2; exit 1; }
           # Pass -PversionBuild once: when it is the profile's VERSION_ARG it already carries the code,
           # and a second -PversionBuild (the build number) overrode it, uploading the wrong code.
           build_arg="-PversionBuild=${VERSION_BUILD}"
@@ -656,6 +658,8 @@ jobs:
           args="-P${VERSION_ARG}=${release_version_code} -PversionCodeOverride=${release_version_code} -PversionNameOverride=${release_version_name} -PreleaseVersionCode=${release_version_code} -PreleaseVersionName=${release_version_name} ${build_arg} -PversionName=${release_version_name}"
           echo "VERSION_ARGS=$args" >> "$GITHUB_ENV"
           echo "EFFECTIVE_RELEASE_VERSION_CODE=$release_version_code" >> "$GITHUB_ENV"
+          # Profiles whose build_command passes -PversionCode="$ANDROID_VERSION_CODE" get the same code.
+          echo "ANDROID_VERSION_CODE=$release_version_code" >> "$GITHUB_ENV"
           echo "EFFECTIVE_RELEASE_VERSION_NAME=$release_version_name" >> "$GITHUB_ENV"
 
       # Play Console warns about bundles with native code but no debug symbols, and can't
@@ -1103,6 +1107,19 @@ jobs:
                       except Exception as cleanup_exc:
                           print(f'Warning: could not discard Play edit {edit}: {cleanup_exc}', flush=True)
           PY
+
+      # Record the published versionCode on the default branch, so a later build without Play
+      # access (and the GitHub APK) still starts above it. Never lowers a recorded code.
+      - name: Record published versionCode
+        if: ${{ env.PUBLISH_PLAY == 'true' && env.ON_DEFAULT_BRANCH == 'true' }}
+        uses: HereLiesAz/workflows/.github/actions/android-version@main
+        with:
+          mode: record
+          repository: ${{ inputs.target_repository }}
+          branch: ${{ inputs.target_ref_name }}
+          version-code: ${{ env.EFFECTIVE_RELEASE_VERSION_CODE }}
+          version-name: ${{ env.EFFECTIVE_RELEASE_VERSION_NAME == env.VERSION && env.VERSION || '' }}
+          github-token: ${{ steps.target-token.outputs.token }}
 
       - name: Publish built release assets to GitHub
         if: ${{ env.PUBLISH_BUILT_GITHUB_RELEASE == 'true' }}

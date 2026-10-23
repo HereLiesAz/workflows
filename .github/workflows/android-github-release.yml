@@ -174,7 +174,7 @@ jobs:
       VERSION_MINOR: ${{ needs.version_contract.outputs.minor }}
       VERSION_PATCH: ${{ needs.version_contract.outputs.patch }}
       VERSION_BUILD: ${{ needs.version_contract.outputs.build }}
-      ANDROID_VERSION_CODE: ${{ needs.version_contract.outputs.android_version_code }}
+      ON_DEFAULT_BRANCH: ${{ needs.version_contract.outputs.on_default_branch }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -386,6 +386,55 @@ jobs:
         shell: bash
         run: bash -eo pipefail -c "$TEST_COMMAND"
 
+      - name: Resolve package name
+        id: package
+        env:
+          PROFILE_JSON: ${{ inputs.purpose_profile_json }}
+          TARGET_VARS_JSON: ${{ inputs.target_vars_json }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="$(jq -r 'if type == "string" then fromjson else . end | .package_name // empty' <<<"$PROFILE_JSON")"
+          if [ -z "$package" ]; then
+            vars="${TARGET_VARS_JSON:-}"; [ -n "$vars" ] || vars='{}'
+            build_file="$(jq -r '.ANDROID_BUILD_FILE // "app/build.gradle.kts"' <<<"$vars")"
+            if [ ! -f "$build_file" ]; then build_file="$(find . \( -path '*/build.gradle.kts' -o -path '*/build.gradle' \) -not -path './.git/*' -print | head -1)"; fi
+            package="$(grep -m1 -E 'applicationId[[:space:]]*=' "$build_file" 2>/dev/null | sed -E 's/.*"([^"]+)".*/\1/' || true)"
+          fi
+          echo "package_name=$package" >> "$GITHUB_OUTPUT"
+
+      # The sideloaded APK and the Play bundle share one versionCode sequence: max(versionCode in
+      # version.properties, every code Play has ever accepted) + 1. Without Play credentials the
+      # Play term is skipped (recorded + 1). A Play query that fails fails the job.
+      - name: Resolve next versionCode
+        id: android_version
+        uses: HereLiesAz/workflows/.github/actions/android-version@main
+        with:
+          mode: next
+          service-account-json: ${{ steps.package.outputs.package_name != '' && secrets.PLAY_SERVICE_ACCOUNT_JSON || '' }}
+          package-name: ${{ steps.package.outputs.package_name }}
+
+      - name: Pass versionCode to the build
+        env:
+          NEXT_VERSION_CODE: ${{ steps.android_version.outputs.version-code }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$NEXT_VERSION_CODE" =~ ^[0-9]+$ ]] || { echo "::error::Could not resolve the next versionCode" >&2; exit 1; }
+          {
+            echo "ANDROID_VERSION_CODE=$NEXT_VERSION_CODE"
+            # Gradle reads these as -PversionCode / -PversionCodeOverride wherever it is started,
+            # including from a project's own build script.
+            echo "ORG_GRADLE_PROJECT_versionCode=$NEXT_VERSION_CODE"
+            echo "ORG_GRADLE_PROJECT_versionCodeOverride=$NEXT_VERSION_CODE"
+          } >> "$GITHUB_ENV"
+          # When the command ends in a Gradle invocation, pass them on its command line as well.
+          last="${BUILD_COMMAND##*&&}"; last="${last##*;}"
+          args=""
+          if [[ "$last" == *gradlew* ]]; then args="-PversionCodeOverride=$NEXT_VERSION_CODE -PversionCode=$NEXT_VERSION_CODE"; fi
+          echo "VERSION_CODE_ARGS=$args" >> "$GITHUB_ENV"
+          echo "versionCode $NEXT_VERSION_CODE"
+
       - name: Build signed release APK
         env:
           KEYSTORE_FILE: ${{ github.workspace }}/${{ env.KEYSTORE_OUTPUT }}
@@ -404,9 +453,9 @@ jobs:
         run: |
           set -euo pipefail
           if [ "$INJECT_SIGNING_ARGS" = "true" ]; then
-            bash -eo pipefail -c "$BUILD_COMMAND -Pandroid.injected.signing.store.file=\"$KEYSTORE_FILE\" -Pandroid.injected.signing.store.password=\"$KEYSTORE_PASSWORD\" -Pandroid.injected.signing.key.alias=\"$KEY_ALIAS\" -Pandroid.injected.signing.key.password=\"$KEY_PASSWORD\""
+            bash -eo pipefail -c "$BUILD_COMMAND $VERSION_CODE_ARGS -Pandroid.injected.signing.store.file=\"$KEYSTORE_FILE\" -Pandroid.injected.signing.store.password=\"$KEYSTORE_PASSWORD\" -Pandroid.injected.signing.key.alias=\"$KEY_ALIAS\" -Pandroid.injected.signing.key.password=\"$KEY_PASSWORD\""
           else
-            bash -eo pipefail -c "$BUILD_COMMAND"
+            bash -eo pipefail -c "$BUILD_COMMAND $VERSION_CODE_ARGS"
           fi
 
       - name: Resolve version and artifact
@@ -468,7 +517,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ "$RELEASE_NOTES_MODE" = "changelog" ]; then
-            last_tag="$(git tag --sort=-v:refname | grep -v "^v$VERSION$" | head -n 1 || true)"
+            last_tag="$(git tag --sort=-v:refname | grep -vxF "$VERSION" | head -n 1 || true)"
             if [ -n "$last_tag" ]; then
               {
                 echo "### Changelog (since $last_tag)"
@@ -498,6 +547,17 @@ jobs:
           prerelease: ${{ steps.release_profile.outputs.prerelease }}
           make-latest: "true"
           migrate-legacy-build-releases: "true"
+
+      - name: Record released versionCode
+        if: ${{ env.ON_DEFAULT_BRANCH == 'true' }}
+        uses: HereLiesAz/workflows/.github/actions/android-version@main
+        with:
+          mode: record
+          repository: ${{ inputs.target_repository }}
+          branch: ${{ inputs.target_ref_name }}
+          version-code: ${{ env.ANDROID_VERSION_CODE }}
+          version-name: ${{ env.VERSION }}
+          github-token: ${{ secrets.GH_TOKEN }}
 
       - name: Cleanup signing material
         if: ${{ always() }}

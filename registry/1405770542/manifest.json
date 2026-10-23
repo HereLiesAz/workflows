@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-10-05T16:01:52+00:00",
+  "last_sync_at": "2026-10-23T22:15:59+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/SphereSLAM",
@@ -8,6 +8,27 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
-  "workflows": {}
+  "worker_url_configured": false,
+  "workflows": {
+    ".github/workflows/ci.yml": {
+      "ci": true,
+      "name": "CI",
+      "reason": "declares CI with the ci-report action; CI runs in the target repository",
+      "registry_source": "registry/1405770542/ci-899ce9c2.source.yml",
+      "required_secrets": [],
+      "source_sha256": "f69f6fee213ffa2ab686d9886e1f0dc4793282bd3943b57541c36beb639afbf4",
+      "status": "local",
+      "updated_at": "2026-10-23T22:15:56+00:00"
+    },
+    ".github/workflows/testapp.yml": {
+      "ci": true,
+      "name": "Test app",
+      "reason": "declares CI with the ci-report action; CI runs in the target repository",
+      "registry_source": "registry/1405770542/testapp-f798687b.source.yml",
+      "required_secrets": [],
+      "source_sha256": "47df697e4504e1e80dae274e50764dbb5df58f48b532a36500d08ecfe2bc22bb",
+      "status": "local",
+      "updated_at": "2026-10-23T22:15:57+00:00"
+    }
+  }
 }

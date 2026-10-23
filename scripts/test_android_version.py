@@ -39,4 +39,71 @@ for name in ("android-play-release.yml", "android-github-release.yml"):
     assert "HereLiesAz/workflows/.github/actions/android-version@" in text, f"{name} must use the android-version action"
     assert "outputs.android_version_code" not in text, f"{name} must not use the version-name encoding"
     assert "falling back" not in text, f"{name} must fail rather than fall back"
+# A Play edit replaced by another run mid-read is re-read, not fatal.
+import sys
+import types
+
+
+class FakeHttpError(Exception):
+    def __init__(self, status, content):
+        super().__init__(content)
+        self.resp = types.SimpleNamespace(status=status)
+        self.content = content
+
+
+class Call:
+    def __init__(self, fn):
+        self.fn = fn
+
+    def execute(self, num_retries=0):
+        return self.fn()
+
+
+class FakeEdits:
+    def __init__(self):
+        self.inserts = 0
+
+    def insert(self, packageName, body):
+        self.inserts += 1
+        return Call(lambda: {"id": f"e{self.inserts}"})
+
+    def delete(self, packageName, editId):
+        def run():
+            if editId == "e1":
+                raise FakeHttpError(400, b"This Edit has been deleted.")
+        return Call(run)
+
+    def bundles(self):
+        return types.SimpleNamespace(list=lambda packageName, editId: Call(lambda: {"bundles": [{"versionCode": "41"}]}))
+
+    def apks(self):
+        def listing(packageName, editId):
+            def run():
+                if editId == "e1":
+                    raise FakeHttpError(400, b"This Edit has been deleted.")
+                return {"apks": [{"versionCode": "42"}]}
+            return Call(run)
+        return types.SimpleNamespace(list=listing)
+
+    def tracks(self):
+        return types.SimpleNamespace(list=lambda packageName, editId: Call(lambda: {"tracks": []}))
+
+
+fake = FakeEdits()
+for name, attrs in {
+    "google": {},
+    "google.oauth2": {},
+    "google.oauth2.service_account": {"Credentials": types.SimpleNamespace(from_service_account_info=lambda info, scopes: None)},
+    "googleapiclient": {},
+    "googleapiclient.discovery": {"build": lambda *a, **k: types.SimpleNamespace(edits=lambda: fake)},
+    "googleapiclient.errors": {"HttpError": FakeHttpError},
+}.items():
+    module = types.ModuleType(name)
+    module.__dict__.update(attrs)
+    sys.modules[name] = module
+sys.modules["google.oauth2"].service_account = sys.modules["google.oauth2.service_account"]
+v.time.sleep = lambda seconds: None
+assert v.play_highest_code("{}", "com.example") == 42, "a replaced edit is re-read on a fresh edit"
+assert fake.inserts == 2
+
 print("android version tests passed")

@@ -45,7 +45,9 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parents[1]
 MAX_WORKFLOW_DISPATCH_INPUTS = 25
-# GitHub rejects a workflow_dispatch whose inputs exceed 65,535 characters in total.
+# GitHub rejects a workflow_dispatch whose inputs exceed 65,535 characters in total (measured on
+# the serialised inputs object). Keep headroom for JSON escaping of the nested event text.
+MAX_DISPATCH_INPUTS_JSON = 60_000
 MAX_DISPATCH_EVENT_JSON = 40_000
 
 
@@ -72,27 +74,64 @@ def declared_dispatch_inputs(workflow_path: str) -> dict[str, object]:
 
 
 
-def _event_json_for_dispatch(event: dict) -> str:
-    """Serialise the event, shrinking a push payload so the dispatch stays under GitHub's limit.
+def _event_json_for_dispatch(event: dict, limit: int = MAX_DISPATCH_EVENT_JSON) -> str:
+    """Serialise the event, shrinking it so the dispatch stays under GitHub's input limit.
 
     A merge of a large pull request lists every commit and every file it touched; that alone passes
-    the 65,535-character input cap and the whole dispatch is refused. Per-commit file lists go
-    first, then the commit list itself. `head_commit` and everything else is kept.
+    the input cap and the whole dispatch is refused. Shrinking goes, in order: per-commit file
+    lists, the commit list itself, head_commit's file lists, then the repository/sender objects
+    (only their identifying fields are kept). Everything else is kept.
     """
     text = json.dumps(event, separators=(",", ":"))
-    if len(text) <= MAX_DISPATCH_EVENT_JSON or not isinstance(event.get("commits"), list):
+    if len(text) <= limit:
         return text
     slim = dict(event)
-    slim["commits"] = [
-        {k: v for k, v in c.items() if k not in {"added", "removed", "modified"}}
-        for c in event["commits"]
-        if isinstance(c, dict)
-    ]
-    text = json.dumps(slim, separators=(",", ":"))
-    while len(text) > MAX_DISPATCH_EVENT_JSON and slim["commits"]:
-        slim["commits"] = slim["commits"][: len(slim["commits"]) // 2]
+    if isinstance(slim.get("commits"), list):
+        slim["commits"] = [
+            {k: v for k, v in c.items() if k not in {"added", "removed", "modified"}}
+            for c in slim["commits"]
+            if isinstance(c, dict)
+        ]
         text = json.dumps(slim, separators=(",", ":"))
+        while len(text) > limit and slim["commits"]:
+            slim["commits"] = slim["commits"][: len(slim["commits"]) // 2]
+            text = json.dumps(slim, separators=(",", ":"))
+    if len(text) > limit and isinstance(slim.get("head_commit"), dict):
+        slim["head_commit"] = {
+            k: v for k, v in slim["head_commit"].items() if k not in {"added", "removed", "modified"}
+        }
+        text = json.dumps(slim, separators=(",", ":"))
+    for key in ("repository", "sender", "organization", "installation"):
+        if len(text) <= limit:
+            break
+        if isinstance(slim.get(key), dict):
+            slim[key] = {
+                k: v for k, v in slim[key].items()
+                if k in {"id", "name", "full_name", "login", "private", "fork", "default_branch", "owner"}
+            }
+            if isinstance(slim[key].get("owner"), dict):
+                slim[key]["owner"] = {k: v for k, v in slim[key]["owner"].items() if k in {"id", "login"}}
+            text = json.dumps(slim, separators=(",", ":"))
+    if len(text) > limit:
+        raise RuntimeError(f"event payload is {len(text)} characters after shrinking; the dispatch limit leaves {limit}")
     return text
+
+
+def _fit_dispatch_inputs(inputs: dict[str, str], event: dict) -> dict[str, str]:
+    """Re-shrink target_event_json so the whole inputs object fits GitHub's total cap."""
+    total = len(json.dumps(inputs, separators=(",", ":")))
+    if total <= MAX_DISPATCH_INPUTS_JSON or "target_event_json" not in inputs:
+        return inputs
+    others = total - len(json.dumps(inputs["target_event_json"]))
+    budget = MAX_DISPATCH_INPUTS_JSON - others
+    # The event text is nested JSON, so quotes are escaped once more inside the inputs object.
+    fitted = dict(inputs)
+    limit = budget
+    while True:
+        fitted["target_event_json"] = _event_json_for_dispatch(event, max(limit, 0))
+        if len(json.dumps(fitted, separators=(",", ":"))) <= MAX_DISPATCH_INPUTS_JSON:
+            return fitted
+        limit = int(limit * 0.8)
 
 
 def conform_dispatch_inputs(
@@ -495,6 +534,7 @@ def _dispatch_entry(
         )
 
     dispatch_inputs = conform_dispatch_inputs(central_workflow, dispatch_inputs)
+    dispatch_inputs = _fit_dispatch_inputs(dispatch_inputs, event)
     body = {"ref": "main", "inputs": dispatch_inputs}
     endpoint = f"/repos/{CENTRAL_REPOSITORY}/actions/workflows/{workflow_id}/dispatches"
     last_error: Exception | None = None

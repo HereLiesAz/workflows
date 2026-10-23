@@ -99,26 +99,44 @@ def play_highest_code(service_account_json: str, package_name: str) -> int:
     from googleapiclient.errors import HttpError
 
     edits = build("androidpublisher", "v3", credentials=credentials, cache_discovery=False).edits()
-    try:
-        edit_id = edits.insert(packageName=package_name, body={}).execute(num_retries=3)["id"]
-    except HttpError as exc:
-        # Only "Play has never seen this package" means no code was ever accepted. Every other
-        # error propagates: guessing a code here is how apps fell off their sequence.
-        if exc.resp.status == 404:
-            return 0
-        raise
-    codes: list[int] = []
-    try:
-        for bundle in edits.bundles().list(packageName=package_name, editId=edit_id).execute(num_retries=3).get("bundles", []):
-            codes.append(int(bundle["versionCode"]))
-        for apk in edits.apks().list(packageName=package_name, editId=edit_id).execute(num_retries=3).get("apks", []):
-            codes.append(int(apk["versionCode"]))
-        for track in edits.tracks().list(packageName=package_name, editId=edit_id).execute(num_retries=3).get("tracks", []):
-            for release in track.get("releases", []):
-                codes.extend(int(code) for code in release.get("versionCodes", []))
-    finally:
-        edits.delete(packageName=package_name, editId=edit_id).execute(num_retries=3)
-    return max(codes, default=0)
+
+    def edit_was_deleted(exc: HttpError) -> bool:
+        # Play keeps one open edit per app: another run of the same app (its Play publish, or a
+        # GitHub release resolving its own code) opening an edit deletes this one mid-read.
+        return exc.resp.status == 400 and b"Edit has been deleted" in (exc.content or b"")
+
+    for attempt in range(1, 6):
+        try:
+            edit_id = edits.insert(packageName=package_name, body={}).execute(num_retries=3)["id"]
+        except HttpError as exc:
+            # Only "Play has never seen this package" means no code was ever accepted. Every other
+            # error propagates: guessing a code here is how apps fell off their sequence.
+            if exc.resp.status == 404:
+                return 0
+            raise
+        codes: list[int] = []
+        try:
+            for bundle in edits.bundles().list(packageName=package_name, editId=edit_id).execute(num_retries=3).get("bundles", []):
+                codes.append(int(bundle["versionCode"]))
+            for apk in edits.apks().list(packageName=package_name, editId=edit_id).execute(num_retries=3).get("apks", []):
+                codes.append(int(apk["versionCode"]))
+            for track in edits.tracks().list(packageName=package_name, editId=edit_id).execute(num_retries=3).get("tracks", []):
+                for release in track.get("releases", []):
+                    codes.extend(int(code) for code in release.get("versionCodes", []))
+        except HttpError as exc:
+            if not edit_was_deleted(exc) or attempt == 5:
+                raise
+            print(f"Play edit was replaced by another run; re-reading (attempt {attempt + 1}/5)", file=sys.stderr)
+            time.sleep(5 * attempt)
+            continue
+        try:
+            edits.delete(packageName=package_name, editId=edit_id).execute(num_retries=3)
+        except HttpError as exc:
+            # A read-only edit someone else already replaced needs no cleanup.
+            if not edit_was_deleted(exc):
+                raise
+        return max(codes, default=0)
+    raise AssertionError("unreachable")
 
 
 def github(method: str, url: str, token: str, body: dict | None = None) -> dict:

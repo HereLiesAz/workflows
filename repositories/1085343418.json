@@ -4,11 +4,27 @@
     "id": 1085343418,
     "full_name": "HereLiesAz/IDEaz"
   },
-  "updated_at": "2026-10-23T02:37:27.782Z",
+  "updated_at": "2026-10-23T02:37:50.500Z",
   "workflows": {
     ".github/workflows/pr-ci.yml": {
       "name": "PR CI",
       "runs": [
+        {
+          "run_id": 39890612962,
+          "jobs": {},
+          "reports": {},
+          "created_at": "2026-10-23T02:37:50.500Z",
+          "run_number": 23,
+          "run_attempt": 1,
+          "event": "pull_request",
+          "branch": "dependabot/gradle/gradle-wrapper-9.8.2",
+          "sha": "e2f54cab6b85a9b487c7ad88b356b870b9379506",
+          "status": "queued",
+          "conclusion": null,
+          "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/39890612962",
+          "started_at": "2026-10-23T02:37:49Z",
+          "updated_at": "2026-10-23T02:37:49Z"
+        },
         {
           "run_id": 39890571963,
           "jobs": {
@@ -641,24 +657,6 @@
           "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/39342242520",
           "started_at": "2026-10-19T23:32:54Z",
           "updated_at": "2026-10-19T23:39:56Z"
-        },
-        {
-          "run_id": 38891862798,
-          "jobs": {},
-          "reports": {
-            "build": {
-              "status": "success",
-              "summary": ":app:testDebugUnitTest :app:assembleDebug success",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-10-16T11:15:46.451Z"
-            }
-          },
-          "created_at": "2026-10-16T11:15:46.451Z",
-          "sha": "acd864c7186ba0f881df51cbf4b946ee9590628f",
-          "event": "pull_request",
-          "branch": "refs/pull/910/merge",
-          "updated_at": "2026-10-16T11:15:46.451Z"
         }
       ]
     }

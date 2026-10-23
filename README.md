@@ -115,6 +115,8 @@ commit status `ideaz/web-deploy` on the pushed SHA (target_url = the site), whic
 - Cloudflare Pages, not GitHub Pages: GitHub Pages cannot serve a private repository on a free
   plan, and publishing from the repository itself is what used to expose `.env` files and history.
   Only the build output leaves the runner.
+- The caller's GitHub token is sent to this Worker (over HTTPS, for the one permission read) before
+  an unowned repository is refused; it is never stored, logged or forwarded.
 - Only repositories owned by HereLiesAz are served (the central credentials and App are the owner's);
   anyone else gets `403` and IDEaz says so. The App must be installed on the private repository.
 - This does not register or sync the repository; see the scope note in

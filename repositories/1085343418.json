@@ -4,11 +4,32 @@
     "id": 1085343418,
     "full_name": "HereLiesAz/IDEaz"
   },
-  "updated_at": "2026-10-23T05:48:57.799Z",
+  "updated_at": "2026-10-23T05:49:33.847Z",
   "workflows": {
     ".github/workflows/pr-ci.yml": {
       "name": "PR CI",
       "runs": [
+        {
+          "run_id": 39907902202,
+          "jobs": {
+            "build": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/39907902202/job/120263967848",
+              "started_at": "2026-10-23T05:49:32Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-10-23T05:49:33.847Z",
+          "sha": "28f8146a4edd273190d698b79901f0ad60a556d0",
+          "branch": "ccr-d2868f4a-v1sk8i",
+          "status": "queued",
+          "updated_at": "2026-10-23T05:49:33.847Z"
+        },
         {
           "run_id": 39907431821,
           "jobs": {
@@ -673,41 +694,6 @@
           "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/39342497630",
           "started_at": "2026-10-19T23:35:16Z",
           "updated_at": "2026-10-19T23:44:43Z"
-        },
-        {
-          "run_id": 39342476995,
-          "jobs": {
-            "build": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/39342476995/job/118367083933",
-              "started_at": "2026-10-19T23:37:40Z",
-              "completed_at": "2026-10-19T23:42:03Z",
-              "steps_completed": 10,
-              "steps_total": 10,
-              "current_step": null
-            }
-          },
-          "reports": {
-            "build": {
-              "status": "success",
-              "summary": ":app:testDebugUnitTest :app:assembleDebug success",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-10-19T23:41:59.775Z"
-            }
-          },
-          "created_at": "2026-10-19T23:35:07.531Z",
-          "run_number": 5,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "dependabot/gradle/compose-481037cd09",
-          "sha": "f4479fb2ef4953c5b9660f4429ec0131c96822a9",
-          "status": "completed",
-          "conclusion": "success",
-          "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/39342476995",
-          "started_at": "2026-10-19T23:35:05Z",
-          "updated_at": "2026-10-19T23:42:04Z"
         }
       ]
     }

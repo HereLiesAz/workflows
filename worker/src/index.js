@@ -4,8 +4,9 @@ import { receiveCrashReport } from "./crash-report.js";
 import { receiveTestReport } from "./test-report.js";
 import { EVENT_CONSUMERS } from "./event-consumers.js";
 import { pushDropReason, webhookDropReason } from "./event-filter.js";
-import { createRemoteRunToken, normalizeRemoteRunState, sanitizeStatusDescription, verifyRemoteRunToken } from "./remote-run.js";
+import { consumeRemoteRunJti, createRemoteRunToken, newRemoteRunJti, normalizeRemoteRunState, sanitizeStatusDescription, verifyRemoteRunToken } from "./remote-run.js";
 import { receiveWebDeploy } from "./web-deploy.js";
+import { isDuplicateDelivery, markDelivery } from "./webhook-dedupe.js";
 
 const GITHUB_ISSUER = "https://token.actions.githubusercontent.com";
 const GITHUB_JWKS = "https://token.actions.githubusercontent.com/.well-known/jwks";
@@ -16,6 +17,11 @@ const CENTRAL_REPOSITORY = "HereLiesAz/workflows";
 const GATEWAY_WORKFLOW = "gateway.yml";
 const API_VERSION = "2026-03-10";
 const MAX_REQUEST_JSON_BYTES = 5 * 1024 * 1024;
+// Remote-run callback tokens: the remote compute reports once, when it finishes, so the token is
+// short-lived (it used to default to 12 h and cap at 24 h). Raise a run's ttl_seconds up to the cap
+// for a longer job.
+const REMOTE_RUN_DEFAULT_TTL_SECONDS = 4 * 3600;
+const REMOTE_RUN_MAX_TTL_SECONDS = 8 * 3600;
 const MAX_WORKFLOW_DISPATCH_INPUT_CHARS = 60000;
 const IGNORED_WEBHOOK_EVENTS = new Set(["check_run", "check_suite", "workflow_job", "status"]);
 
@@ -313,6 +319,13 @@ async function receiveRepositoryWebhook(request, env) {
     return json({ ok: true, pong: true, zen: event.zen || "" });
   }
 
+  // GitHub redelivers with the same delivery id. Best effort (per data center): a replayed signed
+  // body is not forwarded twice. A delivery is marked only after it was handled, so a failed one
+  // can still be redelivered.
+  if (request.headers.get("X-GitHub-Delivery") && await isDuplicateDelivery(delivery)) {
+    return json({ ok: true, duplicate: true, delivery }, 202);
+  }
+
   // Target-repository CI runs locally; its run/job lifecycle is recorded on the ci-status ledger.
   // Recording never decides routing: a workflow_run some central workflow consumes still flows on.
   let ciRecorded = false;
@@ -390,6 +403,7 @@ async function receiveRepositoryWebhook(request, env) {
   };
 
   await dispatchGateway(env, body);
+  await markDelivery(delivery);
   return json({
     ok: true,
     repository: body.repository,
@@ -548,9 +562,9 @@ async function issueRemoteRunCallback(request, env, url) {
   const detailsUrl = String(body.details_url || "");
   const centralRunId = String(body.central_run_id || "");
   const publishRelease = body.publish_release === true;
-  const requestedTtl = Number(body.ttl_seconds || 43200);
+  const requestedTtl = Number(body.ttl_seconds || REMOTE_RUN_DEFAULT_TTL_SECONDS);
   if (!Number.isFinite(requestedTtl)) throw new HttpError(400, "ttl_seconds is invalid");
-  const ttl = Math.max(300, Math.min(Math.trunc(requestedTtl), 86400));
+  const ttl = Math.max(300, Math.min(Math.trunc(requestedTtl), REMOTE_RUN_MAX_TTL_SECONDS));
 
   if (!/^HereLiesAz\/[A-Za-z0-9_.-]+$/.test(targetRepository)) {
     throw new HttpError(400, "target_repository is invalid");
@@ -589,6 +603,7 @@ async function issueRemoteRunCallback(request, env, url) {
   const now = Math.floor(Date.now() / 1000);
   const token = await createRemoteRunToken(env.DISPATCH_TOKEN, {
     kind: "remote-compute",
+    jti: newRemoteRunJti(),
     provider,
     iat: now,
     exp: now + ttl,
@@ -625,6 +640,9 @@ async function receiveRemoteRunCallback(request, env) {
   }
   if (claims.kind !== "remote-compute") throw new HttpError(400, "Unsupported remote-run kind");
   if (!claims.provider || !claims.run_ref) throw new HttpError(400, "Remote-run token is missing provider identity");
+  if (!(await consumeRemoteRunJti(env.REMOTE_RUN_JTI, claims))) {
+    throw new HttpError(409, "Remote-run callback token was already used");
+  }
 
   const body = await readJsonBody(request);
   let state;
@@ -817,7 +835,10 @@ async function githubApi(env, path, method = "GET", body = undefined, allowEmpty
       githubInstallationTokenCache = "";
       githubInstallationTokenExpiresAt = 0;
     }
-    throw new HttpError(502, `GitHub API failed (${response.status}): ${detail}`);
+    // GitHub's body can carry App-side detail; keep it in the Worker log, not in the response.
+    // The status stays in the message: ci-status.js branches on "(404)", "(409)" and "(422)".
+    console.error(`GitHub API ${method} ${path.split("?")[0]} failed (${response.status}): ${detail.slice(0, 2000)}`);
+    throw new HttpError(502, `GitHub API failed (${response.status})`);
   }
   if (response.status === 204 || allowEmpty) return null;
   return response.json();

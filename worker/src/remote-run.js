@@ -33,6 +33,29 @@ export async function verifyRemoteRunToken(secret, token, now = Math.floor(Date.
   return payload;
 }
 
+/**
+ * Single-use enforcement. `store` is an optional Workers KV namespace (binding REMOTE_RUN_JTI).
+ * The Worker has no storage binding today, so without one this is a no-op and the short TTL is the
+ * only bound; with one, the first callback consumes the token's jti and later ones are refused.
+ * KV is eventually consistent, so this narrows replay rather than making it atomic.
+ * Returns true when the token may be used.
+ */
+export async function consumeRemoteRunJti(store, claims, now = Math.floor(Date.now() / 1000)) {
+  if (!store) return true;
+  const jti = String(claims?.jti || "");
+  if (!/^[A-Za-z0-9_-]{16,64}$/.test(jti)) return false;
+  const key = `remote-run-jti:${jti}`;
+  if (await store.get(key)) return false;
+  const ttl = Math.max(60, Math.trunc(Number(claims.exp) - now) + 60);
+  await store.put(key, "1", { expirationTtl: ttl });
+  return true;
+}
+
+export function newRemoteRunJti() {
+  const bytes = crypto.getRandomValues(new Uint8Array(18));
+  return base64UrlEncodeBytes(bytes);
+}
+
 export function normalizeRemoteRunState(value) {
   const state = String(value || "").toLowerCase();
   if (state === "success" || state === "completed" || state === "complete") return "success";

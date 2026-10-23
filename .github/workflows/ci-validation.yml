@@ -615,7 +615,7 @@ jobs:
         env:
           WORKER_URL: https://workflows.hereliesaz.workers.dev
           KERNEL_REF: ${{ steps.package.outputs.kernel_ref }}
-          CALLBACK_TTL_SECONDS: ${{ fromJSON(inputs.purpose_profile_json).callback_ttl_seconds || 43200 }}
+          CALLBACK_TTL_SECONDS: ${{ fromJSON(inputs.purpose_profile_json).callback_ttl_seconds || 28800 }}
           # Release publishing happens in the finalizer once Kaggle reports success.
           PUBLISH_RELEASE: ${{ fromJSON(inputs.purpose_profile_json).release_tag != null && fromJSON(inputs.purpose_profile_json).release_tag != '' && (inputs.target_event_name == 'workflow_dispatch' || (inputs.target_event_name == 'push' && fromJSON(inputs.purpose_profile_json).release_publish_on_push == true)) }}
         shell: bash

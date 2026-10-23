@@ -34,7 +34,7 @@ jobs:
         with:
           node-version: 24
       - run: corepack enable
-      # The docs workspace is self-contained (VitePress + Vue); install just it, then build.
+      # Install the whole workspace (one lockfile, `--frozen-lockfile`), then build only the docs package.
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @azphalt/docs build
       - uses: actions/configure-pages@v6

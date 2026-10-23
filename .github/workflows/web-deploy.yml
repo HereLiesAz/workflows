@@ -1,32 +1,33 @@
 # workflow-policy: generalized-v1
+# opaque-target: repository-id
 # workflow-purpose: Build one commit of a (possibly private) web project and publish only its build output to Cloudflare Pages, on request from the Worker's /web-deploy route.
 # required-secret: GH_TOKEN | Central GitHub token used to check out the target repository and report its commit status.
 # required-secret: CLOUDFLARE_API_TOKEN | Authorizes Wrangler to create the target's Cloudflare Pages project and upload its build output.
 # required-secret: CLOUDFLARE_ACCOUNT_ID | Identifies the Cloudflare account that hosts the target's Cloudflare Pages project.
-# required-secret: GH_APP_ID | GitHub App that writes the Check Run mirroring this run onto the target commit.
-# required-secret: GH_PRIVATE_KEY | Private key of that GitHub App, used to mint its installation token.
 #
 # Dispatched only by worker/src/web-deploy.js, which has already checked that the caller's token
 # can push to the target and that the target belongs to the central owner. The target carries no
-# workflow of its own. The build job holds no deploy credential: it runs the project's own
+# workflow of its own.
+#
+# This repository is public, so everything a run shows is world-readable: the run name, the
+# dispatch inputs, step env/with blocks and the logs. The run therefore takes only the numeric
+# repository id and the commit SHA as inputs, never the repository name; every job resolves the
+# name from the id itself and registers the name and SHA as masks before anything can print them.
+# The Pages project name is derived from the repository id and name here, not accepted as input.
+# Remaining exposure (see docs/WEB_DEPLOY_SECURITY.md): build output and the stripped logs of a
+# private project's build still run on this public repository's Actions. The build job holds no deploy credential: it runs the project's own
 # install/build scripts, so it only produces an artifact, and the deploy job (which never runs
 # project code) publishes that artifact. Result: commit status `ideaz/web-deploy` on target_sha,
 # whose target_url is the site on success.
 name: Web Deploy
-run-name: ${{ inputs.target_repository }} · Web Deploy · ${{ inputs.target_sha }}
+run-name: Web Deploy · repository ${{ inputs.target_repository_id }}
 on:
   workflow_dispatch:
     inputs:
-      target_repository:
-        required: true
-        type: string
       target_repository_id:
         required: true
         type: string
       target_sha:
-        required: true
-        type: string
-      pages_project:
         required: true
         type: string
 
@@ -35,10 +36,6 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  TARGET_REPOSITORY: ${{ inputs.target_repository }}
-  TARGET_REPOSITORY_ID: ${{ inputs.target_repository_id }}
-  TARGET_SHA: ${{ inputs.target_sha }}
-  PAGES_PROJECT: ${{ inputs.pages_project }}
   STATUS_CONTEXT: ideaz/web-deploy
   DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
@@ -49,8 +46,6 @@ jobs:
       REQUIRED_GH_TOKEN: ${{ secrets.GH_TOKEN }}
       REQUIRED_CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       REQUIRED_CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      REQUIRED_GH_APP_ID: ${{ secrets.GH_APP_ID }}
-      REQUIRED_GH_PRIVATE_KEY: ${{ secrets.GH_PRIVATE_KEY }}
     steps:
       - name: Validate required secrets
         shell: bash
@@ -68,14 +63,6 @@ jobs:
             echo "::error::Missing required secret CLOUDFLARE_ACCOUNT_ID — Identifies the Cloudflare account that hosts the target's Cloudflare Pages project."
             exit 1
           }
-          test -n "${REQUIRED_GH_APP_ID:-}" || {
-            echo "::error::Missing required secret GH_APP_ID — GitHub App that writes the Check Run mirroring this run onto the target commit."
-            exit 1
-          }
-          test -n "${REQUIRED_GH_PRIVATE_KEY:-}" || {
-            echo "::error::Missing required secret GH_PRIVATE_KEY — Private key of that GitHub App, used to mint its installation token."
-            exit 1
-          }
 
   central_check_start:
     needs: policy_secret_preflight
@@ -83,17 +70,39 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Validate inputs and immutable target identity
+      - name: Resolve target (names and SHA are masked)
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::target_sha is not a commit SHA" >&2; exit 1; }
-          [[ "$PAGES_PROJECT" =~ ^ideaz-[a-z0-9]+(-[a-z0-9]+)*$ && ${#PAGES_PROJECT} -le 58 ]] || { echo "::error::pages_project is invalid" >&2; exit 1; }
-          repo_json="$(gh api "repos/${TARGET_REPOSITORY}")"
-          [[ "$(jq -r '.id' <<<"$repo_json")" == "$TARGET_REPOSITORY_ID" ]] || { echo "Repository ID mismatch" >&2; exit 1; }
-          [[ "$(jq -r '.owner.id' <<<"$repo_json")" == "103241502" ]] || { echo "Repository is not owned by HereLiesAz" >&2; exit 1; }
+          # Read the inputs from the event payload rather than env:/with:, which logs echo.
+          id="$(jq -r '.inputs.target_repository_id' "$GITHUB_EVENT_PATH")"
+          sha="$(jq -r '.inputs.target_sha' "$GITHUB_EVENT_PATH")"
+          echo "::add-mask::$sha"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::target_sha is not a commit SHA" >&2; exit 1; }
+          [[ "$id" =~ ^[0-9]{1,20}$ ]] || { echo "::error::target_repository_id is not numeric" >&2; exit 1; }
+          repo_json="$(gh api "repositories/${id}")"
+          full="$(jq -r '.full_name' <<<"$repo_json")"
+          name="$(jq -r '.name' <<<"$repo_json")"
+          echo "::add-mask::$full"
+          echo "::add-mask::$name"
+          [[ "$(jq -r '.id' <<<"$repo_json")" == "$id" ]] || { echo "::error::Repository ID mismatch" >&2; exit 1; }
+          [[ "$(jq -r '.owner.id' <<<"$repo_json")" == "103241502" ]] || { echo "::error::Repository is not owned by HereLiesAz" >&2; exit 1; }
+          # Same derivation as pagesProjectName() in worker/src/web-deploy.js.
+          project="$(node -e '
+            const [name, id] = process.argv.slice(1);
+            const suffix = "-" + Number(id).toString(36);
+            const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+            console.log(("ideaz-" + slug).slice(0, 58 - suffix.length).replace(/-+$/g, "") + suffix);
+          ' "$name" "$id")"
+          [[ "$project" =~ ^ideaz-[a-z0-9]+(-[a-z0-9]+)*$ && ${#project} -le 58 ]] || { echo "::error::derived Pages project is invalid" >&2; exit 1; }
+          {
+            echo "TARGET_REPOSITORY=$full"
+            echo "TARGET_REPOSITORY_ID=$id"
+            echo "TARGET_SHA=$sha"
+            echo "PAGES_PROJECT=$project"
+          } >> "$GITHUB_ENV"
       - name: Set target status pending
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -102,49 +111,71 @@ jobs:
           set -euo pipefail
           jq -n --arg context "$STATUS_CONTEXT" --arg target_url "$DETAILS_URL" \
             '{state:"pending",context:$context,description:"Building and publishing centrally.",target_url:$target_url}' \
-            | gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_SHA}" --input -
+            | gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_SHA}" --input - >/dev/null
 
-      - name: Mint target check token
-        id: target-check-token
-        continue-on-error: true
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
-        with:
-          app-id: ${{ secrets.GH_APP_ID }}
-          private-key: ${{ secrets.GH_PRIVATE_KEY }}
-          owner: HereLiesAz
-      - name: Post target check run
-        if: ${{ always() && steps.target-check-token.outputs.token != '' }}
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ steps.target-check-token.outputs.token }}
-          RUN_READ_TOKEN: ${{ secrets.GH_TOKEN }}
-          CHECK_PHASE: start
-          CHECK_NAME: ${{ inputs.target_workflow_name || inputs.source_workflow_path }}
-          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        shell: bash
-        run: "set +e\nwarn() { echo \"::warning::Target check run skipped: $1\"; exit 0; }\n[[ -n \"${TARGET_REPOSITORY:-}\" && -n \"${TARGET_CHECK_SHA:-}\" ]] || warn \"no target commit\"\ntitle=\"$CHECK_NAME\"\ntext=\"\"\nif [[ \"$CHECK_PHASE\" == \"start\" ]]; then\n  body=\"$(jq -n --arg name \"$CHECK_NAME\" --arg sha \"$TARGET_CHECK_SHA\" --arg url \"$DETAILS_URL\" --arg ext \"$GITHUB_RUN_ID\" \\\n    '{name:$name,head_sha:$sha,status:\"in_progress\",details_url:$url,external_id:$ext,output:{title:$name,summary:(\"Running in HereLiesAz/workflows: \" + $url)}}')\"\nelse\n  if [[ \"$FAILED\" == \"true\" ]]; then\n    conclusion=\"failure\"\n    jobs=\"$(GH_TOKEN=\"$RUN_READ_TOKEN\" gh api --paginate \"repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}/jobs\" --jq '.jobs[]' 2>/dev/null | jq -s '.')\"\n    [[ -n \"$jobs\" ]] || jobs=\"[]\"\n    failed=\"$(jq -r '[.[] | select(.conclusion == \"failure\" or .conclusion == \"cancelled\")\n      | \"- **\\(.name)** (\\(.conclusion)): \" + ([.steps[]? | select(.conclusion == \"failure\") | .name] | join(\", \") | if . == \"\" then \"no failed step reported\" else . end)\n      + \" — [log](\\(.html_url))\"] | join(\"\\n\")' <<<\"$jobs\")\"\n    first_id=\"$(jq -r '[.[] | select(.conclusion == \"failure\")][0].id // empty' <<<\"$jobs\")\"\n    if [[ -n \"$first_id\" ]]; then\n      tail_log=\"$(GH_TOKEN=\"$RUN_READ_TOKEN\" gh api \"repos/${GITHUB_REPOSITORY}/actions/jobs/${first_id}/logs\" 2>/dev/null \\\n        | sed -E 's/^[0-9T:.-]+Z //' | grep -v '^##\\[group\\]\\|^##\\[endgroup\\]' | tail -n 60)\"\n      [[ -n \"$tail_log\" ]] && text=\"$(printf 'Last lines of the first failed job:\\n\\n~~~text\\n%s\\n~~~\\n' \"${tail_log:0:60000}\")\"\n    fi\n    summary=\"$(printf 'Central run failed: %s\\n\\n%s\\n' \"$DETAILS_URL\" \"${failed:-No failed job reported.}\")\"\n    title=\"$CHECK_NAME failed\"\n  else\n    conclusion=\"success\"\n    summary=\"Central run succeeded: $DETAILS_URL\"\n  fi\n  body=\"$(jq -n --arg name \"$CHECK_NAME\" --arg sha \"$TARGET_CHECK_SHA\" --arg url \"$DETAILS_URL\" --arg ext \"$GITHUB_RUN_ID\" \\\n    --arg conclusion \"$conclusion\" --arg title \"$title\" --arg summary \"${summary:0:65000}\" --arg text \"$text\" \\\n    '{name:$name,head_sha:$sha,status:\"completed\",conclusion:$conclusion,details_url:$url,external_id:$ext,output:({title:$title,summary:$summary} + (if $text == \"\" then {} else {text:$text} end))}')\"\nfi\n# Each phase posts its own Check Run under the same name; GitHub shows the latest one,\n# so the finish phase needs no id handed over from the start job.\ngh api --method POST \"repos/${TARGET_REPOSITORY}/check-runs\" --input - <<<\"$body\" >/dev/null \\\n  || echo \"::warning::Target check run skipped: GitHub refused the check run\"\n\n# Release/deploy failures also go to one open issue per workflow: opened on the\n# first failure, commented on each repeat. Successes never touch issues.\n[[ \"$CHECK_PHASE\" == \"finish\" && \"${FILE_ISSUES:-}\" == \"true\" && \"${conclusion:-}\" == \"failure\" ]] || exit 0\nlabel=\"central-run-failure\"\nissue_title=\"Central run failing: $CHECK_NAME\"\nissue=\"$(gh api \"repos/${TARGET_REPOSITORY}/issues?state=open&labels=${label}&per_page=100\" 2>/dev/null \\\n  | jq -r --arg t \"$issue_title\" '[.[] | select(.title == $t)][0].number // empty')\"\nreport=\"$(printf '%s\\n\\nCommit: %s\\n\\n%s\\n' \"$summary\" \"$TARGET_CHECK_SHA\" \"$text\")\"\nif [[ -n \"$issue\" ]]; then\n  gh api --method POST \"repos/${TARGET_REPOSITORY}/issues/${issue}/comments\" -f body=\"$report\" >/dev/null \\\n    || warn \"could not comment on issue #$issue\"\nelse\n  gh api --method POST \"repos/${TARGET_REPOSITORY}/labels\" -f name=\"$label\" -f color=\"000000\" \\\n    -f description=\"A release or deploy run in HereLiesAz/workflows failed for this repository.\" >/dev/null 2>&1\n  gh api --method POST \"repos/${TARGET_REPOSITORY}/issues\" -f title=\"$issue_title\" -f body=\"$report\" -f \"labels[]=$label\" >/dev/null \\\n    || warn \"could not open a failure issue\"\nfi\n"
   build:
     needs: central_check_start
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
+      - name: Resolve target (names and SHA are masked)
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Read the inputs from the event payload rather than env:/with:, which logs echo.
+          id="$(jq -r '.inputs.target_repository_id' "$GITHUB_EVENT_PATH")"
+          sha="$(jq -r '.inputs.target_sha' "$GITHUB_EVENT_PATH")"
+          echo "::add-mask::$sha"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::target_sha is not a commit SHA" >&2; exit 1; }
+          [[ "$id" =~ ^[0-9]{1,20}$ ]] || { echo "::error::target_repository_id is not numeric" >&2; exit 1; }
+          repo_json="$(gh api "repositories/${id}")"
+          full="$(jq -r '.full_name' <<<"$repo_json")"
+          name="$(jq -r '.name' <<<"$repo_json")"
+          echo "::add-mask::$full"
+          echo "::add-mask::$name"
+          [[ "$(jq -r '.id' <<<"$repo_json")" == "$id" ]] || { echo "::error::Repository ID mismatch" >&2; exit 1; }
+          [[ "$(jq -r '.owner.id' <<<"$repo_json")" == "103241502" ]] || { echo "::error::Repository is not owned by HereLiesAz" >&2; exit 1; }
+          # Same derivation as pagesProjectName() in worker/src/web-deploy.js.
+          project="$(node -e '
+            const [name, id] = process.argv.slice(1);
+            const suffix = "-" + Number(id).toString(36);
+            const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+            console.log(("ideaz-" + slug).slice(0, 58 - suffix.length).replace(/-+$/g, "") + suffix);
+          ' "$name" "$id")"
+          [[ "$project" =~ ^ideaz-[a-z0-9]+(-[a-z0-9]+)*$ && ${#project} -le 58 ]] || { echo "::error::derived Pages project is invalid" >&2; exit 1; }
+          {
+            echo "TARGET_REPOSITORY=$full"
+            echo "TARGET_REPOSITORY_ID=$id"
+            echo "TARGET_SHA=$sha"
+            echo "PAGES_PROJECT=$project"
+          } >> "$GITHUB_ENV"
+      # Not actions/checkout: it logs its repository and ref inputs, and this log is public.
       - name: Check out target
-        uses: actions/checkout@v7
-        with:
-          repository: ${{ inputs.target_repository }}
-          ref: ${{ inputs.target_sha }}
-          token: ${{ secrets.GH_TOKEN }}
-          persist-credentials: false
-          path: target
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          basic="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          echo "::add-mask::$basic"
+          git init -q target
+          cd target
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic ${basic}" \
+            fetch -q --depth 1 "https://github.com/${TARGET_REPOSITORY}.git" "$TARGET_SHA"
+          git -c advice.detachedHead=false checkout -q --detach FETCH_HEAD
 
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
 
       # A project with a build script publishes what it built (dist/, build/ or out/). One without
-      # (plain HTML/CSS/JS) publishes its files minus dotfiles, dependencies and secret-shaped
-      # files. Either way, secret-shaped names are removed from the output before it is uploaded.
+      # (plain HTML/CSS/JS) publishes only an allow-list of static file types, never dotfiles,
+      # dependencies or secret-shaped names. Either way the output is then stripped of secret-shaped
+      # files and of anything Cloudflare Pages would run server side (_worker.js, _routes.json,
+      # functions/), which a project must not be able to deploy onto the central account.
       - name: Build
         working-directory: target
         shell: bash
@@ -152,6 +183,7 @@ jobs:
           set -euo pipefail
           site="$RUNNER_TEMP/site"
           mkdir -p "$site"
+          deny='(secret|credential|passw(or)?d|api[-_]?key|keystore|service[-_]?account|local\.properties|google-?services|googleservice|id_rsa|id_ed25519|\.(env|key|pem|p12|p8|pfx|jks|keystore)$)'
           if [[ -f package.json ]] && jq -e '.scripts.build // empty' package.json >/dev/null; then
             if [[ -f package-lock.json ]]; then npm ci; else npm install --no-audit --no-fund; fi
             npm run build
@@ -162,11 +194,28 @@ jobs:
             [[ -n "$out" ]] || { echo "::error::npm run build produced none of dist/, build/ or out/"; exit 1; }
             cp -R "$out/." "$site/"
           else
-            rsync -a --exclude='.*' --exclude='node_modules/' --exclude='*.jks' --exclude='*.keystore' \
-              --exclude='*.p12' --exclude='*.pem' --exclude='*.key' ./ "$site/"
+            # Allow-list: static web file types only. Dotfiles and dot-directories, node_modules
+            # and secret-shaped names are skipped.
+            while IFS= read -r -d '' file; do
+              rel="${file#./}"
+              base="$(basename "$rel" | tr '[:upper:]' '[:lower:]')"
+              if [[ "$base" =~ $deny || "$base" == package.json || "$base" == package-lock.json || "$base" == tsconfig*.json ]]; then
+                echo "::warning::Not published: a file matching the secret/config deny-list"
+                continue
+              fi
+              mkdir -p "$site/$(dirname "$rel")"
+              cp -- "$file" "$site/$rel"
+            done < <(find . -mindepth 1 \( -name '.*' -o -name node_modules \) -prune -o -type f \( \
+              -iname '*.html' -o -iname '*.htm' -o -iname '*.css' -o -iname '*.js' -o -iname '*.mjs' \
+              -o -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.gif' -o -iname '*.webp' -o -iname '*.avif' \
+              -o -iname '*.svg' -o -iname '*.ico' -o -iname '*.woff' -o -iname '*.woff2' -o -iname '*.ttf' -o -iname '*.otf' \
+              -o -iname '*.json' -o -iname '*.txt' -o -iname '*.webmanifest' \) -print0)
           fi
+          # Secret-shaped and server-side files are removed from either kind of output.
           mapfile -d '' leaked < <(find "$site" -mindepth 1 \( -name '.env*' -o -name '.git' -o -name '.ideaz' \
-            -o -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -prune -print0)
+            -o -iname '*.jks' -o -iname '*.keystore' -o -iname '*.p12' -o -iname '*.pem' -o -iname '*.key' \
+            -o -iname '*.pfx' -o -iname '*.p8' -o -iname 'local.properties' -o -iname 'google-services.json' \
+            -o -iname 'GoogleService-Info.plist' -o -name '_worker.js' -o -name '_routes.json' -o -name functions \) -prune -print0)
           if (( ${#leaked[@]} )); then
             for path in "${leaked[@]}"; do echo "::warning::Not published: ${path#"$site"/}"; done
             rm -rf -- "${leaked[@]}"
@@ -187,13 +236,46 @@ jobs:
     outputs:
       site_url: ${{ steps.publish.outputs.site_url }}
     steps:
+      - name: Resolve target (names and SHA are masked)
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Read the inputs from the event payload rather than env:/with:, which logs echo.
+          id="$(jq -r '.inputs.target_repository_id' "$GITHUB_EVENT_PATH")"
+          sha="$(jq -r '.inputs.target_sha' "$GITHUB_EVENT_PATH")"
+          echo "::add-mask::$sha"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::target_sha is not a commit SHA" >&2; exit 1; }
+          [[ "$id" =~ ^[0-9]{1,20}$ ]] || { echo "::error::target_repository_id is not numeric" >&2; exit 1; }
+          repo_json="$(gh api "repositories/${id}")"
+          full="$(jq -r '.full_name' <<<"$repo_json")"
+          name="$(jq -r '.name' <<<"$repo_json")"
+          echo "::add-mask::$full"
+          echo "::add-mask::$name"
+          [[ "$(jq -r '.id' <<<"$repo_json")" == "$id" ]] || { echo "::error::Repository ID mismatch" >&2; exit 1; }
+          [[ "$(jq -r '.owner.id' <<<"$repo_json")" == "103241502" ]] || { echo "::error::Repository is not owned by HereLiesAz" >&2; exit 1; }
+          # Same derivation as pagesProjectName() in worker/src/web-deploy.js.
+          project="$(node -e '
+            const [name, id] = process.argv.slice(1);
+            const suffix = "-" + Number(id).toString(36);
+            const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+            console.log(("ideaz-" + slug).slice(0, 58 - suffix.length).replace(/-+$/g, "") + suffix);
+          ' "$name" "$id")"
+          [[ "$project" =~ ^ideaz-[a-z0-9]+(-[a-z0-9]+)*$ && ${#project} -le 58 ]] || { echo "::error::derived Pages project is invalid" >&2; exit 1; }
+          {
+            echo "TARGET_REPOSITORY=$full"
+            echo "TARGET_REPOSITORY_ID=$id"
+            echo "TARGET_SHA=$sha"
+            echo "PAGES_PROJECT=$project"
+          } >> "$GITHUB_ENV"
       - uses: actions/download-artifact@v4
         with:
           name: site
           path: ${{ runner.temp }}/site
 
-      # Runs from an empty directory, so npx resolves Wrangler from the registry, never from
-      # anything the project's build could have left behind.
+      # Runs from an empty directory, so Wrangler (an exact, pinned version) is resolved from
+      # the registry, never from anything the project's build could have left behind.
       - name: Publish to Cloudflare Pages
         id: publish
         working-directory: ${{ runner.temp }}
@@ -203,10 +285,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if ! created="$(npx --yes wrangler@4 pages project create "$PAGES_PROJECT" --production-branch main 2>&1)"; then
-            grep -qi 'already exists' <<<"$created" || { echo "$created"; exit 1; }
+          # Defence in depth: the build job already strips these.
+          find site \( -name '_worker.js' -o -name '_routes.json' -o -name functions \) -prune -exec rm -rf -- {} +
+          if ! created="$(npx --yes wrangler@4.150.0 pages project create "$PAGES_PROJECT" --production-branch main 2>&1)"; then
+            grep -qi 'already exists' <<<"$created" || { echo "::error::Could not create the Pages project"; exit 1; }
           fi
-          npx --yes wrangler@4 pages deploy site --project-name "$PAGES_PROJECT" --branch main \
+          npx --yes wrangler@4.150.0 pages deploy site --project-name "$PAGES_PROJECT" --branch main \
             --commit-hash "$TARGET_SHA" --commit-dirty=true
           echo "site_url=https://${PAGES_PROJECT}.pages.dev" >> "$GITHUB_OUTPUT"
 
@@ -220,6 +304,39 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Resolve target (names and SHA are masked)
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Read the inputs from the event payload rather than env:/with:, which logs echo.
+          id="$(jq -r '.inputs.target_repository_id' "$GITHUB_EVENT_PATH")"
+          sha="$(jq -r '.inputs.target_sha' "$GITHUB_EVENT_PATH")"
+          echo "::add-mask::$sha"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::target_sha is not a commit SHA" >&2; exit 1; }
+          [[ "$id" =~ ^[0-9]{1,20}$ ]] || { echo "::error::target_repository_id is not numeric" >&2; exit 1; }
+          repo_json="$(gh api "repositories/${id}")"
+          full="$(jq -r '.full_name' <<<"$repo_json")"
+          name="$(jq -r '.name' <<<"$repo_json")"
+          echo "::add-mask::$full"
+          echo "::add-mask::$name"
+          [[ "$(jq -r '.id' <<<"$repo_json")" == "$id" ]] || { echo "::error::Repository ID mismatch" >&2; exit 1; }
+          [[ "$(jq -r '.owner.id' <<<"$repo_json")" == "103241502" ]] || { echo "::error::Repository is not owned by HereLiesAz" >&2; exit 1; }
+          # Same derivation as pagesProjectName() in worker/src/web-deploy.js.
+          project="$(node -e '
+            const [name, id] = process.argv.slice(1);
+            const suffix = "-" + Number(id).toString(36);
+            const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+            console.log(("ideaz-" + slug).slice(0, 58 - suffix.length).replace(/-+$/g, "") + suffix);
+          ' "$name" "$id")"
+          [[ "$project" =~ ^ideaz-[a-z0-9]+(-[a-z0-9]+)*$ && ${#project} -le 58 ]] || { echo "::error::derived Pages project is invalid" >&2; exit 1; }
+          {
+            echo "TARGET_REPOSITORY=$full"
+            echo "TARGET_REPOSITORY_ID=$id"
+            echo "TARGET_SHA=$sha"
+            echo "PAGES_PROJECT=$project"
+          } >> "$GITHUB_ENV"
       - name: Complete target status
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -235,25 +352,4 @@ jobs:
           fi
           jq -n --arg state "$state" --arg context "$STATUS_CONTEXT" --arg description "$description" --arg target_url "$target_url" \
             '{state:$state,context:$context,description:$description,target_url:$target_url}' \
-            | gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_SHA}" --input -
-      - name: Mint target check token
-        id: target-check-token
-        continue-on-error: true
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
-        with:
-          app-id: ${{ secrets.GH_APP_ID }}
-          private-key: ${{ secrets.GH_PRIVATE_KEY }}
-          owner: HereLiesAz
-      - name: Post target check run
-        if: ${{ always() && steps.target-check-token.outputs.token != '' }}
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ steps.target-check-token.outputs.token }}
-          RUN_READ_TOKEN: ${{ secrets.GH_TOKEN }}
-          CHECK_PHASE: finish
-          CHECK_NAME: ${{ inputs.target_workflow_name || inputs.source_workflow_path }}
-          DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
-          FILE_ISSUES: 'true'
-        shell: bash
-        run: "set +e\nwarn() { echo \"::warning::Target check run skipped: $1\"; exit 0; }\n[[ -n \"${TARGET_REPOSITORY:-}\" && -n \"${TARGET_CHECK_SHA:-}\" ]] || warn \"no target commit\"\ntitle=\"$CHECK_NAME\"\ntext=\"\"\nif [[ \"$CHECK_PHASE\" == \"start\" ]]; then\n  body=\"$(jq -n --arg name \"$CHECK_NAME\" --arg sha \"$TARGET_CHECK_SHA\" --arg url \"$DETAILS_URL\" --arg ext \"$GITHUB_RUN_ID\" \\\n    '{name:$name,head_sha:$sha,status:\"in_progress\",details_url:$url,external_id:$ext,output:{title:$name,summary:(\"Running in HereLiesAz/workflows: \" + $url)}}')\"\nelse\n  if [[ \"$FAILED\" == \"true\" ]]; then\n    conclusion=\"failure\"\n    jobs=\"$(GH_TOKEN=\"$RUN_READ_TOKEN\" gh api --paginate \"repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}/jobs\" --jq '.jobs[]' 2>/dev/null | jq -s '.')\"\n    [[ -n \"$jobs\" ]] || jobs=\"[]\"\n    failed=\"$(jq -r '[.[] | select(.conclusion == \"failure\" or .conclusion == \"cancelled\")\n      | \"- **\\(.name)** (\\(.conclusion)): \" + ([.steps[]? | select(.conclusion == \"failure\") | .name] | join(\", \") | if . == \"\" then \"no failed step reported\" else . end)\n      + \" — [log](\\(.html_url))\"] | join(\"\\n\")' <<<\"$jobs\")\"\n    first_id=\"$(jq -r '[.[] | select(.conclusion == \"failure\")][0].id // empty' <<<\"$jobs\")\"\n    if [[ -n \"$first_id\" ]]; then\n      tail_log=\"$(GH_TOKEN=\"$RUN_READ_TOKEN\" gh api \"repos/${GITHUB_REPOSITORY}/actions/jobs/${first_id}/logs\" 2>/dev/null \\\n        | sed -E 's/^[0-9T:.-]+Z //' | grep -v '^##\\[group\\]\\|^##\\[endgroup\\]' | tail -n 60)\"\n      [[ -n \"$tail_log\" ]] && text=\"$(printf 'Last lines of the first failed job:\\n\\n~~~text\\n%s\\n~~~\\n' \"${tail_log:0:60000}\")\"\n    fi\n    summary=\"$(printf 'Central run failed: %s\\n\\n%s\\n' \"$DETAILS_URL\" \"${failed:-No failed job reported.}\")\"\n    title=\"$CHECK_NAME failed\"\n  else\n    conclusion=\"success\"\n    summary=\"Central run succeeded: $DETAILS_URL\"\n  fi\n  body=\"$(jq -n --arg name \"$CHECK_NAME\" --arg sha \"$TARGET_CHECK_SHA\" --arg url \"$DETAILS_URL\" --arg ext \"$GITHUB_RUN_ID\" \\\n    --arg conclusion \"$conclusion\" --arg title \"$title\" --arg summary \"${summary:0:65000}\" --arg text \"$text\" \\\n    '{name:$name,head_sha:$sha,status:\"completed\",conclusion:$conclusion,details_url:$url,external_id:$ext,output:({title:$title,summary:$summary} + (if $text == \"\" then {} else {text:$text} end))}')\"\nfi\n# Each phase posts its own Check Run under the same name; GitHub shows the latest one,\n# so the finish phase needs no id handed over from the start job.\ngh api --method POST \"repos/${TARGET_REPOSITORY}/check-runs\" --input - <<<\"$body\" >/dev/null \\\n  || echo \"::warning::Target check run skipped: GitHub refused the check run\"\n\n# Release/deploy failures also go to one open issue per workflow: opened on the\n# first failure, commented on each repeat. Successes never touch issues.\n[[ \"$CHECK_PHASE\" == \"finish\" && \"${FILE_ISSUES:-}\" == \"true\" && \"${conclusion:-}\" == \"failure\" ]] || exit 0\nlabel=\"central-run-failure\"\nissue_title=\"Central run failing: $CHECK_NAME\"\nissue=\"$(gh api \"repos/${TARGET_REPOSITORY}/issues?state=open&labels=${label}&per_page=100\" 2>/dev/null \\\n  | jq -r --arg t \"$issue_title\" '[.[] | select(.title == $t)][0].number // empty')\"\nreport=\"$(printf '%s\\n\\nCommit: %s\\n\\n%s\\n' \"$summary\" \"$TARGET_CHECK_SHA\" \"$text\")\"\nif [[ -n \"$issue\" ]]; then\n  gh api --method POST \"repos/${TARGET_REPOSITORY}/issues/${issue}/comments\" -f body=\"$report\" >/dev/null \\\n    || warn \"could not comment on issue #$issue\"\nelse\n  gh api --method POST \"repos/${TARGET_REPOSITORY}/labels\" -f name=\"$label\" -f color=\"000000\" \\\n    -f description=\"A release or deploy run in HereLiesAz/workflows failed for this repository.\" >/dev/null 2>&1\n  gh api --method POST \"repos/${TARGET_REPOSITORY}/issues\" -f title=\"$issue_title\" -f body=\"$report\" -f \"labels[]=$label\" >/dev/null \\\n    || warn \"could not open a failure issue\"\nfi\n"
+            | gh api --method POST "repos/${TARGET_REPOSITORY}/statuses/${TARGET_SHA}" --input - >/dev/null

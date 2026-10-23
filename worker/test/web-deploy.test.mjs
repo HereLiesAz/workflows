@@ -73,12 +73,12 @@ test("dispatches the central workflow for a pushed commit and names the status t
   assert.deepEqual(dispatch.body, {
     ref: "main",
     inputs: {
-      target_repository: "HereLiesAz/my-site",
       target_repository_id: "123456789",
       target_sha: SHA,
-      pages_project: project,
     },
   });
+  // The public central repo must never see the private repo name in dispatch inputs.
+  assert.ok(!JSON.stringify(dispatch.body).includes("my-site"));
   // The caller's token never reaches the App calls.
   assert.ok(!JSON.stringify(calls).includes("user-token"));
 });
@@ -132,4 +132,15 @@ test("an unpushed commit is not dispatched", async () => {
   };
   await assert.rejects(receiveWebDeploy(post({ repository: "HereLiesAz/my-site", sha: SHA }), deps), /422/);
   assert.ok(!calls.some((c) => c.method === "POST"));
+});
+
+test("web-deploy.yml takes only opaque inputs and no free-form Pages project", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const text = await readFile(new URL("../../.github/workflows/web-deploy.yml", import.meta.url), "utf8");
+  assert.match(text, /^run-name: Web Deploy · repository \$\{\{ inputs\.target_repository_id \}\}$/m);
+  assert.ok(!/\$\{\{\s*inputs\.target_repository\b(?!_id)/.test(text), "repository name must not be an input");
+  assert.ok(!/\$\{\{\s*inputs\.target_sha/.test(text), "sha must not be interpolated into run-name or env");
+  assert.ok(!/pages_project/.test(text), "pages project must be derived, not an input");
+  assert.ok(!/wrangler@4(?![.\d])/.test(text), "wrangler must be pinned to an exact version");
+  for (const banned of ["_worker.js", "_routes.json", "functions"]) assert.ok(text.includes(banned));
 });

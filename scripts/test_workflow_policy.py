@@ -166,6 +166,13 @@ def validate_new_workflow(
 
     inputs = workflow_dispatch_inputs(doc)
     target = inputs.get("target_repository")
+    # A workflow whose runs are world-readable may take only the opaque repository id (and must
+    # say so), so the target's name never appears in the run name or dispatch inputs.
+    opaque = re.search(r"(?m)^# opaque-target:\s*repository-id\s*$", text) is not None
+    if opaque:
+        target = inputs.get("target_repository_id")
+        if "target_repository" in inputs:
+            error(errors, path, "an opaque-target workflow must not take 'target_repository'")
     if not isinstance(target, dict) or target.get("required") is not True:
         error(
             errors,

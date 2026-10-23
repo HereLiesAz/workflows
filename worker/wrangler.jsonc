@@ -4,4 +4,7 @@
   "main": "src/index.js",
   "compatibility_date": "2026-09-13",
   "workers_dev": true
+  // Optional replay protection: create a KV namespace and bind it as WEBHOOK_SEEN, e.g.
+  //   "kv_namespaces": [{ "binding": "WEBHOOK_SEEN", "id": "<namespace id>" }]
+  // Without it the Worker accepts every validly signed delivery (see src/once.js).
 }

@@ -486,7 +486,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install --upgrade pip kaggle
+          python -m pip install --upgrade pip "kaggle==2.2.4"
 
       - name: Configure Kaggle credentials
         id: kaggle-auth

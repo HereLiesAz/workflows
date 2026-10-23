@@ -6,7 +6,7 @@ This is the conversion contract for binding a `HereLiesAz/*` repository to the c
 
 A centrally managed repository keeps one **tracker** per centralized workflow, at the workflow's original path, so its `.github/workflows` still lists everything it runs. A tracker keeps the original name and triggers and has a single short `Hand-off` job that names the commit status (the workflow's original path) carrying the central result, then ends. The central run sets that status pending when it starts and success or failure when it finishes, or error when no validation job ran (a fork pull request or an unmatched profile); no status means the gateway skipped the event. Trackers never build, dispatch or poll. Earlier trackers followed each central job and held a runner for the whole build; under the account's concurrent-job limit they starved the central runs they waited on (illumera, 2026-10-01: a 3-hour queue) and reported success when no central run had started.
 
-```text
+~~~text
 repository event
   → GitHub repository webhook
   → workflows.hereliesaz.workers.dev/webhook
@@ -15,8 +15,7 @@ repository event
   → registry trigger matching
   → centralized workflow executor
   → target operation + commit status
-```
-
+~~~
 The Worker already has `DISPATCH_TOKEN`. The webhook signing key is deterministically derived inside the Worker from that secret with a separate HMAC context; the raw token is never used as the webhook secret and no additional shared secret has to be copied into target repositories.
 
 The legacy OIDC `/dispatch` endpoint exists only to drain old proxies during migration.
@@ -72,10 +71,9 @@ See [Central release and version policy](RELEASE_VERSIONING.md).
 
 `sync-repository.yml` and each `sync-all-repositories.yml` matrix job request an Actions OIDC token belonging to **HereLiesAz/workflows** and call:
 
-```text
+~~~text
 POST https://workflows.hereliesaz.workers.dev/register
-```
-
+~~~
 The Worker accepts registration only from the central controller, validates the immutable target repository ID/owner using GitHub's API, and creates or updates one active `web` hook for all repository events.
 
 GitHub signs deliveries to `/webhook`. The Worker rejects a delivery before routing unless the signature validates.

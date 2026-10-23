@@ -2,11 +2,11 @@
 
 Central shared workflow catalog and secure execution gateway for repositories owned by `HereLiesAz`.
 
-This repository exists to reuse **workflow implementations as well as credentials**. Centrally managed target repositories do not need controller-generated workflow files. Repository events arrive through one signed GitHub webhook, the gateway matches those events against the registered original `on:` contracts, and canonical implementations execute here. Workflows that are not yet safe to centralize remain local only until their blocker is resolved.
+This repository exists to reuse **workflow implementations as well as credentials**. Centrally managed target repositories need no workflow *implementation* files: each keeps a small tracker per centralized workflow, with no secrets, that hands off to the central run. Repository events arrive through one signed GitHub webhook, the gateway matches those events against the registered original `on:` contracts, and canonical implementations execute here. Workflows that are not yet safe to centralize remain local only until their blocker is resolved.
 
 ## Architecture
 
-```text
+~~~text
 Target repository event
         │
         ▼
@@ -23,8 +23,7 @@ shared/catalog workflow
         │
         ▼
 target operation + commit status
-```
-
+~~~
 The central sync registers one repository webhook through the Worker. The Worker verifies GitHub's webhook signature and immutable repository ownership before dispatching the central gateway. It then forwards an event only when some **active** registered workflow of that repository is triggered by that event name (`push` is always forwarded for a registered repository, because a push can request a re-sync); every other event, e.g. `workflow_run`, `release`, `check_*`, or anything from an unregistered repository, is dropped with `202 {ok: true, ignored: true, reason}` and never costs a gateway run. That decision uses `worker/src/event-consumers.js`, generated from `registry/` by `scripts/generate_event_consumers.py` (see [Repository onboarding](docs/REPOSITORY_ONBOARDING.md#worker-event-filter)). The gateway validates registry bindings and routes only workflows whose original trigger, branch/action filters, and path filters match the delivered event. Shared workflows re-validate the target repository before privileged execution.
 
 The legacy OIDC `/dispatch` endpoint is retained only while old proxies are being removed; it is not the steady-state trigger transport.
@@ -66,6 +65,12 @@ steps:
       summary: 128 passed, 0 failed
       data: '{"passed": 128, "failed": 0}'
 ~~~
+
+## Worker routes
+
+`worker/src/index.js` serves: `GET /health`, `GET /repositories`, `POST /webhook` (signed GitHub deliveries), `POST /register`, `POST /dispatch`, `POST /remote-run/start` and `/remote-run/callback`, `POST /ci-report`, `POST /crash-report/<repo>`, `POST /test-report/<repo>` and `POST /web-deploy`.
+
+Optional abuse guards: bind a Workers KV namespace as `WEBHOOK_SEEN` (see the comment in `wrangler.jsonc`) and a signed delivery id is accepted once per day, and crash reports are limited to one per client per 10 seconds. Unbound, the Worker behaves as before.
 
 ## App reports
 
@@ -164,10 +169,10 @@ The synchronizer uses four outcomes:
 
 Current curated implementations are:
 
-- `.github/workflows/catalog-jules-dispatch.yml`
-- `.github/workflows/catalog-jules-glee.yml`
-- `.github/workflows/catalog-context-backup.yml`
-- `.github/workflows/catalog-clear-cache.yml`
+- `.github/workflows/jules-dispatch.yml`
+- `.github/workflows/jules-glee.yml`
+- `.github/workflows/context-backup.yml`
+- `.github/workflows/clear-cache.yml`
 
 Per-repository source state and bindings are stored under `registry/<repository-id>/`. Equivalent behavior is bound to one purpose-level workflow; repository-specific executors are kept only when the behavior is genuinely unique or still awaiting semantic review.
 
@@ -185,7 +190,13 @@ shell logic into target repositories.
 
 ## Controller workflows
 
-- `sync-repository.yml` — manually scans and binds one target repository to the shared catalog.
+- `sync-repository.yml` — scans and binds one target repository to the shared catalog. Runs on demand, and hourly (`17 * * * *`) for every registered repository.
+- `sync-all-repositories.yml` — "Sync all owned repositories": the same scan, across every registered repository.
+- `sync-registry-changes.yml` — synchronizes repositories whose registered workflow sources changed in the central registry.
+- `remote-run-result.yml` — finalizes a target commit status once external compute (Kaggle) reports its own terminal result.
+- `cancel-runs.yml` — cancels the workflow runs listed in `.github/cancel-runs.json` when that file changes.
+- `version-contract.yml`, `version-contract-sync.yml` — the canonical version contract and its enforcement across repositories.
+- `pr-labeler.yml` — labels pull requests.
 - `gateway.yml` — receives verified dispatches from the Worker and routes them to the registered shared workflow.
 - `web-deploy.yml` — dispatched by the Worker's `/web-deploy` route; builds one commit and publishes its output to Cloudflare Pages.
 - `validate-controller.yml` also redeploys the Worker (`wrangler deploy --config wrangler.jsonc`) on a push to `main` that changes `worker/` or `wrangler.jsonc`, including a regenerated event-consumer map.

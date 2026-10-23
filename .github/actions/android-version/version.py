@@ -8,6 +8,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -63,9 +64,13 @@ def next_pair(props: dict[str, str], play_highest: int) -> tuple[int, str]:
     return max(code, play_highest) + 1, ".".join(str(part) for part in [*head, last + 1])
 
 
-def render_recorded(text: str, code: int, name: str) -> str:
-    """Set versionCode, versionName and versionBuild (the name's last field); keep every other line."""
-    updates = {"versionCode": str(code), "versionName": name, "versionBuild": name.rsplit(".", 1)[-1]}
+def render_recorded(text: str, code: int, name: str = "") -> str:
+    """Set versionCode and, when a name is given, versionName and versionBuild (the name's last
+    field); keep every other line. A recorded versionCode is never lowered."""
+    current = _int(parse_properties(text).get("versionCode")) or 0
+    updates = {"versionCode": str(max(code, current))}
+    if name:
+        updates.update({"versionName": name, "versionBuild": name.rsplit(".", 1)[-1]})
     out: list[str] = []
     seen: set[str] = set()
     for line in text.splitlines():
@@ -91,19 +96,28 @@ def play_highest_code(service_account_json: str, package_name: str) -> int:
         json.loads(service_account_json),
         scopes=["https://www.googleapis.com/auth/androidpublisher"],
     )
+    from googleapiclient.errors import HttpError
+
     edits = build("androidpublisher", "v3", credentials=credentials, cache_discovery=False).edits()
-    edit_id = edits.insert(packageName=package_name, body={}).execute()["id"]
+    try:
+        edit_id = edits.insert(packageName=package_name, body={}).execute(num_retries=3)["id"]
+    except HttpError as exc:
+        # Only "Play has never seen this package" means no code was ever accepted. Every other
+        # error propagates: guessing a code here is how apps fell off their sequence.
+        if exc.resp.status == 404:
+            return 0
+        raise
     codes: list[int] = []
     try:
-        for bundle in edits.bundles().list(packageName=package_name, editId=edit_id).execute().get("bundles", []):
+        for bundle in edits.bundles().list(packageName=package_name, editId=edit_id).execute(num_retries=3).get("bundles", []):
             codes.append(int(bundle["versionCode"]))
-        for apk in edits.apks().list(packageName=package_name, editId=edit_id).execute().get("apks", []):
+        for apk in edits.apks().list(packageName=package_name, editId=edit_id).execute(num_retries=3).get("apks", []):
             codes.append(int(apk["versionCode"]))
-        for track in edits.tracks().list(packageName=package_name, editId=edit_id).execute().get("tracks", []):
+        for track in edits.tracks().list(packageName=package_name, editId=edit_id).execute(num_retries=3).get("tracks", []):
             for release in track.get("releases", []):
                 codes.extend(int(code) for code in release.get("versionCodes", []))
     finally:
-        edits.delete(packageName=package_name, editId=edit_id).execute()
+        edits.delete(packageName=package_name, editId=edit_id).execute(num_retries=3)
     return max(codes, default=0)
 
 
@@ -151,23 +165,37 @@ def main() -> int:
         repository, branch, token = os.environ["RECORD_REPOSITORY"], os.environ["RECORD_BRANCH"], os.environ["GH_TOKEN"]
         code, name = int(os.environ["RECORD_CODE"]), os.environ["RECORD_NAME"]
         url = f"/repos/{repository}/contents/{version_file}"
-        try:
-            current = github("GET", f"{url}?ref={branch}", token)
-            text, sha = base64.b64decode(current["content"]).decode("utf-8"), current["sha"]
-        except urllib.error.HTTPError as exc:
-            if exc.code != 404:
+        # Another release of the same build (Play and GitHub) or a version-contract commit may
+        # land between read and write; the contents API then refuses the stale sha. Re-read.
+        for attempt in range(1, 9):
+            try:
+                current = github("GET", f"{url}?ref={branch}", token)
+                text, sha = base64.b64decode(current["content"]).decode("utf-8"), current["sha"]
+            except urllib.error.HTTPError as exc:
+                if exc.code != 404:
+                    raise
+                text, sha = "", None
+            rendered = render_recorded(text, code, name)
+            if rendered == text:
+                print(f"{repository}@{branch}:{version_file} already records versionCode {code} or higher")
+                return 0
+            body = {
+                "message": f"chore(version): {name or 'versionCode'} ({code}) [skip ci]",
+                "content": base64.b64encode(rendered.encode()).decode(),
+                "branch": branch,
+            }
+            if sha:
+                body["sha"] = sha
+            try:
+                github("PUT", url, token, body)
+            except urllib.error.HTTPError as exc:
+                if exc.code in (409, 422) and attempt < 8:
+                    time.sleep(attempt * 2)
+                    continue
                 raise
-            text, sha = "", None
-        body = {
-            "message": f"chore(version): {name} ({code}) [skip ci]",
-            "content": base64.b64encode(render_recorded(text, code, name).encode()).decode(),
-            "branch": branch,
-        }
-        if sha:
-            body["sha"] = sha
-        github("PUT", url, token, body)
-        print(f"Recorded {name} ({code}) in {repository}@{branch}:{version_file}")
-        return 0
+            print(f"Recorded {name or 'versionCode'} ({code}) in {repository}@{branch}:{version_file}")
+            return 0
+        return 1
     print(f"::error::Unknown mode {mode}", file=sys.stderr)
     return 1
 

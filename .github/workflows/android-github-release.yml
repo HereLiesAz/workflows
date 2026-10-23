@@ -107,7 +107,7 @@ jobs:
       - name: Mint target check token
         id: target-check-token
         continue-on-error: true
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_PRIVATE_KEY }}
@@ -174,10 +174,10 @@ jobs:
       VERSION_MINOR: ${{ needs.version_contract.outputs.minor }}
       VERSION_PATCH: ${{ needs.version_contract.outputs.patch }}
       VERSION_BUILD: ${{ needs.version_contract.outputs.build }}
-      ANDROID_VERSION_CODE: ${{ needs.version_contract.outputs.android_version_code }}
+      ON_DEFAULT_BRANCH: ${{ needs.version_contract.outputs.on_default_branch }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           repository: ${{ inputs.target_repository }}
@@ -354,16 +354,16 @@ jobs:
 
       - name: Validate Gradle wrapper
         if: ${{ env.WRAPPER_VALIDATION == 'true' }}
-        uses: gradle/actions/wrapper-validation@v4
+        uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
         env:
           FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         with:
@@ -386,6 +386,55 @@ jobs:
         shell: bash
         run: bash -eo pipefail -c "$TEST_COMMAND"
 
+      - name: Resolve package name
+        id: package
+        env:
+          PROFILE_JSON: ${{ inputs.purpose_profile_json }}
+          TARGET_VARS_JSON: ${{ inputs.target_vars_json }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="$(jq -r 'if type == "string" then fromjson else . end | .package_name // empty' <<<"$PROFILE_JSON")"
+          if [ -z "$package" ]; then
+            vars="${TARGET_VARS_JSON:-}"; [ -n "$vars" ] || vars='{}'
+            build_file="$(jq -r '.ANDROID_BUILD_FILE // "app/build.gradle.kts"' <<<"$vars")"
+            if [ ! -f "$build_file" ]; then build_file="$(find . \( -path '*/build.gradle.kts' -o -path '*/build.gradle' \) -not -path './.git/*' -print | head -1)"; fi
+            package="$(grep -m1 -E 'applicationId[[:space:]]*=' "$build_file" 2>/dev/null | sed -E 's/.*"([^"]+)".*/\1/' || true)"
+          fi
+          echo "package_name=$package" >> "$GITHUB_OUTPUT"
+
+      # The sideloaded APK and the Play bundle share one versionCode sequence: max(versionCode in
+      # version.properties, every code Play has ever accepted) + 1. Without Play credentials the
+      # Play term is skipped (recorded + 1). A Play query that fails fails the job.
+      - name: Resolve next versionCode
+        id: android_version
+        uses: HereLiesAz/workflows/.github/actions/android-version@main
+        with:
+          mode: next
+          service-account-json: ${{ steps.package.outputs.package_name != '' && secrets.PLAY_SERVICE_ACCOUNT_JSON || '' }}
+          package-name: ${{ steps.package.outputs.package_name }}
+
+      - name: Pass versionCode to the build
+        env:
+          NEXT_VERSION_CODE: ${{ steps.android_version.outputs.version-code }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$NEXT_VERSION_CODE" =~ ^[0-9]+$ ]] || { echo "::error::Could not resolve the next versionCode" >&2; exit 1; }
+          {
+            echo "ANDROID_VERSION_CODE=$NEXT_VERSION_CODE"
+            # Gradle reads these as -PversionCode / -PversionCodeOverride wherever it is started,
+            # including from a project's own build script.
+            echo "ORG_GRADLE_PROJECT_versionCode=$NEXT_VERSION_CODE"
+            echo "ORG_GRADLE_PROJECT_versionCodeOverride=$NEXT_VERSION_CODE"
+          } >> "$GITHUB_ENV"
+          # When the command ends in a Gradle invocation, pass them on its command line as well.
+          last="${BUILD_COMMAND##*&&}"; last="${last##*;}"
+          args=""
+          if [[ "$last" == *gradlew* ]]; then args="-PversionCodeOverride=$NEXT_VERSION_CODE -PversionCode=$NEXT_VERSION_CODE"; fi
+          echo "VERSION_CODE_ARGS=$args" >> "$GITHUB_ENV"
+          echo "versionCode $NEXT_VERSION_CODE"
+
       - name: Build signed release APK
         env:
           KEYSTORE_FILE: ${{ github.workspace }}/${{ env.KEYSTORE_OUTPUT }}
@@ -404,14 +453,16 @@ jobs:
         run: |
           set -euo pipefail
           if [ "$INJECT_SIGNING_ARGS" = "true" ]; then
-            bash -eo pipefail -c "$BUILD_COMMAND -Pandroid.injected.signing.store.file=\"$KEYSTORE_FILE\" -Pandroid.injected.signing.store.password=\"$KEYSTORE_PASSWORD\" -Pandroid.injected.signing.key.alias=\"$KEY_ALIAS\" -Pandroid.injected.signing.key.password=\"$KEY_PASSWORD\""
+            bash -eo pipefail -c "$BUILD_COMMAND $VERSION_CODE_ARGS -Pandroid.injected.signing.store.file=\"$KEYSTORE_FILE\" -Pandroid.injected.signing.store.password=\"$KEYSTORE_PASSWORD\" -Pandroid.injected.signing.key.alias=\"$KEY_ALIAS\" -Pandroid.injected.signing.key.password=\"$KEY_PASSWORD\""
           else
-            bash -eo pipefail -c "$BUILD_COMMAND"
+            bash -eo pipefail -c "$BUILD_COMMAND $VERSION_CODE_ARGS"
           fi
 
       - name: Resolve version and artifact
         id: release
         shell: bash
+        env:
+          TARGET_REPOSITORY_NAME: ${{ inputs.target_repository_name }}
         run: |
           set -euo pipefail
           MAJOR="$VERSION_MAJOR"
@@ -419,7 +470,7 @@ jobs:
           PATCH="$VERSION_PATCH"
           BUILD="$VERSION_BUILD"
           TAG="$VERSION"
-          APP_NAME="${APP_NAME_OVERRIDE:-${{ inputs.target_repository_name }}}"
+          APP_NAME="${APP_NAME_OVERRIDE:-${TARGET_REPOSITORY_NAME}}"
           APK="$(compgen -G "$ARTIFACT_GLOB" | sort | head -1 || true)"
           test -n "$APK" && test -s "$APK" || { echo "::error::No release APK matched $ARTIFACT_GLOB" >&2; exit 1; }
           case "$ASSET_NAME_MODE" in
@@ -445,7 +496,7 @@ jobs:
           echo "asset=$ASSET" >> "$GITHUB_OUTPUT"
       - name: Upload mapping.txt as workflow artifact
         if: ${{ env.MAPPING_FILE != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ inputs.target_repository_name }}-${{ steps.release.outputs.version }}-mapping
           path: ${{ env.MAPPING_FILE }}
@@ -466,7 +517,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ "$RELEASE_NOTES_MODE" = "changelog" ]; then
-            last_tag="$(git tag --sort=-v:refname | grep -v "^v$VERSION$" | head -n 1 || true)"
+            last_tag="$(git tag --sort=-v:refname | grep -vxF "$VERSION" | head -n 1 || true)"
             if [ -n "$last_tag" ]; then
               {
                 echo "### Changelog (since $last_tag)"
@@ -497,6 +548,17 @@ jobs:
           make-latest: "true"
           migrate-legacy-build-releases: "true"
 
+      - name: Record released versionCode
+        if: ${{ env.ON_DEFAULT_BRANCH == 'true' }}
+        uses: HereLiesAz/workflows/.github/actions/android-version@main
+        with:
+          mode: record
+          repository: ${{ inputs.target_repository }}
+          branch: ${{ inputs.target_ref_name }}
+          version-code: ${{ env.ANDROID_VERSION_CODE }}
+          version-name: ${{ env.VERSION }}
+          github-token: ${{ secrets.GH_TOKEN }}
+
       - name: Cleanup signing material
         if: ${{ always() }}
         run: rm -f "$KEYSTORE_OUTPUT" private-key.pem certificate-chain.crt keystore.p12
@@ -519,7 +581,7 @@ jobs:
       - name: Mint target check token
         id: target-check-token
         continue-on-error: true
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_PRIVATE_KEY }}

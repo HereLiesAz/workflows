@@ -193,7 +193,7 @@ def _version_contract_job() -> dict:
         "steps": [
             {
                 "name": "Checkout source revision",
-                "uses": "actions/checkout@v7",
+                "uses": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",  # v7.0.1
                 "with": {
                     "repository": "${{ inputs.target_repository }}",
                     "ref": "${{ inputs.target_sha }}",
@@ -928,7 +928,19 @@ def _initial_repository_version(gh, repository: str, default_branch: str) -> tup
     return version, existing
 
 
+# Repositories whose version.properties has its own documented single writer. The sync never
+# normalizes or initializes their version files; that writer (run by their release workflow)
+# is the only one. Keyed by lower-cased owner/name.
+SELF_VERSIONED_REPOSITORIES = {
+    # RELEASING.md: tools/version.mjs is the only writer; app-release.yml's version job runs it.
+    "hereliesaz/azphalt": "tools/version.mjs",
+}
+
+
 def _ensure_version_contract(gh, repository: str, default_branch: str, dry_run: bool) -> dict:
+    writer = SELF_VERSIONED_REPOSITORIES.get(repository.casefold())
+    if writer:
+        return {"status": "self-versioned", "writer": writer, "properties_changed": False, "state_initialized": False}
     version, existing = _initial_repository_version(gh, repository, default_branch)
     normalized = render_properties(existing, version)
 

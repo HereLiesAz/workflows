@@ -278,10 +278,27 @@ def write_github_file(path: str | None, values: dict[str, str]) -> None:
             handle.write(f"{key}={value}\n")
 
 
-def resolve_state_branch(repository: str, ref_name: str, ref_type: str) -> str:
-    if ref_type == "branch" and ref_name:
-        return ref_name
+def default_branch(repository: str) -> str:
     return run("gh", "api", f"repos/{repository}", "--jq", ".default_branch")
+
+
+def resolve_state_branch(
+    repository: str, ref_name: str, ref_type: str, default_branch_only: bool = False
+) -> tuple[str, bool, bool]:
+    """Where version state is read from, whether this run may write it, and whether the ref is
+    the default branch.
+
+    Normally a branch build keeps its own state on that branch. With default_branch_only (release
+    families that publish), state lives only on the default branch: a build of any other ref reads
+    it there, computes the same next version, and writes nothing.
+    """
+    default = default_branch(repository)
+    on_default = ref_type == "branch" and ref_name == default
+    if default_branch_only:
+        return default, on_default, on_default
+    if ref_type == "branch" and ref_name:
+        return ref_name, True, on_default
+    return default, True, on_default
 
 
 def apply_contract(
@@ -293,9 +310,10 @@ def apply_contract(
     run_id: str,
     max_attempts: int = 8,
     trigger_id: str = "",
+    default_branch_only: bool = False,
 ) -> tuple[Version, str]:
     os.chdir(workspace)
-    state_branch = resolve_state_branch(repository, ref_name, ref_type)
+    state_branch, persist, on_default_branch = resolve_state_branch(repository, ref_name, ref_type, default_branch_only)
     run("gh", "auth", "setup-git")
 
     for attempt in range(1, max_attempts + 1):
@@ -338,8 +356,9 @@ def apply_contract(
         except ValueError:
             android_code = -1
 
-        # A reused version is already recorded; nothing to commit.
-        if recorded is None:
+        # A reused version is already recorded; nothing to commit. A non-default ref of a
+        # default-branch-only family never writes version state.
+        if recorded is None and persist:
             run("git", "switch", "--detach", branch_ref)
             Path("version.properties").write_text(
                 render_properties(persisted_props or source_props, version),
@@ -388,6 +407,8 @@ def apply_contract(
             "bump": bump,
             "state_branch": state_branch,
             "android_version_code": str(android_code),
+            "persisted": str(persist and recorded is None).lower(),
+            "on_default_branch": str(on_default_branch).lower(),
         }
         write_github_file(os.environ.get("GITHUB_OUTPUT"), outputs)
         write_github_file(
@@ -419,6 +440,11 @@ def main() -> int:
         default="",
         help="triggering event (webhook delivery); runs sharing one reuse one version",
     )
+    parser.add_argument(
+        "--default-branch-only",
+        default="false",
+        help="true: keep version state only on the default branch; other refs write nothing",
+    )
     args = parser.parse_args()
 
     version, bump = apply_contract(
@@ -429,6 +455,7 @@ def main() -> int:
         workspace=Path(args.workspace).resolve(),
         run_id=args.run_id,
         trigger_id=args.trigger_id,
+        default_branch_only=args.default_branch_only.strip().lower() == "true",
     )
     print(f"{version} ({bump})")
     return 0

@@ -21,6 +21,10 @@ on:
         required: false
         type: string
         default: ""
+      default_branch_only:
+        required: false
+        type: boolean
+        default: false
     secrets:
       GH_TOKEN:
         required: true
@@ -37,6 +41,10 @@ on:
         value: ${{ jobs.resolve.outputs.build }}
       android_version_code:
         value: ${{ jobs.resolve.outputs.android_version_code }}
+      persisted:
+        value: ${{ jobs.resolve.outputs.persisted }}
+      on_default_branch:
+        value: ${{ jobs.resolve.outputs.on_default_branch }}
 
 permissions:
   contents: read
@@ -51,9 +59,11 @@ jobs:
       patch: ${{ steps.version.outputs.patch }}
       build: ${{ steps.version.outputs.build }}
       android_version_code: ${{ steps.version.outputs.android_version_code }}
+      persisted: ${{ steps.version.outputs.persisted }}
+      on_default_branch: ${{ steps.version.outputs.on_default_branch }}
     steps:
       - name: Checkout source revision
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}
@@ -70,4 +80,5 @@ jobs:
           target_ref_name: ${{ inputs.target_ref_name }}
           target_ref_type: ${{ inputs.target_ref_type }}
           trigger_id: ${{ inputs.trigger_id }}
+          default_branch_only: ${{ inputs.default_branch_only }}
           token: ${{ secrets.GH_TOKEN }}

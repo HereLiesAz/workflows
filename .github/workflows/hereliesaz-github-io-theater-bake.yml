@@ -123,7 +123,7 @@ jobs:
       - name: Mint target check token
         id: target-check-token
         continue-on-error: true
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_PRIVATE_KEY }}
@@ -147,14 +147,14 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}
           token: ${{ secrets.GH_TOKEN }}
       - name: Seed existing bakes from art-data (cache the expensive stages)
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: art-data
           path: _artdata
@@ -165,7 +165,7 @@ jobs:
       - name: Stage cached bakes into public/data
         run: "mkdir -p public/data\nif [ -d _artdata ] && [ -n \"$(ls -A _artdata 2>/dev/null | grep -v '^\\.git$')\" ]; then\n  rsync -a --exclude='.git' _artdata/ public/data/\n  echo \"seeded $(find public/data/theater -type f 2>/dev/null | wc -l) cached files\"\nelse\n  echo \"no art-data seed; every painting bakes from scratch\"\nfi\n"
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.10'
           cache: pip
@@ -181,7 +181,7 @@ jobs:
       - name: Validate baked theater output
         run: python scripts/validate_output.py --dir public/data/theater
       - name: Deploy to art-data
-        uses: peaceiris/actions-gh-pages@373f7f263a76c20808c831209c920827a82a2847
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
         with:
           external_repository: ${{ inputs.target_repository }}
           personal_token: ${{ secrets.GH_TOKEN }}
@@ -212,7 +212,7 @@ jobs:
       - name: Mint target check token
         id: target-check-token
         continue-on-error: true
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_PRIVATE_KEY }}

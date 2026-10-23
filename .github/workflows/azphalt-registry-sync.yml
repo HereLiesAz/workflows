@@ -122,7 +122,7 @@ jobs:
       - name: Mint target check token
         id: target-check-token
         continue-on-error: true
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_PRIVATE_KEY }}
@@ -138,17 +138,25 @@ jobs:
           DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         shell: bash
         run: "set +e\nwarn() { echo \"::warning::Target check run skipped: $1\"; exit 0; }\n[[ -n \"${TARGET_REPOSITORY:-}\" && -n \"${TARGET_CHECK_SHA:-}\" ]] || warn \"no target commit\"\ntitle=\"$CHECK_NAME\"\ntext=\"\"\nif [[ \"$CHECK_PHASE\" == \"start\" ]]; then\n  body=\"$(jq -n --arg name \"$CHECK_NAME\" --arg sha \"$TARGET_CHECK_SHA\" --arg url \"$DETAILS_URL\" --arg ext \"$GITHUB_RUN_ID\" \\\n    '{name:$name,head_sha:$sha,status:\"in_progress\",details_url:$url,external_id:$ext,output:{title:$name,summary:(\"Running in HereLiesAz/workflows: \" + $url)}}')\"\nelse\n  if [[ \"$FAILED\" == \"true\" ]]; then\n    conclusion=\"failure\"\n    jobs=\"$(GH_TOKEN=\"$RUN_READ_TOKEN\" gh api --paginate \"repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}/jobs\" --jq '.jobs[]' 2>/dev/null | jq -s '.')\"\n    [[ -n \"$jobs\" ]] || jobs=\"[]\"\n    failed=\"$(jq -r '[.[] | select(.conclusion == \"failure\" or .conclusion == \"cancelled\")\n      | \"- **\\(.name)** (\\(.conclusion)): \" + ([.steps[]? | select(.conclusion == \"failure\") | .name] | join(\", \") | if . == \"\" then \"no failed step reported\" else . end)\n      + \" — [log](\\(.html_url))\"] | join(\"\\n\")' <<<\"$jobs\")\"\n    first_id=\"$(jq -r '[.[] | select(.conclusion == \"failure\")][0].id // empty' <<<\"$jobs\")\"\n    if [[ -n \"$first_id\" ]]; then\n      tail_log=\"$(GH_TOKEN=\"$RUN_READ_TOKEN\" gh api \"repos/${GITHUB_REPOSITORY}/actions/jobs/${first_id}/logs\" 2>/dev/null \\\n        | sed -E 's/^[0-9T:.-]+Z //' | grep -v '^##\\[group\\]\\|^##\\[endgroup\\]' | tail -n 60)\"\n      [[ -n \"$tail_log\" ]] && text=\"$(printf 'Last lines of the first failed job:\\n\\n~~~text\\n%s\\n~~~\\n' \"${tail_log:0:60000}\")\"\n    fi\n    summary=\"$(printf 'Central run failed: %s\\n\\n%s\\n' \"$DETAILS_URL\" \"${failed:-No failed job reported.}\")\"\n    title=\"$CHECK_NAME failed\"\n  else\n    conclusion=\"success\"\n    summary=\"Central run succeeded: $DETAILS_URL\"\n  fi\n  body=\"$(jq -n --arg name \"$CHECK_NAME\" --arg sha \"$TARGET_CHECK_SHA\" --arg url \"$DETAILS_URL\" --arg ext \"$GITHUB_RUN_ID\" \\\n    --arg conclusion \"$conclusion\" --arg title \"$title\" --arg summary \"${summary:0:65000}\" --arg text \"$text\" \\\n    '{name:$name,head_sha:$sha,status:\"completed\",conclusion:$conclusion,details_url:$url,external_id:$ext,output:({title:$title,summary:$summary} + (if $text == \"\" then {} else {text:$text} end))}')\"\nfi\n# Each phase posts its own Check Run under the same name; GitHub shows the latest one,\n# so the finish phase needs no id handed over from the start job.\ngh api --method POST \"repos/${TARGET_REPOSITORY}/check-runs\" --input - <<<\"$body\" >/dev/null \\\n  || echo \"::warning::Target check run skipped: GitHub refused the check run\"\n\n# Release/deploy failures also go to one open issue per workflow: opened on the\n# first failure, commented on each repeat. Successes never touch issues.\n[[ \"$CHECK_PHASE\" == \"finish\" && \"${FILE_ISSUES:-}\" == \"true\" && \"${conclusion:-}\" == \"failure\" ]] || exit 0\nlabel=\"central-run-failure\"\nissue_title=\"Central run failing: $CHECK_NAME\"\nissue=\"$(gh api \"repos/${TARGET_REPOSITORY}/issues?state=open&labels=${label}&per_page=100\" 2>/dev/null \\\n  | jq -r --arg t \"$issue_title\" '[.[] | select(.title == $t)][0].number // empty')\"\nreport=\"$(printf '%s\\n\\nCommit: %s\\n\\n%s\\n' \"$summary\" \"$TARGET_CHECK_SHA\" \"$text\")\"\nif [[ -n \"$issue\" ]]; then\n  gh api --method POST \"repos/${TARGET_REPOSITORY}/issues/${issue}/comments\" -f body=\"$report\" >/dev/null \\\n    || warn \"could not comment on issue #$issue\"\nelse\n  gh api --method POST \"repos/${TARGET_REPOSITORY}/labels\" -f name=\"$label\" -f color=\"000000\" \\\n    -f description=\"A release or deploy run in HereLiesAz/workflows failed for this repository.\" >/dev/null 2>&1\n  gh api --method POST \"repos/${TARGET_REPOSITORY}/issues\" -f title=\"$issue_title\" -f body=\"$report\" -f \"labels[]=$label\" >/dev/null \\\n    || warn \"could not open a failure issue\"\nfi\n"
-  sync:
+  # Build job: runs the dependency install, the workspace build and the fetch of every
+  # third-party extension source. It holds no write token and no signing key; its checkout keeps
+  # no credentials.
+  build:
+    needs: central_check_start
+    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      mode: ${{ steps.mode.outputs.mode }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}
-          token: ${{ secrets.GH_TOKEN }}
-          persist-credentials: true
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
           cache: pnpm
@@ -160,30 +168,69 @@ jobs:
         env:
           MODE: ${{ inputs.target_event_name == 'push' && 'pinned' || inputs.target_event_name == 'workflow_dispatch' && fromJSON(inputs.target_inputs_json).mode || 'latest' }}
         run: "set -euo pipefail\ncase \"$MODE\" in\n  pinned) flags=\"--update\" ;;\n  latest) flags=\"--update --latest\" ;;\n  *) echo \"::error::unknown sync mode '$MODE'\"; exit 1 ;;\nesac\necho \"mode=$MODE\"    >> \"$GITHUB_OUTPUT\"\necho \"flags=$flags\"  >> \"$GITHUB_OUTPUT\"\necho \"Sync mode: **$MODE** (\\`build-catalog $flags\\`)\" >> \"$GITHUB_STEP_SUMMARY\"\n"
-      - name: Build the catalog
+      - name: Re-pin the catalog (unsigned)
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          # Read-only token of this run, only to lift the anonymous API rate limit.
+          GITHUB_TOKEN: ${{ github.token }}
+          MODE_FLAGS: ${{ steps.mode.outputs.flags }}
+        # MODE_FLAGS is one of the two fixed values above; word splitting is intended.
+        run: pnpm --filter @azphalt/storefront build-catalog $MODE_FLAGS
+      - name: Hand the re-pinned lockfile to the signing job
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: registry-sources
+          path: apps/storefront/registry/sources.json
+          if-no-files-found: error
+          retention-days: 1
+
+  # Signing job: a fresh checkout of the same commit plus only the lockfile from the build job.
+  # Dependencies install with --ignore-scripts, and build-catalog (without --update) re-packs each
+  # pinned source and refuses any whose unsigned digest differs from the pinned integrity, so the
+  # key signs exactly what the build job pinned. The write token is used only to push the branch
+  # and open the PR, never persisted in .git/config.
+  sign:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    environment: azphalt
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.target_repository }}
+          ref: ${{ inputs.target_sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: registry-sources
+          path: apps/storefront/registry
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Build the workspace packages these scripts import at runtime
+        run: pnpm --filter "@azphalt/azp..." --filter "@azphalt/runtime-reference..." build
+      - name: Build and sign the pinned catalog
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
           AZPHALT_PACKAGE_SIGNING_KEY: ${{ secrets.AZPHALT_PACKAGE_SIGNING_KEY }}
           AZPHALT_PACKAGE_SIGNING_KEY_ID: ${{ secrets.AZPHALT_PACKAGE_SIGNING_KEY_ID }}
-        run: pnpm --filter @azphalt/storefront build-catalog ${{ steps.mode.outputs.flags }}
+        run: pnpm --filter @azphalt/storefront build-catalog
       - name: Regenerate the store previews
         run: pnpm --filter @azphalt/storefront build-previews
       - name: Open a PR if the catalog moved
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          MODE: ${{ steps.mode.outputs.mode }}
-        run: "set -euo pipefail\nif [ \"$MODE\" = latest ]; then\n  what=\"Re-pinned each source in apps/storefront/registry/sources.json to its default-branch head and rebuilt registry/packages/.\"\nelse\n  what=\"Rebuilt registry/packages/ from the shas apps/storefront/registry/sources.json already pins. No source's ref was moved, so anything new here is a package that was pinned but never built.\"\nfi\nif git diff --quiet -- apps/storefront/registry; then\n  echo \"Catalog unchanged — nothing to publish.\"\n  echo \"Catalog unchanged.\" >> \"$GITHUB_STEP_SUMMARY\"\n  exit 0\nfi\n\nbranch=registry-sync/$MODE-$(date -u +%Y%m%d-%H%M%S)\ngit config user.name  \"github-actions[bot]\"\ngit config user.email \"41898282+github-actions[bot]@users.noreply.github.com\"\ngit checkout -b \"$branch\"\ngit add apps/storefront/registry\n# Repeated -m rather than one multi-line string: git joins them with blank lines, and every\n# line here stays indented inside the `run: |` block. A message body written at column 0\n# would terminate the block scalar, and YAML would then read it as further workflow keys.\ngit commit \\\n  -m \"chore(registry): sync catalog from extension repos ($MODE)\" \\\n  -m \"$what\" \\\n  -m \"Merging this publishes the new bytes; deploy-storefront then rebuilds and redeploys.\"\ngit push -u origin \"$branch\"\n\n# A summary of what actually moved, so the reviewer sees the change in package terms rather\n# than as a wall of binary diffs.\n{\n  echo \"Sync mode: **$MODE**.\"\n  echo \"\"\n  echo \"$what\"\n  echo \"\"\n  echo \"## Packages first built here\"\n  echo \"\"\n  echo \"Bytes that did not exist in the catalog before this run — i.e. sources that were\"\n  echo \"pinned in the lockfile but never published.\"\n  echo '```'\n  git diff --diff-filter=A --name-only \"origin/${TARGET_REF_NAME}...$branch\" \\\n    -- apps/storefront/registry/packages \\\n    | sed 's#.*/##' || true\n  echo '```'\n  echo \"\"\n  echo \"## Lockfile changes\"\n  echo '```'\n  git diff \"origin/${TARGET_REF_NAME}...$branch\" -- apps/storefront/registry/sources.json \\\n    | grep -E '^[+-] +\"(id|ref|version)\"' || echo \"(no lockfile field changes)\"\n  echo '```'\n} > /tmp/pr-body.md\n\n# Opening the PR is best-effort. A repo with \"Allow GitHub Actions to create and approve\n# pull requests\" switched off rejects this with a GraphQL permissions error — and failing\n# the run there would throw away work that already succeeded: the rebuilt, signed catalog\n# is pushed and safe on \"$branch\". Report how to open it by hand instead.\nif gh pr create --draft \\\n     --title \"chore(registry): sync catalog from extension repos ($MODE)\" \\\n     --body-file /tmp/pr-body.md; then\n  cat /tmp/pr-body.md >> \"$GITHUB_STEP_SUMMARY\"\nelse\n  echo \"::warning::Could not open the PR automatically — the catalog is pushed to $branch.\"\n  {\n    echo \"### Catalog rebuilt, PR not opened\"\n    echo \"\"\n    echo \"The rebuilt catalog is on \\`$branch\\`. Opening its PR failed, most likely because\"\n    echo \"**Settings → Actions → General → Workflow permissions → \\\"Allow GitHub Actions to\"\n    echo \"create and approve pull requests\\\"** is off.\"\n    echo \"\"\n    echo \"Open it here: ${GITHUB_SERVER_URL}/${TARGET_REPOSITORY}/compare/${TARGET_REF_NAME}...${branch}?expand=1\"\n    echo \"\"\n    cat /tmp/pr-body.md\n  } >> \"$GITHUB_STEP_SUMMARY\"\nfi\n"
-    needs: central_check_start
-    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
-    permissions:
-      contents: write
-      pull-requests: write
-    environment: azphalt
+          MODE: ${{ needs.build.outputs.mode }}
+        run: "set -euo pipefail\nif [ \"$MODE\" = latest ]; then\n  what=\"Re-pinned each source in apps/storefront/registry/sources.json to its default-branch head and rebuilt registry/packages/.\"\nelse\n  what=\"Rebuilt registry/packages/ from the shas apps/storefront/registry/sources.json already pins. No source's ref was moved, so anything new here is a package that was pinned but never built.\"\nfi\nif git diff --quiet -- apps/storefront/registry; then\n  echo \"Catalog unchanged — nothing to publish.\"\n  echo \"Catalog unchanged.\" >> \"$GITHUB_STEP_SUMMARY\"\n  exit 0\nfi\n\nbranch=registry-sync/$MODE-$(date -u +%Y%m%d-%H%M%S)\ngit config user.name  \"github-actions[bot]\"\ngit config user.email \"41898282+github-actions[bot]@users.noreply.github.com\"\ngit checkout -b \"$branch\"\ngit add apps/storefront/registry\n# Repeated -m rather than one multi-line string: git joins them with blank lines, and every\n# line here stays indented inside the `run: |` block. A message body written at column 0\n# would terminate the block scalar, and YAML would then read it as further workflow keys.\ngit commit \\\n  -m \"chore(registry): sync catalog from extension repos ($MODE)\" \\\n  -m \"$what\" \\\n  -m \"Merging this publishes the new bytes; deploy-storefront then rebuilds and redeploys.\"\nauth=\"$(printf 'x-access-token:%s' \"$GH_TOKEN\" | base64 -w0)\"\ngit -c http.https://github.com/.extraheader=\"AUTHORIZATION: basic $auth\" push -u origin \"$branch\"\n\n# A summary of what actually moved, so the reviewer sees the change in package terms rather\n# than as a wall of binary diffs.\n{\n  echo \"Sync mode: **$MODE**.\"\n  echo \"\"\n  echo \"$what\"\n  echo \"\"\n  echo \"## Packages first built here\"\n  echo \"\"\n  echo \"Bytes that did not exist in the catalog before this run — i.e. sources that were\"\n  echo \"pinned in the lockfile but never published.\"\n  echo '```'\n  git diff --diff-filter=A --name-only \"origin/${TARGET_REF_NAME}...$branch\" \\\n    -- apps/storefront/registry/packages \\\n    | sed 's#.*/##' || true\n  echo '```'\n  echo \"\"\n  echo \"## Lockfile changes\"\n  echo '```'\n  git diff \"origin/${TARGET_REF_NAME}...$branch\" -- apps/storefront/registry/sources.json \\\n    | grep -E '^[+-] +\"(id|ref|version)\"' || echo \"(no lockfile field changes)\"\n  echo '```'\n} > /tmp/pr-body.md\n\n# Opening the PR is best-effort. A repo with \"Allow GitHub Actions to create and approve\n# pull requests\" switched off rejects this with a GraphQL permissions error — and failing\n# the run there would throw away work that already succeeded: the rebuilt, signed catalog\n# is pushed and safe on \"$branch\". Report how to open it by hand instead.\nif gh pr create --draft \\\n     --title \"chore(registry): sync catalog from extension repos ($MODE)\" \\\n     --body-file /tmp/pr-body.md; then\n  cat /tmp/pr-body.md >> \"$GITHUB_STEP_SUMMARY\"\nelse\n  echo \"::warning::Could not open the PR automatically — the catalog is pushed to $branch.\"\n  {\n    echo \"### Catalog rebuilt, PR not opened\"\n    echo \"\"\n    echo \"The rebuilt catalog is on \\`$branch\\`. Opening its PR failed, most likely because\"\n    echo \"**Settings → Actions → General → Workflow permissions → \\\"Allow GitHub Actions to\"\n    echo \"create and approve pull requests\\\"** is off.\"\n    echo \"\"\n    echo \"Open it here: ${GITHUB_SERVER_URL}/${TARGET_REPOSITORY}/compare/${TARGET_REF_NAME}...${branch}?expand=1\"\n    echo \"\"\n    cat /tmp/pr-body.md\n  } >> \"$GITHUB_STEP_SUMMARY\"\nfi\n"
   central_check_finish:
     if: ${{ always() }}
     needs:
       - central_check_start
-      - sync
+      - build
+      - sign
     runs-on: ubuntu-latest
     steps:
       - name: Complete target status
@@ -197,7 +244,7 @@ jobs:
       - name: Mint target check token
         id: target-check-token
         continue-on-error: true
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_PRIVATE_KEY }}

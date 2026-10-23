@@ -53,13 +53,9 @@ jobs:
 
       - name: Require every regression script to be wired in
         # The test_*.py scripts are plain assert scripts that pytest cannot discover, so one left
-        # off this workflow would never run.
-        run: |
-          missing=0
-          for test in scripts/test_*.py; do
-            grep -q "run: python $test\$" .github/workflows/validate-controller.yml || { echo "::error::$test is not run by validate-controller.yml"; missing=1; }
-          done
-          exit "$missing"
+        # off this workflow would never run. This parses the workflow: a step disabled by `if:`
+        # or a commented-out `run:` line does not count.
+        run: python scripts/check_test_wiring.py
 
       - name: Audit the complete workflow collection
         run: python scripts/audit_workflow_collection.py
@@ -225,6 +221,12 @@ jobs:
 
       - name: Regression-test pull-request head trust
         run: python scripts/test_dispatch_request_guard.py
+
+      - name: Regression-test which pushes, paths and activities start a workflow
+        run: python scripts/test_dispatch_request_triggers.py
+
+      - name: Regression-test the test-wiring check
+        run: python scripts/test_check_test_wiring.py
 
       - name: Regression-test canonical version contract
         run: python scripts/test_version_contract.py

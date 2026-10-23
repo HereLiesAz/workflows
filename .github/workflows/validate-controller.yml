@@ -223,6 +223,9 @@ jobs:
       - name: Regression-test manual dispatch matching
         run: python scripts/test_dispatch_manual.py
 
+      - name: Regression-test pull-request head trust
+        run: python scripts/test_dispatch_request_guard.py
+
       - name: Regression-test canonical version contract
         run: python scripts/test_version_contract.py
 

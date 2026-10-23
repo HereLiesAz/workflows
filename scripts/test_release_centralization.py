@@ -379,3 +379,59 @@ assert pages_step['with']['external_repository'] == expression('inputs.target_re
 assert pages_step['with']['personal_token'] == expression('secrets.GH_TOKEN')
 assert 'github_token' not in pages_step['with']
 assert pages_step['with']['publish_branch'] == 'art-data'
+# The publish must stay additive: flipping keep_files would wipe art-data.
+assert pages_step['with']['keep_files'] is True
+assert pages_step['with']['publish_dir'] == './public/data'
+assert 'secrets.GITHUB_TOKEN' not in _json.dumps(pages_doc['jobs']['bake'])
+
+# An explicit external_repository is never clobbered.
+_explicit = load_yaml(compile_central(
+    pages_source.replace(
+        'github_token: ${{ secrets.GITHUB_TOKEN }}',
+        'github_token: ${{ secrets.GITHUB_TOKEN }}\n          external_repository: Other/target',
+    ),
+    {'full_name': 'HereLiesAz/fixture', 'private': False},
+    '.github/workflows/bake.yml',
+    'bake',
+))
+_explicit_step = next(
+    step for step in _explicit['jobs']['bake']['steps']
+    if isinstance(step, dict)
+    and str(step.get('uses') or '').startswith('peaceiris/actions-gh-pages@')
+)
+assert _explicit_step['with']['external_repository'] == 'Other/target'
+assert 'personal_token' not in _explicit_step['with']
+
+# contents: write is dropped only when the personal-token publish was its sole use.
+_with_perm = pages_source.replace('jobs:', 'permissions:\n  contents: write\njobs:')
+_perm_doc = load_yaml(compile_central(
+    _with_perm, {'full_name': 'HereLiesAz/fixture', 'private': False}, '.github/workflows/bake.yml', 'bake',
+))
+assert _perm_doc['jobs']['bake']['permissions']['contents'] == 'read'
+_push_doc = load_yaml(compile_central(
+    _with_perm.replace(
+        '      - name: Deploy to art-data',
+        '      - name: Tag\n        run: git push origin HEAD:refs/tags/x\n      - name: Deploy to art-data',
+    ),
+    {'full_name': 'HereLiesAz/fixture', 'private': False}, '.github/workflows/bake.yml', 'bake',
+))
+assert _push_doc['jobs']['bake']['permissions']['contents'] == 'write'
+
+# The checked-in compiled bake publishes additively to the source repository's art-data
+# and keeps its gates; edits to the generated file that drop any of these must fail here.
+_bake = load_yaml(Path('.github/workflows/hereliesaz-github-io-theater-bake.yml').read_text(encoding='utf-8'))
+_bake_steps = _bake['jobs']['bake']['steps']
+_bake_publish = next(
+    s for s in _bake_steps if str(s.get('uses') or '').startswith('peaceiris/actions-gh-pages@')
+)
+assert _bake_publish['with']['keep_files'] is True
+assert _bake_publish['with']['publish_branch'] == 'art-data'
+assert _bake_publish['with']['external_repository'] == expression('inputs.target_repository')
+assert 'github_token' not in _bake_publish['with']
+_bake_runs = '\n'.join(str(s.get('run') or '') for s in _bake_steps)
+assert 'scripts/theater_baker.py' in _bake_runs
+assert 'scripts/pareidolia_index.py' in _bake_runs
+assert 'scripts/validate_output.py' in _bake_runs
+_names = [s.get('name') for s in _bake_steps]
+assert _names.index(next(n for n in _names if n and 'alidate' in n)) < _names.index(_bake_publish.get('name'))
+print('bake publish contract ok')

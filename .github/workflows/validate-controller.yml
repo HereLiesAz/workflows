@@ -226,6 +226,9 @@ jobs:
       - name: Regression-test pull-request head trust
         run: python scripts/test_dispatch_request_guard.py
 
+      - name: Regression-test oversized push event dispatch
+        run: python scripts/test_dispatch_event_size.py
+
       - name: Regression-test canonical version contract
         run: python scripts/test_version_contract.py
 

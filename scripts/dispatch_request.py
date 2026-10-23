@@ -45,6 +45,8 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parents[1]
 MAX_WORKFLOW_DISPATCH_INPUTS = 25
+# GitHub rejects a workflow_dispatch whose inputs exceed 65,535 characters in total.
+MAX_DISPATCH_EVENT_JSON = 40_000
 
 
 def declared_dispatch_inputs(workflow_path: str) -> dict[str, object]:
@@ -67,6 +69,30 @@ def declared_dispatch_inputs(workflow_path: str) -> dict[str, object]:
             f"GitHub allows at most {MAX_WORKFLOW_DISPATCH_INPUTS}: {workflow_path}"
         )
     return inputs
+
+
+
+def _event_json_for_dispatch(event: dict) -> str:
+    """Serialise the event, shrinking a push payload so the dispatch stays under GitHub's limit.
+
+    A merge of a large pull request lists every commit and every file it touched; that alone passes
+    the 65,535-character input cap and the whole dispatch is refused. Per-commit file lists go
+    first, then the commit list itself. `head_commit` and everything else is kept.
+    """
+    text = json.dumps(event, separators=(",", ":"))
+    if len(text) <= MAX_DISPATCH_EVENT_JSON or not isinstance(event.get("commits"), list):
+        return text
+    slim = dict(event)
+    slim["commits"] = [
+        {k: v for k, v in c.items() if k not in {"added", "removed", "modified"}}
+        for c in event["commits"]
+        if isinstance(c, dict)
+    ]
+    text = json.dumps(slim, separators=(",", ":"))
+    while len(text) > MAX_DISPATCH_EVENT_JSON and slim["commits"]:
+        slim["commits"] = slim["commits"][: len(slim["commits"]) // 2]
+        text = json.dumps(slim, separators=(",", ":"))
+    return text
 
 
 def conform_dispatch_inputs(
@@ -447,7 +473,7 @@ def _dispatch_entry(
         "target_actor": actor,
         "target_actor_id": str(request.get("actor_id", "")),
         "target_event_name": effective_event_name,
-        "target_event_json": json.dumps(event, separators=(",", ":")),
+        "target_event_json": _event_json_for_dispatch(event),
         "target_inputs_json": json.dumps(request.get("inputs") or {}, separators=(",", ":")),
         "target_vars_json": json.dumps(request.get("vars") or {}, separators=(",", ":")),
         "target_run_id": run_id,

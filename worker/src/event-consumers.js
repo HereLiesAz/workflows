@@ -1637,7 +1637,8 @@ export const EVENT_CONSUMERS = {
   "1429950641": {
     "repository": "HereLiesAz/photo-unroll",
     "events": [
-      "push"
+      "push",
+      "workflow_dispatch"
     ]
   }
 };

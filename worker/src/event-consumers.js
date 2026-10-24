@@ -1662,7 +1662,8 @@ export const EVENT_CONSUMERS = {
   "1432045972": {
     "repository": "HereLiesAz/clappiest",
     "events": [
-      "push"
+      "push",
+      "workflow_dispatch"
     ]
   }
 };

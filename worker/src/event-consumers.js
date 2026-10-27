@@ -1509,6 +1509,7 @@ export const EVENT_CONSUMERS = {
   "1352170302": {
     "repository": "HereLiesAz/convey-web",
     "events": [
+      "pull_request",
       "push"
     ]
   },

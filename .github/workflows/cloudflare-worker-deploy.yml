@@ -281,12 +281,27 @@ jobs:
 
       # Only the declared output paths travel to the deploy job, as data for Wrangler: never
       # node_modules, so nothing the tests' install scripts produced reaches the token-holding job.
+      # upload-artifact strips each path down to its least common ancestor, so a single declared
+      # output (e.g. apps/foo/dist) would arrive at the deploy job's workspace root instead of where
+      # Wrangler's assets.directory expects it. A tarball made from the repository root keeps every
+      # declared path exactly as declared.
+      - name: Pack build outputs
+        if: ${{ env.BUILD_OUTPUTS != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t outputs <<<"$BUILD_OUTPUTS"
+          for path in "${outputs[@]}"; do
+            [[ -e "$path" ]] || { echo "::error::declared build output $path was not produced"; exit 1; }
+          done
+          tar -czf "$RUNNER_TEMP/worker-build-outputs.tgz" -- "${outputs[@]}"
+
       - name: Upload build outputs
         if: ${{ env.BUILD_OUTPUTS != '' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: worker-build-outputs
-          path: ${{ env.BUILD_OUTPUTS }}
+          path: ${{ runner.temp }}/worker-build-outputs.tgz
           if-no-files-found: error
           retention-days: 1
 
@@ -329,7 +344,12 @@ jobs:
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: worker-build-outputs
-          path: ${{ github.workspace }}
+          path: ${{ runner.temp }}
+
+      - name: Unpack build outputs
+        if: ${{ env.HAS_BUILD_OUTPUTS == 'true' }}
+        shell: bash
+        run: tar -xzf "$RUNNER_TEMP/worker-build-outputs.tgz" -C "$GITHUB_WORKSPACE"
 
       # Dependencies are needed to bundle the Worker, but their lifecycle scripts must not run
       # here: this job later holds the Cloudflare token. No credential is in this step's env.

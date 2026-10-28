@@ -370,7 +370,10 @@ jobs:
             echo "APK_GLOB=$apk_glob"
             echo "SIGNING_ENV_PREFIX=$signing_env_prefix"
             echo "SIGNING_ENV_STYLE=$signing_env_style"
-            echo "PRE_BUILD_COMMAND=$pre_build_command"
+            # Multi-line safe: a plain KEY=value line keeps only the command's first line.
+            echo "PRE_BUILD_COMMAND<<__PRE_BUILD_COMMAND_EOF__"
+            printf '%s\n' "$pre_build_command"
+            echo "__PRE_BUILD_COMMAND_EOF__"
             echo "BUILT_RELEASE_TAG_ENV=$built_release_tag_env"
             echo "BUILT_RELEASE_INCLUDE_AAB=$built_release_include_aab"
             echo "BUILT_RELEASE_CHECKSUM=$built_release_checksum"

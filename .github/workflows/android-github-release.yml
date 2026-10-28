@@ -192,6 +192,26 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           persist-credentials: false
 
+      # Optional pinned build dependency (e.g. a native fork built into local AARs),
+      # restored from a trusted cache keyed by profile. Same contract as android-play-release.
+      - name: Restore trusted build dependency cache
+        id: profile-cache
+        if: ${{ fromJSON(inputs.purpose_profile_json).shared_cache_path != null && fromJSON(inputs.purpose_profile_json).shared_cache_path != '' && fromJSON(inputs.purpose_profile_json).shared_cache_key != null && fromJSON(inputs.purpose_profile_json).shared_cache_key != '' }}
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ fromJSON(inputs.purpose_profile_json).shared_cache_path }}
+          key: ${{ fromJSON(inputs.purpose_profile_json).shared_cache_key }}
+
+      - name: Check out optional build dependency
+        if: ${{ fromJSON(inputs.purpose_profile_json).extra_checkout_repository != null && fromJSON(inputs.purpose_profile_json).extra_checkout_repository != '' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ fromJSON(inputs.purpose_profile_json).extra_checkout_repository }}
+          ref: ${{ fromJSON(inputs.purpose_profile_json).extra_checkout_ref }}
+          path: ${{ fromJSON(inputs.purpose_profile_json).extra_checkout_path }}
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+
       - name: Apply canonical version to checkout
         shell: bash
         run: |
@@ -387,6 +407,28 @@ jobs:
           set -euo pipefail
           mkdir -p ~/.gradle
           jq -r '.[]' <<<"$GRADLE_PROPERTIES_JSON" >> ~/.gradle/gradle.properties
+
+      - name: Set up Android SDK
+        if: ${{ fromJSON(inputs.purpose_profile_json).setup_android == true }}
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          packages: ${{ fromJSON(inputs.purpose_profile_json).android_packages || 'platform-tools' }}
+
+      # Read straight from the profile, not $GITHUB_ENV: the command is multi-line, and a
+      # plain KEY=value line in $GITHUB_ENV keeps only its first line.
+      - name: Prepare project-specific release inputs
+        if: ${{ fromJSON(inputs.purpose_profile_json).pre_build_command != null && fromJSON(inputs.purpose_profile_json).pre_build_command != '' }}
+        env:
+          PRE_BUILD_COMMAND: ${{ fromJSON(inputs.purpose_profile_json).pre_build_command }}
+        shell: bash
+        run: bash -eo pipefail -c "$PRE_BUILD_COMMAND"
+
+      - name: Save trusted build dependency cache
+        if: ${{ fromJSON(inputs.purpose_profile_json).shared_cache_trusted_save == true && steps.profile-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ fromJSON(inputs.purpose_profile_json).shared_cache_path }}
+          key: ${{ fromJSON(inputs.purpose_profile_json).shared_cache_key }}
 
       - name: Run release tests
         if: ${{ env.TEST_COMMAND != '' }}

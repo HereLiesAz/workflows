@@ -514,6 +514,7 @@ export const EVENT_CONSUMERS = {
   "1220715027": {
     "repository": "HereLiesAz/CleanUnderwear",
     "events": [
+      "pull_request",
       "push",
       "workflow_dispatch"
     ]

@@ -195,6 +195,16 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           persist-credentials: false
 
+      # The SoftEther CMake module needs pinned OpenSSL headers, but none of
+      # OpenSSL's recursive fuzz/QUIC test submodules.
+      - name: Checkout Illumera SoftEther OpenSSL headers
+        if: ${{ inputs.target_repository_name == 'illumera' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C vendor/softether-android submodule update --init --depth=1 src/main/cpp/openssl
+          test -f vendor/softether-android/src/main/cpp/openssl/include/openssl/ssl.h
+
       # Optional pinned build dependency (e.g. a native fork built into local AARs),
       # restored from a trusted cache keyed by profile. Same contract as android-play-release.
       - name: Restore trusted build dependency cache

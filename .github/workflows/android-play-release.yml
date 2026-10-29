@@ -209,6 +209,9 @@ jobs:
           fetch-depth: 0
           repository: ${{ inputs.target_repository }}
           ref: ${{ inputs.target_sha }}
+          # Illumera embeds two pinned native VPN source submodules. Other repos
+          # retain the existing no-submodule checkout behavior.
+          submodules: ${{ inputs.target_repository_name == 'illumera' && 'recursive' || 'false' }}
           token: ${{ steps.target-token.outputs.token }}
           persist-credentials: false
 

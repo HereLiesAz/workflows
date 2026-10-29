@@ -211,9 +211,19 @@ jobs:
           ref: ${{ inputs.target_sha }}
           # Illumera embeds two pinned native VPN source submodules. Other repos
           # retain the existing no-submodule checkout behavior.
-          submodules: ${{ inputs.target_repository_name == 'illumera' && 'recursive' || 'false' }}
+          submodules: ${{ inputs.target_repository_name == 'illumera' && 'true' || 'false' }}
           token: ${{ steps.target-token.outputs.token }}
           persist-credentials: false
+
+      # The SoftEther CMake module needs pinned OpenSSL headers, but none of
+      # OpenSSL's recursive fuzz/QUIC test submodules.
+      - name: Checkout Illumera SoftEther OpenSSL headers
+        if: ${{ inputs.target_repository_name == 'illumera' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C vendor/softether-android submodule update --init --depth=1 src/main/cpp/openssl
+          test -f vendor/softether-android/src/main/cpp/openssl/include/openssl/ssl.h
 
       - name: Restore trusted build dependency cache
         id: profile-cache

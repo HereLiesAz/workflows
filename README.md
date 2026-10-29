@@ -6,10 +6,10 @@ full history of the last 20 runs is in `repositories/<repository_id>.json`.
 
 | Repository | Workflow | State | Run | Branch | Commit | Updated | Report |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Android CI | ✅ success | [#2999](https://github.com/HereLiesAz/aive/actions/runs/40874524133) | ccr-a66ccdfb-db9w3q | `0fd332d` | 2026-10-29T12:45:56Z |  |
+| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Android CI | ⏳ in_progress (2/2 jobs) | [#3011](https://github.com/HereLiesAz/aive/actions/runs/40937907193) | main | `6835a20` | 2026-10-29T19:14:34.577Z |  |
 | [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | BITCOS Engine | ✅ success | [#49](https://github.com/HereLiesAz/aive/actions/runs/40605149701) | main | `1909611` | 2026-10-27T23:58:21.726Z |  |
 | [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Dependency Submission | ✅ success | [#105](https://github.com/HereLiesAz/aive/actions/runs/40651961768) | main | `d8acf91` | 2026-10-28T07:46:33Z |  |
-| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Build and Deploy | ✅ success | [#2346](https://github.com/HereLiesAz/aive/actions/runs/40874524338) | ccr-a66ccdfb-db9w3q | `0fd332d` | 2026-10-29T13:07:47.616Z |  |
+| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Build and Deploy | ⏳ in_progress (2/5 jobs) | [#2358](https://github.com/HereLiesAz/aive/actions/runs/40937907362) | main | `6835a20` | 2026-10-29T19:13:13Z |  |
 | [HereLiesAz/clappiest](https://github.com/HereLiesAz/clappiest) | CI | ✅ success | [#4](https://github.com/HereLiesAz/clappiest/actions/runs/40659461446) | main | `d78a4b2` | 2026-10-28T08:51:33Z | unit-tests: JVM unit tests (:app:testDebugUnitTest) |
 | [HereLiesAz/morphont](https://github.com/HereLiesAz/morphont) | CI | ✅ success | [#85](https://github.com/HereLiesAz/morphont/actions/runs/40875818120) | main | `25b9397` | 2026-10-29T12:49:08Z | test: success |
 | [HereLiesAz/SphereSLAM](https://github.com/HereLiesAz/SphereSLAM) | CI | ✅ success | [#82](https://github.com/HereLiesAz/SphereSLAM/actions/runs/40659149532) | main | `1519b4a` | 2026-10-28T08:51:16Z |  |

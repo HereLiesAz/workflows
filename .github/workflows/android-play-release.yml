@@ -223,7 +223,17 @@ jobs:
         run: |
           set -euo pipefail
           git -C vendor/softether-android submodule update --init --depth=1 src/main/cpp/openssl
-          test -f vendor/softether-android/src/main/cpp/openssl/include/openssl/ssl.h
+          # Pinned OpenSSL ships ssl.h.in and configuration.h.in, NOT the generated
+          # headers. The pinned SoftEther module provides a header-only generator
+          # (no NDK or OpenSSL library rebuild needed).
+          test -f vendor/softether-android/src/main/cpp/openssl/include/openssl/ssl.h.in
+          bash vendor/softether-android/src/main/cpp/build-openssl-android.sh --headers-only
+          for header in ssl.h configuration.h opensslv.h; do
+            test -s "vendor/softether-android/src/main/cpp/openssl/include/openssl/$header" || {
+              echo "::error::OpenSSL failed to generate $header from pinned source" >&2
+              exit 1
+            }
+          done
 
       - name: Restore trusted build dependency cache
         id: profile-cache

@@ -202,6 +202,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Illumera dropped its embedded VPN engines; skip once the submodule is gone.
+          if [ ! -e vendor/softether-android/.git ]; then
+            echo "No SoftEther submodule; skipping OpenSSL headers."
+            exit 0
+          fi
           git -C vendor/softether-android submodule update --init --depth=1 src/main/cpp/openssl
           # Pinned OpenSSL ships ssl.h.in and configuration.h.in, NOT the generated
           # headers. The pinned SoftEther module provides a header-only generator

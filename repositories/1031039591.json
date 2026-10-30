@@ -4,7 +4,7 @@
     "id": 1031039591,
     "full_name": "HereLiesAz/aive"
   },
-  "updated_at": "2026-10-30T00:00:42.246Z",
+  "updated_at": "2026-10-30T00:00:43.400Z",
   "workflows": {
     ".github/workflows/bitcos-engine.yml": {
       "name": "BITCOS Engine",
@@ -84,6 +84,27 @@
     ".github/workflows/multiplatform.yml": {
       "name": "Build and Deploy",
       "runs": [
+        {
+          "run_id": 40976903188,
+          "jobs": {
+            "deploy-pages": {
+              "status": "completed",
+              "conclusion": "skipped",
+              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/40976903188/job/123807067345",
+              "started_at": "2026-10-30T00:00:41Z",
+              "completed_at": "2026-10-30T00:00:40Z",
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-10-30T00:00:43.400Z",
+          "sha": "fcc120f19bbe4a3f8194c772c565548e3c4e4e2b",
+          "branch": "ccr-a66ccdfb-db9w3q",
+          "status": "in_progress",
+          "updated_at": "2026-10-30T00:00:43.400Z"
+        },
         {
           "run_id": 40974577321,
           "jobs": {
@@ -1668,22 +1689,6 @@
           "html_url": "https://github.com/HereLiesAz/aive/actions/runs/40925659981",
           "started_at": "2026-10-29T17:53:46Z",
           "updated_at": "2026-10-29T18:02:19.021Z"
-        },
-        {
-          "run_id": 40925626760,
-          "jobs": {},
-          "reports": {},
-          "created_at": "2026-10-29T17:53:35.792Z",
-          "run_number": 2350,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "feature/agent-neutral-duplex-mcp",
-          "sha": "20c9d1e6cb07d7094a5df4336ce67edce1192874",
-          "status": "completed",
-          "conclusion": "cancelled",
-          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/40925626760",
-          "started_at": "2026-10-29T17:53:33Z",
-          "updated_at": "2026-10-29T17:53:47Z"
         }
       ]
     },

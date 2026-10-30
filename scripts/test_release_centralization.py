@@ -185,7 +185,12 @@ assert "media_body=MediaFileUpload(mapping,mimetype='text/plain')" not in play_c
 # race on Play's backend right after bundles().upload(), which is worth retrying.
 assert "def is_retriable(exc):" in play_contract
 assert "not is_retriable(exc):" in play_contract
-assert "'not completed yet' in content" in play_contract
+assert "'not completed yet'," in play_contract
+# Play invalidates an open edit when another edit for the app is committed or it
+# times out ("This edit has expired" / "This Edit has been deleted"); each attempt
+# opens a fresh edit, so these 400s are retried instead of failing the release.
+assert "'edit has expired'," in play_contract
+assert "'Edit has been deleted'," in play_contract
 # beta/production are best-effort; internal/alpha still fail the release.
 assert "OPTIONAL_TRACKS=('beta', 'production')" in play_workflow
 assert "def assign_track(edit, spec, code):" in play_workflow

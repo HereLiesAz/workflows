@@ -956,7 +956,16 @@ jobs:
                       content=getattr(exc, 'content', b'') or b''
                       if isinstance(content, bytes):
                           content=content.decode('utf-8', 'ignore')
-                      return 'not completed yet' in content
+                      # Play also invalidates an open edit when another edit for the
+                      # same app is committed (a concurrent run, the Console, the
+                      # versioning step) or when it times out: "This edit has expired,
+                      # please create a new Edit." / "This Edit has been deleted." Each
+                      # attempt opens a fresh edit, so retrying is the fix.
+                      return any(text in content for text in (
+                          'not completed yet',
+                          'edit has expired',
+                          'Edit has been deleted',
+                      ))
                   return False
               return True
 

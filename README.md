@@ -6,10 +6,10 @@ full history of the last 20 runs is in `repositories/<repository_id>.json`.
 
 | Repository | Workflow | State | Run | Branch | Commit | Updated | Report |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Android CI | ✅ success | [#3041](https://github.com/HereLiesAz/aive/actions/runs/41314923287) | ccr-a66ccdfb-db9w3q | `7210bf2` | 2026-11-01T14:17:45Z |  |
-| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | BITCOS Engine | ✅ success | [#51](https://github.com/HereLiesAz/aive/actions/runs/41314923396) | ccr-a66ccdfb-db9w3q | `7210bf2` | 2026-11-01T14:14:19.377Z |  |
-| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Dependency Submission | ✅ success | [#110](https://github.com/HereLiesAz/aive/actions/runs/41160313495) | main | `56ff4d1` | 2026-10-31T02:33:13Z |  |
-| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Build and Deploy | ✅ success | [#2388](https://github.com/HereLiesAz/aive/actions/runs/41314923432) | ccr-a66ccdfb-db9w3q | `7210bf2` | 2026-11-01T14:45:04.999Z |  |
+| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Android CI | ❌ failure | [#3073](https://github.com/HereLiesAz/aive/actions/runs/41416287824) | main | `eb1dcd4` | 2026-11-02T09:18:55.891Z |  |
+| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | BITCOS Engine | ✅ success | [#55](https://github.com/HereLiesAz/aive/actions/runs/41407517026) | main | `1a7d965` | 2026-11-02T07:44:05.098Z |  |
+| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Dependency Submission | ✅ success | [#112](https://github.com/HereLiesAz/aive/actions/runs/41416287864) | main | `eb1dcd4` | 2026-11-02T09:17:09Z |  |
+| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Build and Deploy | ⏳ queued (0/1 jobs) | #41416287842 | main | `eb1dcd4` | 2026-11-02T09:32:23.686Z |  |
 | [HereLiesAz/clappiest](https://github.com/HereLiesAz/clappiest) | CI | ✅ success | [#4](https://github.com/HereLiesAz/clappiest/actions/runs/40659461446) | main | `d78a4b2` | 2026-10-28T08:51:33Z | unit-tests: JVM unit tests (:app:testDebugUnitTest) |
 | [HereLiesAz/morphont](https://github.com/HereLiesAz/morphont) | CI | ✅ success | [#85](https://github.com/HereLiesAz/morphont/actions/runs/40875818120) | main | `25b9397` | 2026-10-29T12:49:08Z | test: success |
 | [HereLiesAz/SphereSLAM](https://github.com/HereLiesAz/SphereSLAM) | CI | ✅ success | [#82](https://github.com/HereLiesAz/SphereSLAM/actions/runs/40659149532) | main | `1519b4a` | 2026-10-28T08:51:16Z |  |

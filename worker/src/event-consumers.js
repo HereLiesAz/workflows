@@ -1673,5 +1673,11 @@ export const EVENT_CONSUMERS = {
         "name": "CI"
       }
     ]
+  },
+  "1443013223": {
+    "repository": "HereLiesAz/Middleman",
+    "events": [
+      "push"
+    ]
   }
 };

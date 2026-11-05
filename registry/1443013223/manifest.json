@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-11-02T15:56:13+00:00",
+  "last_sync_at": "2026-11-05T16:46:26+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/Middleman",
@@ -8,6 +8,27 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
-  "workflows": {}
+  "worker_url_configured": false,
+  "workflows": {
+    ".github/workflows/android-github-release.yml": {
+      "binding": "curated",
+      "central_workflow": ".github/workflows/android-github-release.yml",
+      "centralized": true,
+      "name": "Android GitHub Release",
+      "registry_source": "registry/1443013223/android-github-release-57374b22.source.yml",
+      "source_sha256": "5a0dcbd891f28129e9994754ae5633768603aeabd45025b4670eb672416e4003",
+      "status": "active",
+      "updated_at": "2026-11-05T16:46:23+00:00"
+    },
+    ".github/workflows/build.yml": {
+      "ci": true,
+      "name": "Build",
+      "reason": "declares CI with the ci-report action; CI runs in the target repository",
+      "registry_source": "registry/1443013223/build-fe77d5d1.source.yml",
+      "required_secrets": [],
+      "source_sha256": "4ca7c8f50991726a05f3e08a57c918f367f1f025d8e40aba4750dd3cb3cdc3f0",
+      "status": "local",
+      "updated_at": "2026-11-05T16:46:25+00:00"
+    }
+  }
 }

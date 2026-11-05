@@ -1677,7 +1677,14 @@ export const EVENT_CONSUMERS = {
   "1443013223": {
     "repository": "HereLiesAz/Middleman",
     "events": [
-      "push"
+      "push",
+      "workflow_dispatch"
+    ],
+    "ci": [
+      {
+        "path": ".github/workflows/build.yml",
+        "name": "Build"
+      }
     ]
   }
 };

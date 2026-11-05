@@ -162,6 +162,8 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "67ce04785215b3aacb24ff9d7703d6e87bfed3aacdf4ab3bd780540c47bb18cb",
             "0734d0c56fd8fc16abd5aee34a30f1170e6b42abafae354aff05eee485e54704",
             "e6dc8ef902c25e4c1b5dfcc338526e617afb9e104fb1cadbaac740ab7b259d3e",
+            # HereLiesAz/Middleman:.github/workflows/android-github-release.yml
+            "5a0dcbd891f28129e9994754ae5633768603aeabd45025b4670eb672416e4003",
         },
     },
     ".github/workflows/android-dependency-update.yml": {
@@ -541,6 +543,10 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
     # Shared code reads HereLiesAz/convey from GitHub Packages with GH_TOKEN.
     "00b778f4976e1d25ba89bec60971e5ff4031a5df976534ef0d2dfd8aa36b33ed": {"signing": "pem-chain", "java_version": "21", "google_services": "none", "inject_signing_args": True, "package_name": "com.hereliesaz.morphont", "build_command": "./gradlew :androidApp:bundleRelease --no-daemon --stacktrace", "aab_glob": "androidApp/build/outputs/bundle/release/*.aab", "mapping_file": "androidApp/build/outputs/mapping/release/mapping.txt", "publish_on_push": True, "publish_default": True, "tracks": PLAY_TRACKS, "release_app_name": "Morphont"},
     "ecf7abccfbe523d0ebf901d4f64f7cfb462532f16a7b8b49daff5b53feaf5c31": {"signing": "pem-chain", "chain_secret": "KEYSTORE_CHAIN", "java_version": "21", "google_services": "none", "inject_signing_args": True, "build_command": "./gradlew :androidApp:assembleRelease --no-daemon --stacktrace", "artifact_glob": "androidApp/build/outputs/apk/release/*.apk", "mapping_file": "androidApp/build/outputs/mapping/release/mapping.txt", "persist_version": False, "app_name": "Morphont"},
+    # HereLiesAz/Middleman (Compose Multiplatform; Android module :androidApp). The app's Gradle build reads
+    # the KEYSTORE_FILE / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD environment this workflow provides and the
+    # -PversionCode it passes, so signing arguments are not injected on the command line.
+    "5a0dcbd891f28129e9994754ae5633768603aeabd45025b4670eb672416e4003": {"signing": "pem-chain", "chain_secret": "KEYSTORE_CHAIN", "java_version": "21", "google_services": "none", "inject_signing_args": False, "build_command": "./gradlew :androidApp:assembleRelease --no-daemon --stacktrace", "artifact_glob": "androidApp/build/outputs/apk/release/*.apk", "mapping_file": "androidApp/build/outputs/mapping/release/mapping.txt", "persist_version": False, "keystore_output": "androidApp/keystore.jks", "app_name": "Middleman"},
     # HereLiesAz/aive (Compose Multiplatform; Android module :androidApp, play flavor). Upload key is
     # KEYSTORE_PRIVATE (or KEYSTORE_RSA) + KEYSTORE_CHAIN as PEM in the aive environment, read by the
     # app's own HAIVE_KEYSTORE_PATH signing config. Rust JNI libraries are built with cargo-ndk;

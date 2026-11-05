@@ -4,14 +4,25 @@
     "id": 1443013223,
     "full_name": "HereLiesAz/Middleman"
   },
-  "updated_at": "2026-11-05T16:47:34.491Z",
+  "updated_at": "2026-11-05T16:48:07.336Z",
   "workflows": {
     ".github/workflows/build.yml": {
       "name": "Build",
       "runs": [
         {
           "run_id": 42067778053,
-          "jobs": {},
+          "jobs": {
+            "Tests and compile checks": {
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/HereLiesAz/Middleman/actions/runs/42067778053/job/127386648606",
+              "started_at": "2026-11-05T16:45:51Z",
+              "completed_at": "2026-11-05T16:48:03Z",
+              "steps_completed": 11,
+              "steps_total": 11,
+              "current_step": null
+            }
+          },
           "reports": {
             "jvm": {
               "status": "success",
@@ -25,7 +36,8 @@
           "sha": "22dbe0891ec323349064e7cd412fc33dd16ca876",
           "event": "push",
           "branch": "main",
-          "updated_at": "2026-11-05T16:47:34.491Z"
+          "updated_at": "2026-11-05T16:48:07.336Z",
+          "status": "in_progress"
         },
         {
           "run_id": 42066736873,

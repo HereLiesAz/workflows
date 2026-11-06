@@ -4,11 +4,32 @@
     "id": 1387531037,
     "full_name": "HereLiesAz/CaptureTheFlag"
   },
-  "updated_at": "2026-11-06T05:45:21.138Z",
+  "updated_at": "2026-11-06T05:45:22.114Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 42170270715,
+          "jobs": {
+            "test": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/CaptureTheFlag/actions/runs/42170270715/job/127736199407",
+              "started_at": "2026-11-06T05:45:17Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-11-06T05:45:22.114Z",
+          "sha": "f19c882b64a0c5bcae60eb3fce4a935c612c2ee8",
+          "branch": "dependabot/gradle/io.ktor-ktor-client-cio-3.6.1",
+          "status": "queued",
+          "updated_at": "2026-11-06T05:45:22.114Z"
+        },
         {
           "run_id": 42170260859,
           "jobs": {
@@ -617,41 +638,6 @@
           "html_url": "https://github.com/HereLiesAz/CaptureTheFlag/actions/runs/42117190853",
           "started_at": "2026-11-05T21:56:54Z",
           "updated_at": "2026-11-05T22:01:24Z"
-        },
-        {
-          "run_id": 42117188359,
-          "jobs": {
-            "test": {
-              "status": "in_progress",
-              "conclusion": null,
-              "html_url": "https://github.com/HereLiesAz/CaptureTheFlag/actions/runs/42117188359/job/127559843193",
-              "started_at": "2026-11-05T22:00:05Z",
-              "completed_at": null,
-              "steps_completed": 0,
-              "steps_total": 1,
-              "current_step": "Set up job"
-            }
-          },
-          "reports": {
-            "test": {
-              "status": "success",
-              "summary": "Node and shared tests",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-05T22:01:59.928Z"
-            }
-          },
-          "created_at": "2026-11-05T21:56:55.045Z",
-          "run_number": 31,
-          "run_attempt": 1,
-          "event": "push",
-          "branch": "dependabot/gradle/gradle-wrapper-9.8.1",
-          "sha": "b68d0e176afda661f3c085c7a90319817ea09f9e",
-          "status": "completed",
-          "conclusion": "success",
-          "html_url": "https://github.com/HereLiesAz/CaptureTheFlag/actions/runs/42117188359",
-          "started_at": "2026-11-05T21:56:53Z",
-          "updated_at": "2026-11-05T22:02:04Z"
         }
       ]
     }

@@ -45,5 +45,7 @@ jobs:
         with: { distribution: temurin, java-version: 21 }
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew :shared:iosSimulatorArm64Test :composeApp:linkDebugFrameworkIosSimulatorArm64
+      # The Xcode project builds the app itself, running the shared framework's Gradle task as its first phase.
+      - run: xcodebuild -project iosApp/Middleman.xcodeproj -scheme Middleman -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
       - if: always()
         uses: HereLiesAz/workflows/.github/actions/ci-report@main

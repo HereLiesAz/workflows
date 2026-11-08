@@ -4,7 +4,7 @@
     "id": 1031039591,
     "full_name": "HereLiesAz/aive"
   },
-  "updated_at": "2026-11-08T16:48:05.006Z",
+  "updated_at": "2026-11-08T16:48:16.008Z",
   "workflows": {
     ".github/workflows/bitcos-engine.yml": {
       "name": "BITCOS Engine",
@@ -2500,6 +2500,27 @@
       "name": "Android CI",
       "runs": [
         {
+          "run_id": 42501679115,
+          "jobs": {
+            "unit-tests": {
+              "status": "in_progress",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/42501679115/job/128795664885",
+              "started_at": "2026-11-08T16:48:14Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 1,
+              "current_step": "Set up job"
+            }
+          },
+          "reports": {},
+          "created_at": "2026-11-08T16:48:16.008Z",
+          "sha": "ed6e4467b70671a4ccf8abe12b9633fb52080ae2",
+          "branch": "ccr-04df43a3-yscgom",
+          "status": "in_progress",
+          "updated_at": "2026-11-08T16:48:16.008Z"
+        },
+        {
           "run_id": 42501598858,
           "jobs": {
             "unit-tests": {
@@ -3521,75 +3542,6 @@
           "html_url": "https://github.com/HereLiesAz/aive/actions/runs/42462529297",
           "started_at": "2026-11-08T08:20:40Z",
           "updated_at": "2026-11-08T08:24:11Z"
-        },
-        {
-          "run_id": 42461041536,
-          "jobs": {
-            "unit-tests": {
-              "status": "in_progress",
-              "conclusion": null,
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/42461041536/job/128670201582",
-              "started_at": "2026-11-08T08:00:13Z",
-              "completed_at": null,
-              "steps_completed": 0,
-              "steps_total": 1,
-              "current_step": "Set up job"
-            },
-            "dependency-submission": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/42461041536/job/128671334960",
-              "started_at": "2026-11-08T08:05:27Z",
-              "completed_at": "2026-11-08T08:06:39Z",
-              "steps_completed": 15,
-              "steps_total": 15,
-              "current_step": null
-            },
-            "build-and-release": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/42461041536/job/128671334865",
-              "started_at": "2026-11-08T08:05:27Z",
-              "completed_at": "2026-11-08T08:13:47Z",
-              "steps_completed": 19,
-              "steps_total": 19,
-              "current_step": null
-            }
-          },
-          "reports": {
-            "unit-tests": {
-              "status": "success",
-              "summary": "",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-08T08:05:07.646Z"
-            },
-            "dependency-submission": {
-              "status": "success",
-              "summary": "",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-08T08:06:18.522Z"
-            },
-            "build-and-release": {
-              "status": "success",
-              "summary": "",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-08T08:13:22.218Z"
-            }
-          },
-          "created_at": "2026-11-08T08:00:12.454Z",
-          "sha": "dff022812c5323533b8ed4ec76d4135c501b7fcc",
-          "branch": "main",
-          "status": "completed",
-          "updated_at": "2026-11-08T08:13:47Z",
-          "event": "push",
-          "run_number": 3283,
-          "run_attempt": 1,
-          "conclusion": "success",
-          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/42461041536",
-          "started_at": "2026-11-08T08:00:10Z"
         }
       ]
     },

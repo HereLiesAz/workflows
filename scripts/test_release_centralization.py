@@ -451,3 +451,18 @@ for _step in _bake_steps:
     if _uses:
         assert '@' in _uses and len(_uses.split('@')[1].split()[0]) == 40, f'unpinned action: {_uses}'
 print('bake publish contract ok')
+
+# Aive's Play profile and standalone runtime verification must use the same vetted
+# H2G2 commit: 8ff45ea2 is the first current release with AGP 9.5.1, matching
+# aive/gradle/libs.versions.toml. A stale included build fails Play bundling
+# despite the source repository's own CI being green.
+_aive_h2g2_pin = "8ff45ea2fbf91f8b2fb22a542a87efdf9b856f0c"
+_aive_play_profile = _PURPOSE_PROFILES["241b4583d7885007973042f4012d5599162d3846fda0fe5daf018446ab496e76"]
+_aive_h2g2_checkout = next(
+    checkout for checkout in _aive_play_profile["extra_checkouts"]
+    if checkout["repository"] == "HereLiesAz/conveyance-h2g2"
+)
+assert _aive_h2g2_checkout["ref"] == _aive_h2g2_pin
+_aive_live_workflow = Path(".github/workflows/aive-live-runtime-verification.yml").read_text(encoding="utf-8")
+assert f"ref: {_aive_h2g2_pin}" in _aive_live_workflow
+print("aive h2g2 AGP pin contract ok")

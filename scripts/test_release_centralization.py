@@ -423,6 +423,66 @@ _push_doc = load_yaml(compile_central(
 ))
 assert _push_doc['jobs']['bake']['permissions']['contents'] == 'write'
 
+# A release launched from a stale trigger SHA must bump the new branch head,
+# not replay an already-published version and collide with the existing tag.
+import os as _os
+import subprocess as _subprocess
+import tempfile as _tempfile
+import textwrap as _textwrap
+from semantic_catalog import PURPOSE_PROFILES as _RELEASE_PROFILES
+
+_azphalt_command = _RELEASE_PROFILES["2150463fc5eba564d0d1a6069b40aef1f36333d8a30d0f2cd0ec8938000a802b"]["prepare_command"]
+with _tempfile.TemporaryDirectory(prefix="azphalt-release-race-") as _tmp:
+    _root = Path(_tmp)
+    _remote = _root / "remote.git"
+    _seed = _root / "seed"
+    _trigger = _root / "trigger"
+    _racer = _root / "racer"
+    _output = _root / "outputs.txt"
+    _bin = _root / "bin"
+    _bin.mkdir()
+    def _git(*args: str, cwd: Path | None = None) -> str:
+        return _subprocess.check_output(["git", *args], cwd=cwd, text=True, stderr=_subprocess.PIPE).strip()
+
+    _git("init", "--bare", "--initial-branch=main", str(_remote))
+    _git("clone", str(_remote), str(_seed))
+    _git("config", "user.name", "Test", cwd=_seed)
+    _git("config", "user.email", "test@example.invalid", cwd=_seed)
+    (_seed / "tools").mkdir()
+    # The version tool is a fixture; the assertions below are independently fixed
+    # expected release versions, rather than reproducing the test command's logic.
+    (_seed / "tools/version.mjs").write_text(_textwrap.dedent("""\
+        import {readFileSync, writeFileSync} from "node:fs";
+        const p="version.properties";
+        const parts=readFileSync(p,"utf8").trim().split(".").map(Number);
+        parts[2]++; parts[3]++;
+        writeFileSync(p,parts.join(".")+"\\n");
+        console.log(parts.join("."));
+        """))
+    (_seed / "version.properties").write_text("0.25.5.50\n")
+    _git("add", ".", cwd=_seed)
+    _git("commit", "-m", "seed", cwd=_seed)
+    _git("push", "origin", "main", cwd=_seed)
+    _git("clone", str(_remote), str(_trigger))
+    _git("clone", str(_remote), str(_racer))
+    _git("config", "user.name", "Test", cwd=_racer)
+    _git("config", "user.email", "test@example.invalid", cwd=_racer)
+    (_racer / "version.properties").write_text("0.25.6.51\n")
+    _git("add", "version.properties", cwd=_racer)
+    _git("commit", "-m", "earlier release", cwd=_racer)
+    _git("tag", "v0.25.6.51", cwd=_racer)
+    _git("push", "origin", "main", "v0.25.6.51", cwd=_racer)
+    (_bin / "gh").write_text("#!/bin/sh\n[ \"$1\" = auth ] && [ \"$2\" = setup-git ]\n")
+    (_bin / "gh").chmod(0o755)
+    _env = {**_os.environ, "TARGET_REF_NAME": "main", "GITHUB_OUTPUT": str(_output),
+            "PATH": str(_bin) + _os.pathsep + _os.environ["PATH"]}
+    _subprocess.run(["bash", "-eo", "pipefail", "-c", _azphalt_command],
+                    cwd=_trigger, env=_env, check=True, capture_output=True, text=True)
+    assert _git("--git-dir=" + str(_remote), "show", "main:version.properties") == "0.25.7.52"
+    assert _git("--git-dir=" + str(_remote), "tag", "--list") == "v0.25.6.51\nv0.25.7.52"
+    assert "version=0.25.7.52" in _output.read_text()
+print("azphalt release stale-trigger race regression ok")
+
 # The checked-in compiled bake publishes additively to the source repository's art-data
 # and keeps its gates; edits to the generated file that drop any of these must fail here.
 _bake = load_yaml(Path('.github/workflows/hereliesaz-github-io-theater-bake.yml').read_text(encoding='utf-8'))

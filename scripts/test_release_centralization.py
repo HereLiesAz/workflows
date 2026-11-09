@@ -423,35 +423,6 @@ _push_doc = load_yaml(compile_central(
 ))
 assert _push_doc['jobs']['bake']['permissions']['contents'] == 'write'
 
-# The checked-in compiled bake publishes additively to the source repository's art-data
-# and keeps its gates; edits to the generated file that drop any of these must fail here.
-_bake = load_yaml(Path('.github/workflows/hereliesaz-github-io-theater-bake.yml').read_text(encoding='utf-8'))
-_bake_steps = _bake['jobs']['bake']['steps']
-_bake_publish = next(
-    s for s in _bake_steps if str(s.get('uses') or '').startswith('peaceiris/actions-gh-pages@')
-)
-assert _bake_publish['with']['keep_files'] is True
-assert _bake_publish['with']['publish_branch'] == 'art-data'
-assert _bake_publish['with']['external_repository'] == expression('inputs.target_repository')
-assert 'github_token' not in _bake_publish['with']
-_bake_runs = '\n'.join(str(s.get('run') or '') for s in _bake_steps)
-assert 'scripts/theater_baker.py' in _bake_runs
-assert 'scripts/pareidolia_index.py' in _bake_runs
-assert 'scripts/validate_output.py' in _bake_runs
-_names = [s.get('name') for s in _bake_steps]
-assert _names.index(next(n for n in _names if n and 'alidate' in n)) < _names.index(_bake_publish.get('name'))
-_names = [s.get('name') for s in _bake_steps]
-assert _names.index('Refuse to shrink the published corpus') < _names.index(_bake_publish.get('name'))
-assert 'check_no_shrink.py' in _bake_runs
-assert 'steps.seed.outcome' in _json.dumps(_bake_steps)          # a failed seed is fatal once art-data exists
-assert 'DEFAULT_IDS' not in _json.dumps(_bake)                    # blank ids use --pending, not a stale list
-assert '--pending 20' in _bake_runs
-for _step in _bake_steps:
-    _uses = str(_step.get('uses') or '')
-    if _uses:
-        assert '@' in _uses and len(_uses.split('@')[1].split()[0]) == 40, f'unpinned action: {_uses}'
-print('bake publish contract ok')
-
 # A release launched from a stale trigger SHA must bump the new branch head,
 # not replay an already-published version and collide with the existing tag.
 import os as _os
@@ -511,3 +482,33 @@ with _tempfile.TemporaryDirectory(prefix="azphalt-release-race-") as _tmp:
     assert _git("--git-dir=" + str(_remote), "tag", "--list") == "v0.25.6.51\nv0.25.7.52"
     assert "version=0.25.7.52" in _output.read_text()
 print("azphalt release stale-trigger race regression ok")
+
+# The checked-in compiled bake publishes additively to the source repository's art-data
+# and keeps its gates; edits to the generated file that drop any of these must fail here.
+_bake = load_yaml(Path('.github/workflows/hereliesaz-github-io-theater-bake.yml').read_text(encoding='utf-8'))
+_bake_steps = _bake['jobs']['bake']['steps']
+_bake_publish = next(
+    s for s in _bake_steps if str(s.get('uses') or '').startswith('peaceiris/actions-gh-pages@')
+)
+assert _bake_publish['with']['keep_files'] is True
+assert _bake_publish['with']['publish_branch'] == 'art-data'
+assert _bake_publish['with']['external_repository'] == expression('inputs.target_repository')
+assert 'github_token' not in _bake_publish['with']
+_bake_runs = '\n'.join(str(s.get('run') or '') for s in _bake_steps)
+assert 'scripts/theater_baker.py' in _bake_runs
+assert 'scripts/pareidolia_index.py' in _bake_runs
+assert 'scripts/validate_output.py' in _bake_runs
+_names = [s.get('name') for s in _bake_steps]
+assert _names.index(next(n for n in _names if n and 'alidate' in n)) < _names.index(_bake_publish.get('name'))
+_names = [s.get('name') for s in _bake_steps]
+assert _names.index('Refuse to shrink the published corpus') < _names.index(_bake_publish.get('name'))
+assert 'check_no_shrink.py' in _bake_runs
+assert 'steps.seed.outcome' in _json.dumps(_bake_steps)          # a failed seed is fatal once art-data exists
+assert 'DEFAULT_IDS' not in _json.dumps(_bake)                    # blank ids use --pending, not a stale list
+assert '--pending 20' in _bake_runs
+for _step in _bake_steps:
+    _uses = str(_step.get('uses') or '')
+    if _uses:
+        assert '@' in _uses and len(_uses.split('@')[1].split()[0]) == 40, f'unpinned action: {_uses}'
+print('bake publish contract ok')
+

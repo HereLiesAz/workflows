@@ -205,6 +205,9 @@ jobs:
       - name: Regression-test release centralization
         run: python scripts/test_release_centralization.py
 
+      - name: Regression-test Play publish resilience and action pins
+        run: python scripts/test_play_publish_resilience.py
+
       - name: Test grouped GitHub tag publication fallback
         run: python scripts/test_grouped_release_tag_fallback.py
 

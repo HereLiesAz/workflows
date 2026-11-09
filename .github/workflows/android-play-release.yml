@@ -166,9 +166,59 @@ jobs:
     secrets:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-  build_and_publish:
+  supersede_check:
     needs: version_contract
-    if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      superseded: ${{ steps.check.outputs.superseded }}
+    steps:
+      - name: Check whether a newer commit has superseded this one
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          TARGET_REPOSITORY: ${{ inputs.target_repository }}
+          TARGET_SHA: ${{ inputs.target_sha }}
+          TARGET_REF_NAME: ${{ inputs.target_ref_name }}
+          TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
+          TARGET_EVENT_NAME: ${{ inputs.target_event_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # A commit is superseded when a NEWER commit is already on the default branch and
+          # that commit changes more than the version bookkeeping files the release workflows
+          # themselves write back ([skip ci] bot commits). Only the newest commit publishes: it
+          # always includes the older one's changes, and every skipped publish is one fewer
+          # Play edit.commit against the daily save quota. Fail open on any API error.
+          superseded=false
+          if [ "$TARGET_EVENT_NAME" = push ] && [ "$TARGET_REF_TYPE" = branch ]; then
+            default_branch="$(gh api "repos/$TARGET_REPOSITORY" --jq .default_branch || true)"
+            if [ -n "$default_branch" ] && [ "$TARGET_REF_NAME" = "$default_branch" ]; then
+              verdict="$(gh api "repos/$TARGET_REPOSITORY/compare/${TARGET_SHA}...${default_branch}" \
+                --jq '[.status, ([.files[]?.filename | select(. != "version.properties" and . != ".version-state.json")] | length)] | @tsv' || true)"
+              status="$(printf '%s' "$verdict" | cut -f1)"
+              changed="$(printf '%s' "$verdict" | cut -f2)"
+              if [ "$status" = ahead ] && [ "${changed:-0}" -gt 0 ]; then
+                superseded=true
+              elif [ -z "$verdict" ]; then
+                echo "::warning::Could not compare $TARGET_SHA with $default_branch; publishing normally." >&2
+              fi
+            fi
+          fi
+          echo "superseded=$superseded" >> "$GITHUB_OUTPUT"
+          if [ "$superseded" = true ]; then
+            {
+              echo "### Superseded: not built or published"
+              echo
+              echo "A newer commit is already on \`$TARGET_REF_NAME\`, so only that commit publishes."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  build_and_publish:
+    needs: [version_contract, supersede_check]
+    if: ${{ needs.supersede_check.outputs.superseded != 'true' && (inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true) }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -566,7 +616,10 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
         with:
-          cache-read-only: false
+          # Only the default branch writes the Gradle cache. A pull-request or branch build runs
+          # code the default branch has not reviewed; letting it write would let it poison the cache
+          # that the publishing build restores.
+          cache-read-only: ${{ env.ON_DEFAULT_BRANCH != 'true' }}
       - run: chmod +x gradlew
 
       # Profiles whose build derives versionCode from its own counters (rather than the version
@@ -672,7 +725,7 @@ jobs:
 
       - name: Resolve next versionCode
         id: android_version
-        uses: HereLiesAz/workflows/.github/actions/android-version@main
+        uses: HereLiesAz/workflows/.github/actions/android-version@8ceb95ec9a950c488a1dfd2368d9d2a87f69f8f9 # main
         with:
           mode: next
           service-account-json: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
@@ -794,7 +847,7 @@ jobs:
       - name: Resolve required mapping.txt
         if: ${{ inputs.target_event_name != 'pull_request' }}
         id: mapping
-        uses: HereLiesAz/workflows/.github/actions/resolve-android-mapping@main
+        uses: HereLiesAz/workflows/.github/actions/resolve-android-mapping@523fa5f6e4b3e6cbbbfc189e09f0f64b3f39c572 # main
         with:
           aab-path: ${{ env.AAB_PATH }}
           mapping-file: ${{ env.MAPPING_FILE }}
@@ -834,6 +887,48 @@ jobs:
           done
           test "$dirty" -eq 0 || exit 1
 
+      # The build above takes ~12 minutes; a newer push may have landed meanwhile. Re-check right
+      # before spending Play save quota, so only the newest commit's bundle is committed.
+      - name: Skip Play publish for a superseded commit
+        if: ${{ env.PUBLISH_PLAY == 'true' && inputs.target_event_name == 'push' }}
+        env:
+          GH_TOKEN: ${{ steps.target-token.outputs.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # A commit is superseded when a NEWER commit is already on the default branch and
+          # that commit changes more than the version bookkeeping files the release workflows
+          # themselves write back ([skip ci] bot commits). Only the newest commit publishes: it
+          # always includes the older one's changes, and every skipped publish is one fewer
+          # Play edit.commit against the daily save quota. Fail open on any API error.
+          superseded=false
+          if [ "$TARGET_EVENT_NAME" = push ] && [ "$TARGET_REF_TYPE" = branch ]; then
+            default_branch="$(gh api "repos/$TARGET_REPOSITORY" --jq .default_branch || true)"
+            if [ -n "$default_branch" ] && [ "$TARGET_REF_NAME" = "$default_branch" ]; then
+              verdict="$(gh api "repos/$TARGET_REPOSITORY/compare/${TARGET_SHA}...${default_branch}" \
+                --jq '[.status, ([.files[]?.filename | select(. != "version.properties" and . != ".version-state.json")] | length)] | @tsv' || true)"
+              status="$(printf '%s' "$verdict" | cut -f1)"
+              changed="$(printf '%s' "$verdict" | cut -f2)"
+              if [ "$status" = ahead ] && [ "${changed:-0}" -gt 0 ]; then
+                superseded=true
+              elif [ -z "$verdict" ]; then
+                echo "::warning::Could not compare $TARGET_SHA with $default_branch; publishing normally." >&2
+              fi
+            fi
+          fi
+          if [ "$superseded" = true ]; then
+            {
+              echo "PUBLISH_PLAY=false"
+              echo "PUBLISH_GITHUB_RELEASE=false"
+            } >> "$GITHUB_ENV"
+            echo "::notice::A newer commit landed on $TARGET_REF_NAME during the build; not publishing $TARGET_SHA to Play." >&2
+            {
+              echo "### Superseded: bundle built but not published"
+              echo
+              echo "A newer commit landed on \`$TARGET_REF_NAME\` while this one was building; only the newest commit publishes."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Publish bundle to configured Play tracks
         id: play
         if: ${{ inputs.target_event_name != 'pull_request' && (env.PUBLISH_PLAY == 'true') }}
@@ -857,7 +952,9 @@ jobs:
           # the profile's tracks with optional localized notes. Configuration arrives through environment
           # variables: PLAY_SERVICE_ACCOUNT_JSON, PACKAGE_NAME, AAB_PATH, TRACKS_JSON, MAPPING_FILE,
           # optional RELEASE_NOTES_DIR and DRAFT_FALLBACK.
-          import json, os, signal, time
+          import json, os, signal, sys, time
+          from datetime import datetime, timedelta, timezone
+          from zoneinfo import ZoneInfo
           import httplib2
           from google.oauth2 import service_account
           from google_auth_httplib2 import AuthorizedHttp
@@ -974,6 +1071,62 @@ jobs:
                   return False
               return True
 
+          def is_quota_error(exc):
+              # "Daily save quota exceeded." (HTTP 403 on edits.commit). The quota is per day, so no
+              # backoff within this run can help and retrying only burns more of it. Distinct from
+              # a 429 or a per-minute rate limit, which is_retriable already retries.
+              if not isinstance(exc, HttpError):
+                  return False
+              status=getattr(getattr(exc, 'resp', None), 'status', None)
+              if status != 403:
+                  return False
+              content=getattr(exc, 'content', b'') or b''
+              if isinstance(content, bytes):
+                  content=content.decode('utf-8', 'ignore')
+              text=(str(exc) + ' ' + str(content)).lower()
+              return 'quota' in text or 'dailylimit' in text
+
+          def quota_retry_after(exc, now=None):
+              # Honour a Retry-After header when Google sends one; otherwise Google API daily quotas
+              # reset at midnight Pacific time, so retry five minutes after that.
+              now=now or datetime.now(timezone.utc)
+              header=None
+              resp=getattr(exc, 'resp', None)
+              if resp is not None:
+                  try:
+                      header=resp.get('retry-after')
+                  except Exception:
+                      header=None
+              if header:
+                  try:
+                      return now + timedelta(seconds=int(float(header)))
+                  except ValueError:
+                      pass
+              pacific=now.astimezone(ZoneInfo('America/Los_Angeles'))
+              reset=(pacific + timedelta(days=1)).replace(hour=0, minute=5, second=0, microsecond=0)
+              return reset.astimezone(timezone.utc)
+
+          def defer_for_quota(exc):
+              # Do not fail the run: the bundle is built and valid, Play just will not take another
+              # save today. Record why, suppress every step that assumes Play accepted the version
+              # (versionCode record, GitHub release), and tell the owner when to retry.
+              retry_at=quota_retry_after(exc)
+              message=(
+                  f'Google Play refused the save for {package}: daily save quota exceeded. '
+                  f'Not published; retry after {retry_at:%Y-%m-%d %H:%M} UTC '
+                  f'({retry_at.astimezone(ZoneInfo("America/Los_Angeles")):%Y-%m-%d %H:%M} Pacific). '
+                  'Re-run this workflow, or push a new commit, after that time.'
+              )
+              print(f'::warning title=Play daily save quota exceeded::{message}', flush=True)
+              for path, lines in (
+                  (os.environ.get('GITHUB_ENV'), ['PLAY_DEFERRED=true', f'PLAY_RETRY_AFTER={retry_at:%Y-%m-%dT%H:%M:%SZ}', 'PUBLISH_PLAY=false', 'PUBLISH_GITHUB_RELEASE=false']),
+                  (os.environ.get('GITHUB_OUTPUT'), ['deferred=true', f'retry_after={retry_at:%Y-%m-%dT%H:%M:%SZ}']),
+                  (os.environ.get('GITHUB_STEP_SUMMARY'), ['### Play publish deferred', '', message]),
+              ):
+                  if path:
+                      with open(path, 'a', encoding='utf-8') as handle:
+                          handle.write('\n'.join(lines) + '\n')
+
           def is_upgrade_path_error(exc):
               # Play's live-rollout precondition: every existing user on the track must have an
               # upgrade path to the new bundle. When device targeting (ABIs, minSdk, densities)
@@ -1061,6 +1214,7 @@ jobs:
                   body={'track':spec['track'],'releases':releases},
               ))
 
+          deferred=False
           for attempt in range(1,EDIT_ATTEMPTS + 1):
               edit=None
               try:
@@ -1098,6 +1252,10 @@ jobs:
                           execute(svc.edits().delete(packageName=package,editId=edit), retries=2)
                       except Exception as cleanup_exc:
                           print(f'Warning: could not discard failed Play edit {edit}: {cleanup_exc}', flush=True)
+                  if is_quota_error(exc):
+                      defer_for_quota(exc)
+                      deferred=True
+                      break
                   if draft_fallback and not downgrade_live and attempt < EDIT_ATTEMPTS and is_upgrade_path_error(exc):
                       print(
                           f'::warning::Play refused the live rollout: {exc}. Staging this versionCode as a '
@@ -1123,6 +1281,9 @@ jobs:
                       flush=True,
                   )
                   time.sleep(wait)
+
+          if deferred:
+              sys.exit(0)
 
           # Open testing (beta) and production may not be ready for an app: never set up, still a
           # draft app, prerequisites unmet, or refused for any other reason. Each optional track
@@ -1158,11 +1319,32 @@ jobs:
                           print(f'Warning: could not discard Play edit {edit}: {cleanup_exc}', flush=True)
           PY
 
+      # A deferred publish is not a failure, but it must not be silent: file (or update) one open
+      # issue in the target repository with the retry-after time.
+      - name: Report deferred Play publish
+        if: ${{ always() && env.PLAY_DEFERRED == 'true' }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.target-token.outputs.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          label="play-publish-deferred"
+          title="Play publish deferred: daily save quota exceeded"
+          body="$(printf 'Google Play refused the save for commit %s (daily save quota exceeded). The bundle was built but not published, and no versionCode was recorded.\n\nRetry after **%s** (UTC): re-run [this run](%s/%s/actions/runs/%s), or push a new commit.\n' "$TARGET_SHA" "$PLAY_RETRY_AFTER" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID")"
+          issue="$(gh api "repos/$TARGET_REPOSITORY/issues?state=open&labels=$label&per_page=100" | jq -r --arg t "$title" '[.[] | select(.title == $t)][0].number // empty')"
+          if [ -n "$issue" ]; then
+            gh api --method POST "repos/$TARGET_REPOSITORY/issues/$issue/comments" -f body="$body" >/dev/null
+          else
+            gh api --method POST "repos/$TARGET_REPOSITORY/labels" -f name="$label" -f color="fbca04" -f description="A Play publish was deferred by Google Play's daily save quota." >/dev/null 2>&1 || true
+            gh api --method POST "repos/$TARGET_REPOSITORY/issues" -f title="$title" -f body="$body" -f "labels[]=$label" >/dev/null
+          fi
+
       # Record the published versionCode on the default branch, so a later build without Play
       # access (and the GitHub APK) still starts above it. Never lowers a recorded code.
       - name: Record published versionCode
         if: ${{ env.PUBLISH_PLAY == 'true' && env.ON_DEFAULT_BRANCH == 'true' }}
-        uses: HereLiesAz/workflows/.github/actions/android-version@main
+        uses: HereLiesAz/workflows/.github/actions/android-version@8ceb95ec9a950c488a1dfd2368d9d2a87f69f8f9 # main
         with:
           mode: record
           repository: ${{ inputs.target_repository }}
@@ -1275,7 +1457,7 @@ jobs:
 
       - name: Publish patch-grouped GitHub release for Play build
         if: ${{ inputs.target_event_name != 'pull_request' && (env.PUBLISH_GITHUB_RELEASE == 'true') }}
-        uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@main
+        uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@523fa5f6e4b3e6cbbbfc189e09f0f64b3f39c572 # main
         with:
           github-token: ${{ steps.target-token.outputs.token }}
           target-repository: ${{ env.TARGET_REPOSITORY }}
@@ -1297,17 +1479,19 @@ jobs:
     needs:
       - central_check_start
       - version_contract
+      - supersede_check
       - build_and_publish
     runs-on: ubuntu-latest
     steps:
       - name: Complete target status
         env:
+          SUPERSEDED: ${{ needs.supersede_check.outputs.superseded }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           STATUS_CONTEXT: ${{ inputs.source_workflow_path }}
           FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
           DETAILS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         shell: bash
-        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
+        run: "set -euo pipefail\nif [[ \"$FAILED\" == \"true\" ]]; then\n  state=\"failure\"\n  description=\"Shared catalog workflow failed.\"\nelse\n  state=\"success\"\n  description=\"Shared catalog workflow completed successfully.\"\n  if [[ \"${SUPERSEDED:-}\" == \"true\" ]]; then description=\"Superseded by a newer commit; not built or published.\"; fi\nfi\npayload=\"$(jq -n --arg state \"$state\" --arg context \"$STATUS_CONTEXT\" --arg description \"$description\" --arg target_url \"$DETAILS_URL\" '{state:$state,context:$context,description:$description,target_url:$target_url}')\"\ngh api --method POST \"repos/${TARGET_REPOSITORY}/statuses/${TARGET_CHECK_SHA}\" --input - <<<\"$payload\""
       - name: Mint target check token
         id: target-check-token
         continue-on-error: true

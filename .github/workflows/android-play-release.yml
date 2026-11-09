@@ -928,6 +928,7 @@ jobs:
             {
               echo "PUBLISH_PLAY=false"
               echo "PUBLISH_GITHUB_RELEASE=false"
+              echo "PUBLISH_BUILT_GITHUB_RELEASE=false"
             } >> "$GITHUB_ENV"
             echo "::notice::A newer commit landed on $TARGET_REF_NAME during the build; not publishing $TARGET_SHA to Play." >&2
             {

@@ -4,11 +4,27 @@
     "id": 1085343418,
     "full_name": "HereLiesAz/IDEaz"
   },
-  "updated_at": "2026-11-09T23:33:44.291Z",
+  "updated_at": "2026-11-09T23:33:53.629Z",
   "workflows": {
     ".github/workflows/pr-ci.yml": {
       "name": "PR CI",
       "runs": [
+        {
+          "run_id": 42721459124,
+          "jobs": {},
+          "reports": {},
+          "created_at": "2026-11-09T23:33:53.629Z",
+          "run_number": 72,
+          "run_attempt": 1,
+          "event": "pull_request",
+          "branch": "dependabot/npm_and_yarn/templates/react/zustand-5.1.0",
+          "sha": "1ca84a2849e7f1c2310137b8fb3526f26a636fef",
+          "status": "queued",
+          "conclusion": null,
+          "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/42721459124",
+          "started_at": "2026-11-09T23:33:50Z",
+          "updated_at": "2026-11-09T23:33:50Z"
+        },
         {
           "run_id": 42720941326,
           "jobs": {
@@ -625,41 +641,6 @@
           "conclusion": "success",
           "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/42113216073",
           "started_at": "2026-11-05T21:30:13Z"
-        },
-        {
-          "run_id": 41545588743,
-          "jobs": {
-            "build": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/41545588743/job/125620266894",
-              "started_at": "2026-11-02T23:27:49Z",
-              "completed_at": "2026-11-02T23:32:43Z",
-              "steps_completed": 10,
-              "steps_total": 10,
-              "current_step": null
-            }
-          },
-          "reports": {
-            "build": {
-              "status": "success",
-              "summary": ":app:testDebugUnitTest :app:assembleDebug success",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-02T23:32:38.350Z"
-            }
-          },
-          "created_at": "2026-11-02T23:27:37.528Z",
-          "run_number": 52,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "dependabot/npm_and_yarn/templates/react/axios-1.21.0",
-          "sha": "1af0681b1da7fa116ab825d1ab4d56535787ad6b",
-          "status": "completed",
-          "conclusion": "success",
-          "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/41545588743",
-          "started_at": "2026-11-02T23:27:36Z",
-          "updated_at": "2026-11-02T23:32:44Z"
         }
       ]
     }

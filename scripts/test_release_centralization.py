@@ -512,3 +512,24 @@ for _step in _bake_steps:
         assert '@' in _uses and len(_uses.split('@')[1].split()[0]) == 40, f'unpinned action: {_uses}'
 print('bake publish contract ok')
 
+# Aive's Play profile and runtime verification must pin both included builds
+# to AGP 9.5.1, matching aive/gradle/libs.versions.toml. The old H2G2 and
+# nested Conveyance checkouts both used 9.5.0 and broke Play bundling even
+# though the source repository's CI checked out newer revisions.
+_aive_h2g2_pin = "8ff45ea2fbf91f8b2fb22a542a87efdf9b856f0c"
+_aive_play_profile = _PURPOSE_PROFILES["241b4583d7885007973042f4012d5599162d3846fda0fe5daf018446ab496e76"]
+_aive_h2g2_checkout = next(
+    checkout for checkout in _aive_play_profile["extra_checkouts"]
+    if checkout["repository"] == "HereLiesAz/conveyance-h2g2"
+)
+assert _aive_h2g2_checkout["ref"] == _aive_h2g2_pin
+_aive_live_workflow = Path(".github/workflows/aive-live-runtime-verification.yml").read_text(encoding="utf-8")
+assert f"ref: {_aive_h2g2_pin}" in _aive_live_workflow
+_aive_conveyance_pin = "9d9a694c64d0bdfd1d6e9f38a1ad972bb5618ac4"
+_aive_conveyance_checkout = next(
+    checkout for checkout in _aive_play_profile["extra_checkouts"]
+    if checkout["repository"] == "HereLiesAz/Conveyance"
+)
+assert _aive_conveyance_checkout["ref"] == _aive_conveyance_pin
+assert f"ref: {_aive_conveyance_pin}" in _aive_live_workflow
+print("aive nested AGP pin contract ok")

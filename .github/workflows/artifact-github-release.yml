@@ -209,7 +209,7 @@ jobs:
 
       - name: Publish patch-grouped release
         if: ${{ steps.grouping.outputs.grouped == 'true' }}
-        uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@main
+        uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@523fa5f6e4b3e6cbbbfc189e09f0f64b3f39c572 # main
         with:
           github-token: ${{ secrets.GH_TOKEN }}
           target-repository: ${{ inputs.target_repository }}

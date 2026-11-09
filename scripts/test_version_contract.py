@@ -6,6 +6,7 @@ from version_contract import (
     Version,
     classify_next,
     recorded_for_trigger,
+    render_properties,
     state_payload,
     version_from_properties,
 )
@@ -30,6 +31,16 @@ def main() -> int:
         version_from_properties("versionMajor=5\n"),
         Version(5, 0, 0, 0),
     )
+
+    # A repository that records versionName gets it rewritten with the four fields, in one write.
+    rendered = render_properties(
+        "versionBuild=1\nversionMajor=1\nversionMinor=84\nversionPatch=1\nversionCode=140010240\nversionName=1.84.1.1\n",
+        Version(1, 85, 0, 1),
+    )
+    assert "versionName=1.85.0.1" in rendered.splitlines(), rendered
+    assert "versionMinor=85" in rendered.splitlines() and "versionCode=140010240" in rendered.splitlines(), rendered
+    # ...and one that does not record a name is not given one.
+    assert "versionName" not in render_properties("versionMajor=1\n", Version(1, 2, 3, 4))
 
     # One push dispatches Play and GitHub runs of one commit: the second reuses the first's version.
     recorded = state_payload("abc", Version(1, 2, 3, 4), "run-1", "delivery-1")

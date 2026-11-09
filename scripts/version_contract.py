@@ -148,7 +148,13 @@ def render_properties(existing: str, version: Version) -> str:
             out.append(line)
             continue
         key = stripped.split("=", 1)[0].strip()
-        if key in alias_values:
+        if key == "versionName":
+            # Android repositories keep the user-visible name in this file too. It is a pure
+            # function of the four fields, so it is written in the same commit as they are: the
+            # file never sits at a fields-say-X, name-says-Y midpoint between this commit and the
+            # post-publish versionCode record.
+            out.append(f"versionName={version}")
+        elif key in alias_values:
             canonical_key = next(k for k, aliases in ALIASES.items() if key in aliases)
             if key == canonical_key:
                 seen_canonical.add(canonical_key)

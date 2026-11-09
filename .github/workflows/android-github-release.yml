@@ -422,7 +422,7 @@ jobs:
         env:
           FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         with:
-          cache-read-only: false
+          cache-read-only: ${{ env.ON_DEFAULT_BRANCH != 'true' }}
           dependency-graph: disabled
 
       - name: Grant execute permission for gradlew
@@ -485,7 +485,7 @@ jobs:
       # Play term is skipped (recorded + 1). A Play query that fails fails the job.
       - name: Resolve next versionCode
         id: android_version
-        uses: HereLiesAz/workflows/.github/actions/android-version@main
+        uses: HereLiesAz/workflows/.github/actions/android-version@8ceb95ec9a950c488a1dfd2368d9d2a87f69f8f9 # main
         with:
           mode: next
           service-account-json: ${{ steps.package.outputs.package_name != '' && secrets.PLAY_SERVICE_ACCOUNT_JSON || '' }}
@@ -611,7 +611,7 @@ jobs:
           fi
 
       - name: Publish patch-grouped GitHub release
-        uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@main
+        uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@523fa5f6e4b3e6cbbbfc189e09f0f64b3f39c572 # main
         with:
           github-token: ${{ secrets.GH_TOKEN }}
           target-repository: ${{ inputs.target_repository }}
@@ -627,7 +627,7 @@ jobs:
 
       - name: Record released versionCode
         if: ${{ env.ON_DEFAULT_BRANCH == 'true' }}
-        uses: HereLiesAz/workflows/.github/actions/android-version@main
+        uses: HereLiesAz/workflows/.github/actions/android-version@8ceb95ec9a950c488a1dfd2368d9d2a87f69f8f9 # main
         with:
           mode: record
           repository: ${{ inputs.target_repository }}

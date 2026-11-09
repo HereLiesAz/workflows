@@ -40,6 +40,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The pin-freshness test resolves historical action revisions, so it needs real history.
+          fetch-depth: 0
 
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -204,6 +207,9 @@ jobs:
 
       - name: Regression-test release centralization
         run: python scripts/test_release_centralization.py
+
+      - name: Regression-test Play publish resilience and action pins
+        run: python scripts/test_play_publish_resilience.py
 
       - name: Test grouped GitHub tag publication fallback
         run: python scripts/test_grouped_release_tag_fallback.py

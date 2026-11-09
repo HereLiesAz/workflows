@@ -182,7 +182,7 @@ jobs:
       # _PATCH / _BUILD land in the environment for prepare_command.
       - name: Resolve canonical version
         if: ${{ fromJSON(inputs.purpose_profile_json).version_contract == true }}
-        uses: HereLiesAz/workflows/.github/actions/version-contract@main
+        uses: HereLiesAz/workflows/.github/actions/version-contract@f1fbdc014d633d94f18312af95accc330bb308c2 # main
         with:
           target_repository: ${{ inputs.target_repository }}
           target_sha: ${{ inputs.target_sha }}
@@ -424,7 +424,7 @@ jobs:
 
       - name: Publish patch-grouped release
         if: ${{ steps.policy.outputs.publish == 'true' && steps.grouping.outputs.grouped == 'true' }}
-        uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@main
+        uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@523fa5f6e4b3e6cbbbfc189e09f0f64b3f39c572 # main
         with:
           github-token: ${{ secrets.GH_TOKEN }}
           target-repository: ${{ inputs.target_repository }}

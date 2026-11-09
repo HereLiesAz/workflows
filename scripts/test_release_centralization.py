@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from sync_repository import TRACKER_MARKER, _build_target_run_tracker, build_proxy, compile_central, load_yaml
@@ -118,7 +119,7 @@ play_contract = "\n".join(
         '.github/actions/resolve-android-mapping/resolve.sh',
     )
 )
-assert "uses: HereLiesAz/workflows/.github/actions/resolve-android-mapping@main" in play_contract
+assert re.search(r"uses: HereLiesAz/workflows/\.github/actions/resolve-android-mapping@[0-9a-f]{40} # main", play_contract)
 assert "google-play-publish" not in play_workflow
 assert "Publish bundle to configured Play tracks" in play_workflow
 

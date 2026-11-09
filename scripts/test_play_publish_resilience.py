@@ -222,6 +222,9 @@ assert run_supersede(compare("ahead", ["a.kt", "b.kt"], ["feat: x", "chore(versi
 late_start = text.index("      - name: Skip Play publish for a superseded commit")
 late_run = text.index("        run: |\n", late_start) + len("        run: |\n")
 late_end = text.index('\n          if [ "$superseded" = true ]; then', late_run)
+late_block = text[late_end:text.index("      - name: Publish bundle to configured Play tracks")]
+for flag in ("PUBLISH_PLAY=false", "PUBLISH_GITHUB_RELEASE=false", "PUBLISH_BUILT_GITHUB_RELEASE=false"):
+    assert f'echo "{flag}"' in late_block, f"late supersede check must set {flag}"
 assert textwrap.dedent(text[late_run:late_end]) == SHELL, "late re-check must run the same predicate as the early check"
 
 # The skip tokens are one list in three places; the three must not drift.
@@ -246,20 +249,22 @@ for workflow in sorted((ROOT / ".github/workflows").glob("*.yml")):
             if not re.fullmatch(r"[0-9a-f]{40}", ref):
                 problems.append(f"{workflow.name}:{number}: {name}@{ref} is not pinned by SHA")
                 continue
-            have = subprocess.run(
-                ["git", "rev-parse", f"{ref}:.github/actions/{name}"], cwd=ROOT, capture_output=True, text=True
-            )
-            want = subprocess.run(
-                ["git", "rev-parse", f"HEAD:.github/actions/{name}"], cwd=ROOT, capture_output=True, text=True
-            )
-            if have.returncode != 0:
-                # A pin that cannot be resolved cannot be shown fresh. The validate job fetches full
-                # history; a shallow clone must fail here, not silently weaken the check.
-                problems.append(f"{workflow.name}:{number}: cannot resolve {name}@{ref[:12]} in this clone (fetch full history)")
-            elif have.stdout.strip() != want.stdout.strip():
-                problems.append(
-                    f"{workflow.name}:{number}: {name}@{ref[:12]} is stale; the action changed since that commit"
-                )
+            # The action directory AND every file it runs from outside that directory
+            # ($GITHUB_ACTION_PATH/../... resolves inside the PINNED checkout, not the workflow's).
+            action_yml = (ROOT / ".github/actions" / name / "action.yml").read_text(encoding="utf-8")
+            paths = {f".github/actions/{name}"}
+            for rel in re.findall(r"GITHUB_ACTION_PATH/((?:\.\./)+[^\s\"'`)]+)", action_yml):
+                resolved = os.path.normpath(os.path.join(".github/actions", name, rel))
+                paths.add(resolved)
+            for path in sorted(paths):
+                have = subprocess.run(["git", "rev-parse", f"{ref}:{path}"], cwd=ROOT, capture_output=True, text=True)
+                want = subprocess.run(["git", "rev-parse", f"HEAD:{path}"], cwd=ROOT, capture_output=True, text=True)
+                if have.returncode != 0:
+                    # A pin that cannot be resolved cannot be shown fresh. The validate job fetches
+                    # full history; a shallow clone must fail here, not weaken the check.
+                    problems.append(f"{workflow.name}:{number}: cannot resolve {path} at {name}@{ref[:12]} (fetch full history)")
+                elif have.stdout.strip() != want.stdout.strip():
+                    problems.append(f"{workflow.name}:{number}: {name}@{ref[:12]} is stale; {path} changed since that commit")
 assert not problems, "\n".join(problems)
 
 print("play publish resilience tests passed")

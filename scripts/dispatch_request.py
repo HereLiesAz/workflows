@@ -557,6 +557,9 @@ def _dispatch_entry(
     raise RuntimeError(f"Central workflow did not become dispatchable: {last_error}")
 
 
+CI_SKIP_TOKENS = ("[skip ci]", "[ci skip]", "[no ci]", "[skip actions]", "[actions skip]")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Route a verified repository event to centralized workflows.")
     parser.add_argument("--request", required=True, help="JSON request file")
@@ -584,7 +587,7 @@ def main() -> int:
             for item in (event.get("commits") or [])
             if isinstance(item, dict)
         ]
-        skip_tokens = ("[skip ci]", "[ci skip]", "[no ci]", "[skip actions]", "[actions skip]")
+        skip_tokens = CI_SKIP_TOKENS
         if any(token in head_message.casefold() for token in skip_tokens) or (
             commit_messages
             and all(any(token in message.casefold() for token in skip_tokens) for message in commit_messages)

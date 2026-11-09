@@ -196,11 +196,15 @@ jobs:
           if [ "$TARGET_EVENT_NAME" = push ] && [ "$TARGET_REF_TYPE" = branch ]; then
             default_branch="$(gh api "repos/$TARGET_REPOSITORY" --jq .default_branch || true)"
             if [ -n "$default_branch" ] && [ "$TARGET_REF_NAME" = "$default_branch" ]; then
+              # Tokens mirror scripts/dispatch_request.py CI_SKIP_TOKENS and worker/src/event-filter.js
+              # (test_play_publish_resilience.py fails if the three drift). A [skip ci] push never
+              # starts a replacement run, so only a newer commit WITHOUT a token can supersede.
               verdict="$(gh api "repos/$TARGET_REPOSITORY/compare/${TARGET_SHA}...${default_branch}" \
-                --jq '[.status, ([.files[]?.filename | select(. != "version.properties" and . != ".version-state.json")] | length)] | @tsv' || true)"
+                --jq '[.status, ([.files[]?.filename | select(. != "version.properties" and . != ".version-state.json")] | length), ([.commits[]?.commit.message | ascii_downcase | select(test("\\[(skip ci|ci skip|no ci|skip actions|actions skip)\\]") | not)] | length)] | @tsv' || true)"
               status="$(printf '%s' "$verdict" | cut -f1)"
               changed="$(printf '%s' "$verdict" | cut -f2)"
-              if [ "$status" = ahead ] && [ "${changed:-0}" -gt 0 ]; then
+              eligible="$(printf '%s' "$verdict" | cut -f3)"
+              if [ "$status" = ahead ] && [ "${changed:-0}" -gt 0 ] && [ "${eligible:-0}" -gt 0 ]; then
                 superseded=true
               elif [ -z "$verdict" ]; then
                 echo "::warning::Could not compare $TARGET_SHA with $default_branch; publishing normally." >&2
@@ -905,11 +909,15 @@ jobs:
           if [ "$TARGET_EVENT_NAME" = push ] && [ "$TARGET_REF_TYPE" = branch ]; then
             default_branch="$(gh api "repos/$TARGET_REPOSITORY" --jq .default_branch || true)"
             if [ -n "$default_branch" ] && [ "$TARGET_REF_NAME" = "$default_branch" ]; then
+              # Tokens mirror scripts/dispatch_request.py CI_SKIP_TOKENS and worker/src/event-filter.js
+              # (test_play_publish_resilience.py fails if the three drift). A [skip ci] push never
+              # starts a replacement run, so only a newer commit WITHOUT a token can supersede.
               verdict="$(gh api "repos/$TARGET_REPOSITORY/compare/${TARGET_SHA}...${default_branch}" \
-                --jq '[.status, ([.files[]?.filename | select(. != "version.properties" and . != ".version-state.json")] | length)] | @tsv' || true)"
+                --jq '[.status, ([.files[]?.filename | select(. != "version.properties" and . != ".version-state.json")] | length), ([.commits[]?.commit.message | ascii_downcase | select(test("\\[(skip ci|ci skip|no ci|skip actions|actions skip)\\]") | not)] | length)] | @tsv' || true)"
               status="$(printf '%s' "$verdict" | cut -f1)"
               changed="$(printf '%s' "$verdict" | cut -f2)"
-              if [ "$status" = ahead ] && [ "${changed:-0}" -gt 0 ]; then
+              eligible="$(printf '%s' "$verdict" | cut -f3)"
+              if [ "$status" = ahead ] && [ "${changed:-0}" -gt 0 ] && [ "${eligible:-0}" -gt 0 ]; then
                 superseded=true
               elif [ -z "$verdict" ]; then
                 echo "::warning::Could not compare $TARGET_SHA with $default_branch; publishing normally." >&2
@@ -1119,7 +1127,7 @@ jobs:
               )
               print(f'::warning title=Play daily save quota exceeded::{message}', flush=True)
               for path, lines in (
-                  (os.environ.get('GITHUB_ENV'), ['PLAY_DEFERRED=true', f'PLAY_RETRY_AFTER={retry_at:%Y-%m-%dT%H:%M:%SZ}', 'PUBLISH_PLAY=false', 'PUBLISH_GITHUB_RELEASE=false']),
+                  (os.environ.get('GITHUB_ENV'), ['PLAY_DEFERRED=true', f'PLAY_RETRY_AFTER={retry_at:%Y-%m-%dT%H:%M:%SZ}', 'PUBLISH_PLAY=false', 'PUBLISH_GITHUB_RELEASE=false', 'PUBLISH_BUILT_GITHUB_RELEASE=false']),
                   (os.environ.get('GITHUB_OUTPUT'), ['deferred=true', f'retry_after={retry_at:%Y-%m-%dT%H:%M:%SZ}']),
                   (os.environ.get('GITHUB_STEP_SUMMARY'), ['### Play publish deferred', '', message]),
               ):

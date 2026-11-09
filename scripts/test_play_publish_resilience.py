@@ -138,6 +138,8 @@ code, env_out, summary, log = run_publisher({"status": 403, "message": "Daily sa
 assert code == 0, log
 assert env_out.get("PLAY_DEFERRED") == "true", env_out
 assert env_out.get("PUBLISH_PLAY") == "false" and env_out.get("PUBLISH_GITHUB_RELEASE") == "false", env_out
+# The Illumera github_built_release_always path is gated by its own flag: it must not publish either.
+assert env_out.get("PUBLISH_BUILT_GITHUB_RELEASE") == "false", env_out
 assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", env_out.get("PLAY_RETRY_AFTER", "")), env_out
 assert "daily save quota exceeded" in summary.lower() and "retry after" in summary.lower(), summary
 assert "::warning title=Play daily save quota exceeded::" in log, log
@@ -193,14 +195,44 @@ def run_supersede(compare_json: str, event: str = "push", ref: str = "main") -> 
         return out.read_text(encoding="utf-8").strip()
 
 
-newer_code = json.dumps({"status": "ahead", "files": [{"filename": "app/src/Main.kt"}]})
-newer_bookkeeping = json.dumps({"status": "ahead", "files": [{"filename": "version.properties"}]})
-same = json.dumps({"status": "identical", "files": []})
+def compare(status, files, messages):
+    return json.dumps({
+        "status": status,
+        "files": [{"filename": name} for name in files],
+        "commits": [{"commit": {"message": message}} for message in messages],
+    })
+
+
+newer_code = compare("ahead", ["app/src/Main.kt"], ["feat: change"])
+newer_bookkeeping = compare("ahead", ["version.properties"], ["feat: nothing"])
+same = compare("identical", [], [])
 assert run_supersede(newer_code) == "superseded=true"
 assert run_supersede(newer_bookkeeping) == "superseded=false"
 assert run_supersede(same) == "superseded=false"
 assert run_supersede(newer_code, event="workflow_dispatch") == "superseded=false"
 assert run_supersede(newer_code, ref="feature") == "superseded=false"
+# A newer [skip ci] commit never starts a replacement run (pushDropReason / dispatch_request drop it),
+# so it must not supersede, whatever files it changes; neither must any other skip token, in any case.
+for token in ("[skip ci]", "[CI Skip]", "[no ci]", "[skip actions]", "[actions skip]"):
+    assert run_supersede(compare("ahead", ["app/src/Main.kt"], [f"chore: x {token}"])) == "superseded=false", token
+# A skipped commit after an eligible one: the eligible commit still gets its own run.
+assert run_supersede(compare("ahead", ["a.kt", "b.kt"], ["feat: x", "chore(version): 1 [skip ci]"])) == "superseded=true"
+# The same shell body guards the late re-check just before publishing: a [skip ci] commit arriving
+# during the build must not cancel the publish either.
+late_start = text.index("      - name: Skip Play publish for a superseded commit")
+late_run = text.index("        run: |\n", late_start) + len("        run: |\n")
+late_end = text.index('\n          if [ "$superseded" = true ]; then', late_run)
+assert textwrap.dedent(text[late_run:late_end]) == SHELL, "late re-check must run the same predicate as the early check"
+
+# The skip tokens are one list in three places; the three must not drift.
+sys.path.insert(0, str(ROOT / "scripts"))
+from dispatch_request import CI_SKIP_TOKENS  # noqa: E402
+worker_src = (ROOT / "worker/src/event-filter.js").read_text(encoding="utf-8")
+worker_tokens = tuple(re.findall(r'"(\[[a-z ]+\])"', re.search(r"CI_SKIP_TOKENS = \[(.*?)\]\;", worker_src, re.S).group(0)))
+assert worker_tokens == CI_SKIP_TOKENS, (worker_tokens, CI_SKIP_TOKENS)
+shell_alt = re.search(r'test\("\\\\\[\((.*?)\)\\\\\]"\)', SHELL)
+assert shell_alt, "supersede shell must carry the skip-token regex"
+assert tuple(f"[{t}]" for t in shell_alt.group(1).split("|")) == CI_SKIP_TOKENS, shell_alt.group(1)
 
 # 5. Central action references are pinned by SHA to the current action tree.
 action_ref = re.compile(r"HereLiesAz/workflows/\.github/actions/([a-z0-9-]+)@([^\s#]+)")
@@ -221,8 +253,9 @@ for workflow in sorted((ROOT / ".github/workflows").glob("*.yml")):
                 ["git", "rev-parse", f"HEAD:.github/actions/{name}"], cwd=ROOT, capture_output=True, text=True
             )
             if have.returncode != 0:
-                # Shallow checkout or unknown object: cannot prove drift either way.
-                print(f"note: cannot resolve {ref} for {name} (shallow clone?); pin format only")
+                # A pin that cannot be resolved cannot be shown fresh. The validate job fetches full
+                # history; a shallow clone must fail here, not silently weaken the check.
+                problems.append(f"{workflow.name}:{number}: cannot resolve {name}@{ref[:12]} in this clone (fetch full history)")
             elif have.stdout.strip() != want.stdout.strip():
                 problems.append(
                     f"{workflow.name}:{number}: {name}@{ref[:12]} is stale; the action changed since that commit"

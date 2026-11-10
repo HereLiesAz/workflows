@@ -1686,5 +1686,11 @@ export const EVENT_CONSUMERS = {
         "name": "Build"
       }
     ]
+  },
+  "1452456930": {
+    "repository": "HereLiesAz/a2search",
+    "events": [
+      "push"
+    ]
   }
 };

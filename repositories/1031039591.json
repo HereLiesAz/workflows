@@ -4,7 +4,7 @@
     "id": 1031039591,
     "full_name": "HereLiesAz/aive"
   },
-  "updated_at": "2026-11-10T09:28:32.123Z",
+  "updated_at": "2026-11-10T09:28:33.372Z",
   "workflows": {
     ".github/workflows/bitcos-engine.yml": {
       "name": "BITCOS Engine",
@@ -671,6 +671,27 @@
     ".github/workflows/multiplatform.yml": {
       "name": "Build and Deploy",
       "runs": [
+        {
+          "run_id": 42791006285,
+          "jobs": {
+            "Resolve four-part version": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/42791006285/job/129744126014",
+              "started_at": "2026-11-10T09:28:31Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-11-10T09:28:33.372Z",
+          "sha": "b3e36dfe6a1d92410c5a84e18c4564357a30d7c5",
+          "branch": "feature/agent-directory-discovery",
+          "status": "queued",
+          "updated_at": "2026-11-10T09:28:33.372Z"
+        },
         {
           "run_id": 42782012674,
           "jobs": {
@@ -2447,108 +2468,6 @@
           "html_url": "https://github.com/HereLiesAz/aive/actions/runs/42756325446",
           "started_at": "2026-11-10T04:30:46Z",
           "updated_at": "2026-11-10T04:32:39Z"
-        },
-        {
-          "run_id": 42756252262,
-          "jobs": {
-            "deploy-pages": {
-              "status": "completed",
-              "conclusion": "skipped",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/42756252262/job/129631232995",
-              "started_at": "2026-11-10T04:30:09Z",
-              "completed_at": "2026-11-10T04:30:08Z",
-              "steps_completed": 0,
-              "steps_total": 0,
-              "current_step": null
-            },
-            "Resolve four-part version": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/42756252262/job/129631231084",
-              "started_at": "2026-11-10T04:30:11Z",
-              "completed_at": "2026-11-10T04:30:19Z",
-              "steps_completed": 5,
-              "steps_total": 5,
-              "current_step": null
-            },
-            "Desktop installer (macos)": {
-              "status": "in_progress",
-              "conclusion": null,
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/42756252262/job/129631295264",
-              "started_at": "2026-11-10T04:30:23Z",
-              "completed_at": null,
-              "steps_completed": 0,
-              "steps_total": 0,
-              "current_step": null
-            },
-            "Desktop installer (linux)": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/42756252262/job/129631295099",
-              "started_at": "2026-11-10T04:30:22Z",
-              "completed_at": "2026-11-10T04:31:02Z",
-              "steps_completed": 21,
-              "steps_total": 21,
-              "current_step": null
-            },
-            "Desktop installer (windows)": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/42756252262/job/129631295255",
-              "started_at": "2026-11-10T04:30:22Z",
-              "completed_at": "2026-11-10T04:31:02Z",
-              "steps_completed": 20,
-              "steps_total": 20,
-              "current_step": null
-            },
-            "build": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/42756252262/job/129631231365",
-              "started_at": "2026-11-10T04:30:21Z",
-              "completed_at": "2026-11-10T04:30:58Z",
-              "steps_completed": 42,
-              "steps_total": 42,
-              "current_step": null
-            },
-            "Publish patch-grouped release": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/42756252262/job/129631542409",
-              "started_at": "2026-11-10T04:31:03Z",
-              "completed_at": "2026-11-10T04:31:02Z",
-              "steps_completed": 0,
-              "steps_total": 0,
-              "current_step": null
-            }
-          },
-          "reports": {
-            "desktop-packages": {
-              "status": "cancelled",
-              "summary": "",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-10T04:30:57.505Z"
-            },
-            "build": {
-              "status": "cancelled",
-              "summary": "",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-10T04:30:53.014Z"
-            }
-          },
-          "created_at": "2026-11-10T04:30:09.455Z",
-          "run_number": 2694,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "ui/vertical-flowchart-single-entry",
-          "sha": "d851bef9137391e7f5b606ca85ab41e450c89a05",
-          "status": "in_progress",
-          "conclusion": null,
-          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/42756252262",
-          "started_at": "2026-11-10T04:30:08Z",
-          "updated_at": "2026-11-10T04:31:11.659Z"
         }
       ]
     },

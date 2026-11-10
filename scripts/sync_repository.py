@@ -1074,6 +1074,9 @@ def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
             f"Refusing to sync {repository}: private repositories are excluded from central sync."
         )
     repository_id = int(repo_info["id"])
+    # SearchA2A dispatches and executes its own workflows; never centralize it.
+    if repository_id == 1452456930:
+        raise RuntimeError("SearchA2A (repository 1452456930) manages its own Actions")
     default_branch = str(repo_info["default_branch"])
     before_manifest = copy.deepcopy(core.load_manifest(gh, repository_id))
     _enforce_new_workflow_submission_policy(gh, repository, before_manifest)

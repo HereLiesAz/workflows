@@ -48,7 +48,7 @@ jobs:
           for manifest in registry/*/manifest.json; do
             full_name="$(jq -r '.repository.full_name // empty' "$manifest")"
             repo_id="$(jq -r '.repository.id // empty' "$manifest")"
-            if [[ -z "$full_name" || -z "$repo_id" || "$full_name" == "HereLiesAz/workflows" ]]; then
+            if [[ -z "$full_name" || -z "$repo_id" || "$full_name" == "HereLiesAz/workflows" || "$repo_id" == "1452456930" ]]; then
               continue
             fi
             registered_ids["$full_name"]="$repo_id"
@@ -59,6 +59,10 @@ jobs:
           new_count=0
           while IFS= read -r repository; do
             [[ -n "$repository" ]] || continue
+            # SearchA2A must run its own Actions, including after a repository rename.
+            if [[ "${repository,,}" == "hereliesaz/searcha2a" || "${repository,,}" == "hereliesaz/a2search" ]]; then
+              continue
+            fi
             if [[ -n "${registered_ids[$repository]:-}" ]]; then
               continue
             fi

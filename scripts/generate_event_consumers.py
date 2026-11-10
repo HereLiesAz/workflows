@@ -127,6 +127,8 @@ def build_consumer_map(root: Path = ROOT) -> dict[str, dict]:
         if not isinstance(manifest, dict) or not (manifest.get("repository") or {}).get("id"):
             continue
         repository_id, entry = repository_entry(manifest, read_local)
+        if repository_id == "1452456930":
+            continue  # SearchA2A intentionally has no central webhook consumers.
         consumers[repository_id] = entry
     return consumers
 

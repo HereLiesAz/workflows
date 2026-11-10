@@ -26,6 +26,7 @@ assert committed == render_module(consumers), (
     f"{MODULE_PATH} is stale; run python scripts/generate_event_consumers.py"
 )
 assert parse_module(committed) == consumers
+assert "1452456930" not in consumers, "SearchA2A must not be centrally routed"
 
 # 2. No gap against the real routing function. For every active registered workflow, strip all
 #    branch/path/action filters (the most permissive form of its trigger) and ask
@@ -49,7 +50,7 @@ checked = 0
 for manifest_file in sorted((ROOT / "registry").glob("*/manifest.json")):
     manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
     repository_id = str((manifest.get("repository") or {}).get("id") or "")
-    if not repository_id:
+    if not repository_id or repository_id == "1452456930":
         continue
     forwarded = set(consumers[repository_id]["events"])
     assert "push" in forwarded, repository_id  # setup-change re-sync needs every push

@@ -22,6 +22,10 @@ inputs:
     description: triggering event (webhook delivery); runs sharing one reuse one version
     required: false
     default: ""
+  persist_version_state:
+    description: "false: do not create root version state for a project that manages versioning in a different file"
+    required: false
+    default: "true"
   default_branch_only:
     description: "true: version state lives only on the default branch; other refs compute a version and write nothing"
     required: false
@@ -61,6 +65,7 @@ runs:
         TARGET_REF_TYPE: ${{ inputs.target_ref_type }}
         TRIGGER_ID: ${{ inputs.trigger_id }}
         DEFAULT_BRANCH_ONLY: ${{ inputs.default_branch_only }}
+        PERSIST_VERSION_STATE: ${{ inputs.persist_version_state }}
       run: |
         set -euo pipefail
         python "$GITHUB_ACTION_PATH/../../../scripts/version_contract.py" \
@@ -70,4 +75,5 @@ runs:
           --ref-type "$TARGET_REF_TYPE" \
           --workspace "$GITHUB_WORKSPACE" \
           --trigger-id "$TRIGGER_ID" \
-          --default-branch-only "$DEFAULT_BRANCH_ONLY"
+          --default-branch-only "$DEFAULT_BRANCH_ONLY" \
+          --persist-version-state "$PERSIST_VERSION_STATE"

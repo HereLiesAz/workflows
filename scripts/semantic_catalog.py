@@ -48,9 +48,12 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
     },
     ".github/workflows/android-play-release.yml": {
         "name": "Android Play Release",
+        # HereLiesAz/QuicLoc: central Play trigger with its own version file
+        # and verified upload-keystore project action.
         "canonical_hash": "c7e435bc33db1508560b4f5e700570d3f9544ce3d2efa16b4b7df2a60ee3c1f4",
         "generalized": True,
         "source_hashes": {
+            "ac44188d4c7565cc56dbd79c4923ba865a3fbe72084b9c6f661beb3a008e5325",  # QuicLoc Play Release trigger contract
             # HereLiesAz/MeatPiety:.github/workflows/android-play-release.yml
             "d6b05a5e8890cf72879a0e5347ae9f3b5b1f125e8df667ae48b0d1c9b2157a9f",
             # HereLiesAz/MadeMeDance:.github/workflows/android-play-release.yml
@@ -113,9 +116,11 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
     },
     ".github/workflows/android-github-release.yml": {
         "name": "Android GitHub Release",
+        # HereLiesAz/QuicLoc: bundletool-fused universal APK from signed AAB.
         "canonical_hash": "41ccb8c30d393fdc42a44d3b208b179f948ebc44e1c316c4e78b76f627f3bb3c",
         "generalized": True,
         "source_hashes": {
+            "406ccaf4c0bda72c474888723e92296231db69a7f0b58052336064fa6295d417",  # QuicLoc GitHub Release trigger contract
             # HereLiesAz/MeatPiety:.github/workflows/android-github-release.yml
             "3cd23c10466cf2e39495201851059130cebe05892298fbaa7fc1f996fc910c39",
             # HereLiesAz/Guillotine:.github/workflows/android-github-release.yml
@@ -430,6 +435,45 @@ PLAY_TRACKS: Final[list[dict[str, object]]] = [
 ]
 
 PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
+
+    # QuicLoc keeps app/version.properties as the only Android version authority:
+    # its Gradle task increments VERSION_C and VERSION_D on each bundle build.
+    # Seed VERSION_D one below the shared Play/code floor so the compiled AAB
+    # and the release metadata contain precisely the same versionCode.
+    "ac44188d4c7565cc56dbd79c4923ba865a3fbe72084b9c6f661beb3a008e5325": {
+        "signing": "raw-jks", "project_keystore_action": True,
+        "signing_env_prefix": "QUICLOC", "java_version": "21",
+        "google_services": "none", "package_name": "com.hereliesaz.quicloc",
+        "external_versioning": True, "android_version_file": "app/version.properties",
+        "build_command": 'sed -i -E "s/^VERSION_D=.*/VERSION_D=$((ANDROID_VERSION_CODE - 1))/" app/version.properties && QUICLOC_REQUIRE_SIGNING=true ./gradlew bundleRelease --no-daemon --stacktrace',
+        "aab_glob": "app/build/outputs/bundle/release/*.aab",
+        "mapping_file": "app/build/outputs/mapping/release/mapping.txt",
+        "test_command": "./gradlew testDebugUnitTest --no-daemon --stacktrace",
+        "publish_on_push": True, "publish_default": False,
+        "persist_version": False,
+        "tracks": [
+            {"track": "internal", "status": "completed"},
+            {"track": "alpha", "status": "draft", "preserve_existing": True},
+            {"track": "beta", "status": "draft", "preserve_existing": True},
+            {"track": "production", "status": "draft", "preserve_existing": True},
+        ],
+        "release_app_name": "QuicLoc",
+    },
+    "406ccaf4c0bda72c474888723e92296231db69a7f0b58052336064fa6295d417": {
+        "signing": "raw-jks", "project_keystore_action": True,
+        "signing_env_prefix": "QUICLOC", "java_version": "21",
+        "google_services": "none", "package_name": "com.hereliesaz.quicloc",
+        "external_versioning": True, "android_version_file": "app/version.properties",
+        "build_command": 'sed -i -E "s/^VERSION_D=.*/VERSION_D=$((ANDROID_VERSION_CODE - 1))/" app/version.properties && QUICLOC_REQUIRE_SIGNING=true ./gradlew bundleRelease --no-daemon --stacktrace',
+        "universal_apk_from_aab": True,
+        "aab_path": "app/build/outputs/bundle/release/app-release.aab",
+        "universal_apk_path": "app/build/outputs/universal/release/QuicLoc-universal.apk",
+        "artifact_glob": "app/build/outputs/universal/release/*.apk",
+        "mapping_file": "app/build/outputs/mapping/release/mapping.txt",
+        "test_command": "./gradlew testDebugUnitTest --no-daemon --stacktrace",
+        "persist_version": False, "asset_name_mode": "app-v-version",
+        "app_name": "QuicLoc",
+    },
     # HereLiesAz/photo-unroll: Compose Multiplatform wasm build published as a PWA.
     "9bd5fb364cd651740b033f1ecb695a2d30320c49855e4d4adb8a0db0304c964a": {"java_version": "17", "build_command": "./gradlew :composeApp:wasmJsBrowserDistribution --no-daemon", "site_dir": "composeApp/build/dist/wasmJs/productionExecutable"},
     # MeatPiety (Compose Multiplatform; app module reads -PversionCode / -PversionName).

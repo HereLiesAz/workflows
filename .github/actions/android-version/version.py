@@ -36,6 +36,12 @@ def _int(value: str | None) -> int | None:
 
 def recorded_pair(props: dict[str, str]) -> tuple[int, list[int]]:
     """The last published versionCode and versionName fields recorded in the repository."""
+    # Legacy Android projects may keep their authoritative version in
+    # app/version.properties as VERSION_A/B/C/D; VERSION_D is versionCode.
+    # This form is opt-in via the caller's version-file input, not a second
+    # competing versionCode source in the same project.
+    if all(_int(props.get(k)) is not None for k in ("VERSION_A", "VERSION_B", "VERSION_C", "VERSION_D")):
+        return int(props["VERSION_D"]), [int(props[k]) for k in ("VERSION_A", "VERSION_B", "VERSION_C", "VERSION_D")]
     code = _int(props.get("versionCode")) or 0
     name = props.get("versionName", "").strip()
     fields = [_int(part) for part in name.split(".")] if name else []
@@ -53,6 +59,13 @@ def next_pair(props: dict[str, str], play_highest: int) -> tuple[int, str]:
     """versionCode = max(recorded, Play) + 1; versionName = hand-managed major.minor.patch with the
     last field of the previous name + 1."""
     code, fields = recorded_pair(props)
+    if all(_int(props.get(k)) is not None for k in ("VERSION_A", "VERSION_B", "VERSION_C", "VERSION_D")):
+        # QuicLoc's Gradle release task increments VERSION_C and VERSION_D
+        # once per build. If Play has a higher code, seed VERSION_D to one
+        # below the resolved code before executing that Gradle task.
+        return max(code, play_highest) + 1, (
+            f"{fields[0]}.{fields[1]}.{fields[2] + 1}.{max(code, play_highest) + 1}"
+        )
     last = fields[-1] if len(fields) >= 4 else 0
     head = [
         _int(props.get("versionMajor")),
@@ -67,7 +80,29 @@ def next_pair(props: dict[str, str], play_highest: int) -> tuple[int, str]:
 def render_recorded(text: str, code: int, name: str = "") -> str:
     """Set versionCode and, when a name is given, versionName and versionBuild (the name's last
     field); keep every other line. A recorded versionCode is never lowered."""
-    current = _int(parse_properties(text).get("versionCode")) or 0
+    props = parse_properties(text)
+    if all(_int(props.get(k)) is not None for k in ("VERSION_A", "VERSION_B", "VERSION_C", "VERSION_D")):
+        current = int(props["VERSION_D"])
+        updates = {"VERSION_D": str(max(code, current))}
+        if name and code >= current:
+            parts = name.split(".")
+            if len(parts) != 4 or any(_int(part) is None for part in parts):
+                raise ValueError("expected four-part versionName for VERSION_A/B/C/D")
+            updates["VERSION_C"] = parts[2]
+        out = []
+        seen = set()
+        for line in text.splitlines():
+            match = PROPERTY_RE.match(line)
+            key = match.group(1) if match and not line.lstrip().startswith(("#", "!")) else None
+            if key in updates:
+                if key not in seen:
+                    out.append(f"{key}={updates[key]}")
+                    seen.add(key)
+            else:
+                out.append(line)
+        out.extend(f"{key}={value}" for key, value in updates.items() if key not in seen)
+        return "\n".join(out) + "\n"
+    current = _int(props.get("versionCode")) or 0
     updates = {"versionCode": str(max(code, current))}
     if name:
         updates.update({"versionName": name, "versionBuild": name.rsplit(".", 1)[-1]})

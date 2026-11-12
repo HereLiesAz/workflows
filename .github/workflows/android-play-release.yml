@@ -163,6 +163,7 @@ jobs:
       trigger_id: ${{ inputs.target_run_id }}
       # Only the default branch publishes, so only it records version state.
       default_branch_only: true
+      persist_version_state: ${{ fromJSON(inputs.purpose_profile_json).external_versioning != true }}
     secrets:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
@@ -566,8 +567,43 @@ jobs:
             printf 'ARCORE_API_KEY=%s\n' "$ARCORE_API_KEY" >> local.properties
           fi
 
+      # Opt-in for projects that already ship their own keystore verifier.
+      # It supports raw JKS/PKCS12 and PEM+certificate fallback and checks the
+      # upload certificate before building; generic signing remains unchanged.
+      - name: Prepare project-verified Android signing key
+        id: project-keystore
+        if: ${{ inputs.target_event_name != 'pull_request' && fromJSON(inputs.purpose_profile_json).project_keystore_action == true }}
+        uses: ./.github/actions/android-keystore
+        with:
+          keystore-raw: ${{ secrets.KEYSTORE_RAW }}
+          keystore-private: ${{ secrets.KEYSTORE_PRIVATE }}
+          keystore-rsa: ${{ secrets.KEYSTORE_RSA }}
+          keystore-public: ${{ secrets.KEYSTORE_PUBLIC }}
+          keystore-chain: ${{ secrets.KEYSTORE_CHAIN }}
+          keystore-password: ${{ secrets.KEYSTORE_PASSWORD }}
+          key-alias: ${{ secrets.KEY_ALIAS }}
+          key-password: ${{ secrets.KEY_PASSWORD }}
+          expected-sha256: ${{ secrets.KEYSTORE_SHA256 }}
+          expected-sha1: ${{ secrets.KEYSTORE_SHA1 }}
+          expected-owner: ${{ secrets.KEYSTORE_OWNER }}
+
+      - name: Install project-verified Android signing key
+        if: ${{ inputs.target_event_name != 'pull_request' && fromJSON(inputs.purpose_profile_json).project_keystore_action == true }}
+        env:
+          VERIFIED_KEYSTORE: ${{ steps.project-keystore.outputs.keystore-path }}
+          VERIFIED_KEYSTORE_TYPE: ${{ steps.project-keystore.outputs.store-type }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$VERIFIED_KEYSTORE"
+          mkdir -p app
+          cp "$VERIFIED_KEYSTORE" app/keystore.jks
+          if [ -n "$SIGNING_ENV_PREFIX" ]; then
+            echo "${SIGNING_ENV_PREFIX}_KEYSTORE_TYPE=$VERIFIED_KEYSTORE_TYPE" >> "$GITHUB_ENV"
+          fi
+
       - name: Prepare signing keystore
-        if: ${{ inputs.target_event_name != 'pull_request' }}
+        if: ${{ inputs.target_event_name != 'pull_request' && fromJSON(inputs.purpose_profile_json).project_keystore_action != true }}
         env:
           KEYSTORE_RAW: ${{ secrets.KEYSTORE_RAW }}
           KEYSTORE_PRIVATE: ${{ secrets.KEYSTORE_PRIVATE }}
@@ -729,11 +765,21 @@ jobs:
 
       - name: Resolve next versionCode
         id: android_version
-        uses: HereLiesAz/workflows/.github/actions/android-version@8ceb95ec9a950c488a1dfd2368d9d2a87f69f8f9 # main
+        uses: HereLiesAz/workflows/.github/actions/android-version@4370683fc9cb854610dd414a82141e8df388e9ae # main
         with:
           mode: next
+          version-file: ${{ fromJSON(inputs.purpose_profile_json).android_version_file || 'version.properties' }}
           service-account-json: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           package-name: ${{ steps.meta.outputs.package_name }}
+
+      - name: Use project-managed release version
+        if: ${{ fromJSON(inputs.purpose_profile_json).external_versioning == true }}
+        env:
+          PROJECT_VERSION_NAME: ${{ steps.android_version.outputs.version-name }}
+        run: |
+          set -euo pipefail
+          [[ "$PROJECT_VERSION_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::Invalid app version: $PROJECT_VERSION_NAME"; exit 1; }
+          echo "VERSION=$PROJECT_VERSION_NAME" >> "$GITHUB_ENV"
 
       - name: Resolve version arguments
         env:
@@ -840,6 +886,13 @@ jobs:
           else
             echo "APK_PATH=" >> "$GITHUB_ENV"
           fi
+
+      - name: Verify project's signed Play bundle
+        if: ${{ inputs.target_event_name != 'pull_request' && fromJSON(inputs.purpose_profile_json).project_keystore_action == true }}
+        uses: ./.github/actions/verify-android-signature
+        with:
+          artifact: ${{ env.AAB_PATH }}
+          expected-sha256: ${{ steps.project-keystore.outputs.sha256 }}
 
       # Profile key post_build_command: project-specific checks on the built bundle (AAB_PATH is set)
       # before anything is uploaded or published.
@@ -1353,9 +1406,10 @@ jobs:
       # access (and the GitHub APK) still starts above it. Never lowers a recorded code.
       - name: Record published versionCode
         if: ${{ env.PUBLISH_PLAY == 'true' && env.ON_DEFAULT_BRANCH == 'true' }}
-        uses: HereLiesAz/workflows/.github/actions/android-version@8ceb95ec9a950c488a1dfd2368d9d2a87f69f8f9 # main
+        uses: HereLiesAz/workflows/.github/actions/android-version@4370683fc9cb854610dd414a82141e8df388e9ae # main
         with:
           mode: record
+          version-file: ${{ fromJSON(inputs.purpose_profile_json).android_version_file || 'version.properties' }}
           repository: ${{ inputs.target_repository }}
           branch: ${{ inputs.target_ref_name }}
           version-code: ${{ env.EFFECTIVE_RELEASE_VERSION_CODE }}

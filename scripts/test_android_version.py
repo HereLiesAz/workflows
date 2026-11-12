@@ -31,6 +31,22 @@ assert v.render_recorded("versionCode=90\nversionName=1.2.3.9\n", 58, "") == "ve
 assert v.render_recorded("versionCode=57\nversionName=1.2.3.9\nversionBuild=9\n", 58) == \
     "versionCode=58\nversionName=1.2.3.9\nversionBuild=9\n", "code-only record leaves the name alone"
 
+# QuicLoc's existing file is app/version.properties, not the root contract.
+# Gradle increments VERSION_C and VERSION_D once on each assemble/bundle.
+legacy = v.parse_properties("VERSION_A=1\nVERSION_B=3\nVERSION_C=25\nVERSION_D=2035\n")
+assert v.recorded_pair(legacy) == (2035, [1, 3, 25, 2035])
+assert v.next_pair(legacy, 0) == (2036, "1.3.26.2036")
+assert v.next_pair(legacy, 2081) == (2082, "1.3.26.2082")
+assert v.render_recorded("# header\nVERSION_A=1\nVERSION_B=3\nVERSION_C=25\nVERSION_D=2035\n", 2082, "1.3.26.2082") == (
+    "# header\nVERSION_A=1\nVERSION_B=3\nVERSION_C=26\nVERSION_D=2082\n"
+)
+assert v.render_recorded("VERSION_A=1\nVERSION_B=3\nVERSION_C=26\nVERSION_D=2082\n", 2082, "1.3.26.2082") == (
+    "VERSION_A=1\nVERSION_B=3\nVERSION_C=26\nVERSION_D=2082\n"
+), "a second publisher must not bump the same successful release"
+assert v.render_recorded("VERSION_A=1\nVERSION_B=3\nVERSION_C=29\nVERSION_D=2100\n", 2082, "1.3.26.2082") == (
+    "VERSION_A=1\nVERSION_B=3\nVERSION_C=29\nVERSION_D=2100\n"
+), "recording an older release must never lower app/version.properties"
+
 # Both Android release workflows take versionCode from this rule and nothing else: no version-name
 # encoding, no fallback when Play can't be read.
 root = Path(__file__).resolve().parents[1]

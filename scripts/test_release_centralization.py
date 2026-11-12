@@ -533,3 +533,61 @@ _aive_conveyance_checkout = next(
 assert _aive_conveyance_checkout["ref"] == _aive_conveyance_pin
 assert f"ref: {_aive_conveyance_pin}" in _aive_live_workflow
 print("aive nested AGP pin contract ok")
+
+# QuicLoc's centrally registered release paths must preserve its two original
+# trigger modes and avoid silently publishing an incomplete base-module APK.
+# Check the checked-in source bytes, source hash, and central profile as one
+# contract; these are independent, literal expectations.
+import hashlib as _hashlib
+import json as _json
+
+_quicloc_manifest = _json.loads(Path("registry/1177478037/manifest.json").read_text(encoding="utf-8"))
+assert _quicloc_manifest["repository"]["full_name"] == "HereLiesAz/QuicLoc"
+_quicloc_sources = {
+    ".github/workflows/android-github-release.yml": (
+        "406ccaf4c0bda72c474888723e92296231db69a7f0b58052336064fa6295d417",
+        "registry/1177478037/android-github-release-406ccaf4.source.yml",
+        ".github/workflows/android-github-release.yml",
+    ),
+    ".github/workflows/android-play-release.yml": (
+        "ac44188d4c7565cc56dbd79c4923ba865a3fbe72084b9c6f661beb3a008e5325",
+        "registry/1177478037/android-play-release-ac44188d.source.yml",
+        ".github/workflows/android-play-release.yml",
+    ),
+}
+for _source_path, (_expected_hash, _expected_file, _expected_executor) in _quicloc_sources.items():
+    _entry = _quicloc_manifest["workflows"][_source_path]
+    assert _entry["status"] == "active" and _entry["binding"] == "curated"
+    assert _entry["source_sha256"] == _expected_hash
+    assert _entry["registry_source"] == _expected_file
+    assert _entry["central_workflow"] == _expected_executor
+    _text = Path(_expected_file).read_text(encoding="utf-8")
+    assert _hashlib.sha256(_text.encode("utf-8")).hexdigest() == _expected_hash
+    _source = load_yaml(_text)
+    assert "workflow_dispatch" in _source["on"]
+    assert _source["jobs"]["hand-off"]["steps"]
+    _profile = _RELEASE_PROFILES[_expected_hash]
+    assert _profile["android_version_file"] == "app/version.properties"
+    assert _profile["external_versioning"] is True
+    assert _profile["project_keystore_action"] is True
+    assert _profile["signing_env_prefix"] == "QUICLOC"
+    assert "bundleRelease" in _profile["build_command"]
+    assert "QUICLOC_REQUIRE_SIGNING=true" in _profile["build_command"]
+    assert "VERSION_D" in _profile["build_command"]
+assert load_yaml(Path(_quicloc_sources[".github/workflows/android-play-release.yml"][1]).read_text())["on"]["push"]["branches"] == ["main"]
+assert load_yaml(Path(_quicloc_sources[".github/workflows/android-github-release.yml"][1]).read_text())["on"]["push"]["tags"] == ["v*"]
+assert _quicloc_manifest["workflows"][".github/workflows/release-play.yml"]["status"] == "retired"
+_quicloc_play = _RELEASE_PROFILES["ac44188d4c7565cc56dbd79c4923ba865a3fbe72084b9c6f661beb3a008e5325"]
+assert _quicloc_play["package_name"] == "com.hereliesaz.quicloc"
+assert _quicloc_play["publish_on_push"] is True
+assert [(x["track"], x["status"]) for x in _quicloc_play["tracks"]] == [
+    ("internal", "completed"), ("alpha", "draft"),
+    ("beta", "draft"), ("production", "draft"),
+]
+_quicloc_github = _RELEASE_PROFILES["406ccaf4c0bda72c474888723e92296231db69a7f0b58052336064fa6295d417"]
+assert _quicloc_github["universal_apk_from_aab"] is True
+assert _quicloc_github["aab_path"] == "app/build/outputs/bundle/release/app-release.aab"
+assert _quicloc_github["artifact_glob"] == "app/build/outputs/universal/release/*.apk"
+assert _quicloc_github["test_command"] == "./gradlew testDebugUnitTest --no-daemon --stacktrace"
+assert not Path(".github/workflows/quicloc-release-play.yml").exists(), "no separate QuicLoc Play executor"
+print("QuicLoc central release bindings and fused-APK profile ok")

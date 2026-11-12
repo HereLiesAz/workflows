@@ -291,11 +291,28 @@ jobs:
             exit 1
           fi
           for f in "${files[@]}"; do
-            echo "Uploading $f to ${TARGET_REPOSITORY}@${TARGET_SHA} (${TARGET_REF})"
+            # A PR branch can disappear after a merge while its commit remains
+            # accessible. GitHub rejects SARIF referring to a deleted branch.
+            upload_ref="$TARGET_REF"
+            if ! gh api "repos/${TARGET_REPOSITORY}/git/ref/${TARGET_REF#refs/}" >/dev/null 2>&1; then
+              if gh api "repos/${TARGET_REPOSITORY}/commits/${TARGET_SHA}/branches-where-head" --jq '.[0].name' >/dev/null 2>&1; then
+                default_branch="$(gh api "repos/${TARGET_REPOSITORY}" --jq '.default_branch')"
+                upload_ref="refs/heads/$default_branch"
+                # Do not misattribute a feature-branch commit to main.
+                if ! gh api "repos/${TARGET_REPOSITORY}/compare/${default_branch}...${TARGET_SHA}" --jq '.status' | grep -qx 'identical'; then
+                  echo "::warning::Target ref no longer exists; cannot attribute SARIF to a different branch."
+                  exit 0
+                fi
+              else
+                echo "::warning::Target ref no longer exists; skipping stale SARIF upload."
+                exit 0
+              fi
+            fi
+            echo "Uploading $f to ${TARGET_REPOSITORY}@${TARGET_SHA} (${upload_ref})"
             sarif_b64="$(gzip -c "$f" | base64 -w0)"
             payload="$(jq -n \
               --arg commit_sha "$TARGET_SHA" \
-              --arg ref "$TARGET_REF" \
+              --arg ref "$upload_ref" \
               --arg sarif "$sarif_b64" \
               --arg tool_name "CodeQL" \
               '{commit_sha:$commit_sha, ref:$ref, sarif:$sarif, tool_name:$tool_name}')"

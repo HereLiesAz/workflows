@@ -5,6 +5,8 @@ import argparse
 import base64
 import json
 import os
+import time
+import urllib.error
 import urllib.parse
 
 try:
@@ -104,7 +106,33 @@ class IdempotentGitHub(core.GitHub):
             body["sha"] = existing_sha
         if branch:
             body["branch"] = branch
-        self.json("PUT", f"/repos/{full_name}/contents/{quoted}", body)
+        endpoint = f"/repos/{full_name}/contents/{quoted}"
+        for attempt in range(4):
+            try:
+                self.json("PUT", endpoint, body)
+                return
+            except core.ApiError as error:
+                cause = error.__cause__
+                if not isinstance(cause, urllib.error.HTTPError) or cause.code not in {500, 502, 503, 504}:
+                    raise
+                time.sleep(2 ** attempt)
+                try:
+                    current = self.contents(full_name, path, ref=branch)
+                except core.ApiError as read_error:
+                    if "-> 404:" not in str(read_error):
+                        raise
+                    current = None
+                if isinstance(current, dict):
+                    encoded = current.get("content")
+                    if current.get("encoding") == "base64" and isinstance(encoded, str):
+                        if "".join(encoded.split()) == body["content"]:
+                            return
+                    current_sha = current.get("sha")
+                else:
+                    current_sha = None
+                # Preserve the original write precondition and never overwrite a concurrent edit.
+                if current_sha != existing_sha or attempt == 3:
+                    raise
 
     def upsert_variable(self, full_name: str, name: str, value: str) -> None:
         quoted = urllib.parse.quote(name, safe="")

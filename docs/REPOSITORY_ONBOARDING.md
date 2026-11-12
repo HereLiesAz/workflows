@@ -128,6 +128,7 @@ Centralization is **not** global serialization.
 - Different repositories/workflows may run concurrently.
 - Manual repository sync locks are per target repository, not account-wide.
 - `sync-all` uses a matrix and intentionally runs multiple repositories in parallel.
+- Shard branch creation retries without replacing an existing ref. After a GitHub server error, registry file writes check whether the requested bytes landed and retry only while the original blob is still current.
 - Only workflows mutating the same external resource should serialize, for example one app's Google Play edit.
 - Superseded validation runs on the same controller ref are cancelled; validation on different refs remains concurrent.
 

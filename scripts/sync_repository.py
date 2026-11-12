@@ -793,7 +793,8 @@ def _enforce_new_workflow_submission_policy(
             continue
 
         reviewed_blobs = REPOSITORY_REVIEWED_WORKFLOW_BLOBS.get(repository.casefold(), {})
-        expected_blob = reviewed_blobs.get(path)
+        local_asset_blobs = core.REPOSITORY_LOCAL_ASSET_WORKFLOW_BLOBS.get(repository.casefold(), {})
+        expected_blob = reviewed_blobs.get(path) or local_asset_blobs.get(path)
         if expected_blob and str(item.get("sha") or "") == expected_blob:
             continue
 

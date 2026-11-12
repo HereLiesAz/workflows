@@ -4,7 +4,7 @@
     "id": 1148245553,
     "full_name": "HereLiesAz/HG2Gui"
   },
-  "updated_at": "2026-11-12T22:28:31.871Z",
+  "updated_at": "2026-11-12T22:28:40.434Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
@@ -54,7 +54,18 @@
         },
         {
           "run_id": 43319669105,
-          "jobs": {},
+          "jobs": {
+            "composeapp": {
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/HereLiesAz/HG2Gui/actions/runs/43319669105/job/131536713247",
+              "started_at": "2026-11-12T22:24:58Z",
+              "completed_at": "2026-11-12T22:28:36Z",
+              "steps_completed": 13,
+              "steps_total": 13,
+              "current_step": null
+            }
+          },
           "reports": {
             "test": {
               "status": "success",
@@ -75,7 +86,8 @@
           "sha": "4cec4436cab16987a50a20a84f3c5c63f60b56ef",
           "event": "push",
           "branch": "fix/register-target-ci",
-          "updated_at": "2026-11-12T22:28:31.871Z"
+          "updated_at": "2026-11-12T22:28:40.434Z",
+          "status": "in_progress"
         }
       ]
     }

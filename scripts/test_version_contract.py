@@ -139,11 +139,11 @@ def main() -> int:
     controller = (Path(__file__).resolve().parents[1] / ".github/workflows/version-contract-sync.yml").read_text()
     assert "matrix.batch" in controller and "needs.discover.outputs.batches" in controller
     assert 'failed+=("$repository")' in controller, "every failure must be reported without skipping later repos"
-    import re
-    jq_filter = re.search(r"batches=\\\"\\$\\(jq -c '(\\[[^\\n]+\\])' <<<\\\"\\$repos\\\"\\)", controller)
-    assert jq_filter, "version-contract discover must partition the complete repository list"
+    marker = "batches=\"$(jq -c '"
+    assert marker in controller, "version-contract discover must partition the complete repository list"
+    jq_filter = controller.split(marker, 1)[1].split("' <<<", 1)[0]
     names = [f"HereLiesAz/sample-{i:03d}" for i in range(265)]
-    batches = json.loads(subprocess.check_output(["jq", "-c", jq_filter.group(1)], input=json.dumps(names), text=True))
+    batches = json.loads(subprocess.check_output(["jq", "-c", jq_filter], input=json.dumps(names), text=True))
     expect(len(batches), 27)
     expect(len(batches[0]), 10)
     expect(len(batches[25]), 10)

@@ -461,6 +461,12 @@ export const EVENT_CONSUMERS = {
     "repository": "HereLiesAz/HG2Gui",
     "events": [
       "push"
+    ],
+    "ci": [
+      {
+        "path": ".github/workflows/ci.yml",
+        "name": "CI"
+      }
     ]
   },
   "1148551147": {

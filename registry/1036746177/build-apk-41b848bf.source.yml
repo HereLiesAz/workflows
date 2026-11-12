@@ -1,23 +1,21 @@
-name: Merged Build & Release
+name: Android Debug CI
 
 on:
   push:
     branches: [ "**" ]
-    tags: [ "[0-9]*", "v[0-9]*" ]
   pull_request:
     branches: [ "master" ]
   workflow_dispatch:
 
-# Let an in-flight tag release finish before a retry can publish.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+  cancel-in-progress: true
 
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       issues: write
       pull-requests: write
       checks: read
@@ -151,77 +149,3 @@ jobs:
                 labels: ['jules', 'bug']
               });
             }
-
-      # ------------------------------------------------------------------
-      # RELEASE STEPS
-      # ------------------------------------------------------------------
-      - name: Prepare Release Variables
-        if: github.event_name == 'push' && github.ref_type == 'tag'
-        run: |
-          export BUILD_NUMBER=$(git rev-list --count HEAD)
-          
-          # Extract version info from properties file
-  
-          MAJOR=$(grep 'versionMajor=' version.properties | cut -d'=' -f2 | tr -d '\r ')
-          MINOR=$(grep 'versionMinor=' version.properties | cut -d'=' -f2 | tr -d '\r ')
-
-          PATCH=$(grep 'versionPatch=' version.properties | cut -d'=' -f2 | tr -d '\r ')
-
-          VERSION_NAME="$MAJOR.$MINOR.$PATCH.$BUILD_NUMBER"
-          
-          # Dynamic App Name from settings.gradle
-          if [ -f "settings.gradle.kts" ]; then
-             APP_NAME=$(grep 'rootProject.name' settings.gradle.kts | sed -E "s/.*=.*[\"'](.*)[\"']/\1/")
-          elif [ -f "settings.gradle" ]; then
-             APP_NAME=$(grep 'rootProject.name' settings.gradle | sed -E "s/.*=.*[\"'](.*)[\"']/\1/")
-          else
-             APP_NAME="App"
-          fi
-          
-          # Locate built APK
-          APK_ORIGINAL=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
-          
-          if [ -z "$APK_ORIGINAL" ]; then
-             echo "Error: No APK found to release!"
-             exit 1
-          fi
-
-          TARGET_NAME="${APP_NAME}-${VERSION_NAME}-debug.apk"
-          
-          # Rename for release
-          mv "$APK_ORIGINAL" "$TARGET_NAME"
-          
-          echo "APK_FILE=$TARGET_NAME" >> $GITHUB_ENV
-          
-          # Package Build Tools (Optional)
-          mkdir -p build_tools_package/tools build_tools_package/native
-          [ -d "app/src/main/assets/tools" ] && cp -r app/src/main/assets/tools/* build_tools_package/tools/ || true
-          [ -d "app/src/main/jniLibs/arm64-v8a" ] && cp -r app/src/main/jniLibs/arm64-v8a/* build_tools_package/native/ || true
-          cd build_tools_package && zip -r ../build-tools.zip . && cd ..
-
-      - name: Publish Release
-        if: github.event_name == 'push' && github.ref_type == 'tag'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if is_draft=$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq '.isDraft'); then
-            if [[ "$is_draft" == true ]]; then
-              echo "::error::A draft already exists for $GITHUB_REF_NAME and requires review before publishing."
-              exit 1
-            fi
-            echo "Release already exists for $GITHUB_REF_NAME."
-            exit 0
-          fi
-
-          tag_ref="refs/tags/$GITHUB_REF_NAME"
-          remote_tag=$(git ls-remote --exit-code origin "$tag_ref" "$tag_ref^{}")
-          tag_commit=$(awk '/\^\{\}$/ { print $1; found = 1 } NR == 1 { first = $1 } END { if (!found) print first }' <<< "$remote_tag")
-          if [[ "$tag_commit" != "$(git rev-parse HEAD)" ]]; then
-            echo "::error::Tag $GITHUB_REF_NAME no longer points to the built commit."
-            exit 1
-          fi
-
-          gh release create "$GITHUB_REF_NAME" "$APK_FILE" build-tools.zip \
-            --verify-tag \
-            --title "$GITHUB_REF_NAME" \
-            --notes "Auto-build from commit $GITHUB_SHA"

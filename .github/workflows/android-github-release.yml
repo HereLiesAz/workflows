@@ -524,7 +524,7 @@ jobs:
       # Play term is skipped (recorded + 1). A Play query that fails fails the job.
       - name: Resolve next versionCode
         id: android_version
-        uses: HereLiesAz/workflows/.github/actions/android-version@4370683fc9cb854610dd414a82141e8df388e9ae # main
+        uses: HereLiesAz/workflows/.github/actions/android-version@8d84df79b40aa5fb756add3a30d2053faf06381f # main
         with:
           mode: next
           version-file: ${{ fromJSON(inputs.purpose_profile_json).android_version_file || 'version.properties' }}
@@ -722,7 +722,7 @@ jobs:
         # Tag-triggered QuicLoc releases also consume a versionCode; record it
         # on main, where app/version.properties is the authoritative counter.
         if: ${{ env.ON_DEFAULT_BRANCH == 'true' || fromJSON(inputs.purpose_profile_json).external_versioning == true }}
-        uses: HereLiesAz/workflows/.github/actions/android-version@4370683fc9cb854610dd414a82141e8df388e9ae # main
+        uses: HereLiesAz/workflows/.github/actions/android-version@8d84df79b40aa5fb756add3a30d2053faf06381f # main
         with:
           mode: record
           version-file: ${{ fromJSON(inputs.purpose_profile_json).android_version_file || 'version.properties' }}

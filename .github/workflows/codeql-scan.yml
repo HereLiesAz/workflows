@@ -291,11 +291,18 @@ jobs:
             exit 1
           fi
           for f in "${files[@]}"; do
-            echo "Uploading $f to ${TARGET_REPOSITORY}@${TARGET_SHA} (${TARGET_REF})"
+            # Deleted PR branches cannot accept SARIF; never attribute the
+            # findings to main or an unrelated surviving branch.
+            upload_ref="$TARGET_REF"
+            if ! gh api "repos/${TARGET_REPOSITORY}/git/ref/${TARGET_REF#refs/}" >/dev/null 2>&1; then
+              echo "::warning::Target ref ${TARGET_REF} no longer exists; skipping stale SARIF."
+              exit 0
+            fi
+            echo "Uploading $f to ${TARGET_REPOSITORY}@${TARGET_SHA} (${upload_ref})"
             sarif_b64="$(gzip -c "$f" | base64 -w0)"
             payload="$(jq -n \
               --arg commit_sha "$TARGET_SHA" \
-              --arg ref "$TARGET_REF" \
+              --arg ref "$upload_ref" \
               --arg sarif "$sarif_b64" \
               --arg tool_name "CodeQL" \
               '{commit_sha:$commit_sha, ref:$ref, sarif:$sarif, tool_name:$tool_name}')"

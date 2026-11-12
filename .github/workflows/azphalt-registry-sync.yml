@@ -166,6 +166,7 @@ jobs:
         run: "set -euo pipefail\ncase \"$MODE\" in\n  pinned) flags=\"--update\" ;;\n  latest) flags=\"--update --latest\" ;;\n  *) echo \"::error::unknown sync mode '$MODE'\"; exit 1 ;;\nesac\necho \"mode=$MODE\"    >> \"$GITHUB_OUTPUT\"\necho \"flags=$flags\"  >> \"$GITHUB_OUTPUT\"\necho \"Sync mode: **$MODE** (\\`build-catalog $flags\\`)\" >> \"$GITHUB_STEP_SUMMARY\"\n"
       - name: Re-pin the catalog (unsigned)
         env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           MODE_FLAGS: ${{ steps.mode.outputs.flags }}
         run: pnpm --filter @azphalt/storefront build-catalog $MODE_FLAGS
       - name: Hand the re-pinned lockfile to the signing job

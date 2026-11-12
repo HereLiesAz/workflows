@@ -726,6 +726,13 @@ def _prune_rebound_repository_workflows(
 
 
 REPOSITORY_REVIEWED_WORKFLOW_BLOBS = {
+    # Reviewed target-local SearchA2A promoter. This workflow must run against
+    # Azphalt's submissions and open a reviewed PR; it never publishes packages.
+    # Exact blob admission prevents subsequent unreviewed edits from bypassing
+    # the new-workflow submission gate.
+    "hereliesaz/azphalt": {
+        ".github/workflows/promote-searcha2a.yml": "d0223f5c5685093f6c8809aef712c05d73bceca9",
+    },
     "hereliesaz/hereliesaz.github.io": {
         ".github/workflows/dedup_scan.yml": "dbe5a3f49d07e0404c8e679134286235adbcdb17",
         ".github/workflows/publish_admin_staging.yml": "8b54f6169299ab1964797d8442bb1e3681113424",

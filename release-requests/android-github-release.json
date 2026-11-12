@@ -24,10 +24,10 @@
     "java_version": "21",
     "inject_signing_args": true,
     "google_services": "template",
-    "build_command": "chmod +x gradlew && ./gradlew assembleDebug -PversionBuild=\"$VERSION_BUILD\" --build-cache",
+    "build_command": "test \"$ANDROID_VERSION_CODE\" = \"$VERSION_BUILD\" && chmod +x gradlew && ./gradlew assembleDebug -PversionBuild=\"$VERSION_BUILD\" --build-cache",
     "artifact_glob": "app/build/outputs/apk/debug/*.apk",
     "app_name": "LeFauxPass",
     "prerelease": false,
-    "pre_build_command": "test \"$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH\" = 3.0.0; build=$(git rev-list --count HEAD); sed -i \"s/^versionBuild=.*/versionBuild=$((build - 1))/\" version.properties; printf 'VERSION=%s.%s.%s.%s\\nVERSION_BUILD=%s\\n' \"$VERSION_MAJOR\" \"$VERSION_MINOR\" \"$VERSION_PATCH\" \"$build\" \"$build\" >> \"$GITHUB_ENV\""
+    "pre_build_command": "test \"$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH\" = 3.0.0; build=$(git rev-list --count HEAD); sed -i \"/^versionCode=/d; s/^versionBuild=.*/versionBuild=$((build - 1))/\" version.properties; printf \"\\nversionCode=%s\\n\" \"$((build - 1))\" >> version.properties; printf 'VERSION=%s.%s.%s.%s\\nVERSION_BUILD=%s\\n' \"$VERSION_MAJOR\" \"$VERSION_MINOR\" \"$VERSION_PATCH\" \"$build\" \"$build\" >> \"$GITHUB_ENV\""
   }
 }

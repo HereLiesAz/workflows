@@ -1,0 +1,22 @@
+# QaRd (com.hereliesaz.qard): built, signed and published by HereLiesAz/workflows
+# (.github/workflows/android-github-release.yml): a GitHub Release with the ad-free
+# "foss" flavor APK.
+# This file is the trigger contract; the central sync replaces it with a tracker.
+name: QaRd Android GitHub Release
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "commonMain/**"
+      - "gradle/**"
+      - "*.gradle.kts"
+      - "settings.gradle"
+      - "gradle.properties"
+  workflow_dispatch:
+permissions: {}
+jobs:
+  hand-off:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "QaRd Android GitHub Release runs centrally in HereLiesAz/workflows."

@@ -1,4 +1,11 @@
 name: release
+# Restored locally from the central registry snapshot (HereLiesAz/workflows
+# registry/1305373490/release-16911b98.source.yml): the 2026-09-20 centralization removed it and the
+# binding went obsolete, so no model was ever attached and the manifest's remoteUrl 404'd.
+#
+# Ships a sherpa-onnx Whisper bundle, the format hosts actually run (encoder + decoder + tokens.txt):
+# upstream publishes it as tar.bz2, hosts install `sherpa-bundle` assets as zip, so this repackages the
+# int8 models flat into whisper-base.zip, then checksums it into the manifest.
 on:
   push:
     tags: ['v*']
@@ -12,22 +19,28 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
-      # Fetch each upstream model, rename to the host-canonical filename, and checksum it.
-      # MODEL_URL[...] repo variables override the defaults below if an upstream path changes.
-      - name: Fetch whisper-base.onnx
+      # MODEL_URL (repo variable) overrides the upstream archive if its path changes.
+      - name: Build whisper-base.zip
+        env:
+          MODEL_URL: ${{ vars.MODEL_URL || 'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-base.tar.bz2' }}
         run: |
-          curl -fL "${{ vars.MODEL_URL || 'https://huggingface.co/onnx-community/whisper-base/resolve/main/onnx/model.onnx' }}" -o "whisper-base.onnx"
-          echo "whisper-base_onnx_sha=$(sha256sum 'whisper-base.onnx' | cut -d' ' -f1)" >> "$GITHUB_ENV"
-          echo "whisper-base_onnx_size=$(stat -c%s 'whisper-base.onnx')" >> "$GITHUB_ENV"
+          set -euo pipefail
+          curl -fL "$MODEL_URL" -o upstream.tar.bz2
+          mkdir upstream && tar xjf upstream.tar.bz2 -C upstream --strip-components=1
+          cd upstream
+          touch -d '2000-01-01T00:00:00Z' base-encoder.int8.onnx base-decoder.int8.onnx base-tokens.txt
+          zip -X -j ../whisper-base.zip base-encoder.int8.onnx base-decoder.int8.onnx base-tokens.txt
+          cd ..
+          echo "MODEL_SHA=$(sha256sum whisper-base.zip | cut -d' ' -f1)" >> "$GITHUB_ENV"
+          echo "MODEL_SIZE=$(stat -c%s whisper-base.zip)" >> "$GITHUB_ENV"
       - name: Inject checksum + byteSize into manifest
         run: |
           node -e '
             const fs=require("fs");
             const m=JSON.parse(fs.readFileSync("manifest.json","utf8"));
             for (const a of m.assets) {
-              const fn=a.remoteUrl.split("/").pop().replace(/\./g,"_");
-              a.checksum="sha256-"+process.env[fn+"_sha"];
-              a.byteSize=Number(process.env[fn+"_size"]);
+              a.checksum="sha256-"+process.env.MODEL_SHA;
+              a.byteSize=Number(process.env.MODEL_SIZE);
             }
             fs.writeFileSync("manifest.json",JSON.stringify(m,null,2));
           '
@@ -35,9 +48,24 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npm run build
+      # Sign before upload: sign-azp.yml fires on the release event, which can land before the
+      # upload finishes and then finds no .azp to sign (as happened on v1.1.0).
+      - name: Sign .azp
+        env:
+          AZP_PRIVATE_KEY: ${{ secrets.AZP_PRIVATE_KEY }}
+        run: |
+          if [ -z "$AZP_PRIVATE_KEY" ]; then echo "AZP_PRIVATE_KEY not set - leaving unsigned"; exit 0; fi
+          node --input-type=module -e '
+            import fs from "fs";
+            import { signAzp } from "@azphalt/azp";
+            for (const f of fs.readdirSync(".").filter((x) => x.endsWith(".azp"))) {
+              fs.writeFileSync(f, signAzp(fs.readFileSync(f), { privateKey: process.env.AZP_PRIVATE_KEY }));
+              console.log("signed " + f);
+            }
+          '
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             *.azp
-            whisper-base.onnx
+            whisper-base.zip

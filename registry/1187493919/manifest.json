@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-09-23T21:47:23+00:00",
+  "last_sync_at": "2026-11-12T22:15:01+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/ReUp",
@@ -8,8 +8,28 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
+  "worker_url_configured": false,
   "workflows": {
+    ".github/workflows/android-github-release.yml": {
+      "binding": "curated",
+      "central_workflow": ".github/workflows/android-github-release.yml",
+      "centralized": true,
+      "name": "ReUp Android GitHub Release",
+      "registry_source": "registry/1187493919/android-github-release-57374b22.source.yml",
+      "source_sha256": "57b8630e4ef406195f2679abd1ce8165213ddddb1f068ccd47692c090b20d6d6",
+      "status": "active",
+      "updated_at": "2026-11-12T22:15:00+00:00"
+    },
+    ".github/workflows/android-play-release.yml": {
+      "binding": "curated",
+      "central_workflow": ".github/workflows/android-play-release.yml",
+      "centralized": true,
+      "name": "ReUp Android Play Release",
+      "registry_source": "registry/1187493919/android-play-release-900abeb1.source.yml",
+      "source_sha256": "56aed18f0f8622ba8e2a36d4c9dfb07fb172e5eb87771aa2210cfc38f1ebe18a",
+      "status": "active",
+      "updated_at": "2026-11-12T22:15:01+00:00"
+    },
     ".github/workflows/build.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/android-github-release.yml",
@@ -23,7 +43,7 @@
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "😈 Glee Audit",
+      "name": "\ud83d\ude08 Glee Audit",
       "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/1187493919/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",

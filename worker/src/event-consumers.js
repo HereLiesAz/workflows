@@ -274,7 +274,8 @@ export const EVENT_CONSUMERS = {
   "1034746740": {
     "repository": "HereLiesAz/QaRd",
     "events": [
-      "push"
+      "push",
+      "workflow_dispatch"
     ]
   },
   "1035440042": {
@@ -360,7 +361,8 @@ export const EVENT_CONSUMERS = {
   "1065113129": {
     "repository": "HereLiesAz/Click",
     "events": [
-      "push"
+      "push",
+      "workflow_dispatch"
     ]
   },
   "1079279619": {
@@ -497,7 +499,8 @@ export const EVENT_CONSUMERS = {
   "1187493919": {
     "repository": "HereLiesAz/ReUp",
     "events": [
-      "push"
+      "push",
+      "workflow_dispatch"
     ]
   },
   "1205795311": {
@@ -615,7 +618,8 @@ export const EVENT_CONSUMERS = {
   "1278553598": {
     "repository": "HereLiesAz/WaveFrom",
     "events": [
-      "push"
+      "push",
+      "workflow_dispatch"
     ]
   },
   "1296954472": {
@@ -1309,7 +1313,9 @@ export const EVENT_CONSUMERS = {
   "1305373490": {
     "repository": "HereLiesAz/azphalt-whisper",
     "events": [
-      "push"
+      "push",
+      "release",
+      "workflow_dispatch"
     ]
   },
   "1305373521": {

@@ -1,0 +1,23 @@
+# QaRd (com.hereliesaz.qard): built, signed and published by HereLiesAz/workflows
+# (.github/workflows/android-play-release.yml): the "play" flavor App Bundle, with the
+# feature_transfer dynamic feature, to Google Play on the shared tracks.
+# This file is the trigger contract; the central sync replaces it with a tracker.
+name: QaRd Android Play Release
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "feature_transfer/**"
+      - "commonMain/**"
+      - "gradle/**"
+      - "*.gradle.kts"
+      - "settings.gradle"
+      - "gradle.properties"
+  workflow_dispatch:
+permissions: {}
+jobs:
+  hand-off:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "QaRd Android Play Release runs centrally in HereLiesAz/workflows."

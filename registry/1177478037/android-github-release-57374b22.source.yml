@@ -1,0 +1,17 @@
+# QuicLoc trigger contract. Executed centrally by HereLiesAz/workflows.
+# Keep signed universal APK builds under the existing Android GitHub Release executor.
+name: Android GitHub Release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      prerelease:
+        description: Mark the GitHub Release as a pre-release
+        type: boolean
+        default: false
+jobs:
+  hand-off:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "The GitHub release executes in HereLiesAz/workflows."

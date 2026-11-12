@@ -317,6 +317,7 @@ def apply_contract(
     max_attempts: int = 8,
     trigger_id: str = "",
     default_branch_only: bool = False,
+    persist_version_state: bool = True,
 ) -> tuple[Version, str]:
     os.chdir(workspace)
     state_branch, persist, on_default_branch = resolve_state_branch(repository, ref_name, ref_type, default_branch_only)
@@ -364,7 +365,7 @@ def apply_contract(
 
         # A reused version is already recorded; nothing to commit. A non-default ref of a
         # default-branch-only family never writes version state.
-        if recorded is None and persist:
+        if recorded is None and persist and persist_version_state:
             run("git", "switch", "--detach", branch_ref)
             Path("version.properties").write_text(
                 render_properties(persisted_props or source_props, version),
@@ -413,7 +414,7 @@ def apply_contract(
             "bump": bump,
             "state_branch": state_branch,
             "android_version_code": str(android_code),
-            "persisted": str(persist and recorded is None).lower(),
+            "persisted": str(persist and persist_version_state and recorded is None).lower(),
             "on_default_branch": str(on_default_branch).lower(),
         }
         write_github_file(os.environ.get("GITHUB_OUTPUT"), outputs)
@@ -451,6 +452,10 @@ def main() -> int:
         default="false",
         help="true: keep version state only on the default branch; other refs write nothing",
     )
+    parser.add_argument(
+        "--persist-version-state", default="true",
+        help="false: compute a version without writing root version.properties or .version-state.json",
+    )
     args = parser.parse_args()
 
     version, bump = apply_contract(
@@ -462,6 +467,7 @@ def main() -> int:
         run_id=args.run_id,
         trigger_id=args.trigger_id,
         default_branch_only=args.default_branch_only.strip().lower() == "true",
+        persist_version_state=args.persist_version_state.strip().lower() == "true",
     )
     print(f"{version} ({bump})")
     return 0

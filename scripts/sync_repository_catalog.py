@@ -108,7 +108,12 @@ class GitHub:
                     or headers.get("Retry-After")
                     or headers.get("X-RateLimit-Remaining") == "0"
                 )
-                if not rate_limited or attempt >= 3:
+                # GitHub transiently returns 500/502/503/504 on read-only
+                # endpoints (e.g. commits listing during Play checkout replay).
+                # A bounded retry is safe for GET; do not replay writes, which
+                # might have succeeded despite a server error.
+                transient_read = method == "GET" and exc.code in (500, 502, 503, 504)
+                if not (rate_limited or transient_read) or attempt >= 3:
                     raise ApiError(f"{method} {url} -> {exc.code}: {payload}") from exc
                 time.sleep(_rate_limit_delay(headers, attempt) or 1)
             except (urllib.error.URLError, TimeoutError, socket.timeout) as exc:

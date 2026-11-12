@@ -1,0 +1,33 @@
+{
+  "target_repository": "HereLiesAz/LeFauxPass",
+  "target_repository_id": "1036746177",
+  "target_repository_owner": "HereLiesAz",
+  "target_repository_owner_id": "103241502",
+  "target_repository_name": "LeFauxPass",
+  "target_sha": "1d32d3124c52454b1bf2c438c1a55cfe909b6823",
+  "target_check_sha": "1d32d3124c52454b1bf2c438c1a55cfe909b6823",
+  "target_ref": "refs/heads/master",
+  "target_ref_name": "master",
+  "target_ref_type": "branch",
+  "target_actor": "HereLiesAz",
+  "target_actor_id": "103241502",
+  "target_event_name": "workflow_dispatch",
+  "target_event_json": "{}",
+  "target_inputs_json": "{}",
+  "target_vars_json": "{}",
+  "target_run_id": "lefauxpass-android-3.0.0",
+  "target_workflow_name": "Android GitHub Release",
+  "source_workflow_path": ".github/workflows/build-apk.yml",
+  "source_sha256": "ff6dc5099d14aa2f812ccc6963585dd025071f22ea17e84cd8a398ba0fba8d1a",
+  "purpose_profile_json": {
+    "signing": "pem-chain",
+    "java_version": "21",
+    "inject_signing_args": true,
+    "google_services": "template",
+    "build_command": "test \"$ANDROID_VERSION_CODE\" = \"$VERSION_BUILD\" && chmod +x gradlew && ./gradlew assembleDebug -PversionBuild=\"$VERSION_BUILD\" --build-cache",
+    "artifact_glob": "app/build/outputs/apk/debug/*.apk",
+    "app_name": "LeFauxPass",
+    "prerelease": false,
+    "pre_build_command": "test \"$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH\" = 3.0.0; build=$(git rev-list --count HEAD); sed -i \"/^versionCode=/d; s/^versionBuild=.*/versionBuild=$((build - 1))/\" version.properties; printf \"\\nversionCode=%s\\n\" \"$((build - 1))\" >> version.properties; printf 'VERSION=%s.%s.%s.%s\\nVERSION_BUILD=%s\\n' \"$VERSION_MAJOR\" \"$VERSION_MINOR\" \"$VERSION_PATCH\" \"$build\" \"$build\" >> \"$GITHUB_ENV\""
+  }
+}

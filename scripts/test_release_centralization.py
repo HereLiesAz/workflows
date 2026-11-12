@@ -546,22 +546,26 @@ assert _quicloc_manifest["repository"]["full_name"] == "HereLiesAz/QuicLoc"
 _quicloc_sources = {
     ".github/workflows/android-github-release.yml": (
         "406ccaf4c0bda72c474888723e92296231db69a7f0b58052336064fa6295d417",
-        "registry/1177478037/android-github-release-406ccaf4.source.yml",
         ".github/workflows/android-github-release.yml",
     ),
     ".github/workflows/android-play-release.yml": (
         "ac44188d4c7565cc56dbd79c4923ba865a3fbe72084b9c6f661beb3a008e5325",
-        "registry/1177478037/android-play-release-ac44188d.source.yml",
         ".github/workflows/android-play-release.yml",
     ),
 }
-for _source_path, (_expected_hash, _expected_file, _expected_executor) in _quicloc_sources.items():
+for _source_path, (_expected_hash, _expected_executor) in _quicloc_sources.items():
     _entry = _quicloc_manifest["workflows"][_source_path]
     assert _entry["status"] == "active" and _entry["binding"] == "curated"
     assert _entry["source_sha256"] == _expected_hash
-    assert _entry["registry_source"] == _expected_file
+    # The synchronizer regenerates source filenames; the manifest, not a
+    # historical filename, is the registry authority.
+    _expected_file = _entry["registry_source"]
+    _source_file = Path(_expected_file)
+    assert _source_file.parent == Path("registry/1177478037")
+    assert _source_file.name.startswith(Path(_source_path).stem + "-")
+    assert _source_file.name.endswith(".source.yml")
     assert _entry["central_workflow"] == _expected_executor
-    _text = Path(_expected_file).read_text(encoding="utf-8")
+    _text = _source_file.read_text(encoding="utf-8")
     assert _hashlib.sha256(_text.encode("utf-8")).hexdigest() == _expected_hash
     _source = load_yaml(_text)
     assert "workflow_dispatch" in _source["on"]
@@ -574,8 +578,8 @@ for _source_path, (_expected_hash, _expected_file, _expected_executor) in _quicl
     assert "bundleRelease" in _profile["build_command"]
     assert "QUICLOC_REQUIRE_SIGNING=true" in _profile["build_command"]
     assert "VERSION_D" in _profile["build_command"]
-assert load_yaml(Path(_quicloc_sources[".github/workflows/android-play-release.yml"][1]).read_text())["on"]["push"]["branches"] == ["main"]
-assert load_yaml(Path(_quicloc_sources[".github/workflows/android-github-release.yml"][1]).read_text())["on"]["push"]["tags"] == ["v*"]
+assert load_yaml(Path(_quicloc_manifest["workflows"][".github/workflows/android-play-release.yml"]["registry_source"]).read_text())["on"]["push"]["branches"] == ["main"]
+assert load_yaml(Path(_quicloc_manifest["workflows"][".github/workflows/android-github-release.yml"]["registry_source"]).read_text())["on"]["push"]["tags"] == ["v*"]
 assert _quicloc_manifest["workflows"][".github/workflows/release-play.yml"]["status"] == "retired"
 _quicloc_play = _RELEASE_PROFILES["ac44188d4c7565cc56dbd79c4923ba865a3fbe72084b9c6f661beb3a008e5325"]
 assert _quicloc_play["package_name"] == "com.hereliesaz.quicloc"

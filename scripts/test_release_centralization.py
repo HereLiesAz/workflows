@@ -654,3 +654,26 @@ with _tempfile.TemporaryDirectory(prefix="changesets-regression-") as _tmp:
     _with = _subprocess.run(["bash", "-euo", "pipefail", "-c", _cs_shell], cwd=_root, env=_env, capture_output=True)
     assert _with.returncode == 91, "an unreleased change must run the real version command"
 print("Changesets no-pending-changes regression ok")
+
+# LeFauxPass 3.0.0 was accidentally published from assembleDebug under a release filename.
+# Only the exact historical SHA-256 is authorized for replacement; never use --clobber.
+import json as _release_json
+_lefaux_request = _release_json.loads(Path("release-requests/android-github-release.json").read_text())
+assert _lefaux_request["target_repository"] == "HereLiesAz/LeFauxPass"
+_lefaux_profile = _lefaux_request["purpose_profile_json"]
+assert "assembleRelease" in _lefaux_profile["build_command"]
+assert "assembleDebug" not in _lefaux_profile["build_command"]
+assert _lefaux_profile["artifact_glob"] == "app/build/outputs/apk/release/*.apk"
+assert _lefaux_profile["replace_known_bad_asset_digest"] == (
+    "sha256:029efd289ff869fd3faec126a6b343b70f2eeb6fb3fce6bf3c45a358e4739fc7"
+)
+_android_release = load_yaml(Path(".github/workflows/android-github-release.yml").read_text())
+_build_steps = _android_release["jobs"]["build_and_release"]["steps"]
+_repair = next(step for step in _build_steps if step.get("name") == "Replace only pinned incorrect release asset")
+assert "replace_known_bad_asset_digest" in _repair["if"]
+assert '[[ "$actual_digest" == "$EXPECTED_BAD_DIGEST" ]]' in _repair["run"]
+assert '[[ "$actual_digest" == "$new_digest" ]]' in _repair["run"]
+assert 'RELEASE_TAG="${RELEASE_TAG%.*}"' in _repair["run"]
+assert 'gh api --method DELETE' in _repair["run"]
+assert not any("--clobber" in str(step) for step in _build_steps)
+print("LeFauxPass signed release and digest-pinned repair regression ok")

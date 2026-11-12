@@ -4,7 +4,7 @@
     "id": 1031039591,
     "full_name": "HereLiesAz/aive"
   },
-  "updated_at": "2026-11-12T11:52:26.904Z",
+  "updated_at": "2026-11-12T11:52:28.280Z",
   "workflows": {
     ".github/workflows/bitcos-engine.yml": {
       "name": "BITCOS Engine",
@@ -2369,6 +2369,27 @@
       "name": "Android CI",
       "runs": [
         {
+          "run_id": 43212850606,
+          "jobs": {
+            "unit-tests": {
+              "status": "in_progress",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/43212850606/job/131164584374",
+              "started_at": "2026-11-12T11:52:24Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 1,
+              "current_step": "Set up job"
+            }
+          },
+          "reports": {},
+          "created_at": "2026-11-12T11:52:28.280Z",
+          "sha": "bd54dad9e41bd48361182fd9ea2cf6fe792324ae",
+          "branch": "feature/searcha2a-directory-client",
+          "status": "in_progress",
+          "updated_at": "2026-11-12T11:52:28.280Z"
+        },
+        {
           "run_id": 43212814047,
           "jobs": {
             "dependency-submission": {
@@ -3490,75 +3511,6 @@
           "conclusion": "success",
           "html_url": "https://github.com/HereLiesAz/aive/actions/runs/42765288538",
           "started_at": "2026-11-10T05:57:04Z"
-        },
-        {
-          "run_id": 42763756666,
-          "jobs": {
-            "unit-tests": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/42763756666/job/129655305812",
-              "started_at": "2026-11-10T05:42:07Z",
-              "completed_at": "2026-11-10T05:46:08Z",
-              "steps_completed": 18,
-              "steps_total": 18,
-              "current_step": null
-            },
-            "build-and-release": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/42763756666/job/129656632386",
-              "started_at": "2026-11-10T05:46:11Z",
-              "completed_at": "2026-11-10T05:53:28Z",
-              "steps_completed": 19,
-              "steps_total": 19,
-              "current_step": null
-            },
-            "dependency-submission": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/42763756666/job/129656632126",
-              "started_at": "2026-11-10T05:46:10Z",
-              "completed_at": "2026-11-10T05:47:01Z",
-              "steps_completed": 15,
-              "steps_total": 15,
-              "current_step": null
-            }
-          },
-          "reports": {
-            "unit-tests": {
-              "status": "success",
-              "summary": "",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-10T05:45:50.670Z"
-            },
-            "dependency-submission": {
-              "status": "success",
-              "summary": "",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-10T05:46:51.601Z"
-            },
-            "build-and-release": {
-              "status": "success",
-              "summary": "",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-10T05:53:07.862Z"
-            }
-          },
-          "created_at": "2026-11-10T05:42:06.551Z",
-          "run_number": 3354,
-          "run_attempt": 1,
-          "event": "push",
-          "branch": "main",
-          "sha": "bfeabae1239414c16b872e2d8eddbba8347d663e",
-          "status": "completed",
-          "conclusion": "success",
-          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/42763756666",
-          "started_at": "2026-11-10T05:42:04Z",
-          "updated_at": "2026-11-10T05:53:29Z"
         }
       ]
     },

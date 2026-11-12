@@ -730,7 +730,7 @@ jobs:
 
       - name: Resolve next versionCode
         id: android_version
-        uses: HereLiesAz/workflows/.github/actions/android-version@8ceb95ec9a950c488a1dfd2368d9d2a87f69f8f9 # main
+        uses: HereLiesAz/workflows/.github/actions/android-version@4370683fc9cb854610dd414a82141e8df388e9ae # main
         with:
           mode: next
           version-file: ${{ fromJSON(inputs.purpose_profile_json).android_version_file || 'version.properties' }}
@@ -1364,7 +1364,7 @@ jobs:
       # access (and the GitHub APK) still starts above it. Never lowers a recorded code.
       - name: Record published versionCode
         if: ${{ env.PUBLISH_PLAY == 'true' && env.ON_DEFAULT_BRANCH == 'true' }}
-        uses: HereLiesAz/workflows/.github/actions/android-version@8ceb95ec9a950c488a1dfd2368d9d2a87f69f8f9 # main
+        uses: HereLiesAz/workflows/.github/actions/android-version@4370683fc9cb854610dd414a82141e8df388e9ae # main
         with:
           mode: record
           version-file: ${{ fromJSON(inputs.purpose_profile_json).android_version_file || 'version.properties' }}

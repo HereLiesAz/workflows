@@ -4,7 +4,7 @@
     "id": 1031039591,
     "full_name": "HereLiesAz/aive"
   },
-  "updated_at": "2026-11-12T21:28:24.740Z",
+  "updated_at": "2026-11-12T21:28:26.725Z",
   "workflows": {
     ".github/workflows/bitcos-engine.yml": {
       "name": "BITCOS Engine",
@@ -2412,6 +2412,27 @@
       "name": "Android CI",
       "runs": [
         {
+          "run_id": 43310543529,
+          "jobs": {
+            "unit-tests": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/43310543529/job/131505259975",
+              "started_at": "2026-11-12T21:28:20Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-11-12T21:28:26.725Z",
+          "sha": "ea836642d6a83d3e4a0fc16c47cff8e8a129f02b",
+          "branch": "feat/openrouter-account-signin",
+          "status": "queued",
+          "updated_at": "2026-11-12T21:28:26.725Z"
+        },
+        {
           "run_id": 43310472177,
           "jobs": {
             "unit-tests": {
@@ -3431,51 +3452,6 @@
           "conclusion": "cancelled",
           "html_url": "https://github.com/HereLiesAz/aive/actions/runs/43237048805",
           "started_at": "2026-11-12T14:25:36Z"
-        },
-        {
-          "run_id": 43236982215,
-          "jobs": {
-            "unit-tests": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/43236982215/job/131246848956",
-              "started_at": "2026-11-12T14:25:37Z",
-              "completed_at": "2026-11-12T14:30:23Z",
-              "steps_completed": 18,
-              "steps_total": 18,
-              "current_step": null
-            },
-            "build-and-release": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/43236982215/job/131250027631",
-              "started_at": "2026-11-12T14:30:24Z",
-              "completed_at": "2026-11-12T14:30:23Z",
-              "steps_completed": 0,
-              "steps_total": 0,
-              "current_step": null
-            }
-          },
-          "reports": {
-            "unit-tests": {
-              "status": "cancelled",
-              "summary": "",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-12T14:30:16.921Z"
-            }
-          },
-          "created_at": "2026-11-12T14:25:16.563Z",
-          "run_number": 3387,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "feature/ans-provenance-directory",
-          "sha": "aa40bad75441350f77983248c9167dc2600591b2",
-          "status": "in_progress",
-          "conclusion": null,
-          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/43236982215",
-          "started_at": "2026-11-12T14:25:13Z",
-          "updated_at": "2026-11-12T14:30:34.946Z"
         }
       ]
     },

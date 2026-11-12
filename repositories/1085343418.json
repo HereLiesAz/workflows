@@ -4,11 +4,27 @@
     "id": 1085343418,
     "full_name": "HereLiesAz/IDEaz"
   },
-  "updated_at": "2026-11-12T16:37:03.581Z",
+  "updated_at": "2026-11-12T16:37:27.328Z",
   "workflows": {
     ".github/workflows/pr-ci.yml": {
       "name": "PR CI",
       "runs": [
+        {
+          "run_id": 43260684328,
+          "jobs": {},
+          "reports": {},
+          "created_at": "2026-11-12T16:37:27.328Z",
+          "run_number": 80,
+          "run_attempt": 1,
+          "event": "pull_request",
+          "branch": "dependabot/npm_and_yarn/templates/react/tanstack/react-query-5.107.1",
+          "sha": "58527eae2d6a6d13f7c6318174f68e6f004542a5",
+          "status": "queued",
+          "conclusion": null,
+          "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/43260684328",
+          "started_at": "2026-11-12T16:37:25Z",
+          "updated_at": "2026-11-12T16:37:25Z"
+        },
         {
           "run_id": 43260439463,
           "jobs": {
@@ -625,41 +641,6 @@
           "conclusion": "success",
           "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/42113815472",
           "started_at": "2026-11-05T21:34:06Z"
-        },
-        {
-          "run_id": 42113761427,
-          "jobs": {
-            "build": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/42113761427/job/127547835812",
-              "started_at": "2026-11-05T21:40:56Z",
-              "completed_at": "2026-11-05T21:46:31Z",
-              "steps_completed": 10,
-              "steps_total": 10,
-              "current_step": null
-            }
-          },
-          "reports": {
-            "build": {
-              "status": "success",
-              "summary": ":app:testDebugUnitTest :app:assembleDebug success",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-05T21:46:26.132Z"
-            }
-          },
-          "created_at": "2026-11-05T21:33:47.616Z",
-          "run_number": 60,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "dependabot/gradle/org.jetbrains.androidx.navigation-navigation-compose-2.10.0",
-          "sha": "d2a03fd8e1344d8a8481ae1fa7f50a619c87d1a0",
-          "status": "completed",
-          "conclusion": "success",
-          "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/42113761427",
-          "started_at": "2026-11-05T21:33:45Z",
-          "updated_at": "2026-11-05T21:46:35.559Z"
         }
       ]
     }

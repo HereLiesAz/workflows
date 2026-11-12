@@ -534,6 +534,12 @@ export const EVENT_CONSUMERS = {
     "events": [
       "push",
       "workflow_dispatch"
+    ],
+    "ci": [
+      {
+        "path": ".github/workflows/shift-s27-qa.yml",
+        "name": "Shift S2.7 visual QA"
+      }
     ]
   },
   "1228954520": {

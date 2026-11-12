@@ -28,6 +28,7 @@
     "artifact_glob": "app/build/outputs/apk/release/*.apk",
     "app_name": "LeFauxPass",
     "prerelease": false,
-    "pre_build_command": "test \"$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH\" = 3.0.0; build=$(git rev-list --count HEAD); sed -i \"/^versionCode=/d; s/^versionBuild=.*/versionBuild=$((build - 1))/\" version.properties; printf \"\\nversionCode=%s\\n\" \"$((build - 1))\" >> version.properties; printf 'VERSION=%s.%s.%s.%s\\nVERSION_BUILD=%s\\n' \"$VERSION_MAJOR\" \"$VERSION_MINOR\" \"$VERSION_PATCH\" \"$build\" \"$build\" >> \"$GITHUB_ENV\""
+    "pre_build_command": "test \"$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH\" = 3.0.0; build=$(git rev-list --count HEAD); sed -i \"/^versionCode=/d; s/^versionBuild=.*/versionBuild=$((build - 1))/\" version.properties; printf \"\\nversionCode=%s\\n\" \"$((build - 1))\" >> version.properties; printf 'VERSION=%s.%s.%s.%s\\nVERSION_BUILD=%s\\n' \"$VERSION_MAJOR\" \"$VERSION_MINOR\" \"$VERSION_PATCH\" \"$build\" \"$build\" >> \"$GITHUB_ENV\"",
+    "replace_known_bad_asset_digest": "sha256:029efd289ff869fd3faec126a6b343b70f2eeb6fb3fce6bf3c45a358e4739fc7"
   }
 }

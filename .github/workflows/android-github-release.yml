@@ -726,6 +726,37 @@ jobs:
             printf 'Release build from commit %s\n' "$(git rev-parse HEAD)" > grouped-release-notes.md
           fi
 
+      # Repair only a known, SHA-256-identified incorrect artifact. The normal grouped
+      # publisher remains immutable: unexpected differing bytes must still fail.
+      - name: Replace only pinned incorrect release asset
+        if: ${{ fromJSON(inputs.purpose_profile_json).replace_known_bad_asset_digest != null && fromJSON(inputs.purpose_profile_json).replace_known_bad_asset_digest != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          EXPECTED_BAD_DIGEST: ${{ fromJSON(inputs.purpose_profile_json).replace_known_bad_asset_digest }}
+          TARGET_REPO: ${{ inputs.target_repository }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_ASSET: ${{ steps.release.outputs.asset }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_BAD_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::Invalid pinned digest"; exit 1; }
+          name="$(basename "$RELEASE_ASSET")"
+          current="$(gh api "repos/${TARGET_REPO}/releases/tags/${RELEASE_TAG}" | jq -c --arg name "$name" '[.assets[] | select(.name == $name)][0] // {}')"
+          asset_id="$(jq -r '.id // empty' <<<"$current")"
+          [[ -n "$asset_id" ]] || { echo "No old release asset to replace."; exit 0; }
+          actual_digest="$(jq -r '.digest // empty' <<<"$current")"
+          new_digest="sha256:$(sha256sum "$RELEASE_ASSET" | cut -d' ' -f1)"
+          if [[ "$actual_digest" == "$new_digest" ]]; then
+            echo "Identical signed APK already published; preserving it."
+            exit 0
+          fi
+          [[ "$actual_digest" == "$EXPECTED_BAD_DIGEST" ]] || {
+            echo "::error::Unexpected release asset bytes; refusing to replace it."
+            exit 1
+          }
+          gh api --method DELETE "repos/${TARGET_REPO}/releases/assets/${asset_id}"
+          echo "Deleted only the SHA-256-pinned erroneous APK; normal publisher will upload the signed release."
+
       - name: Publish patch-grouped GitHub release
         uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@523fa5f6e4b3e6cbbbfc189e09f0f64b3f39c572 # main
         with:

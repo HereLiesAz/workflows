@@ -320,9 +320,6 @@ def target_ci_reason(doc: dict[str, Any], override: str | None, profile: dict[st
     for value in step_uses:
         if value.startswith(CI_REPORT_ACTION + "@") or value == CI_REPORT_ACTION:
             return "declares CI with the ci-report action; CI runs in the target repository"
-    if override == CI_VALIDATION_WORKFLOW and (profile or {}).get("central_execution") is True:
-        # Explicitly reviewed, hash-pinned exceptions execute via the shared CI executor.
-        return None
     if override == CI_VALIDATION_WORKFLOW and (profile or {}).get("kind") == "kaggle":
         # Remote compute, not CI: the target holds only a stub, and the central run submits the
         # kernel and exits; Kaggle reports the result back (remote-run-result.yml).

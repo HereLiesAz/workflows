@@ -1,0 +1,17 @@
+# QuicLoc trigger contract. Executed centrally by HereLiesAz/workflows.
+# Internal rollout on main; other tracks are staged as drafts.
+name: Android Play Release
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish to the configured Play tracks (false builds only)
+        type: boolean
+        default: false
+jobs:
+  hand-off:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "The Play release executes in HereLiesAz/workflows."

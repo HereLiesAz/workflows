@@ -740,6 +740,8 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$EXPECTED_BAD_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::Invalid pinned digest"; exit 1; }
+          # The grouped publisher uses major.minor.patch, not the four-part build version.
+          RELEASE_TAG="${RELEASE_TAG%.*}"
           name="$(basename "$RELEASE_ASSET")"
           current="$(gh api "repos/${TARGET_REPO}/releases/tags/${RELEASE_TAG}" | jq -c --arg name "$name" '[.assets[] | select(.name == $name)][0] // {}')"
           asset_id="$(jq -r '.id // empty' <<<"$current")"

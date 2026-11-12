@@ -5,6 +5,9 @@
 name: Android GitHub Release
 run-name: ${{ inputs.target_repository_name }} · Android GitHub Release
 on:
+  push:
+    branches: [main]
+    paths: [release-requests/android-github-release.json]
   workflow_dispatch:
     inputs:
       target_repository:
@@ -96,7 +99,27 @@ env:
   TARGET_REPOSITORY_NAME: ${{ inputs.target_repository_name }}
 
 jobs:
+  dispatch_release_request:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Dispatch the approved release request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -c '.purpose_profile_json |= tojson' release-requests/android-github-release.json |
+            gh workflow run android-github-release.yml --repo "$GITHUB_REPOSITORY" --ref main --json
+
   central_check_start:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Validate immutable target identity
@@ -736,7 +759,7 @@ jobs:
         if: ${{ always() }}
         run: rm -f "$KEYSTORE_OUTPUT" private-key.pem certificate-chain.crt keystore.p12
   central_check_finish:
-    if: ${{ always() }}
+    if: ${{ always() && github.event_name == 'workflow_dispatch' }}
     needs:
       - central_check_start
       - version_contract

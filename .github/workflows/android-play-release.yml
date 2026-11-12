@@ -163,6 +163,7 @@ jobs:
       trigger_id: ${{ inputs.target_run_id }}
       # Only the default branch publishes, so only it records version state.
       default_branch_only: true
+      persist_version_state: ${{ fromJSON(inputs.purpose_profile_json).external_versioning != true }}
     secrets:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
@@ -732,8 +733,18 @@ jobs:
         uses: HereLiesAz/workflows/.github/actions/android-version@8ceb95ec9a950c488a1dfd2368d9d2a87f69f8f9 # main
         with:
           mode: next
+          version-file: ${{ fromJSON(inputs.purpose_profile_json).android_version_file || 'version.properties' }}
           service-account-json: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           package-name: ${{ steps.meta.outputs.package_name }}
+
+      - name: Use project-managed release version
+        if: ${{ fromJSON(inputs.purpose_profile_json).external_versioning == true }}
+        env:
+          PROJECT_VERSION_NAME: ${{ steps.android_version.outputs.version-name }}
+        run: |
+          set -euo pipefail
+          [[ "$PROJECT_VERSION_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::Invalid app version: $PROJECT_VERSION_NAME"; exit 1; }
+          echo "VERSION=$PROJECT_VERSION_NAME" >> "$GITHUB_ENV"
 
       - name: Resolve version arguments
         env:
@@ -1356,6 +1367,7 @@ jobs:
         uses: HereLiesAz/workflows/.github/actions/android-version@8ceb95ec9a950c488a1dfd2368d9d2a87f69f8f9 # main
         with:
           mode: record
+          version-file: ${{ fromJSON(inputs.purpose_profile_json).android_version_file || 'version.properties' }}
           repository: ${{ inputs.target_repository }}
           branch: ${{ inputs.target_ref_name }}
           version-code: ${{ env.EFFECTIVE_RELEASE_VERSION_CODE }}

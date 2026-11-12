@@ -1,0 +1,129 @@
+name: Shift S2.7 visual QA
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'public/shift-motion.js'
+      - 'public/shift-face-graphics.js'
+      - 'public/character-models.js'
+      - 'public/assets/characters/Shift_Rigged.glb'
+      - 'public/assets/characters/Qwerty_Q16_Validated.glb'
+      - 'workbench/shift/Shift_S28.glb'
+      - 'workbench/shift/Shift_S29.glb'
+      - 'scripts/shift_dome_s28.py'
+      - 'tests/robot-proportions-s28.test.mjs'
+      - 'tests/shift-materials-s26.test.mjs'
+      - 'tests/test_tab_box_t32.py'
+      - 'scripts/build_reference_tab.py'
+      - 'tests/tab-reference-contract.test.mjs'
+      - 'docs/characters/tab-t31-trace.json'
+      - 'public/assets/characters/Tab_Reference.glb'
+      - 'public/assets/characters/Tab_Victoria.glb'
+      - 'scripts/assemble_victoria_tab.py'
+      - 'tests/test_tab_victoria_integration.py'
+      - 'public/assets/art/tab.webp'
+      - 'docs/evidence/tab-t31-reference.svg'
+      - 'scripts/robot_proportions_browser_qa.mjs'
+      - 'scripts/qwerty_head_hinge.py'
+      - 'scripts/qwerty_depth_bounce.py'
+      - 'scripts/shift_dome_s22.py'
+      - 'tests/test_qwerty_depth_bounce.py'
+      - 'tests/test_shift_dome_s22.py'
+      - 'workbench/shift/Shift_Rigged_PreS28.glb'
+      - 'public/shift-weapon.js'
+      - 'tests/shift-weapon.test.mjs'
+      - 'public/world3d.js'
+      - 'public/tab-motion.js'
+      - 'tests/tab-motion.test.mjs'
+      - 'workbench/shift/Shift_S27.glb'
+      - 'tests/shift-sequences-s27.test.mjs'
+      - 'scripts/shift_s27_browser_qa.mjs'
+      - 'scripts/shift_sequences_s27.py'
+  pull_request:
+    paths:
+      - 'public/shift-motion.js'
+      - 'public/shift-face-graphics.js'
+      - 'public/character-models.js'
+      - 'public/assets/characters/Shift_Rigged.glb'
+      - 'public/assets/characters/Qwerty_Q16_Validated.glb'
+      - 'workbench/shift/Shift_S28.glb'
+      - 'workbench/shift/Shift_S29.glb'
+      - 'scripts/shift_dome_s28.py'
+      - 'tests/robot-proportions-s28.test.mjs'
+      - 'tests/shift-materials-s26.test.mjs'
+      - 'tests/test_tab_box_t32.py'
+      - 'scripts/build_reference_tab.py'
+      - 'tests/tab-reference-contract.test.mjs'
+      - 'docs/characters/tab-t31-trace.json'
+      - 'public/assets/characters/Tab_Reference.glb'
+      - 'public/assets/characters/Tab_Victoria.glb'
+      - 'scripts/assemble_victoria_tab.py'
+      - 'tests/test_tab_victoria_integration.py'
+      - 'public/assets/art/tab.webp'
+      - 'docs/evidence/tab-t31-reference.svg'
+      - 'scripts/robot_proportions_browser_qa.mjs'
+      - 'scripts/qwerty_head_hinge.py'
+      - 'scripts/qwerty_depth_bounce.py'
+      - 'scripts/shift_dome_s22.py'
+      - 'tests/test_qwerty_depth_bounce.py'
+      - 'tests/test_shift_dome_s22.py'
+      - 'workbench/shift/Shift_Rigged_PreS28.glb'
+      - 'public/shift-weapon.js'
+      - 'tests/shift-weapon.test.mjs'
+      - 'public/world3d.js'
+      - 'public/tab-motion.js'
+      - 'tests/tab-motion.test.mjs'
+      - 'workbench/shift/Shift_S27.glb'
+      - 'tests/shift-sequences-s27.test.mjs'
+      - 'scripts/shift_s27_browser_qa.mjs'
+      - 'scripts/shift_sequences_s27.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  shift-s27:
+    # Playwright 1.56.1 supports Ubuntu 24.04 but not ubuntu-latest (26.04).
+    # Keep Chromium image support stable for reference-frame acceptance.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - name: Existing repository regression tests
+        run: npm test
+      - name: Python generator dependencies
+        run: python3 -m pip install numpy Pillow
+      - name: Complete Python GLB generators and structure
+        run: python3 -m unittest discover -s tests -p 'test_*.py'
+      - name: Chromium browser setup
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Motion recording encoder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Capture actual in-game front/side/turn/weapon/fallback
+        run: node scripts/shift_s27_browser_qa.mjs artifacts/shift-s27
+      - name: Capture production Qwerty scale and Shift circular-dome views
+        run: node scripts/robot_proportions_browser_qa.mjs artifacts/robot-proportions
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: shift-s27-browser-evidence
+          path: |
+            artifacts/shift-s27
+            artifacts/robot-proportions
+          if-no-files-found: warn
+
+      - name: Report CI result
+        if: always()
+        uses: HereLiesAz/workflows/.github/actions/ci-report@de579d34aee1d8a18b9d5329afdd94632258f621

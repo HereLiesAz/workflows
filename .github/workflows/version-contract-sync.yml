@@ -22,7 +22,7 @@ jobs:
   discover:
     runs-on: ubuntu-latest
     outputs:
-      repositories: ${{ steps.repos.outputs.repositories }}
+      batches: ${{ steps.repos.outputs.batches }}
       count: ${{ steps.repos.outputs.count }}
     steps:
       - name: Enumerate every owned repository
@@ -40,11 +40,11 @@ jobs:
           )"
           count="$(jq 'length' <<<"$repos")"
           test "$count" -gt 0
-          test "$count" -le 256 || {
-            echo "::error::Owned repository count $count exceeds GitHub's 256-job matrix ceiling." >&2
-            exit 1
-          }
-          echo "repositories=$repos" >> "$GITHUB_OUTPUT"
+          # Matrix entries are batches, not repositories. This includes *all*
+          # public, unarchived owned repositories even beyond the 256-job cap.
+          # Each job processes at most ten repositories and reports every failure.
+          batches="$(jq -c '[range(0; length; 10) as $i | .[$i:($i+10)]]' <<<"$repos")"
+          echo "batches=$batches" >> "$GITHUB_OUTPUT"
           echo "count=$count" >> "$GITHUB_OUTPUT"
           echo "Owned repositories: $count" >> "$GITHUB_STEP_SUMMARY"
 
@@ -54,7 +54,7 @@ jobs:
       fail-fast: false
       max-parallel: 4
       matrix:
-        repository: ${{ fromJSON(needs.discover.outputs.repositories) }}
+        batch: ${{ fromJSON(needs.discover.outputs.batches) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -66,7 +66,24 @@ jobs:
       - name: Install controller dependency
         run: python -m pip install --disable-pip-version-check 'ruamel.yaml==0.18.15'
 
-      - name: Enforce major.minor.patch.build
+      - name: Enforce major.minor.patch.build for every repository in batch
         env:
-          MATRIX_REPOSITORY: ${{ matrix.repository }}
-        run: python scripts/sync_version_contract.py --repository "$MATRIX_REPOSITORY"
+          MATRIX_BATCH: ${{ toJSON(matrix.batch) }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          failed=()
+          while IFS= read -r repository; do
+            [ -n "$repository" ] || continue
+            echo "::group::Version contract: $repository"
+            if python scripts/sync_version_contract.py --repository "$repository"; then
+              echo "Version contract applied: $repository"
+            else
+              failed+=("$repository")
+            fi
+            echo "::endgroup::"
+          done < <(jq -r '.[]' <<<"$MATRIX_BATCH")
+          if [ "${#failed[@]}" -gt 0 ]; then
+            printf '::error::Version contract failed for: %s\n' "${failed[*]}"
+            exit 1
+          fi

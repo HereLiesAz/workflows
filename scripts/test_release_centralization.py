@@ -595,3 +595,62 @@ assert _quicloc_github["artifact_glob"] == "app/build/outputs/universal/release/
 assert _quicloc_github["test_command"] == "./gradlew testDebugUnitTest --no-daemon --stacktrace"
 assert not Path(".github/workflows/quicloc-release-play.yml").exists(), "no separate QuicLoc Play executor"
 print("QuicLoc central release bindings and fused-APK profile ok")
+
+# Exercise the actual rolling release's asset-staging shell on two colliding
+# NOTICE files and one APK. Old behaviour passed duplicate release-asset names
+# to 'gh release upload --clobber', deleting an asset twice and yielding HTTP 404.
+_multi_doc = load_yaml(multi_platform_release)
+_rolling_step = next(
+    step for step in _multi_doc["jobs"]["release"]["steps"]
+    if step.get("name") == "Update rolling release alias"
+)
+_rolling_run = _rolling_step["run"]
+assert 'gh release upload "$rolling" "${assets[@]}" --repo "$TARGET_REPOSITORY" --clobber' in _rolling_run
+assert 'Rolling release upload failed after three attempts' in _rolling_run
+_roll_setup = _rolling_run.split("body_template=", 1)[0]
+with _tempfile.TemporaryDirectory(prefix="rolling-assets-regression-") as _tmp:
+    _root = Path(_tmp)
+    for _relative, _data in (
+        ("macos/release/NOTICE", "mac license"),
+        ("linux/release/NOTICE", "linux license"),
+        ("android/QuicLoc.apk", "signed APK"),
+    ):
+        _dest = _root / "artifacts" / _relative
+        _dest.parent.mkdir(parents=True, exist_ok=True)
+        _dest.write_text(_data, encoding="utf-8")
+    _subprocess.run(
+        ["bash", "-euo", "pipefail", "-c", _roll_setup],
+        cwd=_root, env={**_os.environ, "PROFILE_JSON": '{"rolling_tag":"latest"}'},
+        text=True, check=True, capture_output=True,
+    )
+    _staged = {
+        file.name: file.read_text(encoding="utf-8")
+        for file in (_root / "rolling-assets").iterdir()
+    }
+    assert _staged == {
+        "macos__release__NOTICE": "mac license",
+        "linux__release__NOTICE": "linux license",
+        "QuicLoc.apk": "signed APK",
+    }, _staged
+print("rolling release duplicate asset regression ok")
+
+# Changesets' version command is an error when there are no pending .md files.
+# Pre-versioned packages still need the publish path on a retry; version should
+# run only when a real changeset exists.
+_node_doc = load_yaml(Path(".github/workflows/node-package-publish.yml").read_text())
+_node_step = next(step for step in _node_doc["jobs"]["publish"]["steps"] if step.get("name") == "Publish packages")
+_node_run = _node_step["run"]
+assert 'bash -eo pipefail -c "$publish_cmd"' in _node_run
+_cs_start = _node_run.index("if [ -d .changeset ]")
+_cs_shell = _node_run[_cs_start:_node_run.index("if ! git diff", _cs_start)]
+with _tempfile.TemporaryDirectory(prefix="changesets-regression-") as _tmp:
+    _root = Path(_tmp)
+    (_root / ".changeset").mkdir()
+    (_root / ".changeset" / "README.md").write_text("Documentation", encoding="utf-8")
+    _env = {**_os.environ, "version_cmd": "exit 91"}
+    _without = _subprocess.run(["bash", "-euo", "pipefail", "-c", _cs_shell], cwd=_root, env=_env, capture_output=True)
+    assert _without.returncode == 0, "README-only Changesets directory must not fail the publish"
+    (_root / ".changeset" / "patch.md").write_text("pending release", encoding="utf-8")
+    _with = _subprocess.run(["bash", "-euo", "pipefail", "-c", _cs_shell], cwd=_root, env=_env, capture_output=True)
+    assert _with.returncode == 91, "an unreleased change must run the real version command"
+print("Changesets no-pending-changes regression ok")

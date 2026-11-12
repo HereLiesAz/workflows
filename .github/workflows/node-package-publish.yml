@@ -288,6 +288,25 @@ jobs:
                   echo "Updated existing version PR #$existing."
                 fi
               else
+                # Changesets exits 1 for an empty release even when there is no
+                # unpublished version. Do not turn that into a false failure.
+                # Compare each publishable workspace version with the registry;
+                # only a missing version justifies invoking the publish command.
+                unpublished=false
+                while IFS= read -r manifest; do
+                  pkg="$(jq -r '.name // empty' "$manifest")"
+                  version="$(jq -r '.version // empty' "$manifest")"
+                  private="$(jq -r '.private // false' "$manifest")"
+                  [[ -n "$pkg" && -n "$version" && "$private" != true ]] || continue
+                  if ! npm view "$pkg@$version" version --registry=https://registry.npmjs.org --json >/dev/null 2>&1; then
+                    unpublished=true
+                    break
+                  fi
+                done < <(find packages -mindepth 2 -maxdepth 3 -name package.json -not -path '*/node_modules/*' 2>/dev/null)
+                if [[ "$unpublished" == false ]]; then
+                  echo "::notice::No unpublished workspace package versions; nothing to publish."
+                  exit 0
+                fi
                 if bash -eo pipefail -c "$publish_cmd"; then
                   echo "Primary package publication completed."
                 else

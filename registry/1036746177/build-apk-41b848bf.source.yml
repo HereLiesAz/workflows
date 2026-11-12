@@ -3,14 +3,15 @@ name: Merged Build & Release
 on:
   push:
     branches: [ "**" ]
+    tags: [ "[0-9]*", "v[0-9]*" ]
   pull_request:
     branches: [ "master" ]
   workflow_dispatch:
 
-# ⚡ Concurrency: Cancels the entire job if a new push comes in.
+# Let an in-flight tag release finish before a retry can publish.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 jobs:
   build-and-release:
@@ -152,11 +153,10 @@ jobs:
             }
 
       # ------------------------------------------------------------------
-      # RELEASE STEPS (Only run on PUSH, not Pull Requests)
+      # RELEASE STEPS
       # ------------------------------------------------------------------
       - name: Prepare Release Variables
-        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/master'
-        id: release_vars
+        if: github.event_name == 'push' && github.ref_type == 'tag'
         run: |
           export BUILD_NUMBER=$(git rev-list --count HEAD)
           
@@ -168,8 +168,6 @@ jobs:
           PATCH=$(grep 'versionPatch=' version.properties | cut -d'=' -f2 | tr -d '\r ')
 
           VERSION_NAME="$MAJOR.$MINOR.$PATCH.$BUILD_NUMBER"
-          
-          TAG_NAME="latest-debug-v${MAJOR}.${MINOR}"
           
           # Dynamic App Name from settings.gradle
           if [ -f "settings.gradle.kts" ]; then
@@ -193,7 +191,6 @@ jobs:
           # Rename for release
           mv "$APK_ORIGINAL" "$TARGET_NAME"
           
-          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
           echo "APK_FILE=$TARGET_NAME" >> $GITHUB_ENV
           
           # Package Build Tools (Optional)
@@ -203,45 +200,28 @@ jobs:
           cd build_tools_package && zip -r ../build-tools.zip . && cd ..
 
       - name: Publish Release
-        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/master'
+        if: github.event_name == 'push' && github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          # Force update tag to point to current commit
-          git tag -fa $TAG_NAME -m "Latest Debug Build"
-          git push origin $TAG_NAME --force
-
-          BUILD_TOOLS="build-tools.zip"
-
-          # Check if release exists
-          if gh release view $TAG_NAME > /dev/null 2>&1; then
-             echo "Updating existing release..."
-
-             # Keep one APK per rolling release so the updater cannot select stale assets.
-             for ASSET in $(gh release view "$TAG_NAME" --json assets --jq '.assets[].name'); do
-               case "$ASSET" in
-                 *.apk|"$BUILD_TOOLS")
-                   gh release delete-asset "$TAG_NAME" "$ASSET" -y || true
-                   ;;
-               esac
-             done
-
-             gh release edit $TAG_NAME --prerelease \
-               --title "Latest Debug Build ($TAG_NAME)" \
-               --notes "Auto-build from commit $GITHUB_SHA" \
-               --target $GITHUB_SHA
-
-             # Clobber ensures that if we re-run the workflow on the exact same commit, it replaces the APK instead of failing.
-             gh release upload $TAG_NAME "$APK_FILE" --clobber
-             [ -f "$BUILD_TOOLS" ] && gh release upload $TAG_NAME "$BUILD_TOOLS" --clobber
-          else
-             echo "Creating new release..."
-             gh release create $TAG_NAME "$APK_FILE" --prerelease \
-               --title "Latest Debug Build ($TAG_NAME)" \
-               --notes "Auto-build from commit $GITHUB_SHA" \
-               --target $GITHUB_SHA
-             [ -f "$BUILD_TOOLS" ] && gh release upload $TAG_NAME "$BUILD_TOOLS" --clobber
+          if is_draft=$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq '.isDraft'); then
+            if [[ "$is_draft" == true ]]; then
+              echo "::error::A draft already exists for $GITHUB_REF_NAME and requires review before publishing."
+              exit 1
+            fi
+            echo "Release already exists for $GITHUB_REF_NAME."
+            exit 0
           fi
+
+          tag_ref="refs/tags/$GITHUB_REF_NAME"
+          remote_tag=$(git ls-remote --exit-code origin "$tag_ref" "$tag_ref^{}")
+          tag_commit=$(awk '/\^\{\}$/ { print $1; found = 1 } NR == 1 { first = $1 } END { if (!found) print first }' <<< "$remote_tag")
+          if [[ "$tag_commit" != "$(git rev-parse HEAD)" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME no longer points to the built commit."
+            exit 1
+          fi
+
+          gh release create "$GITHUB_REF_NAME" "$APK_FILE" build-tools.zip \
+            --verify-tag \
+            --title "$GITHUB_REF_NAME" \
+            --notes "Auto-build from commit $GITHUB_SHA"

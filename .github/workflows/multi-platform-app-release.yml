@@ -537,6 +537,31 @@ jobs:
           [ -n "$rolling" ] || exit 0
           mapfile -t assets < <(find artifacts -type f -print | sort)
           test "${#assets[@]}" -gt 0 || { echo "::error::No rolling release artifacts were produced." >&2; exit 1; }
+
+          # GitHub Release assets are flat, while downloaded platform artifacts
+          # contain multiple LICENSE/NOTICE files with identical basenames.
+          # Uploading all of them together with --clobber deletes the same asset
+          # more than once; the second delete fails HTTP 404. Retain every file,
+          # but qualify duplicate basenames with their artifact-relative path.
+          declare -A basename_counts=()
+          for source in "${assets[@]}"; do
+            base="${source##*/}"
+            basename_counts["$base"]=$(( ${basename_counts["$base"]:-0} + 1 ))
+          done
+          mkdir -p rolling-assets
+          for source in "${assets[@]}"; do
+            base="${source##*/}"
+            if [ "${basename_counts["$base"]}" -gt 1 ]; then
+              relative="${source#artifacts/}"
+              name="${relative//\//__}"
+            else
+              name="$base"
+            fi
+            dest="rolling-assets/$name"
+            [ ! -e "$dest" ] || { echo "::error::Rolling release asset collision: $name" >&2; exit 1; }
+            cp -- "$source" "$dest"
+          done
+          mapfile -t assets < <(find rolling-assets -type f -print | sort)
           body_template="$(jq -r '.body_template // "Built from $BUILD_SHA."' <<<"$PROFILE_JSON")"
           export BUILD_SHA="${PREPARED_BUILD_SHA}" REPO="${TARGET_REPOSITORY_NAME}"
           body="$(envsubst <<<"$body_template")"
@@ -549,7 +574,15 @@ jobs:
           rolling_title="$(envsubst <<<"$rolling_title")"
           if gh release view "$rolling" --repo "$TARGET_REPOSITORY" >/dev/null 2>&1; then
             gh release edit "$rolling" --repo "$TARGET_REPOSITORY" --title "$rolling_title" --notes "$body" --latest
-            gh release upload "$rolling" "${assets[@]}" --repo "$TARGET_REPOSITORY" --clobber
+            # Retry only transient upload/delete races; never report success
+            # without a complete upload of the uniquely named asset set.
+            for attempt in 1 2 3; do
+              if gh release upload "$rolling" "${assets[@]}" --repo "$TARGET_REPOSITORY" --clobber; then
+                break
+              fi
+              [ "$attempt" -lt 3 ] || { echo "::error::Rolling release upload failed after three attempts" >&2; exit 1; }
+              sleep "$((attempt * 5))"
+            done
           else
             gh release create "$rolling" "${assets[@]}" --repo "$TARGET_REPOSITORY" --target "${PREPARED_BUILD_SHA}" --title "$rolling_title" --notes "$body" --latest
           fi

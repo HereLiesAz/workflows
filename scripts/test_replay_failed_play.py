@@ -192,3 +192,36 @@ assert "scripts/replay_failed_play.py" in detect_step["run"]
 assert ".github/workflows/android-play-release.yml" in detect_step["run"]
 
 print("Play checkout replay regression test passed")
+
+# Transient GitHub GET failures must not abort the checkout recovery job; a
+# retry is safe only for reads. A POST may have succeeded even if it returned
+# HTTP 500 and must never be silently issued a second time.
+import io
+import urllib.error
+from unittest.mock import MagicMock, patch
+from sync_repository_catalog import GitHub, ApiError
+
+def http_failure(code):
+    return urllib.error.HTTPError(
+        "https://api.github.com/repos/HereLiesAz/illumera/commits",
+        code, "GitHub failure", {}, io.BytesIO(b'{"message":"Server Error"}'),
+    )
+
+success = MagicMock()
+success.__enter__.return_value.status = 200
+success.__enter__.return_value.headers = {}
+success.__enter__.return_value.read.return_value = b'{"commits":2}'
+with patch("urllib.request.urlopen", side_effect=[http_failure(500), success]) as opened, patch("time.sleep"):
+    assert GitHub("fake-token").json("GET", "/repos/HereLiesAz/illumera/commits") == {"commits": 2}
+    assert opened.call_count == 2
+
+for method, code in (("GET", 404), ("POST", 500)):
+    with patch("urllib.request.urlopen", side_effect=http_failure(code)) as opened, patch("time.sleep"):
+        try:
+            GitHub("fake-token").json(method, "/repos/HereLiesAz/illumera/commits")
+            raise AssertionError("Expected GitHub API failure")
+        except ApiError as exc:
+            assert f"-> {code}:" in str(exc)
+        assert opened.call_count == 1, (method, code, opened.call_count)
+
+print("GitHub transient GET recovery regression passed")

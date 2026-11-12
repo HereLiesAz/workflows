@@ -546,22 +546,26 @@ assert _quicloc_manifest["repository"]["full_name"] == "HereLiesAz/QuicLoc"
 _quicloc_sources = {
     ".github/workflows/android-github-release.yml": (
         "406ccaf4c0bda72c474888723e92296231db69a7f0b58052336064fa6295d417",
-        "registry/1177478037/android-github-release-406ccaf4.source.yml",
         ".github/workflows/android-github-release.yml",
     ),
     ".github/workflows/android-play-release.yml": (
         "ac44188d4c7565cc56dbd79c4923ba865a3fbe72084b9c6f661beb3a008e5325",
-        "registry/1177478037/android-play-release-ac44188d.source.yml",
         ".github/workflows/android-play-release.yml",
     ),
 }
-for _source_path, (_expected_hash, _expected_file, _expected_executor) in _quicloc_sources.items():
+for _source_path, (_expected_hash, _expected_executor) in _quicloc_sources.items():
     _entry = _quicloc_manifest["workflows"][_source_path]
     assert _entry["status"] == "active" and _entry["binding"] == "curated"
     assert _entry["source_sha256"] == _expected_hash
-    assert _entry["registry_source"] == _expected_file
+    # The synchronizer regenerates source filenames; the manifest, not a
+    # historical filename, is the registry authority.
+    _expected_file = _entry["registry_source"]
+    _source_file = Path(_expected_file)
+    assert _source_file.parent == Path("registry/1177478037")
+    assert _source_file.name.startswith(Path(_source_path).stem + "-")
+    assert _source_file.name.endswith(".source.yml")
     assert _entry["central_workflow"] == _expected_executor
-    _text = Path(_expected_file).read_text(encoding="utf-8")
+    _text = _source_file.read_text(encoding="utf-8")
     assert _hashlib.sha256(_text.encode("utf-8")).hexdigest() == _expected_hash
     _source = load_yaml(_text)
     assert "workflow_dispatch" in _source["on"]
@@ -574,8 +578,8 @@ for _source_path, (_expected_hash, _expected_file, _expected_executor) in _quicl
     assert "bundleRelease" in _profile["build_command"]
     assert "QUICLOC_REQUIRE_SIGNING=true" in _profile["build_command"]
     assert "VERSION_D" in _profile["build_command"]
-assert load_yaml(Path(_quicloc_sources[".github/workflows/android-play-release.yml"][1]).read_text())["on"]["push"]["branches"] == ["main"]
-assert load_yaml(Path(_quicloc_sources[".github/workflows/android-github-release.yml"][1]).read_text())["on"]["push"]["tags"] == ["v*"]
+assert load_yaml(Path(_quicloc_manifest["workflows"][".github/workflows/android-play-release.yml"]["registry_source"]).read_text())["on"]["push"]["branches"] == ["main"]
+assert load_yaml(Path(_quicloc_manifest["workflows"][".github/workflows/android-github-release.yml"]["registry_source"]).read_text())["on"]["push"]["tags"] == ["v*"]
 assert _quicloc_manifest["workflows"][".github/workflows/release-play.yml"]["status"] == "retired"
 _quicloc_play = _RELEASE_PROFILES["ac44188d4c7565cc56dbd79c4923ba865a3fbe72084b9c6f661beb3a008e5325"]
 assert _quicloc_play["package_name"] == "com.hereliesaz.quicloc"
@@ -591,3 +595,62 @@ assert _quicloc_github["artifact_glob"] == "app/build/outputs/universal/release/
 assert _quicloc_github["test_command"] == "./gradlew testDebugUnitTest --no-daemon --stacktrace"
 assert not Path(".github/workflows/quicloc-release-play.yml").exists(), "no separate QuicLoc Play executor"
 print("QuicLoc central release bindings and fused-APK profile ok")
+
+# Exercise the actual rolling release's asset-staging shell on two colliding
+# NOTICE files and one APK. Old behaviour passed duplicate release-asset names
+# to 'gh release upload --clobber', deleting an asset twice and yielding HTTP 404.
+_multi_doc = load_yaml(multi_platform_release)
+_rolling_step = next(
+    step for step in _multi_doc["jobs"]["release"]["steps"]
+    if step.get("name") == "Update rolling release alias"
+)
+_rolling_run = _rolling_step["run"]
+assert 'gh release upload "$rolling" "${assets[@]}" --repo "$TARGET_REPOSITORY" --clobber' in _rolling_run
+assert 'Rolling release upload failed after three attempts' in _rolling_run
+_roll_setup = _rolling_run.split("body_template=", 1)[0]
+with _tempfile.TemporaryDirectory(prefix="rolling-assets-regression-") as _tmp:
+    _root = Path(_tmp)
+    for _relative, _data in (
+        ("macos/release/NOTICE", "mac license"),
+        ("linux/release/NOTICE", "linux license"),
+        ("android/QuicLoc.apk", "signed APK"),
+    ):
+        _dest = _root / "artifacts" / _relative
+        _dest.parent.mkdir(parents=True, exist_ok=True)
+        _dest.write_text(_data, encoding="utf-8")
+    _subprocess.run(
+        ["bash", "-euo", "pipefail", "-c", _roll_setup],
+        cwd=_root, env={**_os.environ, "PROFILE_JSON": '{"rolling_tag":"latest"}'},
+        text=True, check=True, capture_output=True,
+    )
+    _staged = {
+        file.name: file.read_text(encoding="utf-8")
+        for file in (_root / "rolling-assets").iterdir()
+    }
+    assert _staged == {
+        "macos__release__NOTICE": "mac license",
+        "linux__release__NOTICE": "linux license",
+        "QuicLoc.apk": "signed APK",
+    }, _staged
+print("rolling release duplicate asset regression ok")
+
+# Changesets' version command is an error when there are no pending .md files.
+# Pre-versioned packages still need the publish path on a retry; version should
+# run only when a real changeset exists.
+_node_doc = load_yaml(Path(".github/workflows/node-package-publish.yml").read_text())
+_node_step = next(step for step in _node_doc["jobs"]["publish"]["steps"] if step.get("name") == "Publish packages")
+_node_run = _node_step["run"]
+assert 'bash -eo pipefail -c "$publish_cmd"' in _node_run
+_cs_start = _node_run.index("if [ -d .changeset ]")
+_cs_shell = _node_run[_cs_start:_node_run.index("if ! git diff", _cs_start)]
+with _tempfile.TemporaryDirectory(prefix="changesets-regression-") as _tmp:
+    _root = Path(_tmp)
+    (_root / ".changeset").mkdir()
+    (_root / ".changeset" / "README.md").write_text("Documentation", encoding="utf-8")
+    _env = {**_os.environ, "version_cmd": "exit 91"}
+    _without = _subprocess.run(["bash", "-euo", "pipefail", "-c", _cs_shell], cwd=_root, env=_env, capture_output=True)
+    assert _without.returncode == 0, "README-only Changesets directory must not fail the publish"
+    (_root / ".changeset" / "patch.md").write_text("pending release", encoding="utf-8")
+    _with = _subprocess.run(["bash", "-euo", "pipefail", "-c", _cs_shell], cwd=_root, env=_env, capture_output=True)
+    assert _with.returncode == 91, "an unreleased change must run the real version command"
+print("Changesets no-pending-changes regression ok")

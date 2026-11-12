@@ -129,6 +129,30 @@ def main() -> int:
     expect(rsb("o/r", "1.2.3", "tag", True), ("main", False, False))
     expect(rsb("o/r", "feature", "branch"), ("feature", True, False))
     expect(rsb("o/r", "1.2.3", "tag"), ("main", True, False))
+    # GitHub caps a single matrix at 256 jobs, but the account has more
+    # repositories. A fixed 265-repository fixture must be partitioned
+    # losslessly into 27 batches, not truncated to 256 or fail discovery.
+    import json
+    import subprocess
+    from pathlib import Path
+
+    controller = (Path(__file__).resolve().parents[1] / ".github/workflows/version-contract-sync.yml").read_text()
+    assert "matrix.batch" in controller and "needs.discover.outputs.batches" in controller
+    assert 'failed+=("$repository")' in controller, "every failure must be reported without skipping later repos"
+    marker = "batches=\"$(jq -c '"
+    assert marker in controller, "version-contract discover must partition the complete repository list"
+    jq_filter = controller.split(marker, 1)[1].split("' <<<", 1)[0]
+    names = [f"HereLiesAz/sample-{i:03d}" for i in range(265)]
+    batches = json.loads(subprocess.check_output(["jq", "-c", jq_filter], input=json.dumps(names), text=True))
+    expect(len(batches), 27)
+    expect(len(batches[0]), 10)
+    expect(len(batches[25]), 10)
+    expect(len(batches[26]), 5)
+    expect(batches[0][0], "HereLiesAz/sample-000")
+    expect(batches[25][-1], "HereLiesAz/sample-259")
+    expect(batches[-1][-1], "HereLiesAz/sample-264")
+    expect([name for batch in batches for name in batch], names)
+
     # A self-versioned repository keeps its own single writer: the sync writes nothing.
     import sync_repository
 

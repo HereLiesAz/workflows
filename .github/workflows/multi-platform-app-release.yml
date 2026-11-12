@@ -182,7 +182,7 @@ jobs:
       # _PATCH / _BUILD land in the environment for prepare_command.
       - name: Resolve canonical version
         if: ${{ fromJSON(inputs.purpose_profile_json).version_contract == true }}
-        uses: HereLiesAz/workflows/.github/actions/version-contract@3d8b39b5d6d2d1e4a7226e4c98d598d1bacc40dd # main
+        uses: HereLiesAz/workflows/.github/actions/version-contract@20ad160853ea79da73d485038957abbdbb2fb1d2 # main
         with:
           target_repository: ${{ inputs.target_repository }}
           target_sha: ${{ inputs.target_sha }}

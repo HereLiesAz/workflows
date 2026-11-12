@@ -484,7 +484,8 @@ export const EVENT_CONSUMERS = {
   "1177478037": {
     "repository": "HereLiesAz/QuicLoc",
     "events": [
-      "push"
+      "push",
+      "workflow_dispatch"
     ]
   },
   "1183680299": {

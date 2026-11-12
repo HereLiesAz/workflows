@@ -102,7 +102,13 @@ jobs:
           set -euo pipefail
           # Gateway runs only dispatch and exit, so the wait is normally seconds.
           for attempt in $(seq 1 150); do
-            gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/gateway.yml/runs?per_page=100" > "$RUNNER_TEMP/gateway-runs.json"
+            # GitHub occasionally returns 429/5xx while the event queue is busy.
+            # A failed lookup must never be mistaken for an empty queue.
+            if ! gh api --cache 0 "repos/${GITHUB_REPOSITORY}/actions/workflows/gateway.yml/runs?per_page=100" > "$RUNNER_TEMP/gateway-runs.json"; then
+              echo "::warning::GitHub API unavailable while checking gateway queue; retrying..."
+              sleep 10
+              continue
+            fi
             blockers="$(jq --argjson current "$CURRENT_RUN" --arg title "$QUEUE_TITLE" '[.workflow_runs[] | select((.status != "completed") and .id < $current and .display_title == $title)] | length' "$RUNNER_TEMP/gateway-runs.json")"
             if [ "$blockers" -eq 0 ]; then exit 0; fi
             echo "Waiting behind $blockers earlier gateway run(s) for this repository..."

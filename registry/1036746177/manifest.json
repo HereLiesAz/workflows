@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-09-23T21:46:00+00:00",
+  "last_sync_at": "2026-11-12T22:16:04+00:00",
   "repository": {
     "default_branch": "master",
     "full_name": "HereLiesAz/LeFauxPass",
@@ -8,7 +8,7 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
+  "worker_url_configured": false,
   "workflows": {
     ".github/workflows/azure-staticwebapp.yml": {
       "binding": "repository",
@@ -27,14 +27,25 @@
       ],
       "name": "Merged Build & Release",
       "registry_source": "registry/1036746177/build-apk-41b848bf.source.yml",
-      "source_sha256": "fb434ed1f7547160a9bd1a5e20749654dd18beeea4bec8784a33878056c23633",
+      "source_sha256": "ff6dc5099d14aa2f812ccc6963585dd025071f22ea17e84cd8a398ba0fba8d1a",
       "status": "local",
-      "updated_at": "2026-09-23T21:46:00+00:00"
+      "updated_at": "2026-11-12T22:16:02+00:00"
+    },
+    ".github/workflows/deploy-pwa.yml": {
+      "blockers": [
+        "job 'deploy' deploys to the runner repository's github-pages environment",
+        "job 'deploy' step 1 uses repository-bound action 'actions/deploy-pages@v4'"
+      ],
+      "name": "PWA (GitHub Pages)",
+      "registry_source": "registry/1036746177/deploy-pwa-edf094fe.source.yml",
+      "source_sha256": "f3ef51fb7caad640baf26dcbef88be84fd93bd98ae1dd67653f630729282b2b6",
+      "status": "local",
+      "updated_at": "2026-11-12T22:16:03+00:00"
     },
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "😈 Glee Audit",
+      "name": "\ud83d\ude08 Glee Audit",
       "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/1036746177/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",

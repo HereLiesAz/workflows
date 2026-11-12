@@ -218,6 +218,8 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
         "canonical_hash": "9bd5fb364cd651740b033f1ecb695a2d30320c49855e4d4adb8a0db0304c964a",
         "generalized": True,
         "source_hashes": {
+            # HereLiesAz/LeFauxPass:.github/workflows/deploy-pwa.yml
+            "f3ef51fb7caad640baf26dcbef88be84fd93bd98ae1dd67653f630729282b2b6",
             # HereLiesAz/photo-unroll:.github/workflows/github-pages-deploy.yml (wasm PWA)
             "9bd5fb364cd651740b033f1ecb695a2d30320c49855e4d4adb8a0db0304c964a",
         },
@@ -243,6 +245,8 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
         "canonical_hash": "5fe909668facbf1604c5b7b3b84ba42ecff633f5ed2a52a4ba54180d8a0053d0",
         "generalized": True,
         "source_hashes": {
+            # LeFauxPass Android debug CI: validate only, never publish a release.
+            "326fdfdbd20f4b64014c66ae1e2db37859a31af01ca9d70ce79b0d478298edd8",
             "5fe909668facbf1604c5b7b3b84ba42ecff633f5ed2a52a4ba54180d8a0053d0",
             "52ca995d48319a2c683fa64cd248e8cdab22514d19dd7df731d47adc7db6e3cd",
             "1e1a288d8b11d79b01237145826c5d0dd03a1398dc40685fefbe5ab1e9ec66e7",
@@ -435,6 +439,25 @@ PLAY_TRACKS: Final[list[dict[str, object]]] = [
 ]
 
 PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
+    # Le Faux Pass uses the shared central executors, not a private compiled copy.
+    "326fdfdbd20f4b64014c66ae1e2db37859a31af01ca9d70ce79b0d478298edd8": {
+        "kind": "gradle",
+        "central_execution": True,
+        "java_version": "21",
+        "inject_google_services": True,
+        "full_history": True,
+        "pre_command": "echo \"ARCORE_API_KEY=$ARCORE_API_KEY\" >> local.properties\nexport BUILD_NUMBER=$(git rev-list --count HEAD)\necho \"BUILD_NUMBER=$BUILD_NUMBER\" >> \"$GITHUB_ENV\"",
+        "command": "./gradlew assembleDebug -PversionBuild=\"$BUILD_NUMBER\" --build-cache -Pandroid.injected.signing.store.file=\"$(pwd)/app/keystore.jks\" -Pandroid.injected.signing.store.password=\"$KEYSTORE_PASSWORD\" -Pandroid.injected.signing.key.alias=\"$KEY_ALIAS\" -Pandroid.injected.signing.key.password=\"$KEY_PASSWORD\"",
+        "prepare_debug_keystore": True,
+        "report_path": "app/build/outputs/apk/debug/*.apk",
+        "report_when": "always",
+        "retention_days": 7,
+    },
+    "f3ef51fb7caad640baf26dcbef88be84fd93bd98ae1dd67653f630729282b2b6": {
+        "build_command": "chmod +x gradlew && ./gradlew :shared:wasmJsBrowserDistribution --stacktrace",
+        "site_dir": "shared/build/dist/wasmJs/productionExecutable",
+        "java_version": "21",
+    },
 
     # QuicLoc keeps app/version.properties as the only Android version authority:
     # its Gradle task increments VERSION_C and VERSION_D on each bundle build.

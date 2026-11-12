@@ -77,7 +77,7 @@ jobs:
 
       - name: Advance canonical version
         id: version
-        uses: HereLiesAz/workflows/.github/actions/version-contract@20ad160853ea79da73d485038957abbdbb2fb1d2 # main
+        uses: HereLiesAz/workflows/.github/actions/version-contract@8d84df79b40aa5fb756add3a30d2053faf06381f # main
         with:
           target_repository: ${{ inputs.target_repository }}
           target_sha: ${{ inputs.target_sha }}

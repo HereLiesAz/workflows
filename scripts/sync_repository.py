@@ -747,6 +747,10 @@ REPOSITORY_REVIEWED_WORKFLOW_BLOBS = {
     "hereliesaz/graffux": {
         ".github/workflows/stroke-data-kaggle.yml": "1ad6c2215e60f381921364459c50a58a4040fd7a",
     },
+    # GitHub Pages deploys to the caller's repository and github-pages environment.
+    "hereliesaz/lefauxpass": {
+        ".github/workflows/deploy-pwa.yml": "e26d80137f9832021e5511d4c952d231b9ff74be",
+    },
     "hereliesaz/conveyance-bacterium": {
         ".github/workflows/ci.yml": "8b32d6357f4b1c826d7f9bcea208df7ea29b7a86",
     },

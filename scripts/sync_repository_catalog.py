@@ -37,6 +37,14 @@ CENTRAL_REPOSITORY = "HereLiesAz/workflows"
 WORKER_AUDIENCE = "hereliesaz-workflows"
 WORKER_VARIABLE = "WORKFLOWS_GATEWAY_URL"
 
+# These asset generators must write back using their own repository's event ref and token.
+REPOSITORY_LOCAL_ASSET_WORKFLOW_BLOBS = {
+    "hereliesaz/hahapewpew": {
+        ".github/workflows/tab-asset-build.yml": "9a6978418b35b39e3c38b548124ae7eabc057025",
+        ".github/workflows/tab-victoria-source.yml": "4797e67920c7a8a1fa37edfd49cbb8cff78dd50a",
+    },
+}
+
 # Curated, target-aware shared workflows. These are real reusable implementations,
 # not per-repository compiled copies.
 CATALOG_PATH_OVERRIDES = {
@@ -1218,6 +1226,9 @@ def sync_repository(gh: GitHub, full_name: str, worker_url: str, dry_run: bool =
         try:
             expanded = expand_owned_reusable_workflows(gh, parsed, repository=repo["full_name"], ref=default_branch)
             blockers = migration_blockers(expanded)
+            local_blobs = REPOSITORY_LOCAL_ASSET_WORKFLOW_BLOBS.get(repo["full_name"].casefold(), {})
+            if path in local_blobs:
+                blockers.append("asset generation writes to the target repository's triggering branch")
         except Exception as exc:
             expanded = parsed
             blockers = [str(exc)]

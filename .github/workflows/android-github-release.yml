@@ -367,7 +367,43 @@ jobs:
             printf 'ARCORE_API_KEY=%s\n' "$ARCORE_API_KEY" >> local.properties
           fi
 
+      # Opt-in for projects that already ship their own keystore verifier.
+      # It supports raw JKS/PKCS12 and PEM+certificate fallback and checks the
+      # upload certificate before building; generic signing remains unchanged.
+      - name: Prepare project-verified Android signing key
+        id: project-keystore
+        if: ${{ fromJSON(inputs.purpose_profile_json).project_keystore_action == true }}
+        uses: ./.github/actions/android-keystore
+        with:
+          keystore-raw: ${{ secrets.KEYSTORE_RAW }}
+          keystore-private: ${{ secrets.KEYSTORE_PRIVATE }}
+          keystore-rsa: ${{ secrets.KEYSTORE_RSA }}
+          keystore-public: ${{ secrets.KEYSTORE_PUBLIC }}
+          keystore-chain: ${{ secrets.KEYSTORE_CHAIN }}
+          keystore-password: ${{ secrets.KEYSTORE_PASSWORD }}
+          key-alias: ${{ secrets.KEY_ALIAS }}
+          key-password: ${{ secrets.KEY_PASSWORD }}
+          expected-sha256: ${{ secrets.KEYSTORE_SHA256 }}
+          expected-sha1: ${{ secrets.KEYSTORE_SHA1 }}
+          expected-owner: ${{ secrets.KEYSTORE_OWNER }}
+
+      - name: Install project-verified Android signing key
+        if: ${{ fromJSON(inputs.purpose_profile_json).project_keystore_action == true }}
+        env:
+          VERIFIED_KEYSTORE: ${{ steps.project-keystore.outputs.keystore-path }}
+          VERIFIED_KEYSTORE_TYPE: ${{ steps.project-keystore.outputs.store-type }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$VERIFIED_KEYSTORE"
+          mkdir -p "$(dirname "$KEYSTORE_OUTPUT")"
+          cp "$VERIFIED_KEYSTORE" "$KEYSTORE_OUTPUT"
+          if [ -n "$SIGNING_ENV_PREFIX" ]; then
+            echo "${SIGNING_ENV_PREFIX}_KEYSTORE_TYPE=$VERIFIED_KEYSTORE_TYPE" >> "$GITHUB_ENV"
+          fi
+
       - name: Prepare signing keystore
+        if: ${{ fromJSON(inputs.purpose_profile_json).project_keystore_action != true }}
         env:
           KEYSTORE_RAW: ${{ secrets.KEYSTORE_RAW }}
           KEYSTORE_PRIVATE: ${{ secrets.KEYSTORE_PRIVATE }}
@@ -567,6 +603,13 @@ jobs:
       # Opt-in: build an AAB above, then bundletool-fuse its dynamic features
       # into a signed universal sideload APK. A plain assembleRelease APK omits
       # the app's on-demand modules even when dist:fusing is true.
+      - name: Verify project's signed AAB
+        if: ${{ fromJSON(inputs.purpose_profile_json).universal_apk_from_aab == true }}
+        uses: ./.github/actions/verify-android-signature
+        with:
+          artifact: ${{ fromJSON(inputs.purpose_profile_json).aab_path || 'app/build/outputs/bundle/release/app-release.aab' }}
+          expected-sha256: ${{ steps.project-keystore.outputs.sha256 || secrets.KEYSTORE_SHA256 }}
+
       - name: Build fused universal APK from signed AAB
         if: ${{ fromJSON(inputs.purpose_profile_json).universal_apk_from_aab == true }}
         uses: ./.github/actions/build-universal-apk
@@ -583,7 +626,7 @@ jobs:
         uses: ./.github/actions/verify-android-signature
         with:
           artifact: ${{ fromJSON(inputs.purpose_profile_json).universal_apk_path || 'app/build/outputs/universal/release/universal.apk' }}
-          expected-sha256: ${{ secrets.KEYSTORE_SHA256 }}
+          expected-sha256: ${{ steps.project-keystore.outputs.sha256 || secrets.KEYSTORE_SHA256 }}
 
       - name: Resolve version and artifact
         id: release

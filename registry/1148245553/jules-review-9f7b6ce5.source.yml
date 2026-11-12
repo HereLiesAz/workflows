@@ -1,3 +1,6 @@
+# workflow_call only: no workflow in this repository calls it. The callers moved to HereLiesAz/workflows
+# (central execution, see the header of _reusable-build.yml), which `uses:` this file by path; it is
+# kept here rather than deleted because that reference cannot be checked from this repo.
 name: '🔎 Jules Review'
 
 on:
@@ -25,26 +28,49 @@ jobs:
       issues: 'write'
       pull-requests: 'write'
     steps:
+      # PR/issue text is attacker-controlled: it reaches the shell only through env vars (never
+      # inline expression interpolation into the script) and is handed on as a step output.
+      - name: 'Build review prompt'
+        id: 'prompt'
+        env:
+          REPO: '${{ github.repository }}'
+          NUMBER: '${{ github.event.pull_request.number || github.event.issue.number }}'
+          TITLE: '${{ github.event.pull_request.title || github.event.issue.title }}'
+          BODY: '${{ github.event.pull_request.body || github.event.issue.body }}'
+          EXTRA: '${{ inputs.additional_context }}'
+        run: |-
+          # A random, unguessable heredoc delimiter: with the old fixed `JULES_PROMPT_EOF`, a PR body
+          # containing a line equal to it ended the value early and let the rest of the body write
+          # arbitrary `name=value` step outputs. Attacker-controlled text goes through printf '%s\n'
+          # (echo would swallow a body that happens to look like an option such as `-n`).
+          DELIM="JULES_PROMPT_$(cat /proc/sys/kernel/random/uuid)"
+          {
+            echo "prompt<<${DELIM}"
+            echo "Please review pull request #${NUMBER} in ${REPO}."
+            echo
+            printf '%s\n' "**Title:** ${TITLE}"
+            echo
+            echo '**Description:**'
+            printf '%s\n' "${BODY}"
+            echo
+            if [ -n "${EXTRA}" ]; then
+              printf '%s\n' "**Additional context from requester:** ${EXTRA}"
+              echo
+            fi
+            echo 'Review the diff for:'
+            echo '- Correctness bugs and logic errors'
+            echo '- Security issues (injection, permission leaks, unvalidated input at boundaries)'
+            echo '- Performance regressions'
+            echo '- Opportunities for simplification or reuse'
+            echo
+            echo 'Post your findings as a review comment on the PR. If you find fixable issues, open a follow-up PR with the corrections rather than blocking the review.'
+            echo "${DELIM}"
+          } >> "$GITHUB_OUTPUT"
+
       - name: 'Invoke Jules for PR review'
         uses: 'google-labs-code/jules-invoke@v1.0.0'
         with:
-          prompt: |-
-            Please review pull request #${{ github.event.pull_request.number || github.event.issue.number }} in ${{ github.repository }}.
-
-            **Title:** ${{ github.event.pull_request.title || github.event.issue.title }}
-
-            **Description:**
-            ${{ github.event.pull_request.body || github.event.issue.body }}
-
-            ${{ inputs.additional_context && format('**Additional context from requester:** {0}', inputs.additional_context) || '' }}
-
-            Review the diff for:
-            - Correctness bugs and logic errors
-            - Security issues (injection, permission leaks, unvalidated input at boundaries)
-            - Performance regressions
-            - Opportunities for simplification or reuse
-
-            Post your findings as a review comment on the PR. If you find fixable issues, open a follow-up PR with the corrections rather than blocking the review.
+          prompt: '${{ steps.prompt.outputs.prompt }}'
           jules_api_key: '${{ secrets.JULES_API_KEY }}'
           include_last_commit: true
           include_commit_log: true

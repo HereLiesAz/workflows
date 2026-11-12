@@ -4,7 +4,7 @@
     "id": 1031039591,
     "full_name": "HereLiesAz/aive"
   },
-  "updated_at": "2026-11-12T15:39:08.279Z",
+  "updated_at": "2026-11-12T15:39:12.001Z",
   "workflows": {
     ".github/workflows/bitcos-engine.yml": {
       "name": "BITCOS Engine",
@@ -671,6 +671,22 @@
     ".github/workflows/multiplatform.yml": {
       "name": "Build and Deploy",
       "runs": [
+        {
+          "run_id": 43250105471,
+          "jobs": {},
+          "reports": {},
+          "created_at": "2026-11-12T15:39:12.001Z",
+          "run_number": 2750,
+          "run_attempt": 1,
+          "event": "pull_request",
+          "branch": "docs/upstream-agent-gateway-registry-interop",
+          "sha": "6fd96a31543849840311768987416282ce8b88db",
+          "status": "queued",
+          "conclusion": null,
+          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/43250105471",
+          "started_at": "2026-11-12T15:39:09Z",
+          "updated_at": "2026-11-12T15:39:09Z"
+        },
         {
           "run_id": 43245533595,
           "jobs": {
@@ -2248,53 +2264,6 @@
           "html_url": "https://github.com/HereLiesAz/aive/actions/runs/43236689641",
           "started_at": "2026-11-12T14:23:32Z",
           "updated_at": "2026-11-12T14:24:23.094Z"
-        },
-        {
-          "run_id": 43236642650,
-          "jobs": {
-            "Resolve four-part version": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/43236642650/job/131245660794",
-              "started_at": "2026-11-12T14:23:18Z",
-              "completed_at": "2026-11-12T14:23:33Z",
-              "steps_completed": 0,
-              "steps_total": 0,
-              "current_step": null
-            },
-            "deploy-pages": {
-              "status": "completed",
-              "conclusion": "skipped",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/43236642650/job/131245663222",
-              "started_at": "2026-11-12T14:23:18Z",
-              "completed_at": "2026-11-12T14:23:18Z",
-              "steps_completed": 0,
-              "steps_total": 0,
-              "current_step": null
-            },
-            "build": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/43236642650/job/131245660366",
-              "started_at": "2026-11-12T14:23:30Z",
-              "completed_at": "2026-11-12T14:23:35Z",
-              "steps_completed": 1,
-              "steps_total": 1,
-              "current_step": null
-            }
-          },
-          "reports": {},
-          "created_at": "2026-11-12T14:23:19.780Z",
-          "sha": "712588325a90c42907b9c1b9ca759dede1be08e3",
-          "branch": "feature/ans-provenance-directory",
-          "status": "completed",
-          "updated_at": "2026-11-12T14:23:49.194Z",
-          "run_number": 2730,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "conclusion": "cancelled",
-          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/43236642650",
-          "started_at": "2026-11-12T14:23:16Z"
         }
       ]
     },

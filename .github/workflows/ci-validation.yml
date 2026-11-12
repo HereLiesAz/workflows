@@ -308,6 +308,7 @@ jobs:
           ref: ${{ inputs.target_sha }}
           token: ${{ secrets.GH_TOKEN }}
           persist-credentials: false
+          fetch-depth: ${{ fromJSON(inputs.purpose_profile_json).full_history == true && 0 || 1 }}
 
       - name: Restore validation dependency cache
         id: validation-cache
@@ -332,6 +333,24 @@ jobs:
             echo "Injecting ${TEMPLATE} into ${TARGET}"
             sed -e 's/{{\([^}]*\)}}/${\1}/g' "$TEMPLATE" | envsubst > "$TARGET"
           fi
+
+      - name: Prepare Android debug signing keystore
+        if: ${{ fromJSON(inputs.purpose_profile_json).prepare_debug_keystore == true }}
+        env:
+          KEYSTORE_PRIVATE: ${{ secrets.KEYSTORE_PRIVATE }}
+          KEYSTORE_CHAIN: ${{ secrets.KEYSTORE_CHAIN }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_PRIVATE" && test -n "$KEYSTORE_CHAIN" && test -n "$KEYSTORE_PASSWORD" && test -n "$KEY_ALIAS"
+          key_dir="$(mktemp -d)"
+          trap 'rm -rf "$key_dir"' EXIT
+          printf '%s\n' "$KEYSTORE_PRIVATE" > "$key_dir/private.pem"
+          printf '%s\n' "$KEYSTORE_CHAIN" > "$key_dir/chain.crt"
+          openssl pkcs12 -export -in "$key_dir/chain.crt" -inkey "$key_dir/private.pem" -name "$KEY_ALIAS" -out "$key_dir/keystore.p12" -password "pass:$KEYSTORE_PASSWORD"
+          keytool -importkeystore -srckeystore "$key_dir/keystore.p12" -srcstoretype PKCS12 -destkeystore app/keystore.jks -deststoretype JKS -srcstorepass "$KEYSTORE_PASSWORD" -deststorepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" -noprompt
 
       - name: Check out extra dependency repository
         if: ${{ fromJSON(inputs.purpose_profile_json).extra_checkout_repository != null && fromJSON(inputs.purpose_profile_json).extra_checkout_repository != '' }}
@@ -369,6 +388,10 @@ jobs:
           VALIDATE_COMMAND: ${{ fromJSON(inputs.purpose_profile_json).command }}
           GITHUB_ACTOR: ${{ inputs.target_actor }}
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          ARCORE_API_KEY: ${{ secrets.ARCORE_API_KEY }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail

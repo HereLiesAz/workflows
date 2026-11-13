@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-11-12T22:16:11+00:00",
+  "last_sync_at": "2026-11-13T00:28:04+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/CleanUnderwear",
@@ -11,15 +11,16 @@
   "worker_url_configured": false,
   "workflows": {
     ".github/workflows/android-ci.yml": {
-      "binding": "repository",
+      "binding": "shared-variant",
       "central_workflow": ".github/workflows/cleanunderwear-android-ci.yml",
       "centralized": true,
       "implementation_sha256": "73a22c36be114de21c9afc66a680b169804f5b0a46cddfb8eac51cb90bccc258",
       "name": "Android CI",
       "registry_source": "registry/1220715027/android-ci-3798bddf.source.yml",
+      "shared_variant": "73a22c36be114de2",
       "source_sha256": "0e4c6b15551e220e9c5df59656d8b528b12658c914855d6acb6184e0b8340b9d",
       "status": "active",
-      "updated_at": "2026-11-12T22:16:06+00:00"
+      "updated_at": "2026-11-13T00:27:59+00:00"
     },
     ".github/workflows/android-github-release.yml": {
       "binding": "curated",
@@ -29,7 +30,7 @@
       "registry_source": "registry/1220715027/android-github-release-57374b22.source.yml",
       "source_sha256": "8480e31ce0d826d69298f8fe2d1ba17d4c5860bd8384a80c1bd0ec625ba61e7c",
       "status": "active",
-      "updated_at": "2026-11-12T22:16:07+00:00"
+      "updated_at": "2026-11-13T00:28:00+00:00"
     },
     ".github/workflows/android-play-release.yml": {
       "binding": "curated",
@@ -39,7 +40,7 @@
       "registry_source": "registry/1220715027/android-play-release-900abeb1.source.yml",
       "source_sha256": "e02a72a6cc15e9eee828c04ba812cca236b4326e471c55c67816e18d0940ecba",
       "status": "active",
-      "updated_at": "2026-11-12T22:16:08+00:00"
+      "updated_at": "2026-11-13T00:28:00+00:00"
     },
     ".github/workflows/android-release-aab.yml": {
       "binding": "curated",
@@ -115,21 +116,21 @@
       "registry_source": "registry/1220715027/gemini-dispatch-b7ca9237.source.yml",
       "source_sha256": "3a3184f894de3084e8dabc8c7dce8d185ab243cdcbb0248112ac565232f920c4",
       "status": "local",
-      "updated_at": "2026-11-12T22:16:08+00:00"
+      "updated_at": "2026-11-13T00:28:01+00:00"
     },
     ".github/workflows/gemini-invoke.yml": {
       "name": "\u25b6\ufe0f Gemini Invoke",
       "registry_source": "registry/1220715027/gemini-invoke-12affba2.source.yml",
       "source_sha256": "e7edecd7117c0765411e44b0902ae85ab44a8e340324b9955724e5c086e851da",
       "status": "library",
-      "updated_at": "2026-11-12T22:16:09+00:00"
+      "updated_at": "2026-11-13T00:28:02+00:00"
     },
     ".github/workflows/gemini-review.yml": {
       "name": "\ud83d\udd0e Gemini Review",
       "registry_source": "registry/1220715027/gemini-review-a68afd01.source.yml",
       "source_sha256": "e0a313beeb9f9da8051dffce7eb62c557fd33cef2d639ea72d5ff3894fc90b29",
       "status": "library",
-      "updated_at": "2026-11-12T22:16:09+00:00"
+      "updated_at": "2026-11-13T00:28:02+00:00"
     },
     ".github/workflows/gemini-scheduled-triage.yml": {
       "blockers": [
@@ -140,14 +141,14 @@
       "registry_source": "registry/1220715027/gemini-scheduled-triage-cdff38b9.source.yml",
       "source_sha256": "7628e090fdd9cbb704ad1a5e5c46d5d6f286b8f28e8b59337049caff58de5049",
       "status": "local",
-      "updated_at": "2026-11-12T22:16:10+00:00"
+      "updated_at": "2026-11-13T00:28:03+00:00"
     },
     ".github/workflows/gemini-triage.yml": {
       "name": "\ud83d\udd00 Gemini Triage",
       "registry_source": "registry/1220715027/gemini-triage-734cf9ba.source.yml",
       "source_sha256": "1e0e5353754d1c5a3d31e48b3e46a9a97bed840ecfe16d25bb15f143aa19e9c9",
       "status": "library",
-      "updated_at": "2026-11-12T22:16:10+00:00"
+      "updated_at": "2026-11-13T00:28:03+00:00"
     },
     ".github/workflows/jekyll-gh-pages.yml": {
       "blockers": [
@@ -158,7 +159,7 @@
       "registry_source": "registry/1220715027/jekyll-gh-pages-5de61e74.source.yml",
       "source_sha256": "bc38315952dc5a20fa874a45475051dd81a7cdde23084779920690407903ba63",
       "status": "local",
-      "updated_at": "2026-11-12T22:16:10+00:00"
+      "updated_at": "2026-11-13T00:28:03+00:00"
     },
     ".github/workflows/jules-agent.yml": {
       "name": "Jules Agent",
@@ -238,7 +239,7 @@
       "registry_source": "registry/1220715027/label-04cea97c.source.yml",
       "source_sha256": "33bb70d04f68b061f5c30a61e8ab173c4a47e5af8aa97dc8440982161834a9ff",
       "status": "local",
-      "updated_at": "2026-11-12T22:16:11+00:00"
+      "updated_at": "2026-11-13T00:28:04+00:00"
     },
     ".github/workflows/merged-build.yml": {
       "blockers": [

@@ -1,13 +1,24 @@
-# Mirrors the stroke-model training data (the `stroke-data` branch, written by the app's
-# StrokeDataUploader; schema: tools/stroke-model/SCHEMA.md) to a PRIVATE Kaggle dataset.
+# Mirrors the stroke-model training data to a PRIVATE Kaggle dataset (schema: tools/stroke-model/SCHEMA.md).
 #
-# Secret:   KAGGLE_TOKEN — either a Kaggle API token string (KGAT_…) or the contents of
-#           kaggle.json ({"username": …, "key": …}).
-# Variable: KAGGLE_DATASET (optional) — "<owner>/<slug>". Defaults to
-#           "<KAGGLE_USERNAME or the kaggle.json username>/graffux-stroke-data".
-#           KAGGLE_USERNAME falls back to the owner's account, hereliesaz, when the variable is unset.
+# Source of truth: the PRIVATE Cloudflare R2 bucket `graffux-stroke-data`, objects keyed
+#   stroke-data/<device-model>/session-<ms>.jsonl.gz
+# (written by the app's Worker; the Worker has no read route). It is read here through R2's
+# S3-compatible API with a pinned AWS CLI. The public `stroke-data` branch was retired in
+# Graffux PR #839 and is deliberately NOT read any more: no checkout of it, no fallback.
 #
-# Runs every 6 hours and on demand. A run whose stroke-data commit was already uploaded does nothing.
+# Secrets (Graffux environment, or repository level):
+#   R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY: an R2 API token with "Object Read only"
+#       scoped to the graffux-stroke-data bucket. Until all three exist the run finishes
+#       SUCCESSFULLY with a notice ("R2 read credentials are not configured; nothing mirrored").
+#   KAGGLE_TOKEN: either a Kaggle API token string (KGAT_…) or the contents of
+#       kaggle.json ({"username": …, "key": …}).
+# Variable: KAGGLE_DATASET (optional) "<owner>/<slug>". Defaults to
+#       "<KAGGLE_USERNAME or the kaggle.json username>/graffux-stroke-data".
+#       KAGGLE_USERNAME falls back to the owner's account, hereliesaz, when the variable is unset.
+#
+# Runs every 6 hours and on demand. Nothing is uploaded when the bucket holds no .jsonl.gz objects,
+# or when its exact content was already uploaded (the cache key is a content hash of the mirrored
+# files, so a changed, added or removed object triggers a new upload).
 name: Stroke data → Kaggle
 
 on:
@@ -26,13 +37,6 @@ jobs:
   upload:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out stroke data
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          ref: stroke-data
-          path: data
-          persist-credentials: false
-
       - name: Check out schema
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -40,19 +44,78 @@ jobs:
           sparse-checkout: tools/stroke-model
           persist-credentials: false
 
-      - name: Skip if this commit was already uploaded
+      - name: Check R2 read access
+        id: r2
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$R2_ACCOUNT_ID" || -z "$R2_ACCESS_KEY_ID" || -z "$R2_SECRET_ACCESS_KEY" ]]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Stroke data::R2 read credentials are not configured; nothing mirrored."
+            {
+              echo "### Stroke data → Kaggle"
+              echo
+              echo "R2 read credentials are not configured; nothing mirrored."
+              echo
+              echo "Add R2_ACCOUNT_ID, R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY (an R2 API token with"
+              echo "Object Read only on the graffux-stroke-data bucket) to the Graffux environment."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if ! [[ "$R2_ACCOUNT_ID" =~ ^[0-9a-f]{32}$ ]]; then
+            echo "::error title=Stroke data::R2_ACCOUNT_ID is not a 32-character hexadecimal Cloudflare account id."
+            exit 1
+          fi
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      - name: Install AWS CLI
+        if: steps.r2.outputs.configured == 'true'
+        run: pip install --quiet "awscli==1.46.3"
+
+      - name: Mirror stroke data from R2
+        id: mirror
+        if: steps.r2.outputs.configured == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/stroke-data
+          aws s3 sync "s3://graffux-stroke-data/stroke-data/" data/stroke-data/ \
+            --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" \
+            --exclude "*" --include "*.jsonl.gz" --only-show-errors
+          files="$(find data/stroke-data -type f -name '*.jsonl.gz' | wc -l | tr -d ' ')"
+          echo "files=$files" >> "$GITHUB_OUTPUT"
+          if [[ "$files" == "0" ]]; then
+            echo "::notice title=Stroke data::The R2 bucket holds no stroke data yet; nothing to upload."
+            echo "No stroke data in the R2 bucket yet; nothing to upload." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Mirrored $files session file(s) from R2." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Skip if this data was already uploaded
         id: seen
+        if: steps.mirror.outputs.files != '' && steps.mirror.outputs.files != '0'
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: .kaggle-uploaded
           key: stroke-data-kaggle-${{ hashFiles('data/stroke-data/**') }}
 
       - name: Install Kaggle CLI
-        if: steps.seen.outputs.cache-hit != 'true'
+        if: steps.seen.conclusion == 'success' && steps.seen.outputs.cache-hit != 'true'
         run: pip install --quiet "kaggle==2.2.4"
 
       - name: Upload
-        if: steps.seen.outputs.cache-hit != 'true'
+        if: steps.seen.conclusion == 'success' && steps.seen.outputs.cache-hit != 'true'
         env:
           KAGGLE_TOKEN: ${{ secrets.KAGGLE_TOKEN }}
           KAGGLE_DATASET: ${{ vars.KAGGLE_DATASET }}
@@ -60,5 +123,7 @@ jobs:
         run: python main/tools/stroke-model/kaggle_upload.py data/stroke-data main/tools/stroke-model/SCHEMA.md
 
       - name: Mark uploaded
-        if: steps.seen.outputs.cache-hit != 'true'
-        run: mkdir -p .kaggle-uploaded && git -C data rev-parse HEAD > .kaggle-uploaded/sha
+        if: steps.seen.conclusion == 'success' && steps.seen.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p .kaggle-uploaded
+          (cd data/stroke-data && find . -type f -name '*.jsonl.gz' -print0 | sort -z | xargs -0 sha256sum) > .kaggle-uploaded/manifest.sha256

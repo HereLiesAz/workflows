@@ -4,7 +4,7 @@
     "id": 1031039591,
     "full_name": "HereLiesAz/aive"
   },
-  "updated_at": "2026-11-13T11:47:06.525Z",
+  "updated_at": "2026-11-13T11:47:08.674Z",
   "workflows": {
     ".github/workflows/bitcos-engine.yml": {
       "name": "BITCOS Engine",
@@ -2468,7 +2468,18 @@
         },
         {
           "run_id": 43419036018,
-          "jobs": {},
+          "jobs": {
+            "unit-tests": {
+              "status": "completed",
+              "conclusion": "failure",
+              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/43419036018/job/131864099153",
+              "started_at": "2026-11-13T11:41:15Z",
+              "completed_at": "2026-11-13T11:47:04Z",
+              "steps_completed": 20,
+              "steps_total": 20,
+              "current_step": null
+            }
+          },
           "reports": {
             "unit-tests": {
               "status": "failure",
@@ -2482,7 +2493,7 @@
           "sha": "e05595c8e63d722fecfc2018154e501c7d102c89",
           "event": "pull_request",
           "branch": "ccr-04df43a3-yscgom",
-          "updated_at": "2026-11-13T11:47:05Z",
+          "updated_at": "2026-11-13T11:47:08.674Z",
           "run_number": 3448,
           "run_attempt": 1,
           "status": "completed",

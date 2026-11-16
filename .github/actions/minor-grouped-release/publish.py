@@ -152,7 +152,83 @@ def ensure_immutable_tag(tag: str, sha: str, message: str) -> None:
             fail(f"Immutable tag {tag} already points to {existing}; refusing to move it to {sha}")
         return
     git("tag", "-a", tag, sha, "-m", message)
-    git("push", "origin", f"refs/tags/{tag}")
+    ref = f"refs/tags/{tag}"
+    push = subprocess.run(
+        ["git", "push", "origin", ref],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if push.returncode == 0:
+        return
+
+    # GitHub can refuse a tag push from a GitHub App token that lacks `workflows`
+    # permission when the tagged history touches `.github/workflows`, even though the
+    # tag only names a commit that is already on the remote. The Git database API does
+    # not apply that rule, so create the same annotated tag through REST. Never move an
+    # existing immutable tag: an exact existing ref is retained only if it already
+    # points at the same commit.
+    print(f"Git push of {ref} was rejected: {push.stderr.strip()}", flush=True)
+
+    def remote_commit() -> str | None:
+        result = subprocess.run(
+            ["gh", "api", f"repos/{repo}/git/ref/tags/{tag}"],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        if result.returncode != 0:
+            return None
+        response = json.loads(result.stdout)
+        if not isinstance(response, dict) or response.get("ref") != ref:
+            return None
+        obj = response.get("object") or {}
+        if obj.get("type") == "tag":
+            peeled = subprocess.run(
+                ["gh", "api", f"repos/{repo}/git/tags/{obj.get('sha')}"],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            if peeled.returncode != 0:
+                return None
+            return str((json.loads(peeled.stdout).get("object") or {}).get("sha") or "").lower() or None
+        return str(obj.get("sha") or "").lower() or None
+
+    def retain_if_same(reason: str) -> bool:
+        existing_remote = remote_commit()
+        if existing_remote is None:
+            return False
+        if existing_remote != sha:
+            fail(f"Immutable tag {tag} already points to {existing_remote}; refusing to move it to {sha}")
+        print(f"Immutable tag {tag} {reason}; retaining it.", flush=True)
+        return True
+
+    if retain_if_same("already exists"):
+        return
+
+    try:
+        tag_object = json.loads(
+            gh(
+                "api", "--method", "POST", f"repos/{repo}/git/tags",
+                "-f", f"tag={tag}",
+                "-f", f"message={message}",
+                "-f", f"object={sha}",
+                "-f", "type=commit",
+                capture=True,
+            )
+        )
+        tag_sha = tag_object.get("sha")
+        if not isinstance(tag_sha, str) or not re.fullmatch(r"[0-9a-f]{40}", tag_sha):
+            fail(f"GitHub returned no valid annotated tag object for {tag}")
+        gh(
+            "api", "--method", "POST", f"repos/{repo}/git/refs",
+            "-f", f"ref={ref}", "-f", f"sha={tag_sha}",
+        )
+    except subprocess.CalledProcessError:
+        if retain_if_same("appeared concurrently"):
+            return
+        fail(f"Could not create immutable tag {tag} via Git push or GitHub API")
 
 
 def ensure_group_tag() -> None:

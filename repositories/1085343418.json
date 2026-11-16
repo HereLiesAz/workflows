@@ -4,11 +4,27 @@
     "id": 1085343418,
     "full_name": "HereLiesAz/IDEaz"
   },
-  "updated_at": "2026-11-16T23:27:39.997Z",
+  "updated_at": "2026-11-16T23:27:46.799Z",
   "workflows": {
     ".github/workflows/pr-ci.yml": {
       "name": "PR CI",
       "runs": [
+        {
+          "run_id": 43979475334,
+          "jobs": {},
+          "reports": {},
+          "created_at": "2026-11-16T23:27:46.799Z",
+          "run_number": 87,
+          "run_attempt": 1,
+          "event": "pull_request",
+          "branch": "dependabot/gradle/gradle-wrapper-9.9.1",
+          "sha": "f618e578d6f6aa6b3436be4a6889e47f0ac7c1f4",
+          "status": "queued",
+          "conclusion": null,
+          "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/43979475334",
+          "started_at": "2026-11-16T23:27:43Z",
+          "updated_at": "2026-11-16T23:27:43Z"
+        },
         {
           "run_id": 43979431715,
           "jobs": {
@@ -625,41 +641,6 @@
           "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/42720833782",
           "started_at": "2026-11-09T23:29:16Z",
           "updated_at": "2026-11-09T23:41:49Z"
-        },
-        {
-          "run_id": 42720813481,
-          "jobs": {
-            "build": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/42720813481/job/129514007936",
-              "started_at": "2026-11-09T23:33:40Z",
-              "completed_at": "2026-11-09T23:37:38Z",
-              "steps_completed": 10,
-              "steps_total": 10,
-              "current_step": null
-            }
-          },
-          "reports": {
-            "build": {
-              "status": "success",
-              "summary": ":app:testDebugUnitTest :app:assembleDebug success",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-09T23:37:33.374Z"
-            }
-          },
-          "created_at": "2026-11-09T23:29:08.433Z",
-          "run_number": 67,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "dependabot/gradle/agp-9.5.1",
-          "sha": "ae476c7ac52fc4d596c8b669a3aff00535b519a7",
-          "status": "completed",
-          "conclusion": "success",
-          "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/42720813481",
-          "started_at": "2026-11-09T23:29:06Z",
-          "updated_at": "2026-11-09T23:37:38Z"
         }
       ]
     }

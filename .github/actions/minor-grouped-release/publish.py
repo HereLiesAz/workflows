@@ -228,7 +228,25 @@ def ensure_immutable_tag(tag: str, sha: str, message: str) -> None:
     except subprocess.CalledProcessError:
         if retain_if_same("appeared concurrently"):
             return
-        fail(f"Could not create immutable tag {tag} via Git push or GitHub API")
+        # Last resort: GitHub creates the tag itself when a release names a tag that does
+        # not exist yet. The holder release is folded into the grouped release below by
+        # the legacy migration, which keeps the exact tag.
+        print(f"Git push and ref creation for {ref} were refused; creating it through a release.", flush=True)
+        try:
+            gh(
+                "release", "create", tag,
+                "--repo", repo,
+                "--target", sha,
+                "--prerelease",
+                "--title", message,
+                "--notes", "Build tag created by the release publisher; folded into the grouped release.",
+            )
+        except subprocess.CalledProcessError:
+            if retain_if_same("appeared concurrently"):
+                return
+            fail(f"Could not create immutable tag {tag} via Git push, GitHub API or a release")
+        if not retain_if_same("created through a release"):
+            fail(f"Release creation for {tag} reported success but the tag is missing")
 
 
 def ensure_group_tag() -> None:

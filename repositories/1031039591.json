@@ -4,7 +4,7 @@
     "id": 1031039591,
     "full_name": "HereLiesAz/aive"
   },
-  "updated_at": "2026-11-16T19:28:20.764Z",
+  "updated_at": "2026-11-16T19:28:22.646Z",
   "workflows": {
     ".github/workflows/bitcos-engine.yml": {
       "name": "BITCOS Engine",
@@ -2428,6 +2428,24 @@
           "started_at": "2026-11-16T19:24:32Z"
         },
         {
+          "run_id": 43939010583,
+          "jobs": {},
+          "reports": {
+            "unit-tests": {
+              "status": "failure",
+              "summary": "",
+              "data": null,
+              "run_attempt": "1",
+              "reported_at": "2026-11-16T19:28:22.646Z"
+            }
+          },
+          "created_at": "2026-11-16T19:28:22.646Z",
+          "sha": "4092b5ee8089cf561955fc568cdf41bcb49ee57f",
+          "event": "pull_request",
+          "branch": "refs/pull/806/merge",
+          "updated_at": "2026-11-16T19:28:22.646Z"
+        },
+        {
           "run_id": 43925733517,
           "jobs": {
             "unit-tests": {
@@ -3091,51 +3109,6 @@
           "conclusion": "failure",
           "html_url": "https://github.com/HereLiesAz/aive/actions/runs/43890883425",
           "started_at": "2026-11-16T14:55:24Z"
-        },
-        {
-          "run_id": 43890127537,
-          "jobs": {
-            "unit-tests": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/43890127537/job/133378994276",
-              "started_at": "2026-11-16T14:53:09Z",
-              "completed_at": "2026-11-16T14:55:53Z",
-              "steps_completed": 21,
-              "steps_total": 21,
-              "current_step": null
-            },
-            "build-and-release": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/43890127537/job/133381737233",
-              "started_at": "2026-11-16T14:55:54Z",
-              "completed_at": "2026-11-16T14:55:53Z",
-              "steps_completed": 0,
-              "steps_total": 0,
-              "current_step": null
-            }
-          },
-          "reports": {
-            "unit-tests": {
-              "status": "cancelled",
-              "summary": "",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-16T14:55:46.584Z"
-            }
-          },
-          "created_at": "2026-11-16T14:51:16.660Z",
-          "run_number": 3613,
-          "run_attempt": 1,
-          "event": "push",
-          "branch": "main",
-          "sha": "58174f5ac90ceca0156968296522be71ec1692a5",
-          "status": "completed",
-          "conclusion": "cancelled",
-          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/43890127537",
-          "started_at": "2026-11-16T14:51:13Z",
-          "updated_at": "2026-11-16T14:55:54Z"
         }
       ]
     },

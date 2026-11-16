@@ -727,7 +727,7 @@ jobs:
           fi
 
       - name: Publish patch-grouped GitHub release
-        uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@509b3faad7ec8d7db7e963211755e8b3c7625c89 # main
+        uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@7597d8c01494b8591b3e49a8da709fba0611267d # main
         with:
           github-token: ${{ secrets.GH_TOKEN }}
           target-repository: ${{ inputs.target_repository }}

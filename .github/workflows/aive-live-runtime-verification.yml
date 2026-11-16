@@ -1,7 +1,7 @@
 # Generated for HereLiesAz/aive:.github/workflows/live-runtime-verification.yml.
 # Edit the registered source or synchronizer, not this compiled workflow.
 # Generated shared catalog workflow. Do not edit by hand.
-# catalog-source: shared/f46ff1e64c1e28c36b8921918d66512068f85c42f6536f5c3bab5b372ec85115
+# catalog-source: shared/aea1003636ee9b53a551b8975077cda9d8c3ff7ad2662b913c207d2771aa3f0c
 name: aive · Live Runtime Verification
 on:
   workflow_dispatch:
@@ -161,7 +161,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: HereLiesAz/conveyance-h2g2
-          ref: 8ff45ea2fbf91f8b2fb22a542a87efdf9b856f0c
+          ref: b17d8d9b46f8aeb399321c10199f0d0d0a0cfaaa
           path: vendor/conveyance-h2g2
           token: ${{ secrets.GH_TOKEN }}
           persist-credentials: false
@@ -169,7 +169,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: HereLiesAz/Conveyance
-          ref: 9d9a694c64d0bdfd1d6e9f38a1ad972bb5618ac4
+          ref: 473d43f285fa3a8b48d4ee61a3a289f4ae4221c3
           path: vendor/conveyance-h2g2/vendor/Conveyance
           token: ${{ secrets.GH_TOKEN }}
           persist-credentials: false

@@ -1520,7 +1520,7 @@ jobs:
 
       - name: Publish patch-grouped GitHub release for Play build
         if: ${{ inputs.target_event_name != 'pull_request' && (env.PUBLISH_GITHUB_RELEASE == 'true') }}
-        uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@509b3faad7ec8d7db7e963211755e8b3c7625c89 # main
+        uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@7597d8c01494b8591b3e49a8da709fba0611267d # main
         with:
           github-token: ${{ steps.target-token.outputs.token }}
           target-repository: ${{ env.TARGET_REPOSITORY }}

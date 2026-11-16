@@ -122,6 +122,9 @@
     "CLOUDFLARE_API_TOKEN": {
       "purpose": "Authorizes Cloudflare deployment and management operations."
     },
+    "CONNECTOR_KEK": {
+      "purpose": "Key-encryption key (32 random bytes, base64url) that a Worker uses to encrypt data it stores at rest (the Aive connector's pairings)."
+    },
     "CUSTOM_API_KEY": {
       "purpose": "Application-specific API credential injected by generalized Android release profiles."
     },
@@ -151,6 +154,9 @@
     },
     "GITLAB_URL": {
       "purpose": "Protected GitLab endpoint used by mirroring workflows."
+    },
+    "GOOGLE_CLIENT_SECRET": {
+      "purpose": "Google OAuth client secret for Workers that sign people in with Google (the Aive connector)."
     },
     "GOOGLE_SERVICES": {
       "purpose": "Complete google-services.json content injected into Android builds that use Firebase/Google services."

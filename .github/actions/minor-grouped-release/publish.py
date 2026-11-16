@@ -164,10 +164,9 @@ def ensure_immutable_tag(tag: str, sha: str, message: str) -> None:
 
     # GitHub can refuse a tag push from a GitHub App token that lacks `workflows`
     # permission when the tagged history touches `.github/workflows`, even though the
-    # tag only names a commit that is already on the remote. The Git database API does
-    # not apply that rule, so create the same annotated tag through REST. Never move an
-    # existing immutable tag: an exact existing ref is retained only if it already
-    # points at the same commit.
+    # tag only names a commit that is already on the remote. Try the Git database API
+    # first. Never move an existing immutable tag: an exact existing ref is retained only
+    # if it already points at the same commit.
     print(f"Git push of {ref} was rejected: {push.stderr.strip()}", flush=True)
 
     def remote_commit() -> str | None:
@@ -228,25 +227,13 @@ def ensure_immutable_tag(tag: str, sha: str, message: str) -> None:
     except subprocess.CalledProcessError:
         if retain_if_same("appeared concurrently"):
             return
-        # Last resort: GitHub creates the tag itself when a release names a tag that does
-        # not exist yet. The holder release is folded into the grouped release below by
-        # the legacy migration, which keeps the exact tag.
-        print(f"Git push and ref creation for {ref} were refused; creating it through a release.", flush=True)
-        try:
-            gh(
-                "release", "create", tag,
-                "--repo", repo,
-                "--target", sha,
-                "--prerelease",
-                "--title", message,
-                "--notes", "Build tag created by the release publisher; folded into the grouped release.",
-            )
-        except subprocess.CalledProcessError:
-            if retain_if_same("appeared concurrently"):
-                return
-            fail(f"Could not create immutable tag {tag} via Git push, GitHub API or a release")
-        if not retain_if_same("created through a release"):
-            fail(f"Release creation for {tag} reported success but the tag is missing")
+        # GitHub refuses ref creation by an Actions token when the tagged history touches
+        # workflow files. The grouped release carries its own tag, so a missing per-build
+        # tag must not block publishing the assets.
+        print(
+            f"::warning::Could not create build tag {tag}; publishing the grouped release without it.",
+            flush=True,
+        )
 
 
 def ensure_group_tag() -> None:

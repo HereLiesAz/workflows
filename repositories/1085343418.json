@@ -4,11 +4,27 @@
     "id": 1085343418,
     "full_name": "HereLiesAz/IDEaz"
   },
-  "updated_at": "2026-11-16T23:27:48.135Z",
+  "updated_at": "2026-11-16T23:27:57.892Z",
   "workflows": {
     ".github/workflows/pr-ci.yml": {
       "name": "PR CI",
       "runs": [
+        {
+          "run_id": 43979502953,
+          "jobs": {},
+          "reports": {},
+          "created_at": "2026-11-16T23:27:57.892Z",
+          "run_number": 88,
+          "run_attempt": 1,
+          "event": "pull_request",
+          "branch": "dependabot/gradle/com.google.genai-google-genai-2.3.0",
+          "sha": "95ffdb8ccfdcfa9df7cb11fc1bbae4b47bcceced",
+          "status": "queued",
+          "conclusion": null,
+          "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/43979502953",
+          "started_at": "2026-11-16T23:27:55Z",
+          "updated_at": "2026-11-16T23:27:55Z"
+        },
         {
           "run_id": 43979475334,
           "jobs": {
@@ -617,41 +633,6 @@
           "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/42720856717",
           "started_at": "2026-11-09T23:29:27Z",
           "updated_at": "2026-11-09T23:36:28Z"
-        },
-        {
-          "run_id": 42720833782,
-          "jobs": {
-            "build": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/42720833782/job/129514080201",
-              "started_at": "2026-11-09T23:37:27Z",
-              "completed_at": "2026-11-09T23:41:48Z",
-              "steps_completed": 10,
-              "steps_total": 10,
-              "current_step": null
-            }
-          },
-          "reports": {
-            "build": {
-              "status": "success",
-              "summary": ":app:testDebugUnitTest :app:assembleDebug success",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-09T23:41:45.679Z"
-            }
-          },
-          "created_at": "2026-11-09T23:29:17.413Z",
-          "run_number": 68,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "dependabot/gradle/org.mockito.kotlin-mockito-kotlin-6.4.0",
-          "sha": "937d88e1fabc1ac8ee169ca08f2d33bec36f9917",
-          "status": "completed",
-          "conclusion": "success",
-          "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/42720833782",
-          "started_at": "2026-11-09T23:29:16Z",
-          "updated_at": "2026-11-09T23:41:49Z"
         }
       ]
     }

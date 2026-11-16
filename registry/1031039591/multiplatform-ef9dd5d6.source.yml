@@ -3,8 +3,9 @@ name: Build and Deploy
 # Target-local CI under HereLiesAz/workflows policy: the build and installer jobs end with
 # the central ci-report action, which registers this workflow `local`, `ci: true`.
 # Version and tag/grouping policy come from the central actions (four-part-version,
-# patch-grouped-release); this file keeps only aive-specific build, verification and
-# packaging steps. Google Play publication runs centrally in HereLiesAz/workflows
+# minor-grouped-release); this file keeps only aive-specific build, verification and
+# packaging steps. The sideloaded GitHub APK is built and signed here (android-keystore action);
+# Google Play track publication runs centrally in HereLiesAz/workflows
 # (android-play-release.yml; tracker: .github/workflows/android-play-release.yml).
 
 on:
@@ -16,10 +17,10 @@ on:
       - main
   workflow_dispatch:
 
+# Least privilege: each job below declares what it needs. id-token is only for the central
+# ci-report action (and Pages deploy); pages: write is only for deploy-pages.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   # Main/release runs must never be cancelled after an immutable tag has been created.
@@ -32,73 +33,106 @@ jobs:
     name: Resolve four-part version
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Resolve four-part build version
         id: version
-        # TODO: pin HereLiesAz/workflows to a specific commit SHA instead of @main
+        # HereLiesAz/workflows is owner-controlled and referenced at @main on purpose (docs/THREAT_MODEL.md, Accepted risks).
         uses: HereLiesAz/workflows/.github/actions/four-part-version@main
         with:
-          source-version-file: gradle.properties
-          source-version-key: app.versionName
+          source-version-file: version.properties
+          source-version-key: versionName
           build-number: ${{ github.run_number }}
           prerelease-major-max: "0"
 
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - name: Resolve four-part build version
-        # TODO: pin HereLiesAz/workflows to a specific commit SHA instead of @main
+        # HereLiesAz/workflows is owner-controlled and referenced at @main on purpose (docs/THREAT_MODEL.md, Accepted risks).
         uses: HereLiesAz/workflows/.github/actions/four-part-version@main
         with:
-          source-version-file: gradle.properties
-          source-version-key: app.versionName
+          source-version-file: version.properties
+          source-version-key: versionName
           build-number: ${{ github.run_number }}
           prerelease-major-max: "0"
           environment-variable: AIVE_VERSION
 
 
-      - name: Check out pinned h2g2
-        uses: actions/checkout@v7
+      - name: Check out h2g2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: HereLiesAz/conveyance-h2g2
-          ref: b17d8d9b46f8aeb399321c10199f0d0d0a0cfaaa
+          ref: 8ff45ea2fbf91f8b2fb22a542a87efdf9b856f0c # pinned: README "Bumping the vendor pins"
           path: vendor/conveyance-h2g2
 
-      - name: Check out pinned Conveyance
-        uses: actions/checkout@v7
+      - name: Check out Conveyance
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: HereLiesAz/Conveyance
-          ref: 214e43e2e871c8f1a5ca6f7e7dbb158177b5914c
+          ref: 9d9a694c64d0bdfd1d6e9f38a1ad972bb5618ac4 # pinned: README "Bumping the vendor pins"
           path: vendor/conveyance-h2g2/vendor/Conveyance
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
           java-version: "21"
 
+      - name: Install ffmpeg
+        # FfmpegFilmPlanTest runs the real binary; on CI a missing ffmpeg fails it instead of skipping.
+        run: |
+          for attempt in 1 2 3; do
+            if sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg; then break; fi
+            [ "$attempt" -lt 3 ] || exit 1
+            sleep $((attempt * 10))
+          done
+
       - name: Set up Rust native toolchain
-        uses: dtolnay/rust-toolchain@v1
+        id: retry1
+        continue-on-error: true
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: stable
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
+      - name: Set up Rust native toolchain (retry after a failed download)
+        if: steps.retry1.outcome == 'failure'
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
           toolchain: stable
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
 
       - name: Install cargo-ndk
-        uses: taiki-e/install-action@v2
+        id: retry2
+        continue-on-error: true
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2
+        with:
+          tool: cargo-ndk
+
+      - name: Install cargo-ndk (retry after a failed download)
+        if: steps.retry2.outcome == 'failure'
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2
         with:
           tool: cargo-ndk
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
 
       - name: Reconstruct and verify Android signing keystore
         id: signing
@@ -119,8 +153,8 @@ jobs:
       - name: Export Android signing path
         if: github.event_name != 'pull_request'
         run: |
-          echo "HAIVE_KEYSTORE_PATH=${{ steps.signing.outputs.keystore-path }}" >> "$GITHUB_ENV"
-          echo "HAIVE_KEYSTORE_TYPE=${{ steps.signing.outputs.store-type }}" >> "$GITHUB_ENV"
+          echo "AIVE_KEYSTORE_PATH=${{ steps.signing.outputs.keystore-path }}" >> "$GITHUB_ENV"
+          echo "AIVE_KEYSTORE_TYPE=${{ steps.signing.outputs.store-type }}" >> "$GITHUB_ENV"
 
       - name: Select Android release versionCode
         if: github.event_name != 'pull_request'
@@ -133,17 +167,30 @@ jobs:
             echo "::error::Generated Android versionCode $VERSION_CODE is outside the Play-supported range"
             exit 1
           fi
-          echo "HAIVE_VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          echo "AIVE_VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
           echo "Android release versionCode: $VERSION_CODE"
 
       - name: Verify release immutability policy
         run: python3 .github/scripts/verify_release_immutability.py
+
+      - name: Verify navigation map
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tools/navigation -p 'test_*.py'
+          python3 tools/navigation/check_navigation.py
 
       - name: Verify orchestration and memory training tooling
         shell: bash
         run: |
           set -euo pipefail
           python3 -m unittest discover -s tools/orchestration_training -p 'test_*.py'
+          python3 -m unittest discover -s tools/refinement_training -p 'test_*.py'
+          python3 -m unittest discover -s tools/specialist_optimization -p 'test_*.py'
+          python3 -m unittest discover -s .github/scripts -p 'test_*.py'
+          # The BitNet benchmark needs numpy, onnxruntime and transformers; the test module skips
+          # itself cleanly when they are absent (they are not installed on this runner).
+          python3 -m unittest discover -s tools/bitnet_benchmark -p 'test_*.py'
           python3 tools/orchestration_training/make_notebook.py
           git diff --exit-code -- \
             aive_orchestration_specialists.ipynb \
@@ -155,6 +202,9 @@ jobs:
 
       - name: Test shared domain
         run: ./gradlew :shared:desktopTest
+
+      - name: Test desktop app
+        run: ./gradlew :desktopApp:test
 
       - name: Test distributed compute relay
         run: ./gradlew :computeRelay:test
@@ -183,7 +233,7 @@ jobs:
               :androidApp:assemblePlayDebug :androidApp:assembleGithubDebug \
               :androidApp:minifyPlayReleaseWithR8 :androidApp:minifyGithubReleaseWithR8
           else
-            ./gradlew -Papp.versionCode="$HAIVE_VERSION_CODE" \
+            ./gradlew -Papp.versionCode="$AIVE_VERSION_CODE" \
               -Papp.versionName="$AIVE_VERSION" \
               :androidApp:bundlePlayRelease \
               :androidApp:assembleGithubRelease
@@ -193,16 +243,29 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Existence, plus Google Play's 16 KB page-size rule: every LOAD segment of the 64-bit
+          # libraries must be aligned to at least 0x4000. This checks the built native libraries on
+          # every event; "Verify 16 KB native library alignment" below re-checks the signed bundle.
+          bad=0
           for abi in arm64-v8a armeabi-v7a x86_64; do
             for lib in \
-              "androidApp/build/generated/bitcos/jniLibs/${abi}/libhaive_bitcos.so" \
+              "androidApp/build/generated/bitcos/jniLibs/${abi}/libaive_bitcos.so" \
               "androidApp/build/generated/djl-tokenizer/jniLibs/${abi}/libdjl_tokenizer.so"; do
               if [ ! -f "$lib" ]; then
                 echo "::error::Expected native runtime library was not found: $lib"
                 exit 1
               fi
+              if [ "$abi" != "armeabi-v7a" ]; then
+                for align in $(readelf -lW "$lib" | awk '/LOAD/ {print $NF}' | sort -u); do
+                  if [ $((align)) -lt 16384 ]; then
+                    echo "::error::$lib has a LOAD segment aligned to $align; 16 KB (0x4000) required"
+                    bad=1
+                  fi
+                done
+              fi
             done
           done
+          test "$bad" -eq 0
 
       - name: Verify 16 KB native library alignment
         if: github.event_name != 'pull_request'
@@ -215,6 +278,14 @@ jobs:
           WORK=$(mktemp -d)
           unzip -q "$AAB" 'base/lib/*' -d "$WORK"
           bad=0
+          # LiteRT-LM's native library (from the litertlm-android AAR) must be in the bundle for both 64-bit ABIs;
+          # the loop below then checks its alignment with every other library.
+          for abi in arm64-v8a x86_64; do
+            if [ ! -f "$WORK/base/lib/$abi/liblitertlm_jni.so" ]; then
+              echo "::error::liblitertlm_jni.so is missing from the bundle for $abi"
+              bad=1
+            fi
+          done
           for so in $(find "$WORK/base/lib/arm64-v8a" "$WORK/base/lib/x86_64" -name '*.so' 2>/dev/null); do
             align=$(readelf -lW "$so" | awk '/LOAD/ {print $NF}' | sort -u | head -1)
             name=$(basename "$so")
@@ -225,13 +296,13 @@ jobs:
           done
           exit $bad
 
-      - name: Publish pinned Conveyance for isolated web builds
+      - name: Publish Conveyance for isolated web builds
         run: |
           ./gradlew -p vendor/conveyance-h2g2/vendor/Conveyance \
             :conveyance-core:publishToMavenLocal \
             :conveyance-compose:publishToMavenLocal
 
-      - name: Publish pinned h2g2 for isolated web builds
+      - name: Publish h2g2 for isolated web builds
         run: ./gradlew -p vendor/conveyance-h2g2 publishToMavenLocal
 
       # Three builds (root 4g, Conveyance 3g, h2g2 2g heaps) leave their Gradle and Kotlin
@@ -240,9 +311,6 @@ jobs:
         run: |
           ./gradlew --stop
           pkill -f KotlinCompileDaemon || true
-
-      - name: Build Web JS
-        run: ./gradlew :webApp:jsBrowserProductionWebpack
 
       - name: Build Web Wasm
         run: ./gradlew :webApp:wasmJsBrowserProductionWebpack
@@ -320,7 +388,7 @@ jobs:
 
       - name: Upload GitHub Android release
         if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: aive-android-github-release
           path: androidApp/build/outputs/apk/github/release/*.apk
@@ -328,7 +396,7 @@ jobs:
 
       - name: Upload GitHub Android R8 mapping
         if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: aive-android-github-mapping
           path: androidApp/build/outputs/mapping/githubRelease/mapping.txt
@@ -336,7 +404,7 @@ jobs:
 
       - name: Upload Play Android release
         if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: aive-android-play-release
           path: androidApp/build/outputs/bundle/playRelease/*.aab
@@ -344,7 +412,7 @@ jobs:
 
       - name: Upload release notes
         if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: aive-release-notes
           path: fastlane/metadata/android/en-US/changelogs/
@@ -355,6 +423,21 @@ jobs:
         if: always()
         uses: HereLiesAz/workflows/.github/actions/ci-report@main
 
+  connector-tests:
+    name: Claude connector tests (Node)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      - name: Test the connector Worker
+        working-directory: connector
+        run: npm test
+
   desktop-packages:
     name: Desktop installer (${{ matrix.platform }})
     # Dependabot PRs skip the three-OS installer matrix: a batch of dependency bumps
@@ -363,6 +446,10 @@ jobs:
     if: (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     needs: version
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 75
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -385,7 +472,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Use central four-part build version
         shell: bash
         env:
@@ -396,33 +483,41 @@ jobs:
           echo "AIVE_VERSION=$AIVE_VERSION" >> "$GITHUB_ENV"
           echo "Aive build version: $AIVE_VERSION"
 
-      - name: Check out pinned h2g2
-        uses: actions/checkout@v7
+      - name: Check out h2g2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: HereLiesAz/conveyance-h2g2
-          ref: b17d8d9b46f8aeb399321c10199f0d0d0a0cfaaa
+          ref: 8ff45ea2fbf91f8b2fb22a542a87efdf9b856f0c # pinned: README "Bumping the vendor pins"
           path: vendor/conveyance-h2g2
 
-      - name: Check out pinned Conveyance
-        uses: actions/checkout@v7
+      - name: Check out Conveyance
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: HereLiesAz/Conveyance
-          ref: 214e43e2e871c8f1a5ca6f7e7dbb158177b5914c
+          ref: 9d9a694c64d0bdfd1d6e9f38a1ad972bb5618ac4 # pinned: README "Bumping the vendor pins"
           path: vendor/conveyance-h2g2/vendor/Conveyance
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
           java-version: "21"
 
       - name: Set up Rust native toolchain
-        uses: dtolnay/rust-toolchain@v1
+        id: retry3
+        continue-on-error: true
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: stable
+
+      - name: Set up Rust native toolchain (retry after a failed download)
+        if: steps.retry3.outcome == 'failure'
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
           toolchain: stable
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
 
       - name: Generate and verify desktop icons
         shell: bash
@@ -430,23 +525,23 @@ jobs:
           set -euo pipefail
           ./gradlew :desktopApp:generateDesktopBrandAssets
           for icon in \
-            desktopApp/build/generated/brand/desktop/haive-icon-color.png \
-            desktopApp/build/generated/brand/desktop/haive-icon.ico \
-            desktopApp/build/generated/brand/desktop/haive-icon.icns; do
+            desktopApp/build/generated/brand/desktop/aive-icon-color.png \
+            desktopApp/build/generated/brand/desktop/aive-icon.ico \
+            desktopApp/build/generated/brand/desktop/aive-icon.icns; do
             if [ ! -f "$icon" ]; then
               echo "::error::Expected generated desktop brand asset was not found: $icon"
               exit 1
             fi
           done
 
-      - name: Publish pinned Conveyance to Maven Local
+      - name: Publish Conveyance to Maven Local
         shell: bash
         run: |
           ./gradlew -p vendor/conveyance-h2g2/vendor/Conveyance \
             :conveyance-core:publishToMavenLocal \
             :conveyance-compose:publishToMavenLocal
 
-      - name: Publish pinned h2g2 to Maven Local
+      - name: Publish h2g2 to Maven Local
         shell: bash
         run: ./gradlew -p vendor/conveyance-h2g2 publishToMavenLocal
 
@@ -475,9 +570,13 @@ jobs:
           set -euo pipefail
           find desktopApp/build/generated/bitcos/desktop/bitcos -type f -maxdepth 1 -print
           test "$(find desktopApp/build/generated/bitcos/desktop/bitcos -type f -maxdepth 1 | wc -l | tr -d ' ')" -ge 1
+          # LiteRT-LM's JVM jar carries its natives (windows-x86_64, darwin-aarch64, linux-x86_64, linux-aarch64)
+          # and extracts the one for the machine at first use; it must be on the packaged runtime classpath.
+          ./gradlew -q :desktopApp:dependencies --configuration runtimeClasspath > "$RUNNER_TEMP/desktop-deps.txt"
+          grep -q 'com.google.ai.edge.litertlm:litertlm-jvm' "$RUNNER_TEMP/desktop-deps.txt"
 
       - name: Upload native installer
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.path }}
@@ -495,52 +594,53 @@ jobs:
       - build
       - desktop-packages
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       - name: Download GitHub Android release
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: aive-android-github-release
           path: release-input/android
 
       - name: Download Linux installer
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: aive-desktop-linux
           path: release-input/linux
 
       - name: Download Windows installer
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: aive-desktop-windows
           path: release-input/windows
 
       - name: Download macOS installer
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: aive-desktop-macos
           path: release-input/macos
 
       - name: Download release notes
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: aive-release-notes
           path: release-input/notes
 
       - name: Derive four-part release version
         id: version
-        # TODO: pin HereLiesAz/workflows to a specific commit SHA instead of @main
+        # HereLiesAz/workflows is owner-controlled and referenced at @main on purpose (docs/THREAT_MODEL.md, Accepted risks).
         uses: HereLiesAz/workflows/.github/actions/four-part-version@main
         with:
-          source-version-file: gradle.properties
-          source-version-key: app.versionName
+          source-version-file: version.properties
+          source-version-key: versionName
           build-number: ${{ github.run_number }}
           prerelease-major-max: "0"
 
@@ -589,8 +689,8 @@ jobs:
           } > release-notes.md
 
       - name: Publish grouped patch release
-        # TODO: pin HereLiesAz/workflows to a specific commit SHA instead of @main
-        uses: HereLiesAz/workflows/.github/actions/patch-grouped-release@main
+        # HereLiesAz/workflows is owner-controlled and referenced at @main on purpose (docs/THREAT_MODEL.md, Accepted risks).
+        uses: HereLiesAz/workflows/.github/actions/minor-grouped-release@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           target-repository: ${{ github.repository }}
@@ -604,17 +704,21 @@ jobs:
           migrate-legacy-build-releases: "true"
 
   # Standalone puppet-rig PWA until the full Aive browser app is connected.
-  # Deliberately independent of Android/Desktop/JS/Wasm build success.
+  # Deliberately independent of Android/Desktop/Wasm build success.
   deploy-pages:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Verify standalone puppet-rig
         shell: bash
@@ -651,13 +755,13 @@ jobs:
           done
 
       - name: Configure GitHub Pages
-        uses: actions/configure-pages@v6
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
 
       - name: Upload GitHub Pages artifact
-        uses: actions/upload-pages-artifact@v5
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
           path: ${{ runner.temp }}/aive-pages
 
       - name: Deploy GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5

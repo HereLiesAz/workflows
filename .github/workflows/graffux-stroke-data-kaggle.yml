@@ -1,7 +1,7 @@
 # Generated for HereLiesAz/Graffux:.github/workflows/stroke-data-kaggle.yml.
 # Edit the registered source or synchronizer, not this compiled workflow.
 # Generated shared catalog workflow. Do not edit by hand.
-# catalog-source: shared/b0762ea3a54ce250e19b7b8edbdad7efcee2fd9d16cfde9d4cb86a7d9a74e693
+# catalog-source: shared/f9bac4ffb15f35d21933707972b205001e3b194cfe3f6ac0f0ed44e9e7935e38
 name: Graffux · Stroke data → Kaggle
 on:
   workflow_dispatch:
@@ -157,7 +157,7 @@ jobs:
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         shell: bash
-        run: "set -euo pipefail\nif [[ -z \"$R2_ACCOUNT_ID\" || -z \"$R2_ACCESS_KEY_ID\" || -z \"$R2_SECRET_ACCESS_KEY\" ]]; then\n  echo \"configured=false\" >> \"$GITHUB_OUTPUT\"\n  echo \"::notice title=Stroke data::R2 read credentials are not configured; nothing mirrored.\"\n  {\n    echo \"### Stroke data → Kaggle\"\n    echo\n    echo \"R2 read credentials are not configured; nothing mirrored.\"\n    echo\n    echo \"Add R2_ACCOUNT_ID, R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY (an R2 API token with\"\n    echo \"Object Read only on the graffux bucket) to the Graffux environment.\"\n  } >> \"$GITHUB_STEP_SUMMARY\"\n  exit 0\nfi\nif ! [[ \"$R2_ACCOUNT_ID\" =~ ^[0-9a-f]{32}$ ]]; then\n  echo \"::error title=Stroke data::R2_ACCOUNT_ID is not a 32-character hexadecimal Cloudflare account id.\"\n  exit 1\nfi\necho \"configured=true\" >> \"$GITHUB_OUTPUT\"\n"
+        run: "set -euo pipefail\nif [[ -z \"$R2_ACCOUNT_ID\" || -z \"$R2_ACCESS_KEY_ID\" || -z \"$R2_SECRET_ACCESS_KEY\" ]]; then\n  echo \"configured=false\" >> \"$GITHUB_OUTPUT\"\n  echo \"::notice title=Stroke data::R2 read credentials are not configured; nothing mirrored.\"\n  {\n    echo \"### Stroke data → Kaggle\"\n    echo\n    echo \"R2 read credentials are not configured; nothing mirrored.\"\n    echo\n    echo \"Add R2_ACCOUNT_ID, R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY (an R2 API token with\"\n    echo \"Object Read only on the graffux-stroke-data bucket) to the Graffux environment.\"\n  } >> \"$GITHUB_STEP_SUMMARY\"\n  exit 0\nfi\nif ! [[ \"$R2_ACCOUNT_ID\" =~ ^[0-9a-f]{32}$ ]]; then\n  echo \"::error title=Stroke data::R2_ACCOUNT_ID is not a 32-character hexadecimal Cloudflare account id.\"\n  exit 1\nfi\necho \"configured=true\" >> \"$GITHUB_OUTPUT\"\n"
       - name: Install AWS CLI
         if: steps.r2.outputs.configured == 'true'
         run: pip install --quiet "awscli==1.46.3"
@@ -168,7 +168,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          R2_BUCKET: graffux
+          R2_BUCKET: graffux-stroke-data
           AWS_DEFAULT_REGION: auto
           AWS_REQUEST_CHECKSUM_CALCULATION: when_required
           AWS_RESPONSE_CHECKSUM_VALIDATION: when_required

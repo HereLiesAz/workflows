@@ -759,6 +759,11 @@ REPOSITORY_REVIEWED_WORKFLOW_BLOBS = {
     "hereliesaz/hahapewpew": {
         ".github/workflows/aive-opencode-agent.yml": "b76393356024a256154ca5f62db211d3d56b7126",
     },
+    # The Aive's own copy of the workflow it installs elsewhere (dispatch-only; nothing in the
+    # Aive repository runs it).
+    "hereliesaz/aive": {
+        ".github/workflows/aive-opencode-agent.yml": "25fabfbfff15e3f777a7886691deaa27911dba06",
+    },
 }
 
 def _enforce_new_workflow_submission_policy(

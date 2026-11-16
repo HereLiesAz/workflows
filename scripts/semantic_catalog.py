@@ -384,6 +384,12 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             # HereLiesAz/MeatPiety:.github/workflows/worker-deploy.yml — tests and deploys the
             # price / exchange-rate / follower-count worker in worker/ (purpose profile below).
             "da493be094cc21116b49dd988a62ba66d89c803681a5b1c7d6f3bbb5e3664a58",
+            # HereLiesAz/aive:.github/workflows/relay-deploy.yml — tests and deploys the
+            # remote-access relay in relay/ (purpose profile below).
+            "ee3f8edad7ea0ac0b65b3c568c130a957692c7bbf94feb09c2439c50e99e67c8",
+            # HereLiesAz/aive:.github/workflows/connector-deploy.yml — tests and deploys the
+            # Claude connector in connector/ and sets its two Worker secrets (profile below).
+            "461ba61a5837a98e8984f1c7850afb54c2fb7a9293956e982646ed815401a9ee",
         },
     },
     # Security-reviews a repository's pull requests with the OpenCode agent (read-only) and posts one
@@ -501,6 +507,9 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
     "a90a3f56cdc247d4df2f4a53a7f68a18123e71759f2b88d0e5fa0bb97df18034": {"working_directory": "web", "test_command": "npm test && npm run build", "build_outputs": ["web/dist"], "worker_secrets": ["TRAKT_CLIENT_ID", "TRAKT_CLIENT_SECRET"]},
     # CueDetat's training-capture relay: a Worker in ml/capture-relay with its own npm test.
     "cc3b3d2f63a2ff31d475af991e561c7ff8003b432b51c8b1c41a084ad82c0171": {"working_directory": "ml/capture-relay", "test_command": "npm test"},
+    # The Aive's remote-access relay and Claude connector Workers (relay/, connector/; no npm dependencies).
+    "ee3f8edad7ea0ac0b65b3c568c130a957692c7bbf94feb09c2439c50e99e67c8": {"working_directory": "relay", "test_command": "npm test"},
+    "461ba61a5837a98e8984f1c7850afb54c2fb7a9293956e982646ed815401a9ee": {"working_directory": "connector", "test_command": "npm test", "worker_secrets": ["CONNECTOR_KEK", "GOOGLE_CLIENT_SECRET"]},
     # MeatPiety data worker (worker/; no npm dependencies).
     "da493be094cc21116b49dd988a62ba66d89c803681a5b1c7d6f3bbb5e3664a58": {"working_directory": "worker", "test_command": "npm test", "worker_secrets": ["BLS_KEY"]},
     # azphalt's storefront Worker: a pnpm-workspace member, so it installs and builds from the repo

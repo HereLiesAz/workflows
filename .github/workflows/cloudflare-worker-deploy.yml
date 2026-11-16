@@ -6,6 +6,8 @@
 # required-secret: TRAKT_CLIENT_ID | Trakt OAuth client id, set on Workers whose profile lists it in worker_secrets.
 # required-secret: TRAKT_CLIENT_SECRET | Trakt OAuth client secret, set on Workers whose profile lists it in worker_secrets.
 # required-secret: BLS_KEY | U.S. Bureau of Labor Statistics API key, set on Workers whose profile lists it in worker_secrets.
+# required-secret: CONNECTOR_KEK | Key-encryption key (32 random bytes, base64url) that a Worker uses to encrypt data it stores at rest, set on Workers whose profile lists it in worker_secrets.
+# required-secret: GOOGLE_CLIENT_SECRET | Google OAuth client secret for Workers that sign people in with Google, set on Workers whose profile lists it in worker_secrets.
 # required-secret: GH_APP_ID | GitHub App that writes the Check Run mirroring this run onto the target commit.
 # required-secret: GH_PRIVATE_KEY | Private key of that GitHub App, used to mint its installation token.
 # The repository supplies wrangler.toml/wrangler.jsonc; nothing Worker-specific lives here.
@@ -117,6 +119,8 @@ jobs:
       REQUIRED_TRAKT_CLIENT_ID: ${{ secrets.TRAKT_CLIENT_ID }}
       REQUIRED_TRAKT_CLIENT_SECRET: ${{ secrets.TRAKT_CLIENT_SECRET }}
       REQUIRED_BLS_KEY: ${{ secrets.BLS_KEY }}
+      REQUIRED_CONNECTOR_KEK: ${{ secrets.CONNECTOR_KEK }}
+      REQUIRED_GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
       PROFILE_JSON: ${{ inputs.purpose_profile_json }}
       REQUIRED_GH_APP_ID: ${{ secrets.GH_APP_ID }}
       REQUIRED_GH_PRIVATE_KEY: ${{ secrets.GH_PRIVATE_KEY }}
@@ -155,6 +159,18 @@ jobs:
           if wants BLS_KEY; then
             test -n "${REQUIRED_BLS_KEY:-}" || {
               echo "::error::Missing required secret BLS_KEY — U.S. Bureau of Labor Statistics API key, set on Workers whose profile lists it in worker_secrets."
+              exit 1
+            }
+          fi
+          if wants CONNECTOR_KEK; then
+            test -n "${REQUIRED_CONNECTOR_KEK:-}" || {
+              echo "::error::Missing required secret CONNECTOR_KEK — Key-encryption key (32 random bytes, base64url) that a Worker uses to encrypt data it stores at rest, set on Workers whose profile lists it in worker_secrets."
+              exit 1
+            }
+          fi
+          if wants GOOGLE_CLIENT_SECRET; then
+            test -n "${REQUIRED_GOOGLE_CLIENT_SECRET:-}" || {
+              echo "::error::Missing required secret GOOGLE_CLIENT_SECRET — Google OAuth client secret for Workers that sign people in with Google, set on Workers whose profile lists it in worker_secrets."
               exit 1
             }
           fi
@@ -419,6 +435,8 @@ jobs:
           FORWARD_TRAKT_CLIENT_ID: ${{ secrets.TRAKT_CLIENT_ID }}
           FORWARD_TRAKT_CLIENT_SECRET: ${{ secrets.TRAKT_CLIENT_SECRET }}
           FORWARD_BLS_KEY: ${{ secrets.BLS_KEY }}
+          FORWARD_CONNECTOR_KEK: ${{ secrets.CONNECTOR_KEK }}
+          FORWARD_GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
         shell: bash
         run: |
           set -euo pipefail

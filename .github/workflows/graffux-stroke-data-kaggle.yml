@@ -1,7 +1,7 @@
 # Generated for HereLiesAz/Graffux:.github/workflows/stroke-data-kaggle.yml.
 # Edit the registered source or synchronizer, not this compiled workflow.
 # Generated shared catalog workflow. Do not edit by hand.
-# catalog-source: shared/0431073ae5117da9f10222735864528660c5b300bd0d99c80cf0ba05d98e22e4
+# catalog-source: shared/b0762ea3a54ce250e19b7b8edbdad7efcee2fd9d16cfde9d4cb86a7d9a74e693
 name: Graffux · Stroke data → Kaggle
 on:
   workflow_dispatch:
@@ -157,7 +157,7 @@ jobs:
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         shell: bash
-        run: "set -euo pipefail\nif [[ -z \"$R2_ACCOUNT_ID\" || -z \"$R2_ACCESS_KEY_ID\" || -z \"$R2_SECRET_ACCESS_KEY\" ]]; then\n  echo \"configured=false\" >> \"$GITHUB_OUTPUT\"\n  echo \"::notice title=Stroke data::R2 read credentials are not configured; nothing mirrored.\"\n  {\n    echo \"### Stroke data → Kaggle\"\n    echo\n    echo \"R2 read credentials are not configured; nothing mirrored.\"\n    echo\n    echo \"Add R2_ACCOUNT_ID, R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY (an R2 API token with\"\n    echo \"Object Read only on the graffux-stroke-data bucket) to the Graffux environment.\"\n  } >> \"$GITHUB_STEP_SUMMARY\"\n  exit 0\nfi\nif ! [[ \"$R2_ACCOUNT_ID\" =~ ^[0-9a-f]{32}$ ]]; then\n  echo \"::error title=Stroke data::R2_ACCOUNT_ID is not a 32-character hexadecimal Cloudflare account id.\"\n  exit 1\nfi\necho \"configured=true\" >> \"$GITHUB_OUTPUT\"\n"
+        run: "set -euo pipefail\nif [[ -z \"$R2_ACCOUNT_ID\" || -z \"$R2_ACCESS_KEY_ID\" || -z \"$R2_SECRET_ACCESS_KEY\" ]]; then\n  echo \"configured=false\" >> \"$GITHUB_OUTPUT\"\n  echo \"::notice title=Stroke data::R2 read credentials are not configured; nothing mirrored.\"\n  {\n    echo \"### Stroke data → Kaggle\"\n    echo\n    echo \"R2 read credentials are not configured; nothing mirrored.\"\n    echo\n    echo \"Add R2_ACCOUNT_ID, R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY (an R2 API token with\"\n    echo \"Object Read only on the graffux bucket) to the Graffux environment.\"\n  } >> \"$GITHUB_STEP_SUMMARY\"\n  exit 0\nfi\nif ! [[ \"$R2_ACCOUNT_ID\" =~ ^[0-9a-f]{32}$ ]]; then\n  echo \"::error title=Stroke data::R2_ACCOUNT_ID is not a 32-character hexadecimal Cloudflare account id.\"\n  exit 1\nfi\necho \"configured=true\" >> \"$GITHUB_OUTPUT\"\n"
       - name: Install AWS CLI
         if: steps.r2.outputs.configured == 'true'
         run: pip install --quiet "awscli==1.46.3"
@@ -168,11 +168,12 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: graffux
           AWS_DEFAULT_REGION: auto
           AWS_REQUEST_CHECKSUM_CALCULATION: when_required
           AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
         shell: bash
-        run: "set -euo pipefail\nmkdir -p data/stroke-data\naws s3 sync \"s3://graffux-stroke-data/stroke-data/\" data/stroke-data/ \\\n  --endpoint-url \"https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com\" \\\n  --exclude \"*\" --include \"*.jsonl.gz\" --only-show-errors\nfiles=\"$(find data/stroke-data -type f -name '*.jsonl.gz' | wc -l | tr -d ' ')\"\necho \"files=$files\" >> \"$GITHUB_OUTPUT\"\nif [[ \"$files\" == \"0\" ]]; then\n  echo \"::notice title=Stroke data::The R2 bucket holds no stroke data yet; nothing to upload.\"\n  echo \"No stroke data in the R2 bucket yet; nothing to upload.\" >> \"$GITHUB_STEP_SUMMARY\"\nelse\n  echo \"Mirrored $files session file(s) from R2.\" >> \"$GITHUB_STEP_SUMMARY\"\nfi\n"
+        run: "set -euo pipefail\nmkdir -p data/stroke-data\naws s3 sync \"s3://${R2_BUCKET}/stroke-data/\" data/stroke-data/ \\\n  --endpoint-url \"https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com\" \\\n  --exclude \"*\" --include \"*.jsonl.gz\" --only-show-errors\nfiles=\"$(find data/stroke-data -type f -name '*.jsonl.gz' | wc -l | tr -d ' ')\"\necho \"files=$files\" >> \"$GITHUB_OUTPUT\"\nif [[ \"$files\" == \"0\" ]]; then\n  echo \"::notice title=Stroke data::The R2 bucket holds no stroke data yet; nothing to upload.\"\n  echo \"No stroke data in the R2 bucket yet; nothing to upload.\" >> \"$GITHUB_STEP_SUMMARY\"\nelse\n  echo \"Mirrored $files session file(s) from R2.\" >> \"$GITHUB_STEP_SUMMARY\"\nfi\n"
       - name: Skip if this data was already uploaded
         id: seen
         if: steps.mirror.outputs.files != '' && steps.mirror.outputs.files != '0'

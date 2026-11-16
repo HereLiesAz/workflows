@@ -1,6 +1,6 @@
 # Mirrors the stroke-model training data to a PRIVATE Kaggle dataset (schema: tools/stroke-model/SCHEMA.md).
 #
-# Source of truth: the PRIVATE Cloudflare R2 bucket `graffux-stroke-data`, objects keyed
+# Source of truth: the PRIVATE Cloudflare R2 bucket `graffux`, objects keyed
 #   stroke-data/<device-model>/session-<ms>.jsonl.gz
 # (written by the app's Worker; the Worker has no read route). It is read here through R2's
 # S3-compatible API with a pinned AWS CLI. The public `stroke-data` branch was retired in
@@ -8,13 +8,16 @@
 #
 # Secrets (Graffux environment, or repository level):
 #   R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY: an R2 API token with "Object Read only"
-#       scoped to the graffux-stroke-data bucket. Until all three exist the run finishes
+#       scoped to the graffux bucket. Until all three exist the run finishes
 #       SUCCESSFULLY with a notice ("R2 read credentials are not configured; nothing mirrored").
 #   KAGGLE_TOKEN: either a Kaggle API token string (KGAT_…) or the contents of
 #       kaggle.json ({"username": …, "key": …}).
 # Variable: KAGGLE_DATASET (optional) "<owner>/<slug>". Defaults to
 #       "<KAGGLE_USERNAME or the kaggle.json username>/graffux-stroke-data".
 #       KAGGLE_USERNAME falls back to the owner's account, hereliesaz, when the variable is unset.
+#
+# The bucket name is the single R2_BUCKET env value on the "Mirror stroke data from R2" step.
+# The bucket must keep public access OFF (no r2.dev URL, no custom domain).
 #
 # Runs every 6 hours and on demand. Nothing is uploaded when the bucket holds no .jsonl.gz objects,
 # or when its exact content was already uploaded (the cache key is a content hash of the mirrored
@@ -62,7 +65,7 @@ jobs:
               echo "R2 read credentials are not configured; nothing mirrored."
               echo
               echo "Add R2_ACCOUNT_ID, R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY (an R2 API token with"
-              echo "Object Read only on the graffux-stroke-data bucket) to the Graffux environment."
+              echo "Object Read only on the graffux bucket) to the Graffux environment."
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
@@ -83,6 +86,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: graffux
           AWS_DEFAULT_REGION: auto
           AWS_REQUEST_CHECKSUM_CALCULATION: when_required
           AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
@@ -90,7 +94,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p data/stroke-data
-          aws s3 sync "s3://graffux-stroke-data/stroke-data/" data/stroke-data/ \
+          aws s3 sync "s3://${R2_BUCKET}/stroke-data/" data/stroke-data/ \
             --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" \
             --exclude "*" --include "*.jsonl.gz" --only-show-errors
           files="$(find data/stroke-data -type f -name '*.jsonl.gz' | wc -l | tr -d ' ')"

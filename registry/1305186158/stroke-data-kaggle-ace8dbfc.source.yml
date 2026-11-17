@@ -56,16 +56,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -z "$R2_ACCOUNT_ID" || -z "$R2_ACCESS_KEY_ID" || -z "$R2_SECRET_ACCESS_KEY" ]]; then
+          missing=()
+          [[ -n "$R2_ACCOUNT_ID" ]] || missing+=("R2_ACCOUNT_ID")
+          [[ -n "$R2_ACCESS_KEY_ID" ]] || missing+=("R2_ACCESS_KEY_ID")
+          [[ -n "$R2_SECRET_ACCESS_KEY" ]] || missing+=("R2_SECRET_ACCESS_KEY")
+          if (( ${#missing[@]} > 0 )); then
+            list="${missing[*]}"
+            list="${list// /, }"
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=Stroke data::R2 read credentials are not configured; nothing mirrored."
+            echo "::notice title=Stroke data::R2 read credentials are not configured; nothing mirrored. Empty in this job: ${list}. Add the missing ones as secrets of the Graffux environment or repository in HereLiesAz/workflows; names must match exactly."
             {
               echo "### Stroke data → Kaggle"
               echo
               echo "R2 read credentials are not configured; nothing mirrored."
               echo
-              echo "Add R2_ACCOUNT_ID, R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY (an R2 API token with"
-              echo "Object Read only on the graffux-stroke-data bucket) to the Graffux environment."
+              echo "Empty in this job: ${list}."
+              echo
+              echo "Add the missing ones as secrets of the Graffux environment or repository in HereLiesAz/workflows; names must match exactly."
+              echo "(An R2 API token with Object Read only on the graffux-stroke-data bucket.)"
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi

@@ -211,9 +211,6 @@ jobs:
       - name: Regression-test Play publish resilience and action pins
         run: python scripts/test_play_publish_resilience.py
 
-      - name: Regression-test the Play release announcement
-        run: python scripts/test_play_release_announcement.py
-
       - name: Test grouped GitHub tag publication fallback
         run: python scripts/test_grouped_release_tag_fallback.py
 

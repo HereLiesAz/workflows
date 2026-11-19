@@ -1402,39 +1402,6 @@ jobs:
             gh api --method POST "repos/$TARGET_REPOSITORY/issues" -f title="$title" -f body="$body" -f "labels[]=$label" >/dev/null
           fi
 
-      # Tell the target repository that Play has a new build, so its app can say so. The public
-      # store page only shows the production track and Play Core does not run on Android TV, so an
-      # app on an internal or alpha track otherwise cannot learn of a release. One CLOSED issue per
-      # published build, labelled play-release, titled "Play release <versionName> (<versionCode>)":
-      # the app lists the label's most recent issues. A deferred publish published nothing and
-      # announces nothing; a failure here never fails the release.
-      - name: Announce Play release
-        if: ${{ always() && steps.play.outcome == 'success' && env.PLAY_DEFERRED != 'true' && inputs.target_event_name != 'pull_request' }}
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ steps.target-token.outputs.token }}
-          ANNOUNCE_PACKAGE_NAME: ${{ steps.meta.outputs.package_name }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          label="play-release"
-          version_name="${EFFECTIVE_RELEASE_VERSION_NAME:-}"
-          version_code="${EFFECTIVE_RELEASE_VERSION_CODE:-}"
-          test -n "$version_name" && test -n "$version_code" || { echo "::warning::No release version to announce; skipping." >&2; exit 0; }
-          title="Play release ${version_name} (${version_code})"
-          existing="$(gh api "repos/$TARGET_REPOSITORY/issues?state=all&labels=$label&per_page=100" | jq -r --arg t "$title" '[.[] | select(.title == $t)][0].number // empty')"
-          if [ -n "$existing" ]; then
-            echo "Play release already announced in issue #$existing; nothing to do."
-            exit 0
-          fi
-          tracks="$(jq -r '[.[] | "\(.track) (\(.status))"] | join(", ")' <<<"${TRACKS_JSON:-[]}")"
-          meta="$(jq -nc --arg n "$version_name" --argjson c "$version_code" --arg p "${ANNOUNCE_PACKAGE_NAME:-}" --argjson t "${TRACKS_JSON:-[]}" '{versionName:$n,versionCode:$c,package:$p,tracks:$t}')"
-          body="$(printf 'Google Play now has **%s** (versionCode %s)%s.\n\n- Tracks: %s\n- Commit: %s\n- Run: %s/%s/actions/runs/%s\n\nThis issue is filed and closed by the central Play release workflow; the app reads issues with the `%s` label to tell that an update is on Google Play.\n\n<!-- play-release: %s -->\n' "$version_name" "$version_code" "${ANNOUNCE_PACKAGE_NAME:+ of \`$ANNOUNCE_PACKAGE_NAME\`}" "${tracks:-none}" "$TARGET_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$label" "$meta")"
-          gh api --method POST "repos/$TARGET_REPOSITORY/labels" -f name="$label" -f color="0e8a16" -f description="A build was published to Google Play (filed and closed by the central Play release workflow)." >/dev/null 2>&1 || true
-          number="$(gh api --method POST "repos/$TARGET_REPOSITORY/issues" -f title="$title" -f body="$body" -f "labels[]=$label" --jq '.number')"
-          gh api --method PATCH "repos/$TARGET_REPOSITORY/issues/$number" -f state=closed -f state_reason=completed >/dev/null
-          echo "Announced $title in issue #$number."
-
       # Record the published versionCode on the default branch, so a later build without Play
       # access (and the GitHub APK) still starts above it. Never lowers a recorded code.
       - name: Record published versionCode

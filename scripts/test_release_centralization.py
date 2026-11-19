@@ -534,6 +534,73 @@ assert _aive_conveyance_checkout["ref"] == _aive_conveyance_pin
 assert f"ref: {_aive_conveyance_pin}" in _aive_live_workflow
 print("aive nested AGP pin contract ok")
 
+# The Aive Play run consumes two immutable composite-build pins. Verify that only
+# its checked-out copies change and that the patch preserves unrelated repositories.
+import subprocess as _subprocess
+import tempfile as _tempfile
+
+_aive_patch_steps = [
+    step for step in publish_job["steps"]
+    if step.get("name") == "Resolve Aive pinned build plugins from Maven Central"
+]
+assert len(_aive_patch_steps) == 1
+_aive_patch_step = _aive_patch_steps[0]
+assert _aive_patch_step["if"] == expression("inputs.target_repository_name == 'aive'")
+_aive_patch_run = _aive_patch_step["run"]
+_aive_patch_match = re.search(r"python3 - <<'PY'\\n(.*?)\\nPY", _aive_patch_run, re.S)
+assert _aive_patch_match, "Aive composite-build repository patch missing"
+_aive_patch_python = _aive_patch_match.group(1)
+_aive_pinned_paths = (
+    "vendor/conveyance-h2g2/settings.gradle.kts",
+    "vendor/conveyance-h2g2/vendor/Conveyance/settings.gradle.kts",
+)
+_steps = [step.get("name") for step in publish_job["steps"]]
+assert _steps.index("Check out additional build dependencies") < _steps.index(
+    "Resolve Aive pinned build plugins from Maven Central"
+) < _steps.index("Apply canonical version to checkout")
+with _tempfile.TemporaryDirectory() as _tempdir:
+    _root = Path(_tempdir)
+    _old_settings = (
+        'pluginManagement {\\n'
+        '    repositories {\\n'
+        '        gradlePluginPortal()\\n'
+        '        google()\\n'
+        '        mavenCentral()\\n'
+        '        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")\\n'
+        '    }\\n'
+        '}\\n'
+    )
+    _new_settings = (
+        'pluginManagement {\\n'
+        '    repositories {\\n'
+        '        mavenCentral()\\n'
+        '        google()\\n'
+        '        gradlePluginPortal()\\n'
+        '        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")\\n'
+        '    }\\n'
+        '}\\n'
+    )
+    for _relative in _aive_pinned_paths:
+        _path = _root / _relative
+        _path.parent.mkdir(parents=True, exist_ok=True)
+        _path.write_text(_old_settings, encoding="utf-8")
+    _completed = _subprocess.run(
+        ["python3", "-c", _aive_patch_python],
+        cwd=_root, capture_output=True, text=True, check=False,
+    )
+    assert _completed.returncode == 0, _completed.stderr
+    for _relative in _aive_pinned_paths:
+        assert (_root / _relative).read_text(encoding="utf-8") == _new_settings
+    # Reject drift in either pinned layout instead of silently editing a different file.
+    (_root / _aive_pinned_paths[1]).write_text("pluginManagement {}\\n", encoding="utf-8")
+    _completed = _subprocess.run(
+        ["python3", "-c", _aive_patch_python],
+        cwd=_root, capture_output=True, text=True, check=False,
+    )
+    assert _completed.returncode != 0
+    assert "Unexpected plugin repositories" in _completed.stderr
+print("aive pinned included-build plugin repository contract ok")
+
 # QuicLoc's centrally registered release paths must preserve its two original
 # trigger modes and avoid silently publishing an incomplete base-module APK.
 # Check the checked-in source bytes, source hash, and central profile as one

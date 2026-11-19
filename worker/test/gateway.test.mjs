@@ -235,7 +235,8 @@ test("APK sharing resolves the latest public release on every scan", async () =>
         assert.equal(options.headers.Authorization, undefined);
         return Response.json({ assets: [
           { name: "app-debug.apk", browser_download_url: download.replace("release.apk", "debug.apk") },
-          { name: "app-release.apk", browser_download_url: download },
+          { name: "older-release.apk", created_at: "2026-01-01T00:00:00Z", browser_download_url: "https://github.com/HereLiesAz/LeFauxPass/releases/download/3.0.1/older-release.apk" },
+          { name: "app-release.apk", created_at: "2026-02-01T00:00:00Z", browser_download_url: download },
         ] });
       };
       const response = await worker.fetch(new Request(ORIGIN + "/download/LeFauxPass"), {});

@@ -128,7 +128,9 @@ export default {
         );
         const release = await response.json();
         const prefix = `https://github.com/${repository}/releases/download/`;
-        const asset = !release.draft && !release.prerelease && (release.assets || []).find((item) =>
+        const asset = !release.draft && !release.prerelease && [...(release.assets || [])]
+          .sort((a, b) => (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0))
+          .find((item) =>
           typeof item.name === "string" && /\.apk$/i.test(item.name) && !/debug/i.test(item.name) &&
           typeof item.browser_download_url === "string" && item.browser_download_url.startsWith(prefix)
         );

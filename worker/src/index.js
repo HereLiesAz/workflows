@@ -114,6 +114,33 @@ export default {
     }
 
     try {
+      const downloadRoute = url.pathname.match(/^\/download\/([A-Za-z0-9_.-]{1,100})$/);
+      if (request.method === "GET" && downloadRoute) {
+        const repository = `${OWNER_LOGIN}/${downloadRoute[1]}`;
+        // Use GitHub's public endpoint so this public route cannot reveal private assets.
+        const response = await fetch(`https://api.github.com/repos/${repository}/releases/latest`, {
+          cache: "no-store",
+          headers: { Accept: "application/vnd.github+json", "User-Agent": "HereLiesAz-app-download" },
+        });
+        if (!response.ok) return new Response(
+          `<p>Couldn’t start the download.</p><a href="https://github.com/${repository}/releases/latest">Open latest release</a>`,
+          { status: 503, headers: { "Cache-Control": "no-store", "Content-Type": "text/html; charset=utf-8" } },
+        );
+        const release = await response.json();
+        const prefix = `https://github.com/${repository}/releases/download/`;
+        const asset = !release.draft && !release.prerelease && (release.assets || []).find((item) =>
+          typeof item.name === "string" && /\.apk$/i.test(item.name) && !/debug/i.test(item.name) &&
+          typeof item.browser_download_url === "string" && item.browser_download_url.startsWith(prefix)
+        );
+        if (!asset) return new Response(
+          `<p>No release APK is available.</p><a href="https://github.com/${repository}/releases/latest">Open latest release</a>`,
+          { status: 404, headers: { "Cache-Control": "no-store", "Content-Type": "text/html; charset=utf-8" } },
+        );
+        return new Response(null, {
+          status: 302,
+          headers: { Location: asset.browser_download_url, "Cache-Control": "no-store" },
+        });
+      }
       if (request.method === "GET" && url.pathname === "/repositories") {
         return await scrapePublicRepositories(url);
       }

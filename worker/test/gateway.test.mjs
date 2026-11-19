@@ -220,3 +220,53 @@ test("/remote-run/callback leaves the token's jti unused when the request fails 
   assert.equal((await send("bogus")).status, 400, "so the retry is not answered 409");
 });
 
+
+test("APK sharing resolves the latest public release on every scan", async () => {
+  const originalFetch = globalThis.fetch;
+  const downloads = [
+    "https://github.com/HereLiesAz/LeFauxPass/releases/download/3.0.1/app-release.apk",
+    "https://github.com/HereLiesAz/LeFauxPass/releases/download/3.0.2/app-release.apk",
+  ];
+  try {
+    for (const download of downloads) {
+      globalThis.fetch = async (url, options) => {
+        assert.equal(url, "https://api.github.com/repos/HereLiesAz/LeFauxPass/releases/latest");
+        assert.equal(options.cache, "no-store");
+        assert.equal(options.headers.Authorization, undefined);
+        return Response.json({ assets: [
+          { name: "app-debug.apk", browser_download_url: download.replace("release.apk", "debug.apk") },
+          { name: "app-release.apk", browser_download_url: download },
+        ] });
+      };
+      const response = await worker.fetch(new Request(ORIGIN + "/download/LeFauxPass"), {});
+      assert.equal(response.status, 302);
+      assert.equal(response.headers.get("Location"), download);
+      assert.equal(response.headers.get("Cache-Control"), "no-store");
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("APK sharing rejects unavailable, prerelease and off-repository downloads", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    for (const body of [
+      { draft: true, assets: [] },
+      { prerelease: true, assets: [] },
+      { assets: [] },
+      { assets: [{ name: "app.apk", browser_download_url: "https://example.com/app.apk" }] },
+    ]) {
+      globalThis.fetch = async () => Response.json(body);
+      const response = await worker.fetch(new Request(ORIGIN + "/download/LeFauxPass"), {});
+      assert.equal(response.status, 404);
+      assert.equal(response.headers.get("Location"), null);
+      assert.equal(response.headers.get("Cache-Control"), "no-store");
+      assert.match(await response.text(), /Open latest release/);
+    }
+    globalThis.fetch = async () => new Response(null, { status: 404 });
+    assert.equal((await worker.fetch(new Request(ORIGIN + "/download/PrivateApp"), {})).status, 503);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

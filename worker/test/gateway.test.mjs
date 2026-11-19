@@ -261,6 +261,8 @@ test("APK sharing rejects unavailable, prerelease and off-repository downloads",
       const response = await worker.fetch(new Request(ORIGIN + "/download/LeFauxPass"), {});
       assert.equal(response.status, 404);
       assert.equal(response.headers.get("Location"), null);
+      assert.equal(response.headers.get("Cache-Control"), "no-store");
+      assert.match(await response.text(), /Open latest release/);
     }
     globalThis.fetch = async () => new Response(null, { status: 404 });
     assert.equal((await worker.fetch(new Request(ORIGIN + "/download/PrivateApp"), {})).status, 503);

@@ -227,3 +227,5 @@ prevent that, because the attacker controls the file. Only repository settings c
 
 Every central dispatch (Worker, gateway, sync) targets `ref: main`, so a branch policy of "`main`
 only" does not affect normal operation.
+
+Public app sharing can use `GET /download/<repository-name>` on the gateway. Each request resolves the latest regular GitHub release for a public HereLiesAz repository and redirects to its release APK. Private releases require authentication at GitHub and are unavailable through this route. Redirect responses use `Cache-Control: no-store`.

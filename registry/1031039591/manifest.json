@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-11-19T01:48:50+00:00",
+  "last_sync_at": "2026-11-19T02:13:37+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/aive",
@@ -8,18 +8,19 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
+  "worker_url_configured": false,
   "workflows": {
     ".github/workflows/aive-opencode-agent.yml": {
-      "binding": "repository",
+      "binding": "shared-variant",
       "central_workflow": ".github/workflows/aive-aive-opencode-agent.yml",
       "centralized": true,
       "implementation_sha256": "eb46a8e64f6d2a144698b684588ecc6a419a28d0b2c8a1bc8c3693116d0f33cd",
       "name": "Aive OpenCode Agent",
       "registry_source": "registry/1031039591/aive-opencode-agent-e9106c40.source.yml",
+      "shared_variant": "eb46a8e64f6d2a14",
       "source_sha256": "871f19f7c12f1921b1e068e54a375ce1ff116196e7dba4df2974397b1a6e2757",
       "status": "active",
-      "updated_at": "2026-11-19T01:48:40+00:00"
+      "updated_at": "2026-11-19T02:13:26+00:00"
     },
     ".github/workflows/android-ci.yml": {
       "ci": true,
@@ -29,7 +30,7 @@
       "required_secrets": [],
       "source_sha256": "f03bd37a7fcf3c1c0efb283aabc100b9980719afaff99fcb8c4078c37e642500",
       "status": "local",
-      "updated_at": "2026-11-19T01:48:41+00:00"
+      "updated_at": "2026-11-19T02:13:27+00:00"
     },
     ".github/workflows/android-play-release.yml": {
       "binding": "curated",
@@ -39,7 +40,7 @@
       "registry_source": "registry/1031039591/android-play-release-900abeb1.source.yml",
       "source_sha256": "241b4583d7885007973042f4012d5599162d3846fda0fe5daf018446ab496e76",
       "status": "active",
-      "updated_at": "2026-11-19T01:48:42+00:00"
+      "updated_at": "2026-11-19T02:13:29+00:00"
     },
     ".github/workflows/azp-package-release.yml": {
       "binding": "curated",
@@ -69,7 +70,7 @@
       "required_secrets": [],
       "source_sha256": "9c20863933649675bc2d871d90ab8775497565946a6cb8e6ab75c1a83d59b9b6",
       "status": "local",
-      "updated_at": "2026-11-19T01:48:43+00:00"
+      "updated_at": "2026-11-19T02:13:29+00:00"
     },
     ".github/workflows/bitnet-benchmark.yml": {
       "binding": "repository",
@@ -100,7 +101,7 @@
       "registry_source": "registry/1031039591/connector-deploy-753f2607.source.yml",
       "source_sha256": "461ba61a5837a98e8984f1c7850afb54c2fb7a9293956e982646ed815401a9ee",
       "status": "active",
-      "updated_at": "2026-11-19T01:48:44+00:00"
+      "updated_at": "2026-11-19T02:13:30+00:00"
     },
     ".github/workflows/dependency-submission.yml": {
       "ci": true,
@@ -110,7 +111,7 @@
       "required_secrets": [],
       "source_sha256": "e2e80df5902c74074b8ba18d54d7134229f8ffe0dbee6409bf2283dba6ff090b",
       "status": "local",
-      "updated_at": "2026-11-19T01:48:44+00:00"
+      "updated_at": "2026-11-19T02:13:31+00:00"
     },
     ".github/workflows/distributed-compute.yml": {
       "binding": "repository",
@@ -137,7 +138,7 @@
     ".github/workflows/jules-dispatch.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-dispatch.yml",
-      "name": "🔀 Jules Dispatch",
+      "name": "\ud83d\udd00 Jules Dispatch",
       "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/1031039591/jules-dispatch-800d0b01.source.yml",
       "source_sha256": "17c13d04cfa6d1e55af692790eaab5608a1b4b511a1f66e56ec133a8803eb5da",
@@ -147,7 +148,7 @@
     ".github/workflows/jules-glee.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-glee.yml",
-      "name": "😈 Glee Audit",
+      "name": "\ud83d\ude08 Glee Audit",
       "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/1031039591/jules-glee-0de23ac9.source.yml",
       "source_sha256": "7fba88519a2aa427c16d361391729e2f7b9bb2efecdb4c1b853731fe9a6e1781",
@@ -157,7 +158,7 @@
     ".github/workflows/jules-invoke.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-dispatch.yml",
-      "name": "▶️ Jules Invoke",
+      "name": "\u25b6\ufe0f Jules Invoke",
       "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/1031039591/jules-invoke-b23fc002.source.yml",
       "source_sha256": "cb2a978450da9b6dc82f8527a4ff2dbcde9af37e4e88d99e4409f217826572f0",
@@ -165,7 +166,7 @@
       "updated_at": "2026-09-22T16:53:11+00:00"
     },
     ".github/workflows/jules-review.yml": {
-      "name": "🔎 Jules Review",
+      "name": "\ud83d\udd0e Jules Review",
       "registry_source": "registry/1031039591/jules-review-9f7b6ce5.source.yml",
       "source_sha256": "d4d14f85bd0f2522a7c40463f782a80876395683824bb1e15fac087592ef3bb7",
       "status": "library",
@@ -174,7 +175,7 @@
     ".github/workflows/jules-scheduled-triage.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/jules-scheduled-triage.yml",
-      "name": "📋 Jules Scheduled Issue Triage",
+      "name": "\ud83d\udccb Jules Scheduled Issue Triage",
       "reason": "workflow file no longer exists in the target repository",
       "registry_source": "registry/1031039591/jules-scheduled-triage-7b36475f.source.yml",
       "source_sha256": "417422c330b5c2c0b37ef35eb18ec3c5424671bffa96288d868e69202fef8327",
@@ -182,22 +183,23 @@
       "updated_at": "2026-09-22T16:53:11+00:00"
     },
     ".github/workflows/jules-triage.yml": {
-      "name": "🔀 Jules Triage",
+      "name": "\ud83d\udd00 Jules Triage",
       "registry_source": "registry/1031039591/jules-triage-5c552504.source.yml",
       "source_sha256": "916ba7427d971e0e61e67b091819d76d5022482f8756f8c1a690d238f73f9c85",
       "status": "library",
       "updated_at": "2026-09-29T01:21:48+00:00"
     },
     ".github/workflows/live-runtime-verification.yml": {
-      "binding": "repository",
+      "binding": "shared-variant",
       "central_workflow": ".github/workflows/aive-live-runtime-verification.yml",
       "centralized": true,
       "implementation_sha256": "75b6520593276e4190081004832bc2b56e55f6b2b8761dd217a5aaae99fd69ad",
       "name": "Live Runtime Verification",
       "registry_source": "registry/1031039591/live-runtime-verification-914e86e3.source.yml",
+      "shared_variant": "75b6520593276e41",
       "source_sha256": "097b96c0f23901980c3f2d07295a7d07edf39313c7554dc342a448d9532b1f18",
       "status": "active",
-      "updated_at": "2026-11-19T01:48:46+00:00"
+      "updated_at": "2026-11-19T02:13:32+00:00"
     },
     ".github/workflows/multiplatform.yml": {
       "ci": true,
@@ -218,7 +220,7 @@
       ],
       "source_sha256": "866d266a7ad79a741e4f9f377c58a805cd23efa210c814474acaa2bf5bac1d30",
       "status": "local",
-      "updated_at": "2026-11-19T01:48:47+00:00"
+      "updated_at": "2026-11-19T02:13:33+00:00"
     },
     ".github/workflows/node-creature-engine.yml": {
       "binding": "repository",
@@ -239,7 +241,7 @@
       "registry_source": "registry/1031039591/orchestration-specialist-training-4ea3762d.source.yml",
       "source_sha256": "8d6665414985e370ab0f1227d15102696a92757585ddbb4266b5a4fe1f5c105b",
       "status": "active",
-      "updated_at": "2026-11-19T01:48:48+00:00"
+      "updated_at": "2026-11-19T02:13:35+00:00"
     },
     ".github/workflows/play-store-assets.yml": {
       "binding": "repository",
@@ -260,7 +262,7 @@
       "registry_source": "registry/1031039591/relay-deploy-880d418a.source.yml",
       "source_sha256": "ee3f8edad7ea0ac0b65b3c568c130a957692c7bbf94feb09c2439c50e99e67c8",
       "status": "active",
-      "updated_at": "2026-11-19T01:48:49+00:00"
+      "updated_at": "2026-11-19T02:13:36+00:00"
     },
     ".github/workflows/security-review.yml": {
       "binding": "curated",
@@ -270,7 +272,7 @@
       "registry_source": "registry/1031039591/security-review-b21b9f89.source.yml",
       "source_sha256": "55f030125ce375812f93a4a36b512a7be7d7ddab055ee120c7f1148f9ad8273d",
       "status": "active",
-      "updated_at": "2026-11-19T01:48:50+00:00"
+      "updated_at": "2026-11-19T02:13:37+00:00"
     },
     ".github/workflows/sign-azp.yml": {
       "binding": "curated",

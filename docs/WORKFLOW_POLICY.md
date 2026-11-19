@@ -69,14 +69,6 @@ profile's tracks, and attaches optional localized "What's new" notes (`release_n
 app publishes to Play by binding to that workflow; there is no separate Play publishing action, and
 target workflows never upload to Play themselves or through third-party upload actions.
 
-After a successful, non-deferred publish the same workflow files one **closed** issue in the target
-repository, labelled `play-release` and titled `Play release <versionName> (<versionCode>)` (tracks,
-commit and run in the body; a re-run of the same build is not announced twice). It uses the same
-repository-scoped installation token as the deferred-publish issue and never fails the release. An
-app uses it to learn that Google Play has a new build: the public store page only shows the
-production track and Play Core does not run on Android TV. It applies to every Android app that
-binds to this workflow.
-
 The central publisher's target-environment build job mints a **repository-scoped GitHub App
 installation token** for source checkout and target-repository GitHub operations. Its version-contract
 job runs outside that environment; using `secrets.GH_TOKEN` for both can silently select different

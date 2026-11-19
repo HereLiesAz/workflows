@@ -547,7 +547,7 @@ assert len(_aive_patch_steps) == 1
 _aive_patch_step = _aive_patch_steps[0]
 assert _aive_patch_step["if"] == expression("inputs.target_repository_name == 'aive'")
 _aive_patch_run = _aive_patch_step["run"]
-_aive_patch_match = re.search(r"python3 - <<'PY'\\n(.*?)\\nPY", _aive_patch_run, re.S)
+_aive_patch_match = re.search(r"python3 - <<'PY'\n(.*?)\nPY", _aive_patch_run, re.S)
 assert _aive_patch_match, "Aive composite-build repository patch missing"
 _aive_patch_python = _aive_patch_match.group(1)
 _aive_pinned_paths = (
@@ -561,24 +561,24 @@ assert _steps.index("Check out additional build dependencies") < _steps.index(
 with _tempfile.TemporaryDirectory() as _tempdir:
     _root = Path(_tempdir)
     _old_settings = (
-        'pluginManagement {\\n'
-        '    repositories {\\n'
-        '        gradlePluginPortal()\\n'
-        '        google()\\n'
-        '        mavenCentral()\\n'
-        '        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")\\n'
-        '    }\\n'
-        '}\\n'
+        'pluginManagement {\n'
+        '    repositories {\n'
+        '        gradlePluginPortal()\n'
+        '        google()\n'
+        '        mavenCentral()\n'
+        '        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")\n'
+        '    }\n'
+        '}\n'
     )
     _new_settings = (
-        'pluginManagement {\\n'
-        '    repositories {\\n'
-        '        mavenCentral()\\n'
-        '        google()\\n'
-        '        gradlePluginPortal()\\n'
-        '        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")\\n'
-        '    }\\n'
-        '}\\n'
+        'pluginManagement {\n'
+        '    repositories {\n'
+        '        mavenCentral()\n'
+        '        google()\n'
+        '        gradlePluginPortal()\n'
+        '        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")\n'
+        '    }\n'
+        '}\n'
     )
     for _relative in _aive_pinned_paths:
         _path = _root / _relative
@@ -592,7 +592,7 @@ with _tempfile.TemporaryDirectory() as _tempdir:
     for _relative in _aive_pinned_paths:
         assert (_root / _relative).read_text(encoding="utf-8") == _new_settings
     # Reject drift in either pinned layout instead of silently editing a different file.
-    (_root / _aive_pinned_paths[1]).write_text("pluginManagement {}\\n", encoding="utf-8")
+    (_root / _aive_pinned_paths[1]).write_text("pluginManagement {}\n", encoding="utf-8")
     _completed = _subprocess.run(
         ["python3", "-c", _aive_patch_python],
         cwd=_root, capture_output=True, text=True, check=False,

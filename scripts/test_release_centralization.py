@@ -591,7 +591,8 @@ with _tempfile.TemporaryDirectory() as _tempdir:
     assert _completed.returncode == 0, _completed.stderr
     for _relative in _aive_pinned_paths:
         assert (_root / _relative).read_text(encoding="utf-8") == _new_settings
-    # Reject drift in either pinned layout instead of silently editing a different file.
+    # Reject drift in the nested pinned layout rather than modifying an unknown checkout.
+    (_root / _aive_pinned_paths[0]).write_text(_old_settings, encoding="utf-8")
     (_root / _aive_pinned_paths[1]).write_text("pluginManagement {}\n", encoding="utf-8")
     _completed = _subprocess.run(
         ["python3", "-c", _aive_patch_python],

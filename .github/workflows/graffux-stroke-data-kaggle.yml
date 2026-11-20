@@ -1,7 +1,7 @@
 # Generated for HereLiesAz/Graffux:.github/workflows/stroke-data-kaggle.yml.
 # Edit the registered source or synchronizer, not this compiled workflow.
 # Generated shared catalog workflow. Do not edit by hand.
-# catalog-source: shared/a88f36af171977a6a2c0a07e01606e2e555b14d4ee3c19ab26df2ad9f53e348a
+# catalog-source: shared/c6e64af822513c76f43a5506153824ecb7150ef60d67228f62aae78475bece2d
 name: Graffux · Stroke data → Kaggle
 on:
   workflow_dispatch:
@@ -154,10 +154,11 @@ jobs:
         id: r2
         env:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCESS_ID: ${{ secrets.R2_ACCESS_ID }}
+          R2_ACCESS_KEY: ${{ secrets.R2_ACCESS_KEY }}
+          R2_TOKEN: ${{ secrets.R2_TOKEN }}
         shell: bash
-        run: "set -euo pipefail\nmissing=()\n[[ -n \"$R2_ACCOUNT_ID\" ]] || missing+=(\"R2_ACCOUNT_ID\")\n[[ -n \"$R2_ACCESS_KEY_ID\" ]] || missing+=(\"R2_ACCESS_KEY_ID\")\n[[ -n \"$R2_SECRET_ACCESS_KEY\" ]] || missing+=(\"R2_SECRET_ACCESS_KEY\")\nif (( ${#missing[@]} > 0 )); then\n  list=\"${missing[*]}\"\n  list=\"${list// /, }\"\n  echo \"configured=false\" >> \"$GITHUB_OUTPUT\"\n  echo \"::notice title=Stroke data::R2 read credentials are not configured; nothing mirrored. Empty in this job: ${list}. Add the missing ones as secrets of the Graffux environment or repository in HereLiesAz/workflows; names must match exactly.\"\n  {\n    echo \"### Stroke data → Kaggle\"\n    echo\n    echo \"R2 read credentials are not configured; nothing mirrored.\"\n    echo\n    echo \"Empty in this job: ${list}.\"\n    echo\n    echo \"Add the missing ones as secrets of the Graffux environment or repository in HereLiesAz/workflows; names must match exactly.\"\n    echo \"(An R2 API token with Object Read only on the graffux-stroke-data bucket.)\"\n  } >> \"$GITHUB_STEP_SUMMARY\"\n  exit 0\nfi\nif ! [[ \"$R2_ACCOUNT_ID\" =~ ^[0-9a-f]{32}$ ]]; then\n  echo \"::error title=Stroke data::R2_ACCOUNT_ID is not a 32-character hexadecimal Cloudflare account id.\"\n  exit 1\nfi\necho \"configured=true\" >> \"$GITHUB_OUTPUT\"\n"
+        run: "set -euo pipefail\nmissing=()\n[[ -n \"$R2_ACCOUNT_ID\" ]] || missing+=(\"R2_ACCOUNT_ID\")\n[[ -n \"$R2_ACCESS_ID\" ]] || missing+=(\"R2_ACCESS_ID\")\n[[ -n \"$R2_ACCESS_KEY\" ]] || missing+=(\"R2_ACCESS_KEY\")\nif (( ${#missing[@]} > 0 )); then\n  list=\"${missing[*]}\"\n  list=\"${list// /, }\"\n  echo \"configured=false\" >> \"$GITHUB_OUTPUT\"\n  echo \"::notice title=Stroke data::R2 read credentials are not configured; nothing mirrored. Empty in this job: ${list}. Add the missing ones as secrets of the Graffux environment or repository in HereLiesAz/workflows; names must match exactly.\"\n  {\n    echo \"### Stroke data → Kaggle\"\n    echo\n    echo \"R2 read credentials are not configured; nothing mirrored.\"\n    echo\n    echo \"Empty in this job: ${list}.\"\n    echo\n    echo \"Add the missing ones as secrets of the Graffux environment or repository in HereLiesAz/workflows; names must match exactly.\"\n    echo \"(An R2 API token with Object Read only on the graffux-stroke-data bucket: R2_ACCESS_ID is its S3 access key id and R2_ACCESS_KEY its S3 secret access key. R2_TOKEN is not required.)\"\n  } >> \"$GITHUB_STEP_SUMMARY\"\n  exit 0\nfi\nif ! [[ \"$R2_ACCOUNT_ID\" =~ ^[0-9a-f]{32}$ ]]; then\n  echo \"::error title=Stroke data::R2_ACCOUNT_ID is not a 32-character hexadecimal Cloudflare account id.\"\n  exit 1\nfi\necho \"configured=true\" >> \"$GITHUB_OUTPUT\"\n"
       - name: Install AWS CLI
         if: steps.r2.outputs.configured == 'true'
         run: pip install --quiet "awscli==1.46.3"
@@ -165,8 +166,8 @@ jobs:
         id: mirror
         if: steps.r2.outputs.configured == 'true'
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_ACCESS_KEY }}
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_BUCKET: graffux-stroke-data
           AWS_DEFAULT_REGION: auto

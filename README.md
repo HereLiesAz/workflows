@@ -6,10 +6,10 @@ full history of the last 20 runs is in `repositories/<repository_id>.json`.
 
 | Repository | Workflow | State | Run | Branch | Commit | Updated | Report |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Android CI | ❌ failure | [#3857](https://github.com/HereLiesAz/aive/actions/runs/44700181767) | main | `6d7aaaf` | 2026-11-20T08:13:52Z |  |
-| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | BITCOS Engine | ✅ success | [#85](https://github.com/HereLiesAz/aive/actions/runs/44689959603) | dependabot/github_actions/actions/setup-java-6.3.0 | `75c6138` | 2026-11-20T06:49:48Z |  |
-| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Dependency Submission | ✅ success | [#155](https://github.com/HereLiesAz/aive/actions/runs/44676884460) | main | `3de10e8` | 2026-11-20T04:51:41.968Z |  |
-| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Build and Deploy | ❌ failure | [#3204](https://github.com/HereLiesAz/aive/actions/runs/44700181404) | main | `6d7aaaf` | 2026-11-20T08:33:44.154Z |  |
+| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Android CI | ❌ failure | [#3880](https://github.com/HereLiesAz/aive/actions/runs/44780441257) | main | `4225dd4` | 2026-11-20T17:12:53.431Z |  |
+| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | BITCOS Engine | ✅ success | [#86](https://github.com/HereLiesAz/aive/actions/runs/44752797510) | main | `48ba501` | 2026-11-20T14:24:56Z |  |
+| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Dependency Submission | ✅ success | [#160](https://github.com/HereLiesAz/aive/actions/runs/44752854609) | main | `c22ef14` | 2026-11-20T14:26:57.961Z |  |
+| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Build and Deploy | ❌ failure | [#3227](https://github.com/HereLiesAz/aive/actions/runs/44780441289) | main | `4225dd4` | 2026-11-20T17:49:00Z |  |
 | [HereLiesAz/CaptureTheFlag](https://github.com/HereLiesAz/CaptureTheFlag) | CI | ✅ success | [#53](https://github.com/HereLiesAz/CaptureTheFlag/actions/runs/42170270715) | dependabot/gradle/io.ktor-ktor-client-cio-3.6.1 | `f19c882` | 2026-11-06T05:46:57.706Z | test: Node and shared tests |
 | [HereLiesAz/clappiest](https://github.com/HereLiesAz/clappiest) | CI | ✅ success | [#5](https://github.com/HereLiesAz/clappiest/actions/runs/42129876208) | main | `b43173e` | 2026-11-05T23:37:53Z | unit-tests: JVM unit tests (:app:testDebugUnitTest) |
 | [HereLiesAz/hahapewpew](https://github.com/HereLiesAz/hahapewpew) | Shift S2.7 visual QA | ✅ success | [#222](https://github.com/HereLiesAz/hahapewpew/actions/runs/44698901974) | fix/tab-blouse-draped-surface-20261120 | `ab72e24` | 2026-11-20T08:07:17Z |  |

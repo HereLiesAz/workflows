@@ -6,10 +6,10 @@ full history of the last 20 runs is in `repositories/<repository_id>.json`.
 
 | Repository | Workflow | State | Run | Branch | Commit | Updated | Report |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Android CI | ❌ failure | [#3888](https://github.com/HereLiesAz/aive/actions/runs/44821075389) | main | `8c240c0` | 2026-11-20T21:38:25Z |  |
+| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Android CI | ❌ failure | [#3890](https://github.com/HereLiesAz/aive/actions/runs/44870520298) | main | `c26d4c1` | 2026-11-21T05:28:10.352Z |  |
 | [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | BITCOS Engine | ✅ success | [#86](https://github.com/HereLiesAz/aive/actions/runs/44752797510) | main | `48ba501` | 2026-11-20T14:24:56Z |  |
 | [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Dependency Submission | ✅ success | [#160](https://github.com/HereLiesAz/aive/actions/runs/44752854609) | main | `c22ef14` | 2026-11-20T14:26:57.961Z |  |
-| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Build and Deploy | ❌ failure | [#3235](https://github.com/HereLiesAz/aive/actions/runs/44821075360) | main | `8c240c0` | 2026-11-20T21:46:12Z |  |
+| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Build and Deploy | ❌ failure | [#3237](https://github.com/HereLiesAz/aive/actions/runs/44870520255) | main | `c26d4c1` | 2026-11-21T05:46:19Z |  |
 | [HereLiesAz/CaptureTheFlag](https://github.com/HereLiesAz/CaptureTheFlag) | CI | ✅ success | [#53](https://github.com/HereLiesAz/CaptureTheFlag/actions/runs/42170270715) | dependabot/gradle/io.ktor-ktor-client-cio-3.6.1 | `f19c882` | 2026-11-06T05:46:57.706Z | test: Node and shared tests |
 | [HereLiesAz/clappiest](https://github.com/HereLiesAz/clappiest) | CI | ✅ success | [#5](https://github.com/HereLiesAz/clappiest/actions/runs/42129876208) | main | `b43173e` | 2026-11-05T23:37:53Z | unit-tests: JVM unit tests (:app:testDebugUnitTest) |
 | [HereLiesAz/hahapewpew](https://github.com/HereLiesAz/hahapewpew) | Shift S2.7 visual QA | ✅ success | [#223](https://github.com/HereLiesAz/hahapewpew/actions/runs/44835919601) | main | `837fda9` | 2026-11-20T23:28:15Z |  |

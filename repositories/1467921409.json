@@ -4,11 +4,32 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-22T23:47:04.000Z",
+  "updated_at": "2026-11-22T23:47:09.899Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 45085096276,
+          "jobs": {
+            "Android build and lint": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45085096276/job/137401793375",
+              "started_at": "2026-11-22T23:47:08Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-11-22T23:47:09.899Z",
+          "sha": "0c04a21239f791ce0ee0836b54ff522cb20a5a71",
+          "branch": "feature/depth-lit-source-preprocessing",
+          "status": "queued",
+          "updated_at": "2026-11-22T23:47:09.899Z"
+        },
         {
           "run_id": 45084752946,
           "jobs": {
@@ -866,31 +887,6 @@
           "conclusion": "cancelled",
           "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45080437938",
           "started_at": "2026-11-22T22:56:00Z"
-        },
-        {
-          "run_id": 45071351394,
-          "jobs": {},
-          "reports": {
-            "android": {
-              "status": "success",
-              "summary": "Debug APK builds; lint",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-22T21:20:30.859Z"
-            },
-            "test": {
-              "status": "success",
-              "summary": "Core tests on JVM and Wasm; web distribution builds",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-22T21:21:45.673Z"
-            }
-          },
-          "created_at": "2026-11-22T21:20:30.859Z",
-          "sha": "34dd5a88dcf6de1d71b4a7ea9beb5d1a5aa12c90",
-          "event": "push",
-          "branch": "main",
-          "updated_at": "2026-11-22T21:21:45.673Z"
         }
       ]
     },

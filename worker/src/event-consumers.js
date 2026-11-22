@@ -1674,10 +1674,16 @@ export const EVENT_CONSUMERS = {
     ]
   },
   "1429950641": {
-    "repository": "HereLiesAz/photo-unroll",
+    "repository": "HereLiesAz/camera-unroll",
     "events": [
       "push",
       "workflow_dispatch"
+    ],
+    "ci": [
+      {
+        "path": ".github/workflows/ci.yml",
+        "name": "CI"
+      }
     ]
   },
   "1432045972": {

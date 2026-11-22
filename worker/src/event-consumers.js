@@ -1722,6 +1722,10 @@ export const EVENT_CONSUMERS = {
       {
         "path": ".github/workflows/ci.yml",
         "name": "CI"
+      },
+      {
+        "path": ".github/workflows/depth-model-comparison.yml",
+        "name": "Depth model comparison"
       }
     ]
   }

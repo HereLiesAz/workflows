@@ -1,15 +1,35 @@
 {
-  "last_sync_at": "2026-11-13T00:56:06+00:00",
+  "last_sync_at": "2026-11-22T19:09:08+00:00",
   "repository": {
     "default_branch": "main",
-    "full_name": "HereLiesAz/photo-unroll",
+    "full_name": "HereLiesAz/camera-unroll",
     "id": 1429950641,
     "owner_id": 103241502,
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
+  "worker_url_configured": false,
   "workflows": {
+    ".github/workflows/android-github-release.yml": {
+      "binding": "curated",
+      "central_workflow": ".github/workflows/android-github-release.yml",
+      "centralized": true,
+      "name": "Android GitHub Release",
+      "registry_source": "registry/1429950641/android-github-release-57374b22.source.yml",
+      "source_sha256": "b34709045b554c7da6641350bf3161e94e4a0aa66f1bedb27ee084c24947a104",
+      "status": "active",
+      "updated_at": "2026-11-22T19:09:05+00:00"
+    },
+    ".github/workflows/ci.yml": {
+      "ci": true,
+      "name": "CI",
+      "reason": "declares CI with the ci-report action; CI runs in the target repository",
+      "registry_source": "registry/1429950641/ci-899ce9c2.source.yml",
+      "required_secrets": [],
+      "source_sha256": "4e460cc78601b27b36fab5a872d3cddc474140b4b2fe64b5ad8c79b6ee46e598",
+      "status": "local",
+      "updated_at": "2026-11-22T19:09:06+00:00"
+    },
     ".github/workflows/github-pages-deploy.yml": {
       "binding": "curated",
       "central_workflow": ".github/workflows/github-pages-deploy.yml",
@@ -18,7 +38,7 @@
       "registry_source": "registry/1429950641/github-pages-deploy-d3d5180a.source.yml",
       "source_sha256": "9bd5fb364cd651740b033f1ecb695a2d30320c49855e4d4adb8a0db0304c964a",
       "status": "active",
-      "updated_at": "2026-11-13T00:56:06+00:00"
+      "updated_at": "2026-11-22T19:09:08+00:00"
     }
   }
 }

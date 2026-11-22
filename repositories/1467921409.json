@@ -4,7 +4,7 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-22T23:47:25.143Z",
+  "updated_at": "2026-11-22T23:47:35.447Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
@@ -49,12 +49,20 @@
               "current_step": null
             }
           },
-          "reports": {},
+          "reports": {
+            "test": {
+              "status": "cancelled",
+              "summary": "Core tests on JVM and Wasm; web distribution builds",
+              "data": null,
+              "run_attempt": "1",
+              "reported_at": "2026-11-22T23:47:35.447Z"
+            }
+          },
           "created_at": "2026-11-22T23:47:09.899Z",
           "sha": "0c04a21239f791ce0ee0836b54ff522cb20a5a71",
           "branch": "feature/depth-lit-source-preprocessing",
           "status": "queued",
-          "updated_at": "2026-11-22T23:47:07Z",
+          "updated_at": "2026-11-22T23:47:35.447Z",
           "run_number": 22,
           "run_attempt": 1,
           "event": "pull_request",

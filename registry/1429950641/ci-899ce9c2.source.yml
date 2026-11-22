@@ -1,0 +1,57 @@
+# This repository's own CI. Per HereLiesAz/workflows policy, CI runs here (never centrally) and is
+# declared by the ci-report action, which records each job's result on the central ci-status ledger.
+# Releases and deploys are NOT built here: they run from HereLiesAz/workflows
+# (see .github/workflow-request.yml).
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+  id-token: write # the run's OIDC token authenticates ci-report; nothing else is needed
+jobs:
+  test:
+    name: Tests, web and desktop
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      # The imaging pipeline, capture guide and stitcher are all common code; their tests run on the JVM.
+      - name: Unit tests
+        run: ./gradlew :composeApp:desktopTest --no-daemon --stacktrace
+      - name: Compile web and desktop
+        run: ./gradlew :composeApp:compileKotlinWasmJs :composeApp:compileKotlinDesktop --no-daemon --stacktrace
+      - if: always()
+        uses: HereLiesAz/workflows/.github/actions/ci-report@main
+        with:
+          summary: Common unit tests; web and desktop compile
+
+  android:
+    name: Android build, unit tests and lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      # Unsigned: this proves the app builds, shrinks (R8) and passes lint. Signed release APKs
+      # come only from the central Android GitHub Release workflow.
+      - name: Build, test and lint
+        run: ./gradlew :composeApp:assembleDebug :composeApp:assembleRelease :composeApp:testDebugUnitTest :composeApp:lintDebug --no-daemon --stacktrace
+      - if: always()
+        uses: HereLiesAz/workflows/.github/actions/ci-report@main
+        with:
+          summary: Debug and release (R8) APKs build; unit tests; lint

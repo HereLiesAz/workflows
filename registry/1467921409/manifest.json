@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-11-22T21:47:20+00:00",
+  "last_sync_at": "2026-11-22T23:52:17+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/stencil-artist",
@@ -8,7 +8,7 @@
     "owner_login": "HereLiesAz"
   },
   "schema": 2,
-  "worker_url_configured": true,
+  "worker_url_configured": false,
   "workflows": {
     ".github/workflows/ci.yml": {
       "ci": true,
@@ -16,9 +16,19 @@
       "reason": "declares CI with the ci-report action; CI runs in the target repository",
       "registry_source": "registry/1467921409/ci-899ce9c2.source.yml",
       "required_secrets": [],
-      "source_sha256": "d7697b2bd000fe9f1ed1acacabf06092c869390152835e09da01197c0440abfb",
+      "source_sha256": "7a59597dc64000324f6980f2590c2ff8e16930f982b65cc504d4fd8e892dcebe",
       "status": "local",
-      "updated_at": "2026-11-22T21:47:18+00:00"
+      "updated_at": "2026-11-22T23:52:14+00:00"
+    },
+    ".github/workflows/depth-model-comparison.yml": {
+      "ci": true,
+      "name": "Depth model comparison",
+      "reason": "declares CI with the ci-report action; CI runs in the target repository",
+      "registry_source": "registry/1467921409/depth-model-comparison-905032de.source.yml",
+      "required_secrets": [],
+      "source_sha256": "ee3daed92e7975a020e6e9ad23bb55555475c16341d7326897c699b81f7b453d",
+      "status": "local",
+      "updated_at": "2026-11-22T23:52:15+00:00"
     },
     ".github/workflows/github-pages-deploy.yml": {
       "binding": "curated",
@@ -28,7 +38,7 @@
       "registry_source": "registry/1467921409/github-pages-deploy-d3d5180a.source.yml",
       "source_sha256": "9bd5fb364cd651740b033f1ecb695a2d30320c49855e4d4adb8a0db0304c964a",
       "status": "active",
-      "updated_at": "2026-11-22T21:47:19+00:00"
+      "updated_at": "2026-11-22T23:52:17+00:00"
     }
   }
 }

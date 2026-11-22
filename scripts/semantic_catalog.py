@@ -139,6 +139,8 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             "4104c9193e797a14d126b161d4bca1da9e373c8033eb7293f5a5d0583744374f",
             # HereLiesAz/CleanUnderwear:.github/workflows/android-github-release.yml
             "8480e31ce0d826d69298f8fe2d1ba17d4c5860bd8384a80c1bd0ec625ba61e7c",
+            # HereLiesAz/camera-unroll:.github/workflows/android-github-release.yml
+            "b34709045b554c7da6641350bf3161e94e4a0aa66f1bedb27ee084c24947a104",
             # HereLiesAz/Graffux:.github/workflows/android-github-release.yml
             "cfe7dd1864cf73f23cbd4f295fc87e0ee8e66e479c0339289834d3743bd3905b",
             # HereLiesAz/LogKitty:.github/workflows/android-github-release.yml (universal APK from bundle)
@@ -853,6 +855,8 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
     "4104c9193e797a14d126b161d4bca1da9e373c8033eb7293f5a5d0583744374f": {**ILLUMERA_STREMIO_AARS, "signing": "raw-jks", "java_version": "21", "google_services": "none", "build_command": "./gradlew :app:assembleRelease --no-daemon --stacktrace -PversionCode=\"$ANDROID_VERSION_CODE\" -PversionName=\"$VERSION\"", "artifact_glob": "app/build/outputs/apk/release/*.apk", "mapping_file": "app/build/outputs/mapping/release/mapping.txt", "persist_version": False, "app_name": "illumera"},
     "e02a72a6cc15e9eee828c04ba812cca236b4326e471c55c67816e18d0940ecba": {"signing": "raw-jks", "java_version": "21", "google_services": "none", "inject_signing_args": True, "package_name": "com.hereliesaz.cleanunderwear", "build_command": "./gradlew :app:bundleRelease --no-daemon --stacktrace", "aab_glob": "app/build/outputs/bundle/release/*.aab", "mapping_file": "app/build/outputs/mapping/release/mapping.txt", "publish_on_push": True, "publish_default": True, "tracks": PLAY_TRACKS, "release_app_name": "CleanUnderwear"},
     "8480e31ce0d826d69298f8fe2d1ba17d4c5860bd8384a80c1bd0ec625ba61e7c": {"signing": "raw-jks", "java_version": "21", "google_services": "none", "inject_signing_args": True, "build_command": "./gradlew :app:assembleRelease --no-daemon --stacktrace", "artifact_glob": "app/build/outputs/apk/release/*.apk", "mapping_file": "app/build/outputs/mapping/release/mapping.txt", "persist_version": False, "app_name": "CleanUnderwear"},
+    # camera-unroll (Compose Multiplatform; :composeApp reads -PversionCode / -PversionCodeOverride / -PversionName).
+    "b34709045b554c7da6641350bf3161e94e4a0aa66f1bedb27ee084c24947a104": {"signing": "raw-jks", "java_version": "17", "google_services": "none", "inject_signing_args": True, "build_command": "./gradlew :composeApp:assembleRelease --no-daemon --stacktrace -PversionName=\"$VERSION\"", "artifact_glob": "composeApp/build/outputs/apk/release/*.apk", "mapping_file": "composeApp/build/outputs/mapping/release/mapping.txt", "persist_version": False, "app_name": "Camera Unroll"},
     # HereLiesAz/clappiest (single :app module). Upload key as KEYSTORE_PRIVATE + KEYSTORE_CHAIN in the
     # clappiest environment. R8 is on, so mapping.txt exists.
     "7e1f7b2df929fc1820ccd163a0f848e35fda67d4aac85a3c4ff7f62573423551": {"signing": "pem-chain", "java_version": "21", "google_services": "none", "inject_signing_args": True, "package_name": "com.hereliesaz.clappiest", "build_command": "./gradlew :app:bundleRelease --no-daemon --stacktrace", "aab_glob": "app/build/outputs/bundle/release/*.aab", "mapping_file": "app/build/outputs/mapping/release/mapping.txt", "publish_on_push": True, "publish_default": True, "tracks": PLAY_TRACKS, "release_app_name": "Clappiest"},

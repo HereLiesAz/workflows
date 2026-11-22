@@ -4,7 +4,7 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-22T23:40:07.895Z",
+  "updated_at": "2026-11-22T23:40:09.599Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
@@ -803,6 +803,24 @@
     ".github/workflows/depth-model-comparison.yml": {
       "name": "Depth model comparison",
       "runs": [
+        {
+          "run_id": 45084433855,
+          "jobs": {},
+          "reports": {
+            "compare": {
+              "status": "success",
+              "summary": "Depth Anything V2 Small and MiDaS Small public-model CPU inference comparison",
+              "data": null,
+              "run_attempt": "1",
+              "reported_at": "2026-11-22T23:40:09.599Z"
+            }
+          },
+          "created_at": "2026-11-22T23:40:09.599Z",
+          "sha": "326404b15bdac213dc9c6dba4dd3947b1b6bd3e9",
+          "event": "pull_request",
+          "branch": "refs/pull/5/merge",
+          "updated_at": "2026-11-22T23:40:09.599Z"
+        },
         {
           "run_id": 45084431046,
           "jobs": {},

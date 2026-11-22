@@ -1,0 +1,34 @@
+{
+  "last_sync_at": "2026-11-22T21:47:20+00:00",
+  "repository": {
+    "default_branch": "main",
+    "full_name": "HereLiesAz/stencil-artist",
+    "id": 1467921409,
+    "owner_id": 103241502,
+    "owner_login": "HereLiesAz"
+  },
+  "schema": 2,
+  "worker_url_configured": false,
+  "workflows": {
+    ".github/workflows/ci.yml": {
+      "ci": true,
+      "name": "CI",
+      "reason": "declares CI with the ci-report action; CI runs in the target repository",
+      "registry_source": "registry/1467921409/ci-899ce9c2.source.yml",
+      "required_secrets": [],
+      "source_sha256": "d7697b2bd000fe9f1ed1acacabf06092c869390152835e09da01197c0440abfb",
+      "status": "local",
+      "updated_at": "2026-11-22T21:47:18+00:00"
+    },
+    ".github/workflows/github-pages-deploy.yml": {
+      "binding": "curated",
+      "central_workflow": ".github/workflows/github-pages-deploy.yml",
+      "centralized": true,
+      "name": "GitHub Pages Deploy",
+      "registry_source": "registry/1467921409/github-pages-deploy-d3d5180a.source.yml",
+      "source_sha256": "9bd5fb364cd651740b033f1ecb695a2d30320c49855e4d4adb8a0db0304c964a",
+      "status": "active",
+      "updated_at": "2026-11-22T21:47:19+00:00"
+    }
+  }
+}

@@ -1711,5 +1711,18 @@ export const EVENT_CONSUMERS = {
         "name": "Build"
       }
     ]
+  },
+  "1467921409": {
+    "repository": "HereLiesAz/stencil-artist",
+    "events": [
+      "push",
+      "workflow_dispatch"
+    ],
+    "ci": [
+      {
+        "path": ".github/workflows/ci.yml",
+        "name": "CI"
+      }
+    ]
   }
 };

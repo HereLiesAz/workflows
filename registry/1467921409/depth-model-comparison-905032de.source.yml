@@ -1,0 +1,29 @@
+name: Depth model comparison
+
+# Rare/expensive benchmark: run only when the model contract or benchmark changes.
+# It is not part of normal app builds and never bundles the downloaded weights.
+on:
+  pull_request:
+    paths:
+      - "tools/depth/benchmark.py"
+      - "models/depth-anything-v2-small.md"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  compare:
+    name: Depth Anything vs MiDaS (CPU)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install runtime for public ONNX model comparison
+        run: python3 -m pip install --user "onnxruntime>=1.20,<2" "huggingface_hub>=0.24,<2" "numpy>=1.26,<3"
+      - name: Verify actual model inputs, outputs and CPU inference
+        run: python3 tools/depth/benchmark.py
+      - if: always()
+        uses: HereLiesAz/workflows/.github/actions/ci-report@main
+        with:
+          summary: Depth Anything V2 Small and MiDaS Small public-model CPU inference comparison

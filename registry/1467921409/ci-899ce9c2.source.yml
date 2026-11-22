@@ -30,6 +30,8 @@ jobs:
       # (what Android uses) and on Wasm (what the web uses).
       - name: Core tests
         run: ./gradlew :core:jvmTest :core:wasmJsNodeTest --no-daemon --stacktrace
+      - name: Service worker cache regression tests
+        run: node tools/tests/service-worker-cache.mjs
       # The same command the Pages deploy runs, so a broken web build is caught on the pull request.
       - name: Web build
         run: ./gradlew :composeApp:wasmJsBrowserDistribution --no-daemon --stacktrace

@@ -4,11 +4,32 @@
     "id": 1085343418,
     "full_name": "HereLiesAz/IDEaz"
   },
-  "updated_at": "2026-11-23T23:25:16.399Z",
+  "updated_at": "2026-11-23T23:26:56.519Z",
   "workflows": {
     ".github/workflows/pr-ci.yml": {
       "name": "PR CI",
       "runs": [
+        {
+          "run_id": 45288893938,
+          "jobs": {
+            "build": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/45288893938/job/138092253437",
+              "started_at": "2026-11-23T23:26:55Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-11-23T23:26:56.519Z",
+          "sha": "8c90ee44b9cb743d220278682b76815d5a369d57",
+          "branch": "dependabot/npm_and_yarn/templates/react/tanstack/react-query-5.108.2",
+          "status": "queued",
+          "updated_at": "2026-11-23T23:26:56.519Z"
+        },
         {
           "run_id": 45288633181,
           "jobs": {
@@ -665,41 +686,6 @@
           "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/43260298371",
           "started_at": "2026-11-12T16:35:16Z",
           "updated_at": "2026-11-12T16:41:28Z"
-        },
-        {
-          "run_id": 43260243958,
-          "jobs": {
-            "build": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/43260243958/job/131329245722",
-              "started_at": "2026-11-12T16:35:09Z",
-              "completed_at": "2026-11-12T16:40:38Z",
-              "steps_completed": 10,
-              "steps_total": 10,
-              "current_step": null
-            }
-          },
-          "reports": {
-            "build": {
-              "status": "success",
-              "summary": ":app:testDebugUnitTest :app:assembleDebug success",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-12T16:40:35.040Z"
-            }
-          },
-          "created_at": "2026-11-12T16:35:02.860Z",
-          "run_number": 77,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "dependabot/gradle/com.google.genai-google-genai-2.0.0",
-          "sha": "7310a7998ec4455e905d7964539d2f0cfaba17b4",
-          "status": "completed",
-          "conclusion": "success",
-          "html_url": "https://github.com/HereLiesAz/IDEaz/actions/runs/43260243958",
-          "started_at": "2026-11-12T16:34:59Z",
-          "updated_at": "2026-11-12T16:40:39Z"
         }
       ]
     }

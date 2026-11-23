@@ -4,7 +4,7 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-23T22:11:22.424Z",
+  "updated_at": "2026-11-23T22:11:24.436Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
@@ -40,14 +40,14 @@
           "run_id": 45277047722,
           "jobs": {
             "Android build and lint": {
-              "status": "in_progress",
-              "conclusion": null,
+              "status": "completed",
+              "conclusion": "cancelled",
               "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45277047722/job/138051450811",
               "started_at": "2026-11-23T22:10:24Z",
-              "completed_at": null,
-              "steps_completed": 0,
-              "steps_total": 1,
-              "current_step": "Set up job"
+              "completed_at": "2026-11-23T22:11:19Z",
+              "steps_completed": 4,
+              "steps_total": 9,
+              "current_step": "Build and lint"
             },
             "Core tests (JVM and Wasm), web build": {
               "status": "completed",
@@ -65,7 +65,7 @@
           "sha": "38d090e90157d8071826dd111c7946a946ba63b7",
           "branch": "feature/painted-flow-ribbons",
           "status": "in_progress",
-          "updated_at": "2026-11-23T22:11:20.777Z",
+          "updated_at": "2026-11-23T22:11:24.436Z",
           "run_number": 120,
           "run_attempt": 1,
           "event": "pull_request",

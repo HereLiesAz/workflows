@@ -4,11 +4,27 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-23T21:00:33.848Z",
+  "updated_at": "2026-11-23T21:00:39.338Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 45265196994,
+          "jobs": {},
+          "reports": {},
+          "created_at": "2026-11-23T21:00:39.338Z",
+          "run_number": 108,
+          "run_attempt": 1,
+          "event": "pull_request",
+          "branch": "feature/painted-flow-ribbons",
+          "sha": "c917928e83453ec7a4a5dd39f2cf017fd4f69ec9",
+          "status": "queued",
+          "conclusion": null,
+          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45265196994",
+          "started_at": "2026-11-23T21:00:34Z",
+          "updated_at": "2026-11-23T21:00:34Z"
+        },
         {
           "run_id": 45265162679,
           "jobs": {
@@ -776,58 +792,6 @@
           "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45211162245",
           "started_at": "2026-11-23T15:58:17Z",
           "updated_at": "2026-11-23T15:58:49Z"
-        },
-        {
-          "run_id": 45210659093,
-          "jobs": {
-            "Core tests (JVM and Wasm), web build": {
-              "status": "completed",
-              "conclusion": "failure",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45210659093/job/137818245902",
-              "started_at": "2026-11-23T15:55:35Z",
-              "completed_at": "2026-11-23T15:57:22Z",
-              "steps_completed": 14,
-              "steps_total": 14,
-              "current_step": null
-            },
-            "Android build and lint": {
-              "status": "in_progress",
-              "conclusion": null,
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45210659093/job/137818245305",
-              "started_at": "2026-11-23T15:55:35Z",
-              "completed_at": null,
-              "steps_completed": 0,
-              "steps_total": 1,
-              "current_step": "Set up job"
-            }
-          },
-          "reports": {
-            "test": {
-              "status": "failure",
-              "summary": "Core tests on JVM and Wasm; web distribution builds",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-23T15:57:17.848Z"
-            },
-            "android": {
-              "status": "success",
-              "summary": "Debug APK builds; lint",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-23T15:58:29.354Z"
-            }
-          },
-          "created_at": "2026-11-23T15:55:34.670Z",
-          "sha": "b8926885fdc6398e819decf9d8fec2c848855392",
-          "branch": "feature/independent-layer-cut-masks",
-          "status": "completed",
-          "updated_at": "2026-11-23T15:58:35Z",
-          "run_number": 88,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "conclusion": "failure",
-          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45210659093",
-          "started_at": "2026-11-23T15:55:32Z"
         }
       ]
     },

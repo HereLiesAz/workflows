@@ -4,11 +4,27 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-23T07:09:51.995Z",
+  "updated_at": "2026-11-23T07:16:26.521Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 45129884215,
+          "jobs": {},
+          "reports": {},
+          "created_at": "2026-11-23T07:16:26.521Z",
+          "run_number": 77,
+          "run_attempt": 1,
+          "event": "pull_request",
+          "branch": "feature/local-can-colour-overrides",
+          "sha": "3d7b86c9b6d8c9eb778f47a83999bd270563126f",
+          "status": "queued",
+          "conclusion": null,
+          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45129884215",
+          "started_at": "2026-11-23T07:16:24Z",
+          "updated_at": "2026-11-23T07:16:24Z"
+        },
         {
           "run_id": 45128721022,
           "jobs": {
@@ -825,43 +841,6 @@
           "conclusion": "cancelled",
           "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45116231371",
           "started_at": "2026-11-23T05:11:41Z"
-        },
-        {
-          "run_id": 45116221237,
-          "jobs": {
-            "Core tests (JVM and Wasm), web build": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45116221237/job/137499595192",
-              "started_at": "2026-11-23T05:11:42Z",
-              "completed_at": "2026-11-23T05:11:52Z",
-              "steps_completed": 5,
-              "steps_total": 12,
-              "current_step": "Core tests"
-            },
-            "Android build and lint": {
-              "status": "in_progress",
-              "conclusion": null,
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45116221237/job/137499594868",
-              "started_at": "2026-11-23T05:11:42Z",
-              "completed_at": null,
-              "steps_completed": 0,
-              "steps_total": 1,
-              "current_step": "Set up job"
-            }
-          },
-          "reports": {},
-          "created_at": "2026-11-23T05:11:37.480Z",
-          "run_number": 57,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "feat/stencilpack-v1-interop",
-          "sha": "c2104368940a27085d0f570969c9f7ce47fe6ca6",
-          "status": "in_progress",
-          "conclusion": null,
-          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45116221237",
-          "started_at": "2026-11-23T05:11:36Z",
-          "updated_at": "2026-11-23T05:11:55.464Z"
         }
       ]
     },

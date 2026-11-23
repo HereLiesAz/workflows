@@ -4,11 +4,27 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-23T20:48:10.251Z",
+  "updated_at": "2026-11-23T20:48:30.247Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 45263155479,
+          "jobs": {},
+          "reports": {},
+          "created_at": "2026-11-23T20:48:30.247Z",
+          "run_number": 104,
+          "run_attempt": 1,
+          "event": "pull_request",
+          "branch": "feature/painted-flow-ribbons",
+          "sha": "2536ac77ec417966043026c1a9723300d582a9d4",
+          "status": "queued",
+          "conclusion": null,
+          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45263155479",
+          "started_at": "2026-11-23T20:48:27Z",
+          "updated_at": "2026-11-23T20:48:27Z"
+        },
         {
           "run_id": 45263099452,
           "jobs": {},
@@ -820,58 +836,6 @@
           "conclusion": "success",
           "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45139480813",
           "started_at": "2026-11-23T08:32:47Z"
-        },
-        {
-          "run_id": 45138548447,
-          "jobs": {
-            "Core tests (JVM and Wasm), web build": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45138548447/job/137571454907",
-              "started_at": "2026-11-23T08:27:53Z",
-              "completed_at": "2026-11-23T08:32:12Z",
-              "steps_completed": 13,
-              "steps_total": 13,
-              "current_step": null
-            },
-            "Android build and lint": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45138548447/job/137571455478",
-              "started_at": "2026-11-23T08:27:53Z",
-              "completed_at": "2026-11-23T08:29:26Z",
-              "steps_completed": 10,
-              "steps_total": 10,
-              "current_step": null
-            }
-          },
-          "reports": {
-            "android": {
-              "status": "success",
-              "summary": "Debug APK builds; lint",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-23T08:29:21.332Z"
-            },
-            "test": {
-              "status": "success",
-              "summary": "Core tests on JVM and Wasm; web distribution builds",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-23T08:32:09.298Z"
-            }
-          },
-          "created_at": "2026-11-23T08:25:56.493Z",
-          "run_number": 84,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "fix/tiled-cutter-clip-disconnected-pieces",
-          "sha": "a21c0c34367df713bff9263a94231f03a83900ce",
-          "status": "completed",
-          "conclusion": "success",
-          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45138548447",
-          "started_at": "2026-11-23T08:25:54Z",
-          "updated_at": "2026-11-23T08:32:12Z"
         }
       ]
     },

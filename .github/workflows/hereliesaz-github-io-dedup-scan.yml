@@ -102,7 +102,7 @@ env:
   TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
 concurrency:
   group: dedup-scan-${{ inputs.target_repository }}-${{ inputs.target_event_name }}-hereliesaz.github.io
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   central_check_start:
     runs-on: ubuntu-latest

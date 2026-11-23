@@ -646,6 +646,82 @@ def _stage_trackers(
         )
 
 
+def _stage_local_cancellation_policy(
+    gh,
+    repository: str,
+    default_branch: str,
+    manifest: dict,
+    staged: dict[str, tuple[str | None, str]],
+) -> list[str]:
+    """Disable native run preemption on registered local workflows.
+
+    GitHub's native cancel-in-progress happens before the signed workflow_run
+    webhook can compare historical completion time. Preserve all other YAML
+    and never modify shell bodies or unknown inline YAML.
+    """
+    pattern = re.compile(
+        r"(?m)^([ \t]*)cancel-in-progress:[ \t]*(?:true|\$\{\{[^\n]+\}\})([ \t]*(?:\#[^\n]*)?)$"
+    )
+    changed: list[str] = []
+    for path, entry in sorted((manifest.get("workflows") or {}).items()):
+        if not isinstance(entry, dict) or entry.get("status") != "local":
+            continue
+        if not path.startswith(".github/workflows/") or not path.endswith((".yml", ".yaml")):
+            continue
+        source = staged.get(path, (None, ""))[0]
+        if source is None:
+            try:
+                source, _ = gh.get_file(repository, path, ref=default_branch)
+            except core.ApiError as exc:
+                if "-> 404:" in str(exc):
+                    continue
+                raise
+        parsed = core.load_yaml(source)
+        if not isinstance(parsed, dict):
+            continue
+        concurrency_maps = [parsed.get("concurrency")]
+        jobs = parsed.get("jobs") or {}
+        if isinstance(jobs, dict):
+            concurrency_maps.extend(
+                job.get("concurrency")
+                for job in jobs.values()
+                if isinstance(job, dict)
+            )
+        enabled = sum(
+            1 for group in concurrency_maps
+            if isinstance(group, dict) and (
+                group.get("cancel-in-progress") is True or (
+                    isinstance(group.get("cancel-in-progress"), str)
+                    and group["cancel-in-progress"].strip().startswith("${{")
+                )
+            )
+        )
+        if enabled == 0:
+            continue
+        if len(pattern.findall(source)) != enabled:
+            # Conservative: a literal in a shell block or inline YAML makes
+            # text surgery unsafe. Do not rewrite anything in that case.
+            print(f"::warning::Cannot safely rewrite cancellation policy for {repository}:{path}")
+            continue
+        rewritten = pattern.sub(r"\1cancel-in-progress: false\2", source)
+        updated = core.load_yaml(rewritten)
+        if not isinstance(updated, dict):
+            continue
+        groups = [updated.get("concurrency")]
+        updated_jobs = updated.get("jobs") or {}
+        if isinstance(updated_jobs, dict):
+            groups.extend(job.get("concurrency") for job in updated_jobs.values() if isinstance(job, dict))
+        if any(
+            isinstance(group, dict) and group.get("cancel-in-progress") is not False
+            for group in groups
+            if isinstance(group, dict) and "cancel-in-progress" in group
+        ):
+            raise RuntimeError(f"Cancellation policy rewrite failed validation: {repository}:{path}")
+        staged[path] = (rewritten, f"Protect running {path} for history-aware cancellation")
+        changed.append(path)
+    return changed
+
+
 def _stage_retired_removals(
     manifest: dict,
     staged: dict[str, tuple[str | None, str]],
@@ -1143,6 +1219,10 @@ def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
         finalize_manifest(gh, core, int(result["repository_id"]), dry_run=dry_run)
         _stage_trackers(gh, core.load_manifest(gh, repository_id), staged_target_files)
         _stage_retired_removals(core.load_manifest(gh, repository_id), staged_target_files)
+        local_cancellation_updates = _stage_local_cancellation_policy(
+            gh, repository, default_branch,
+            core.load_manifest(gh, repository_id), staged_target_files,
+        )
     finally:
         gh.put_file = original_put_file
 
@@ -1179,6 +1259,7 @@ def sync_repository(gh, repository: str, worker_url: str, dry_run: bool):
         result["repository_workflow_gc"] = removed
     result["version_contract"] = version_contract
     result["target_batch"] = target_batch
+    result["local_cancellation_updates"] = local_cancellation_updates
     result["trigger_transport"] = "repository-webhook"
     result["proxy_files_written"] = 0
     result["tracking_proxy_files_written"] = sum(

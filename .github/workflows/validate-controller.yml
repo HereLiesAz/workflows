@@ -246,6 +246,9 @@ jobs:
 
       - name: Check the gateway schedule matches registered crons
         run: python scripts/test_gateway_schedule.py
+      - name: Regression-test history-aware local workflow cancellation normalization
+        run: python scripts/test_duplicate_cancellation_sync.py
+
 
       - name: Regression-test the single Android versioning rule
         run: python scripts/test_android_version.py

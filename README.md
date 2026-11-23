@@ -31,6 +31,29 @@ The legacy OIDC `/dispatch` endpoint is retained only while old proxies are bein
 
 Runtime results are reported back to the target SHA using **commit statuses**, mirrored as **Check Runs** (`scripts/target_check_run.py`) so agents and integrations watching the target wake on `check_run` events; a failed Check Run lists the failed jobs and steps and carries the tail of the first failed job's log. Statuses stay authoritative: Check Runs need the `GH_APP_ID` / `GH_PRIVATE_KEY` GitHub App (with `checks: write` on the target) and are best effort. Release and deploy workflows (path or name matching `release|deploy`) also keep one open `central-run-failure` issue per workflow in the target: opened on the first failure, commented on each repeat; successes never touch issues (the App also needs `issues: write`). Re-apply to committed central workflows with `python scripts/target_check_run.py .github/workflows/*.yml`. Each target keeps a tracker per centralized workflow at its original path, listing what it uses. A tracker is one seconds-long job that names the commit status carrying the central result; it never waits on the central run, so it never holds a runner the central run needs.
 
+## Duplicate run cancellation
+
+Signed `workflow_run` webhooks trigger the same policy for each **registered repository's**
+local Actions and for identifiable centralized executions. On a new run of the
+same action in the same repository, older pending/queued runs are **force-cancelled
+immediately**, without first calling the slower ordinary cancellation endpoint.
+For older running runs, the Worker takes up to five most recent valid successful
+durations (from `run_started_at` to `updated_at`). With at least three,
+it force-cancels only if elapsed runtime is **strictly less than half** their
+arithmetic mean. Without those data, it lets the running job finish.
+
+The worker matches workflows by immutable workflow ID and repository; centralized
+multi-tenant workflows additionally require recognizable repository+action run
+names. A title without a reliable origin is left alone. The central gateway
+envelopes carry distinct events and are excluded: cancelling one would silently
+drop its unmatched event. Self-managed and private repositories without a
+controller webhook remain outside this policy. On subsequent repository synchronization, the controller rewrites
+registered local workflows' GitHub-native `cancel-in-progress` settings to
+`false` when the YAML can be changed without touching unrelated content.
+Unregistered/private/self-managed workflows and ambiguous local syntax cannot
+be migrated automatically; they retain their original GitHub behavior. The API can accept a force-cancel
+request before GitHub actually terminates the runner.
+
 ## CI runs in its own repository
 
 CI is the exception to central execution: every project runs its own CI in its own repository, so fundamental testing is never blocked, queued or delayed by central capacity, the gateway, or this repository's health. The controller only **records** what that CI reports, on the orphan branch [`ci-status`](https://github.com/HereLiesAz/workflows/tree/ci-status) (no workflow files, so its commits start nothing):

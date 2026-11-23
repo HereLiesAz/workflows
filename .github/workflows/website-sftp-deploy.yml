@@ -145,7 +145,7 @@ jobs:
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
       group: sftp-deploy-${{ inputs.target_repository_name }}
-      cancel-in-progress: true
+      cancel-in-progress: false
   build_and_deploy:
     needs: central_check_start
     if: ${{ inputs.target_event_name != 'pull_request' || fromJSON(inputs.target_event_json).pull_request.head.repo.fork != true }}
@@ -291,4 +291,4 @@ jobs:
       TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
     concurrency:
       group: sftp-deploy-${{ inputs.target_repository_name }}
-      cancel-in-progress: true
+      cancel-in-progress: false

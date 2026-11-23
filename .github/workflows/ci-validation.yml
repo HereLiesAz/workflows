@@ -92,7 +92,7 @@ permissions:
 # pull_request update the older one. The repository ID keeps renamed or same-named repositories apart.
 concurrency:
   group: ci-validation-${{ inputs.target_repository_id }}-${{ fromJSON(inputs.purpose_profile_json).kind == 'kaggle' && inputs.target_sha || inputs.target_ref_name || inputs.target_sha }}-${{ inputs.source_workflow_path }}-${{ inputs.target_event_name }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   central_check_start:

@@ -101,7 +101,7 @@ env:
   TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
 concurrency:
   group: desktop-${{ inputs.target_repository_name }}-${{ inputs.source_workflow_path }}-${{ inputs.target_ref }}
-  cancel-in-progress: ${{ fromJSON(inputs.purpose_profile_json).cancel_in_progress != false }}
+  cancel-in-progress: false
 jobs:
   central_check_start:
     runs-on: ubuntu-latest

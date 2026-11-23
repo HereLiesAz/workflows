@@ -203,7 +203,7 @@ jobs:
       security-events: write
     concurrency:
       group: codeql-${{ inputs.target_repository_name }}-${{ inputs.target_ref_name || inputs.target_sha }}-${{ matrix.language }}
-      cancel-in-progress: true
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

@@ -45,7 +45,7 @@ permissions:
 
 concurrency:
   group: remote-result-${{ inputs.target_repository }}-${{ inputs.target_check_sha }}-${{ inputs.source_workflow_path }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   policy_secret_preflight:

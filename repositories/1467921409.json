@@ -4,11 +4,27 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-23T02:19:24.749Z",
+  "updated_at": "2026-11-23T02:20:22.829Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 45099622487,
+          "jobs": {},
+          "reports": {},
+          "created_at": "2026-11-23T02:20:22.829Z",
+          "run_number": 52,
+          "run_attempt": 1,
+          "event": "pull_request",
+          "branch": "ccr-14f6f879-ovc7dn",
+          "sha": "ec8eedb09c5c71ae42217718d9e9f4e1834c6ee1",
+          "status": "queued",
+          "conclusion": null,
+          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45099622487",
+          "started_at": "2026-11-23T02:20:17Z",
+          "updated_at": "2026-11-23T02:20:17Z"
+        },
         {
           "run_id": 45099382735,
           "jobs": {
@@ -989,58 +1005,6 @@
           "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45088409753",
           "started_at": "2026-11-23T00:22:38Z",
           "updated_at": "2026-11-23T00:25:41Z"
-        },
-        {
-          "run_id": 45088314054,
-          "jobs": {
-            "Android build and lint": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45088314054/job/137411965427",
-              "started_at": "2026-11-23T00:22:02Z",
-              "completed_at": "2026-11-23T00:22:58Z",
-              "steps_completed": 10,
-              "steps_total": 10,
-              "current_step": null
-            },
-            "Core tests (JVM and Wasm), web build": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45088314054/job/137411965534",
-              "started_at": "2026-11-23T00:22:01Z",
-              "completed_at": "2026-11-23T00:22:55Z",
-              "steps_completed": 13,
-              "steps_total": 13,
-              "current_step": null
-            }
-          },
-          "reports": {
-            "test": {
-              "status": "cancelled",
-              "summary": "Core tests on JVM and Wasm; web distribution builds",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-23T00:22:51.966Z"
-            },
-            "android": {
-              "status": "cancelled",
-              "summary": "Debug APK builds; lint",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-23T00:22:54.264Z"
-            }
-          },
-          "created_at": "2026-11-23T00:21:41.315Z",
-          "run_number": 32,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "ccr-14f6f879-ovc7dn",
-          "sha": "37a541e20dd8c347c8bb8065dd57c06ae86d9e44",
-          "status": "completed",
-          "conclusion": "cancelled",
-          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45088314054",
-          "started_at": "2026-11-23T00:21:40Z",
-          "updated_at": "2026-11-23T00:23:07.139Z"
         }
       ]
     },

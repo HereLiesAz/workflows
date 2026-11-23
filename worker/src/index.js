@@ -7,6 +7,7 @@ import { EVENT_CONSUMERS } from "./event-consumers.js";
 import { pushDropReason, webhookDropReason } from "./event-filter.js";
 import { createRemoteRunToken, markRemoteRunJtiUsed, remoteRunJtiIsFresh, newRemoteRunJti, normalizeRemoteRunState, sanitizeStatusDescription, verifyRemoteRunToken } from "./remote-run.js";
 import { receiveWebDeploy } from "./web-deploy.js";
+import { cancelOlderDuplicates } from "./smart-cancel.js";
 
 const GITHUB_ISSUER = "https://token.actions.githubusercontent.com";
 const GITHUB_JWKS = "https://token.actions.githubusercontent.com/.well-known/jwks";
@@ -394,6 +395,26 @@ async function receiveRepositoryWebhook(request, env) {
   if (String(repository.owner?.id) !== OWNER_ID ||
       String(repository.owner?.login || "").toLowerCase() !== OWNER_LOGIN.toLowerCase()) {
     throw new HttpError(403, "Webhook repository is not owned by HereLiesAz");
+  }
+
+  // All registered target workflows and recognized central executions share this
+  // cancellation policy. Keep webhook routing independent of API/cancel failures.
+  if (eventName === "workflow_run" && ["requested", "in_progress"].includes(event.action) &&
+      (Object.prototype.hasOwnProperty.call(EVENT_CONSUMERS, String(repository.id)) ||
+       String(repository.full_name).toLowerCase() === CENTRAL_REPOSITORY.toLowerCase())) {
+    try {
+      const registered = Object.entries(EVENT_CONSUMERS).map(([id, entry]) => ({ id, repository: entry.repository }));
+      const decision = await cancelOlderDuplicates(
+        repository, event.workflow_run,
+        (path, method, body, allowEmpty) => githubApi(env, path, method, body, allowEmpty),
+        registered,
+      );
+      if (decision.cancelled?.length || decision.failures?.length) {
+        console.log("Workflow duplicate cancellation:", JSON.stringify(decision));
+      }
+    } catch (error) {
+      console.error("Workflow duplicate cancellation unavailable; allowing existing runs to finish", error);
+    }
   }
 
   // Forward only events some active registered workflow of this repository is triggered by

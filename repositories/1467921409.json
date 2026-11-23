@@ -4,7 +4,7 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-23T22:11:31.910Z",
+  "updated_at": "2026-11-23T22:12:34.254Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
@@ -33,7 +33,15 @@
               "current_step": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
             }
           },
-          "reports": {},
+          "reports": {
+            "test": {
+              "status": "failure",
+              "summary": "Core tests on JVM and Wasm; web distribution builds",
+              "data": null,
+              "run_attempt": "1",
+              "reported_at": "2026-11-23T22:12:34.254Z"
+            }
+          },
           "created_at": "2026-11-23T22:11:15.397Z",
           "run_number": 121,
           "run_attempt": 1,
@@ -44,7 +52,7 @@
           "conclusion": null,
           "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45277195258",
           "started_at": "2026-11-23T22:11:11Z",
-          "updated_at": "2026-11-23T22:11:31.910Z"
+          "updated_at": "2026-11-23T22:12:34.254Z"
         },
         {
           "run_id": 45277047722,

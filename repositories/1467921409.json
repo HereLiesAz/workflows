@@ -4,11 +4,32 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-23T08:19:45.953Z",
+  "updated_at": "2026-11-23T08:23:35.292Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 45138235087,
+          "jobs": {
+            "Core tests (JVM and Wasm), web build": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45138235087/job/137569571215",
+              "started_at": "2026-11-23T08:23:33Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-11-23T08:23:35.292Z",
+          "sha": "99275024d0c301b513f8daa650f0aa97b35a71f5",
+          "branch": "fix/tiled-cutter-clip-disconnected-pieces",
+          "status": "queued",
+          "updated_at": "2026-11-23T08:23:35.292Z"
+        },
         {
           "run_id": 45137113737,
           "jobs": {
@@ -893,43 +914,6 @@
           "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45122027414",
           "started_at": "2026-11-23T06:07:25Z",
           "updated_at": "2026-11-23T06:11:25Z"
-        },
-        {
-          "run_id": 45121959544,
-          "jobs": {
-            "Core tests (JVM and Wasm), web build": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45121959544/job/137517556457",
-              "started_at": "2026-11-23T06:06:55Z",
-              "completed_at": "2026-11-23T06:07:30Z",
-              "steps_completed": 5,
-              "steps_total": 12,
-              "current_step": "Core tests"
-            },
-            "Android build and lint": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45121959544/job/137517556035",
-              "started_at": "2026-11-23T06:06:55Z",
-              "completed_at": "2026-11-23T06:07:30Z",
-              "steps_completed": 4,
-              "steps_total": 9,
-              "current_step": "Build and lint"
-            }
-          },
-          "reports": {},
-          "created_at": "2026-11-23T06:06:49.798Z",
-          "run_number": 63,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "ccr-14f6f879-ovc7dn",
-          "sha": "122d9fef0282dbfb0c1fd4cf2a1edd9316a5555e",
-          "status": "completed",
-          "conclusion": "cancelled",
-          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45121959544",
-          "started_at": "2026-11-23T06:06:48Z",
-          "updated_at": "2026-11-23T06:07:39.090Z"
         }
       ]
     },

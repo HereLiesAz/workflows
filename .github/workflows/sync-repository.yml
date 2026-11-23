@@ -5,6 +5,11 @@ on:
   # any repository without a registry entry and runs its push workflows once.
   schedule:
     - cron: '17 * * * *'
+  # An explicit full-rollout epoch also refreshes the controller's own webhook.
+  push:
+    branches: [main]
+    paths:
+      - '.controller/sync-all-epoch'
   workflow_dispatch:
     inputs:
       repository:

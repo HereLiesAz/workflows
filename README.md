@@ -47,10 +47,11 @@ multi-tenant workflows additionally require recognizable repository+action run
 names. A title without a reliable origin is left alone. The central gateway
 envelopes carry distinct events and are excluded: cancelling one would silently
 drop its unmatched event. Self-managed and private repositories without a
-controller webhook remain outside this policy. Repository-local workflow files
-that already use GitHub's `concurrency.cancel-in-progress: true` can cancel
-running jobs natively before the webhook gets a vote; these flags must be
-migrated to false to fully enforce the policy. The API can accept a force-cancel
+controller webhook remain outside this policy. On subsequent repository synchronization, the controller rewrites
+registered local workflows' GitHub-native `cancel-in-progress` settings to
+`false` when the YAML can be changed without touching unrelated content.
+Unregistered/private/self-managed workflows and ambiguous local syntax cannot
+be migrated automatically; they retain their original GitHub behavior. The API can accept a force-cancel
 request before GitHub actually terminates the runner.
 
 ## CI runs in its own repository

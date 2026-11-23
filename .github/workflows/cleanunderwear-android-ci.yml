@@ -102,7 +102,7 @@ env:
   TARGET_WORKFLOW_NAME: ${{ inputs.target_workflow_name }}
 concurrency:
   group: ${{ inputs.target_workflow_name }}-${{ inputs.target_ref }}-CleanUnderwear
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   central_check_start:
     runs-on: ubuntu-latest

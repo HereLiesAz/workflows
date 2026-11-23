@@ -21,7 +21,7 @@ on:
 # group instead of colliding with whatever ref happened to run last.
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build-and-release:

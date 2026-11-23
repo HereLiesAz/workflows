@@ -76,7 +76,7 @@ jobs:
             else
               echo "::warning::Repository discovery failed; only registered repositories are considered."
             fi
-            mapfile -t targets < <(printf '%s\n' "${targets[@]}" | sed '/^$/d' | sort -u)
+            mapfile -t targets < <(printf '%s\n' "${targets[@]}" | sed '/^$/d' | awk 'tolower($0) != "hereliesaz/searcha2a" && tolower($0) != "hereliesaz/a2search"' | sort -u)
 
             if [[ ${#targets[@]} -eq 0 ]]; then
               echo "No unregistered or unconfigured repositories found. Nothing to do."
@@ -113,6 +113,12 @@ jobs:
             echo "::group::Registering ${repository}"
 
             repository_id="$(gh api "repos/${repository}" --jq '.id')"
+            # SearchA2A owns its workflows. Check the stable ID too, including after a rename.
+            if [[ "$repository_id" == "1452456930" ]]; then
+              echo "Skipping self-managed Actions repository ${repository}"
+              echo "::endgroup::"
+              continue
+            fi
 
             oidc_response="$(curl --fail-with-body --silent --show-error \
               -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \

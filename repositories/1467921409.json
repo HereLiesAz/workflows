@@ -4,7 +4,7 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T13:29:16.981Z",
+  "updated_at": "2026-11-24T13:31:49.203Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
@@ -40,13 +40,20 @@
               "data": null,
               "run_attempt": "1",
               "reported_at": "2026-11-24T13:28:53.596Z"
+            },
+            "test": {
+              "status": "failure",
+              "summary": "Core tests on JVM and Wasm; web distribution and browser smoke",
+              "data": null,
+              "run_attempt": "1",
+              "reported_at": "2026-11-24T13:31:49.203Z"
             }
           },
           "created_at": "2026-11-24T13:27:32.936Z",
           "sha": "626563124bc9a4c8aa98dbfbaa0093c238aa7b6d",
           "branch": "main",
           "status": "in_progress",
-          "updated_at": "2026-11-24T13:29:16.981Z",
+          "updated_at": "2026-11-24T13:31:49.203Z",
           "run_number": 250,
           "run_attempt": 1,
           "event": "push",

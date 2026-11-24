@@ -32,6 +32,7 @@ jobs:
       - name: Core tests
         env:
           STENCIL_PHYSICAL_OUTPUT: ${{ github.workspace }}/build/physical-validation
+          STENCIL_MATERIAL_OUTPUT: ${{ github.workspace }}/build/material-evaluation
         run: ./gradlew :core:jvmTest :core:wasmJsNodeTest --no-daemon --stacktrace
       - name: Physical validation kit (digital files only)
         if: always()
@@ -39,6 +40,13 @@ jobs:
         with:
           name: physical-validation-kit
           path: build/physical-validation
+          if-no-files-found: ignore
+      - name: Controlled material evaluation
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: material-evaluation
+          path: build/material-evaluation
           if-no-files-found: ignore
       - name: Service worker cache regression tests
         run: node tools/tests/service-worker-cache.mjs

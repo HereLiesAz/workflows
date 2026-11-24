@@ -4,11 +4,32 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T12:48:45.149Z",
+  "updated_at": "2026-11-24T12:49:05.511Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 45397185119,
+          "jobs": {
+            "Core tests (JVM and Wasm), web build": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45397185119/job/138455959553",
+              "started_at": "2026-11-24T12:49:04Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-11-24T12:49:05.511Z",
+          "sha": "53ae691cd03e2df1ce0d04e832a6e27ddeeea5b7",
+          "branch": "fix/browser-ci-runner",
+          "status": "queued",
+          "updated_at": "2026-11-24T12:49:05.511Z"
+        },
         {
           "run_id": 45396662296,
           "jobs": {
@@ -812,43 +833,6 @@
           "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45389561399",
           "started_at": "2026-11-24T12:01:34Z",
           "updated_at": "2026-11-24T12:07:17Z"
-        },
-        {
-          "run_id": 45389555136,
-          "jobs": {
-            "Android build and lint": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45389555136/job/138429328006",
-              "started_at": "2026-11-24T12:01:35Z",
-              "completed_at": "2026-11-24T12:01:42Z",
-              "steps_completed": 3,
-              "steps_total": 9,
-              "current_step": "Run gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6"
-            },
-            "Core tests (JVM and Wasm), web build": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45389555136/job/138429327533",
-              "started_at": "2026-11-24T12:01:35Z",
-              "completed_at": "2026-11-24T12:01:42Z",
-              "steps_completed": 4,
-              "steps_total": 13,
-              "current_step": "Run gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6"
-            }
-          },
-          "reports": {},
-          "created_at": "2026-11-24T12:01:34.156Z",
-          "sha": "e463972833c4e696cdee7fe9b87bee9ad7ab0259",
-          "branch": "feature/relief-shadow-receiver",
-          "status": "completed",
-          "updated_at": "2026-11-24T12:01:48.852Z",
-          "run_number": 213,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "conclusion": "cancelled",
-          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45389555136",
-          "started_at": "2026-11-24T12:01:32Z"
         }
       ]
     },

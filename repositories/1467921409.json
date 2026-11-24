@@ -4,11 +4,32 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T03:04:17.986Z",
+  "updated_at": "2026-11-24T03:04:40.120Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 45316925989,
+          "jobs": {
+            "Core tests (JVM and Wasm), web build": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45316925989/job/138185901982",
+              "started_at": "2026-11-24T03:04:39Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-11-24T03:04:40.120Z",
+          "sha": "03a3398f546a1c2330f70b68cde3b44e554ce35f",
+          "branch": "fix/pdf-cutting-tip-placement-instructions",
+          "status": "queued",
+          "updated_at": "2026-11-24T03:04:40.120Z"
+        },
         {
           "run_id": 45316666214,
           "jobs": {
@@ -877,22 +898,6 @@
           "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45304598334",
           "started_at": "2026-11-24T01:22:48Z",
           "updated_at": "2026-11-24T01:24:26Z"
-        },
-        {
-          "run_id": 45304575077,
-          "jobs": {},
-          "reports": {},
-          "created_at": "2026-11-24T01:22:47.512Z",
-          "run_number": 160,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "feature/adjustable-brush-mark-width",
-          "sha": "efabcadb2ef5ee86055d785a5581e288ea37007c",
-          "status": "completed",
-          "conclusion": "cancelled",
-          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45304575077",
-          "started_at": "2026-11-24T01:22:37Z",
-          "updated_at": "2026-11-24T01:22:49Z"
         }
       ]
     },

@@ -4,7 +4,7 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T01:04:22.663Z",
+  "updated_at": "2026-11-24T01:04:28.138Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
@@ -29,14 +29,14 @@
           "run_id": 45302109629,
           "jobs": {
             "Android build and lint": {
-              "status": "in_progress",
-              "conclusion": null,
+              "status": "completed",
+              "conclusion": "cancelled",
               "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45302109629/job/138136923132",
               "started_at": "2026-11-24T01:03:42Z",
-              "completed_at": null,
-              "steps_completed": 3,
+              "completed_at": "2026-11-24T01:04:26Z",
+              "steps_completed": 4,
               "steps_total": 9,
-              "current_step": "Run gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6"
+              "current_step": "Build and lint"
             },
             "Core tests (JVM and Wasm), web build": {
               "status": "in_progress",
@@ -54,7 +54,7 @@
           "sha": "c091971d7d284c7c4fa75f0dcb96a069404432c7",
           "branch": "feature/guided-studio-comparison",
           "status": "in_progress",
-          "updated_at": "2026-11-24T01:03:43Z",
+          "updated_at": "2026-11-24T01:04:28.138Z",
           "run_number": 153,
           "run_attempt": 1,
           "event": "pull_request",

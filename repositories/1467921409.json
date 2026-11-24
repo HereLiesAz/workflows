@@ -4,7 +4,7 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T09:59:43.872Z",
+  "updated_at": "2026-11-24T09:59:45.266Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
@@ -50,14 +50,14 @@
           "run_id": 45370412953,
           "jobs": {
             "Core tests (JVM and Wasm), web build": {
-              "status": "queued",
-              "conclusion": null,
+              "status": "completed",
+              "conclusion": "cancelled",
               "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45370412953/job/138362963358",
-              "started_at": "2026-11-24T09:59:34Z",
-              "completed_at": null,
-              "steps_completed": 0,
-              "steps_total": 0,
-              "current_step": null
+              "started_at": "2026-11-24T09:59:36Z",
+              "completed_at": "2026-11-24T09:59:41Z",
+              "steps_completed": 2,
+              "steps_total": 11,
+              "current_step": "Run gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6"
             },
             "Android build and lint": {
               "status": "in_progress",
@@ -75,7 +75,7 @@
           "sha": "b6506c8b6220a0f72e378a8da6315b53480b5102",
           "branch": "feature/relief-scene-renderer",
           "status": "queued",
-          "updated_at": "2026-11-24T09:59:41.491Z",
+          "updated_at": "2026-11-24T09:59:45.266Z",
           "run_number": 199,
           "run_attempt": 1,
           "event": "pull_request",

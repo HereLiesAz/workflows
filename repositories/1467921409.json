@@ -4,7 +4,7 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T13:27:44.621Z",
+  "updated_at": "2026-11-24T13:27:46.469Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
@@ -50,14 +50,14 @@
           "run_id": 45403586799,
           "jobs": {
             "Android build and lint": {
-              "status": "in_progress",
-              "conclusion": null,
+              "status": "completed",
+              "conclusion": "cancelled",
               "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45403586799/job/138478243302",
               "started_at": "2026-11-24T13:27:17Z",
-              "completed_at": null,
-              "steps_completed": 1,
-              "steps_total": 7,
-              "current_step": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
+              "completed_at": "2026-11-24T13:27:41Z",
+              "steps_completed": 4,
+              "steps_total": 9,
+              "current_step": "Build and lint"
             },
             "Core tests (JVM and Wasm), web build": {
               "status": "completed",
@@ -75,7 +75,7 @@
           "sha": "04c23060190cfbd4c286314d92b4532d4ef2e9c5",
           "branch": "fix/wasm-loading-native-modal",
           "status": "completed",
-          "updated_at": "2026-11-24T13:27:41Z",
+          "updated_at": "2026-11-24T13:27:46.469Z",
           "run_number": 249,
           "run_attempt": 1,
           "event": "pull_request",

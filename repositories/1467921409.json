@@ -4,7 +4,7 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T03:00:07.204Z",
+  "updated_at": "2026-11-24T03:00:08.759Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
@@ -29,14 +29,14 @@
           "run_id": 45316348672,
           "jobs": {
             "Core tests (JVM and Wasm), web build": {
-              "status": "in_progress",
-              "conclusion": null,
+              "status": "completed",
+              "conclusion": "cancelled",
               "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45316348672/job/138184027040",
               "started_at": "2026-11-24T02:59:53Z",
-              "completed_at": null,
-              "steps_completed": 3,
-              "steps_total": 12,
-              "current_step": "Run actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad"
+              "completed_at": "2026-11-24T03:00:06Z",
+              "steps_completed": 5,
+              "steps_total": 13,
+              "current_step": "Core tests"
             },
             "Android build and lint": {
               "status": "in_progress",
@@ -54,7 +54,7 @@
           "sha": "8e65fb05b260263a1fa68f60ab15b5db7c544051",
           "branch": "fix/pdf-cutting-tip-placement-instructions",
           "status": "in_progress",
-          "updated_at": "2026-11-24T03:00:01.544Z",
+          "updated_at": "2026-11-24T03:00:08.759Z",
           "run_number": 176,
           "run_attempt": 1,
           "event": "pull_request",

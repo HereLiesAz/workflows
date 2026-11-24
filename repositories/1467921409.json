@@ -4,7 +4,7 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T03:00:03.415Z",
+  "updated_at": "2026-11-24T03:00:05.281Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
@@ -76,14 +76,14 @@
               "current_step": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
             },
             "Core tests (JVM and Wasm), web build": {
-              "status": "in_progress",
-              "conclusion": null,
+              "status": "completed",
+              "conclusion": "cancelled",
               "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45316219450/job/138183600001",
               "started_at": "2026-11-24T02:58:43Z",
-              "completed_at": null,
-              "steps_completed": 0,
-              "steps_total": 1,
-              "current_step": "Set up job"
+              "completed_at": "2026-11-24T03:00:02Z",
+              "steps_completed": 5,
+              "steps_total": 13,
+              "current_step": "Core tests"
             }
           },
           "reports": {
@@ -99,7 +99,7 @@
           "sha": "99983f3d902cb401c218bca278d16de34e58d634",
           "branch": "fix/stroke-boundary-all-directions",
           "status": "in_progress",
-          "updated_at": "2026-11-24T02:59:54.093Z",
+          "updated_at": "2026-11-24T03:00:05.281Z",
           "run_number": 175,
           "run_attempt": 1,
           "event": "pull_request",

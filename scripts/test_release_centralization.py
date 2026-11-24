@@ -722,3 +722,12 @@ with _tempfile.TemporaryDirectory(prefix="changesets-regression-") as _tmp:
     _with = _subprocess.run(["bash", "-euo", "pipefail", "-c", _cs_shell], cwd=_root, env=_env, capture_output=True)
     assert _with.returncode == 91, "an unreleased change must run the real version command"
 print("Changesets no-pending-changes regression ok")
+
+# The central Play build must use Aive's approved vendor pair, not an older API.
+from semantic_catalog import purpose_profile_for_source
+
+aive_profile = purpose_profile_for_source("241b4583d7885007973042f4012d5599162d3846fda0fe5daf018446ab496e76")
+assert {item["repository"]: item["ref"] for item in aive_profile["extra_checkouts"]} == {
+    "HereLiesAz/conveyance-h2g2": "b85c269ff0ef0e1512b415ec114ef13747021c9b",
+    "HereLiesAz/Conveyance": "9d9a694c64d0bdfd1d6e9f38a1ad972bb5618ac4",
+}

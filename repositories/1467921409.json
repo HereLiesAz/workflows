@@ -4,11 +4,27 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T17:21:22.408Z",
+  "updated_at": "2026-11-24T17:21:35.115Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 45447650432,
+          "jobs": {},
+          "reports": {},
+          "created_at": "2026-11-24T17:21:35.115Z",
+          "run_number": 259,
+          "run_attempt": 1,
+          "event": "pull_request",
+          "branch": "fix/duplicate-stage-navigation",
+          "sha": "8b1b2e2bd1dc8c03f15f17d42766ffa38908e5e8",
+          "status": "queued",
+          "conclusion": null,
+          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45447650432",
+          "started_at": "2026-11-24T17:21:26Z",
+          "updated_at": "2026-11-24T17:21:26Z"
+        },
         {
           "run_id": 45447363349,
           "jobs": {
@@ -840,43 +856,6 @@
           "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45398343827",
           "started_at": "2026-11-24T12:56:14Z",
           "updated_at": "2026-11-24T12:57:27Z"
-        },
-        {
-          "run_id": 45398327486,
-          "jobs": {
-            "Android build and lint": {
-              "status": "in_progress",
-              "conclusion": null,
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45398327486/job/138459962931",
-              "started_at": "2026-11-24T12:56:12Z",
-              "completed_at": null,
-              "steps_completed": 0,
-              "steps_total": 1,
-              "current_step": "Set up job"
-            },
-            "Core tests (JVM and Wasm), web build": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45398327486/job/138459963375",
-              "started_at": "2026-11-24T12:56:12Z",
-              "completed_at": "2026-11-24T12:56:24Z",
-              "steps_completed": 4,
-              "steps_total": 17,
-              "current_step": "Run gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6"
-            }
-          },
-          "reports": {},
-          "created_at": "2026-11-24T12:56:10.807Z",
-          "sha": "f939cfee1d34c917729d00cc5cd929ab7568326d",
-          "branch": "fix/browser-canvas-pointer",
-          "status": "completed",
-          "updated_at": "2026-11-24T12:56:32.505Z",
-          "run_number": 239,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "conclusion": "cancelled",
-          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45398327486",
-          "started_at": "2026-11-24T12:56:09Z"
         }
       ]
     },

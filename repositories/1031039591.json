@@ -4,7 +4,7 @@
     "id": 1031039591,
     "full_name": "HereLiesAz/aive"
   },
-  "updated_at": "2026-11-24T17:31:19.999Z",
+  "updated_at": "2026-11-24T17:31:21.159Z",
   "workflows": {
     ".github/workflows/bitcos-engine.yml": {
       "name": "BITCOS Engine",
@@ -698,6 +698,22 @@
     ".github/workflows/multiplatform.yml": {
       "name": "Build and Deploy",
       "runs": [
+        {
+          "run_id": 45449486008,
+          "jobs": {},
+          "reports": {},
+          "created_at": "2026-11-24T17:31:21.159Z",
+          "run_number": 3273,
+          "run_attempt": 1,
+          "event": "push",
+          "branch": "main",
+          "sha": "8c352fc6a9bf8357a4653eb1c1f9d084a39f7b22",
+          "status": "queued",
+          "conclusion": null,
+          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45449486008",
+          "started_at": "2026-11-24T17:31:18Z",
+          "updated_at": "2026-11-24T17:31:18Z"
+        },
         {
           "run_id": 45420127941,
           "jobs": {
@@ -2229,91 +2245,6 @@
           "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45342459331",
           "started_at": "2026-11-24T06:42:34Z",
           "updated_at": "2026-11-24T06:45:39Z"
-        },
-        {
-          "run_id": 45341916783,
-          "jobs": {
-            "Claude connector tests (Node)": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45341916783/job/138267386653",
-              "started_at": "2026-11-24T06:39:27Z",
-              "completed_at": "2026-11-24T06:39:42Z",
-              "steps_completed": 7,
-              "steps_total": 7,
-              "current_step": null
-            },
-            "Resolve four-part version": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45341916783/job/138267386989",
-              "started_at": "2026-11-24T06:39:57Z",
-              "completed_at": "2026-11-24T06:40:06Z",
-              "steps_completed": 5,
-              "steps_total": 5,
-              "current_step": null
-            },
-            "build": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45341916783/job/138267386039",
-              "started_at": "2026-11-24T06:39:26Z",
-              "completed_at": "2026-11-24T06:42:39Z",
-              "steps_completed": 19,
-              "steps_total": 48,
-              "current_step": "Test shared domain"
-            },
-            "Desktop installer (linux)": {
-              "status": "completed",
-              "conclusion": "failure",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45341916783/job/138268108986",
-              "started_at": "2026-11-24T06:40:34Z",
-              "completed_at": "2026-11-24T06:41:42Z",
-              "steps_completed": 22,
-              "steps_total": 22,
-              "current_step": null
-            },
-            "Desktop installer (macos)": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45341916783/job/138268109020",
-              "started_at": "2026-11-24T06:40:50Z",
-              "completed_at": "2026-11-24T06:42:39Z",
-              "steps_completed": 12,
-              "steps_total": 21,
-              "current_step": "Package native installer"
-            },
-            "Desktop installer (windows)": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45341916783/job/138268109021",
-              "started_at": "2026-11-24T06:40:16Z",
-              "completed_at": "2026-11-24T06:42:39Z",
-              "steps_completed": 11,
-              "steps_total": 21,
-              "current_step": "Publish h2g2 to Maven Local"
-            }
-          },
-          "reports": {
-            "desktop-packages": {
-              "status": "failure",
-              "summary": "",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-24T06:41:28.767Z"
-            }
-          },
-          "created_at": "2026-11-24T06:38:13.216Z",
-          "run_number": 3253,
-          "run_attempt": 1,
-          "event": "push",
-          "branch": "main",
-          "sha": "7758076e2ada8f876d4d81daf904b1f3f2f8af9f",
-          "status": "in_progress",
-          "conclusion": null,
-          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45341916783",
-          "started_at": "2026-11-24T06:38:09Z",
-          "updated_at": "2026-11-24T06:42:49.547Z"
         }
       ]
     },

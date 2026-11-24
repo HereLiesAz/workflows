@@ -4,11 +4,27 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T00:02:26.368Z",
+  "updated_at": "2026-11-24T00:02:28.842Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 45293842761,
+          "jobs": {},
+          "reports": {},
+          "created_at": "2026-11-24T00:02:28.842Z",
+          "run_number": 133,
+          "run_attempt": 1,
+          "event": "pull_request",
+          "branch": "feature/source-guided-island-repair",
+          "sha": "835dc7074ecdf22013e2ee4404c25e04cec40071",
+          "status": "queued",
+          "conclusion": null,
+          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45293842761",
+          "started_at": "2026-11-24T00:02:24Z",
+          "updated_at": "2026-11-24T00:02:24Z"
+        },
         {
           "run_id": 45293835129,
           "jobs": {},
@@ -821,51 +837,6 @@
           "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45266168797",
           "started_at": "2026-11-23T21:06:06Z",
           "updated_at": "2026-11-23T21:07:51Z"
-        },
-        {
-          "run_id": 45265971361,
-          "jobs": {
-            "Core tests (JVM and Wasm), web build": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45265971361/job/138012937059",
-              "started_at": "2026-11-23T21:05:11Z",
-              "completed_at": "2026-11-23T21:06:15Z",
-              "steps_completed": 5,
-              "steps_total": 13,
-              "current_step": "Core tests"
-            },
-            "Android build and lint": {
-              "status": "in_progress",
-              "conclusion": null,
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45265971361/job/138012937663",
-              "started_at": "2026-11-23T21:05:10Z",
-              "completed_at": null,
-              "steps_completed": 0,
-              "steps_total": 1,
-              "current_step": "Set up job"
-            }
-          },
-          "reports": {
-            "android": {
-              "status": "success",
-              "summary": "Debug APK builds; lint",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-23T21:06:11.294Z"
-            }
-          },
-          "created_at": "2026-11-23T21:05:04.591Z",
-          "run_number": 113,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "feature/painted-flow-ribbons",
-          "sha": "e6c270858e30536f68be49e7f44bfb9cee39a52c",
-          "status": "completed",
-          "conclusion": "cancelled",
-          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45265971361",
-          "started_at": "2026-11-23T21:05:00Z",
-          "updated_at": "2026-11-23T21:06:30.499Z"
         }
       ]
     },

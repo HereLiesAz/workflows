@@ -4,7 +4,7 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T01:19:36.146Z",
+  "updated_at": "2026-11-24T01:20:31.319Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
@@ -33,12 +33,20 @@
               "current_step": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
             }
           },
-          "reports": {},
+          "reports": {
+            "android": {
+              "status": "failure",
+              "summary": "Debug APK builds; lint",
+              "data": null,
+              "run_attempt": "1",
+              "reported_at": "2026-11-24T01:20:31.319Z"
+            }
+          },
           "created_at": "2026-11-24T01:19:24.619Z",
           "sha": "9209ef72af69201d7b2c952d342f0e3ed1b393f8",
           "branch": "feature/adjustable-brush-mark-width",
           "status": "in_progress",
-          "updated_at": "2026-11-24T01:19:36.146Z",
+          "updated_at": "2026-11-24T01:20:31.319Z",
           "run_number": 156,
           "run_attempt": 1,
           "event": "pull_request",

@@ -44,7 +44,7 @@ jobs:
           "$RUNNER_TEMP/browser-smoke/bin/python" -m pip install playwright==1.57.0 Pillow==12.0.0
           "$RUNNER_TEMP/browser-smoke/bin/python" -m playwright install --with-deps chromium
       - name: Browser smoke test (wide and narrow)
-        run: '"$RUNNER_TEMP/browser-smoke/bin/python" tools/tests/browser-smoke.py --distribution composeApp/build/dist --artifacts build/browser-smoke'
+        run: '"$RUNNER_TEMP/browser-smoke/bin/python" tools/tests/browser-smoke.py --distribution composeApp/build/dist --artifacts build/browser-smoke --profile'
       - name: Browser smoke evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

@@ -6,10 +6,10 @@ full history of the last 20 runs is in `repositories/<repository_id>.json`.
 
 | Repository | Workflow | State | Run | Branch | Commit | Updated | Report |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Android CI | ⏳ queued | [#3910](https://github.com/HereLiesAz/aive/actions/runs/45343519537) | main | `cd0248c` | 2026-11-24T06:51:03Z |  |
+| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Android CI | ✅ success | [#3937](https://github.com/HereLiesAz/aive/actions/runs/45459267294) | main | `4a6e522` | 2026-11-24T18:36:45Z |  |
 | [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | BITCOS Engine | ✅ success | [#88](https://github.com/HereLiesAz/aive/actions/runs/45046212436) | main | `0bb5c3e` | 2026-11-22T16:57:14Z |  |
 | [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Dependency Submission | ✅ success | [#162](https://github.com/HereLiesAz/aive/actions/runs/45046212618) | main | `0bb5c3e` | 2026-11-22T16:54:29Z |  |
-| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Build and Deploy | ⏳ queued (1/5 jobs) | [#3257](https://github.com/HereLiesAz/aive/actions/runs/45343519168) | main | `cd0248c` | 2026-11-24T06:51:48.002Z |  |
+| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Build and Deploy | ❌ failure | [#3284](https://github.com/HereLiesAz/aive/actions/runs/45459267270) | main | `4a6e522` | 2026-11-24T18:40:14Z |  |
 | [HereLiesAz/camera-unroll](https://github.com/HereLiesAz/camera-unroll) | CI | ✅ success | [#19](https://github.com/HereLiesAz/camera-unroll/actions/runs/45329034882) | main | `9e72f1d` | 2026-11-24T04:52:56Z | android: Debug and release (R8) APKs build; unit tests; lint; test: Common unit tests; web and desktop compile |
 | [HereLiesAz/CaptureTheFlag](https://github.com/HereLiesAz/CaptureTheFlag) | CI | ✅ success | [#56](https://github.com/HereLiesAz/CaptureTheFlag/actions/runs/45328734153) | main | `147fa5d` | 2026-11-24T04:49:44Z | test: Node and shared tests |
 | [HereLiesAz/clappiest](https://github.com/HereLiesAz/clappiest) | CI | ✅ success | [#5](https://github.com/HereLiesAz/clappiest/actions/runs/42129876208) | main | `b43173e` | 2026-11-05T23:37:53Z | unit-tests: JVM unit tests (:app:testDebugUnitTest) |
@@ -20,5 +20,5 @@ full history of the last 20 runs is in `repositories/<repository_id>.json`.
 | [HereLiesAz/morphont](https://github.com/HereLiesAz/morphont) | CI | ✅ success | [#94](https://github.com/HereLiesAz/morphont/actions/runs/42405046525) | main | `0608248` | 2026-11-07T19:17:35Z | test: success |
 | [HereLiesAz/SphereSLAM](https://github.com/HereLiesAz/SphereSLAM) | CI | ✅ success | [#82](https://github.com/HereLiesAz/SphereSLAM/actions/runs/40659149532) | main | `1519b4a` | 2026-10-28T08:51:16Z |  |
 | [HereLiesAz/SphereSLAM](https://github.com/HereLiesAz/SphereSLAM) | Test app | ✅ success | [#53](https://github.com/HereLiesAz/SphereSLAM/actions/runs/40659149546) | main | `1519b4a` | 2026-10-28T08:48:41.781Z |  |
-| [HereLiesAz/stencil-artist](https://github.com/HereLiesAz/stencil-artist) | CI | ✅ success | [#192](https://github.com/HereLiesAz/stencil-artist/actions/runs/45328331903) | main | `3ebffe9` | 2026-11-24T04:46:29Z | android: Debug APK builds; lint; test: Core tests on JVM and Wasm; web distribution builds |
+| [HereLiesAz/stencil-artist](https://github.com/HereLiesAz/stencil-artist) | CI | ❌ failure | [#267](https://github.com/HereLiesAz/stencil-artist/actions/runs/45459769658) | main | `c7320c3` | 2026-11-24T18:28:52Z | android: Debug APK builds; lint; test: Core tests on JVM and Wasm; web distribution and browser smoke |
 | [HereLiesAz/stencil-artist](https://github.com/HereLiesAz/stencil-artist) | Depth model comparison | ⏳ queued | #45085194513 | refs/pull/5/merge | `0bb8227` | 2026-11-22T23:48:30.380Z | compare: Depth Anything V2 Small and MiDaS Small public-model CPU inference comparison |

@@ -9,7 +9,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   # A separate, small first job rather than fetching inline within build-and-release: both

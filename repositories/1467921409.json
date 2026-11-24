@@ -4,11 +4,32 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T03:18:25.188Z",
+  "updated_at": "2026-11-24T04:21:29.999Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 45325820546,
+          "jobs": {
+            "Android build and lint": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45325820546/job/138215045127",
+              "started_at": "2026-11-24T04:21:29Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-11-24T04:21:29.999Z",
+          "sha": "5025b8092b9bbb385d6ed92bb7a38eb822f0fb69",
+          "branch": "feature/android-neural-stroke-engines",
+          "status": "queued",
+          "updated_at": "2026-11-24T04:21:29.999Z"
+        },
         {
           "run_id": 45318133652,
           "jobs": {
@@ -856,51 +877,6 @@
           "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45310256329",
           "started_at": "2026-11-24T02:09:07Z",
           "updated_at": "2026-11-24T02:09:30Z"
-        },
-        {
-          "run_id": 45310092359,
-          "jobs": {
-            "Android build and lint": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45310092359/job/138163414268",
-              "started_at": "2026-11-24T02:07:57Z",
-              "completed_at": "2026-11-24T02:09:03Z",
-              "steps_completed": 10,
-              "steps_total": 10,
-              "current_step": null
-            },
-            "Core tests (JVM and Wasm), web build": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45310092359/job/138163414748",
-              "started_at": "2026-11-24T02:07:58Z",
-              "completed_at": "2026-11-24T02:09:14Z",
-              "steps_completed": 8,
-              "steps_total": 13,
-              "current_step": "Web build"
-            }
-          },
-          "reports": {
-            "android": {
-              "status": "success",
-              "summary": "Debug APK builds; lint",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-24T02:08:59.567Z"
-            }
-          },
-          "created_at": "2026-11-24T02:07:51.365Z",
-          "run_number": 169,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "feature/rack-original-top-strip-and-colour-filter",
-          "sha": "047f39c4bcca3df2e172b75721e710b9eb806fa6",
-          "status": "completed",
-          "conclusion": "cancelled",
-          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45310092359",
-          "started_at": "2026-11-24T02:07:46Z",
-          "updated_at": "2026-11-24T02:09:15Z"
         }
       ]
     },

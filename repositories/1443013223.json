@@ -4,7 +4,7 @@
     "id": 1443013223,
     "full_name": "HereLiesAz/Middleman"
   },
-  "updated_at": "2026-11-24T04:44:01.034Z",
+  "updated_at": "2026-11-24T04:44:02.396Z",
   "workflows": {
     ".github/workflows/build.yml": {
       "name": "Build",
@@ -44,14 +44,14 @@
           "run_id": 45328376819,
           "jobs": {
             "iOS framework": {
-              "status": "in_progress",
-              "conclusion": null,
+              "status": "completed",
+              "conclusion": "cancelled",
               "html_url": "https://github.com/HereLiesAz/Middleman/actions/runs/45328376819/job/138223337334",
               "started_at": "2026-11-24T04:43:46Z",
-              "completed_at": null,
-              "steps_completed": 0,
-              "steps_total": 1,
-              "current_step": "Set up job"
+              "completed_at": "2026-11-24T04:43:58Z",
+              "steps_completed": 4,
+              "steps_total": 10,
+              "current_step": "Run ./gradlew :shared:iosSimulatorArm64Test :composeApp:linkDebugFrameworkIosSimulatorArm64"
             },
             "Tests and compile checks": {
               "status": "completed",
@@ -69,7 +69,7 @@
           "sha": "3ce376f53ff8de05f0ac1d15230b337cb4da5ac0",
           "branch": "feat/aznavrail-updates-12-5",
           "status": "queued",
-          "updated_at": "2026-11-24T04:43:59.446Z",
+          "updated_at": "2026-11-24T04:44:02.396Z",
           "run_number": 35,
           "run_attempt": 1,
           "event": "pull_request",

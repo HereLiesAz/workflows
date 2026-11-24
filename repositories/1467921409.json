@@ -4,11 +4,32 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T12:16:59.137Z",
+  "updated_at": "2026-11-24T12:17:38.541Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 45392093517,
+          "jobs": {
+            "Core tests (JVM and Wasm), web build": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45392093517/job/138438181386",
+              "started_at": "2026-11-24T12:17:37Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-11-24T12:17:38.541Z",
+          "sha": "f630343d190fa3b453bb3a66e38001782dd02e9b",
+          "branch": "fix/loading-tip-per-process",
+          "status": "queued",
+          "updated_at": "2026-11-24T12:17:38.541Z"
+        },
         {
           "run_id": 45391648413,
           "jobs": {
@@ -791,43 +812,6 @@
           "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45371277835",
           "started_at": "2026-11-24T10:04:48Z",
           "updated_at": "2026-11-24T10:06:30Z"
-        },
-        {
-          "run_id": 45371275437,
-          "jobs": {
-            "Core tests (JVM and Wasm), web build": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45371275437/job/138365876638",
-              "started_at": "2026-11-24T10:04:49Z",
-              "completed_at": "2026-11-24T10:04:56Z",
-              "steps_completed": 4,
-              "steps_total": 13,
-              "current_step": "Run gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6"
-            },
-            "Android build and lint": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45371275437/job/138365877357",
-              "started_at": "2026-11-24T10:04:49Z",
-              "completed_at": "2026-11-24T10:04:56Z",
-              "steps_completed": 3,
-              "steps_total": 9,
-              "current_step": "Run gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6"
-            }
-          },
-          "reports": {},
-          "created_at": "2026-11-24T10:04:48.603Z",
-          "sha": "768a307bfc3dcd1981d1426d9b8720b4424af7a2",
-          "branch": "feature/scene-light-placement",
-          "status": "completed",
-          "updated_at": "2026-11-24T10:04:57Z",
-          "run_number": 201,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "conclusion": "cancelled",
-          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45371275437",
-          "started_at": "2026-11-24T10:04:47Z"
         }
       ]
     },

@@ -4,7 +4,7 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T11:57:14.751Z",
+  "updated_at": "2026-11-24T11:57:17.448Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
@@ -29,14 +29,14 @@
           "run_id": 45388863883,
           "jobs": {
             "Core tests (JVM and Wasm), web build": {
-              "status": "in_progress",
-              "conclusion": null,
+              "status": "completed",
+              "conclusion": "cancelled",
               "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45388863883/job/138426923700",
               "started_at": "2026-11-24T11:57:06Z",
-              "completed_at": null,
-              "steps_completed": 0,
-              "steps_total": 1,
-              "current_step": "Set up job"
+              "completed_at": "2026-11-24T11:57:16Z",
+              "steps_completed": 4,
+              "steps_total": 13,
+              "current_step": "Run gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6"
             },
             "Android build and lint": {
               "status": "in_progress",
@@ -54,7 +54,7 @@
           "sha": "51bb53f1fa4b8e7c26df79586b2b6194fdb95825",
           "branch": "feature/stencil-tonal-curves",
           "status": "in_progress",
-          "updated_at": "2026-11-24T11:57:06Z",
+          "updated_at": "2026-11-24T11:57:17.448Z",
           "run_number": 211,
           "run_attempt": 1,
           "event": "pull_request",

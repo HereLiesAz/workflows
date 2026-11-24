@@ -4,7 +4,7 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T18:11:48.152Z",
+  "updated_at": "2026-11-24T18:11:49.736Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
@@ -67,14 +67,14 @@
           "run_id": 45456804769,
           "jobs": {
             "Android build and lint": {
-              "status": "queued",
-              "conclusion": null,
+              "status": "completed",
+              "conclusion": "cancelled",
               "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45456804769/job/138668349599",
-              "started_at": "2026-11-24T18:11:34Z",
-              "completed_at": null,
-              "steps_completed": 0,
-              "steps_total": 0,
-              "current_step": null
+              "started_at": "2026-11-24T18:11:37Z",
+              "completed_at": "2026-11-24T18:11:46Z",
+              "steps_completed": 1,
+              "steps_total": 7,
+              "current_step": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
             },
             "Core tests (JVM and Wasm), web build": {
               "status": "queued",
@@ -92,7 +92,7 @@
           "sha": "0fdd155e0419367226c993980ca6459b9a2c7d45",
           "branch": "model-conversion-progress",
           "status": "queued",
-          "updated_at": "2026-11-24T18:11:39.203Z",
+          "updated_at": "2026-11-24T18:11:49.736Z",
           "run_number": 262,
           "run_attempt": 1,
           "event": "pull_request",

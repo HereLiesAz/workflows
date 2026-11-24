@@ -4,11 +4,32 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T03:09:52.595Z",
+  "updated_at": "2026-11-24T03:09:54.404Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 45317553965,
+          "jobs": {
+            "Android build and lint": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45317553965/job/138187951795",
+              "started_at": "2026-11-24T03:09:52Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-11-24T03:09:54.404Z",
+          "sha": "154cfa9797354ddf20a3cb8612b3a7f3578f7acc",
+          "branch": "fix/pdf-cutting-tip-placement-instructions",
+          "status": "queued",
+          "updated_at": "2026-11-24T03:09:54.404Z"
+        },
         {
           "run_id": 45317379257,
           "jobs": {
@@ -834,43 +855,6 @@
           "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45309701292",
           "started_at": "2026-11-24T02:04:41Z",
           "updated_at": "2026-11-24T02:07:41Z"
-        },
-        {
-          "run_id": 45309554703,
-          "jobs": {
-            "Android build and lint": {
-              "status": "in_progress",
-              "conclusion": null,
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45309554703/job/138161613532",
-              "started_at": "2026-11-24T02:03:37Z",
-              "completed_at": null,
-              "steps_completed": 1,
-              "steps_total": 7,
-              "current_step": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
-            },
-            "Core tests (JVM and Wasm), web build": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45309554703/job/138161613986",
-              "started_at": "2026-11-24T02:03:38Z",
-              "completed_at": "2026-11-24T02:04:46Z",
-              "steps_completed": 8,
-              "steps_total": 13,
-              "current_step": "Web build"
-            }
-          },
-          "reports": {},
-          "created_at": "2026-11-24T02:03:31.555Z",
-          "run_number": 166,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "feature/rack-original-top-strip-and-colour-filter",
-          "sha": "631ff91f7d15a00c86de784be4e56b21b4a103ac",
-          "status": "completed",
-          "conclusion": "cancelled",
-          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45309554703",
-          "started_at": "2026-11-24T02:03:29Z",
-          "updated_at": "2026-11-24T02:04:47Z"
         }
       ]
     },

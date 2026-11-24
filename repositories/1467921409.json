@@ -4,11 +4,32 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T12:41:30.775Z",
+  "updated_at": "2026-11-24T12:42:07.209Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 45396054110,
+          "jobs": {
+            "Core tests (JVM and Wasm), web build": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45396054110/job/138452008200",
+              "started_at": "2026-11-24T12:42:06Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-11-24T12:42:07.209Z",
+          "sha": "16a3291b1d7e77cf4213301d6acdac1e63e19066",
+          "branch": "test/integrated-stencil-workflow",
+          "status": "queued",
+          "updated_at": "2026-11-24T12:42:07.209Z"
+        },
         {
           "run_id": 45395687886,
           "jobs": {
@@ -812,22 +833,6 @@
           "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45388115087",
           "started_at": "2026-11-24T11:52:08Z",
           "updated_at": "2026-11-24T11:57:40Z"
-        },
-        {
-          "run_id": 45388111372,
-          "jobs": {},
-          "reports": {},
-          "created_at": "2026-11-24T11:52:10.085Z",
-          "run_number": 209,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "feature/stencil-cut-inspection",
-          "sha": "33927b027ab6db1183f825c618e8a7440df75c00",
-          "status": "completed",
-          "conclusion": "cancelled",
-          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45388111372",
-          "started_at": "2026-11-24T11:52:07Z",
-          "updated_at": "2026-11-24T11:52:10Z"
         }
       ]
     },

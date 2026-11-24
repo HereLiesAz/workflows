@@ -4,7 +4,7 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T12:56:01.947Z",
+  "updated_at": "2026-11-24T12:56:03.741Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
@@ -50,14 +50,14 @@
           "run_id": 45398223425,
           "jobs": {
             "Android build and lint": {
-              "status": "in_progress",
-              "conclusion": null,
+              "status": "completed",
+              "conclusion": "cancelled",
               "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45398223425/job/138459598435",
               "started_at": "2026-11-24T12:55:32Z",
-              "completed_at": null,
-              "steps_completed": 0,
-              "steps_total": 1,
-              "current_step": "Set up job"
+              "completed_at": "2026-11-24T12:56:00Z",
+              "steps_completed": 4,
+              "steps_total": 9,
+              "current_step": "Build and lint"
             },
             "Core tests (JVM and Wasm), web build": {
               "status": "completed",
@@ -75,7 +75,7 @@
           "sha": "1d34a8c44ad4d50581d765c2352e7ff64631ee96",
           "branch": "test/physical-stencil-validation",
           "status": "queued",
-          "updated_at": "2026-11-24T12:56:01.947Z",
+          "updated_at": "2026-11-24T12:56:03.741Z",
           "run_number": 237,
           "run_attempt": 1,
           "event": "pull_request",

@@ -4,11 +4,32 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T00:17:33.408Z",
+  "updated_at": "2026-11-24T00:42:33.794Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 45299346375,
+          "jobs": {
+            "Core tests (JVM and Wasm), web build": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45299346375/job/138127661832",
+              "started_at": "2026-11-24T00:42:32Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-11-24T00:42:33.794Z",
+          "sha": "e699dfd71d5eb6af84d2a9a0a56fca5108caeaf4",
+          "branch": "feature/guided-studio-comparison",
+          "status": "queued",
+          "updated_at": "2026-11-24T00:42:33.794Z"
+        },
         {
           "run_id": 45295383212,
           "jobs": {
@@ -771,43 +792,6 @@
           "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45277017476",
           "started_at": "2026-11-23T22:10:09Z",
           "updated_at": "2026-11-23T22:10:19Z"
-        },
-        {
-          "run_id": 45276945457,
-          "jobs": {
-            "Android build and lint": {
-              "status": "in_progress",
-              "conclusion": null,
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45276945457/job/138051082397",
-              "started_at": "2026-11-23T22:09:45Z",
-              "completed_at": null,
-              "steps_completed": 3,
-              "steps_total": 9,
-              "current_step": "Run gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6"
-            },
-            "Core tests (JVM and Wasm), web build": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45276945457/job/138051081628",
-              "started_at": "2026-11-23T22:09:46Z",
-              "completed_at": "2026-11-23T22:10:21Z",
-              "steps_completed": 5,
-              "steps_total": 13,
-              "current_step": "Core tests"
-            }
-          },
-          "reports": {},
-          "created_at": "2026-11-23T22:09:44.876Z",
-          "sha": "bd097144ca1912cb320ccacd562df60549ab2f2d",
-          "branch": "feature/painted-flow-ribbons",
-          "status": "completed",
-          "updated_at": "2026-11-23T22:10:21Z",
-          "run_number": 118,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "conclusion": "cancelled",
-          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45276945457",
-          "started_at": "2026-11-23T22:09:43Z"
         }
       ]
     },

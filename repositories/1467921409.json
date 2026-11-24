@@ -4,11 +4,27 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T12:02:42.918Z",
+  "updated_at": "2026-11-24T12:04:16.577Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 45389979459,
+          "jobs": {},
+          "reports": {},
+          "created_at": "2026-11-24T12:04:16.577Z",
+          "run_number": 215,
+          "run_attempt": 1,
+          "event": "pull_request",
+          "branch": "feature/palette-first-studio",
+          "sha": "73529636e99c3173da08f58da52b2c7e6b9ecf4b",
+          "status": "queued",
+          "conclusion": null,
+          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45389979459",
+          "started_at": "2026-11-24T12:04:14Z",
+          "updated_at": "2026-11-24T12:04:14Z"
+        },
         {
           "run_id": 45389561399,
           "jobs": {
@@ -817,43 +833,6 @@
           "event": "push",
           "conclusion": "success",
           "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45358309991",
-          "started_at": "2026-11-24T08:41:21Z"
-        },
-        {
-          "run_id": 45358308932,
-          "jobs": {
-            "Android build and lint": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45358308932/job/138321614164",
-              "started_at": "2026-11-24T08:41:24Z",
-              "completed_at": "2026-11-24T08:41:34Z",
-              "steps_completed": 3,
-              "steps_total": 9,
-              "current_step": "Run gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6"
-            },
-            "Core tests (JVM and Wasm), web build": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45358308932/job/138321614728",
-              "started_at": "2026-11-24T08:41:24Z",
-              "completed_at": "2026-11-24T08:41:34Z",
-              "steps_completed": 4,
-              "steps_total": 13,
-              "current_step": "Run gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6"
-            }
-          },
-          "reports": {},
-          "created_at": "2026-11-24T08:41:22.779Z",
-          "sha": "dd0f3a53d67ce91edca4528143de3b40df2e8a5f",
-          "branch": "fix/update-maven-routing",
-          "status": "completed",
-          "updated_at": "2026-11-24T08:41:35Z",
-          "run_number": 195,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "conclusion": "cancelled",
-          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45358308932",
           "started_at": "2026-11-24T08:41:21Z"
         }
       ]

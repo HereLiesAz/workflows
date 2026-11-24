@@ -4,11 +4,32 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T17:21:51.326Z",
+  "updated_at": "2026-11-24T17:21:53.729Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 45447734138,
+          "jobs": {
+            "Core tests (JVM and Wasm), web build": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45447734138/job/138636022901",
+              "started_at": "2026-11-24T17:21:51Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-11-24T17:21:53.729Z",
+          "sha": "8fc4eb557bcbdb8923066d958dba149084b69fc2",
+          "branch": "fix/duplicate-stage-navigation",
+          "status": "queued",
+          "updated_at": "2026-11-24T17:21:53.729Z"
+        },
         {
           "run_id": 45447650432,
           "jobs": {
@@ -825,58 +846,6 @@
           "conclusion": "cancelled",
           "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45399454630",
           "started_at": "2026-11-24T13:03:06Z"
-        },
-        {
-          "run_id": 45398343827,
-          "jobs": {
-            "Core tests (JVM and Wasm), web build": {
-              "status": "completed",
-              "conclusion": "failure",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45398343827/job/138460044695",
-              "started_at": "2026-11-24T12:56:20Z",
-              "completed_at": "2026-11-24T12:57:26Z",
-              "steps_completed": 18,
-              "steps_total": 18,
-              "current_step": null
-            },
-            "Android build and lint": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45398343827/job/138460045314",
-              "started_at": "2026-11-24T12:56:20Z",
-              "completed_at": "2026-11-24T12:57:05Z",
-              "steps_completed": 10,
-              "steps_total": 10,
-              "current_step": null
-            }
-          },
-          "reports": {
-            "android": {
-              "status": "success",
-              "summary": "Debug APK builds; lint",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-24T12:56:56.717Z"
-            },
-            "test": {
-              "status": "failure",
-              "summary": "Core tests on JVM and Wasm; web distribution and browser smoke",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-24T12:57:19.393Z"
-            }
-          },
-          "created_at": "2026-11-24T12:56:20.173Z",
-          "run_number": 240,
-          "run_attempt": 1,
-          "event": "push",
-          "branch": "main",
-          "sha": "19bb237f098f2adef3ac44fc9066672f4fe0ac1b",
-          "status": "completed",
-          "conclusion": "failure",
-          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45398343827",
-          "started_at": "2026-11-24T12:56:14Z",
-          "updated_at": "2026-11-24T12:57:27Z"
         }
       ]
     },

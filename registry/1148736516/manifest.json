@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-11-23T04:39:35+00:00",
+  "last_sync_at": "2026-11-24T00:56:46+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/hereliesaz.github.io",
@@ -83,15 +83,16 @@
       "updated_at": "2026-09-22T21:15:14+00:00"
     },
     ".github/workflows/dedup_scan.yml": {
-      "binding": "repository",
+      "binding": "shared-variant",
       "central_workflow": ".github/workflows/hereliesaz-github-io-dedup-scan.yml",
       "centralized": true,
       "implementation_sha256": "ba95e38b43009fb06f5e6f4f99de7a7d8e904705ab6a02916778061a5a5ce753",
       "name": "Dedup Scan",
       "registry_source": "registry/1148736516/dedup_scan-ef9cdf45.source.yml",
+      "shared_variant": "ba95e38b43009fb0",
       "source_sha256": "64ee29958462a0b479fe133d5ca5f507e4700a988fc60d36a30382dd50e2b48d",
       "status": "active",
-      "updated_at": "2026-11-23T04:39:30+00:00"
+      "updated_at": "2026-11-24T00:56:41+00:00"
     },
     ".github/workflows/dependency-submission-disable.yml": {
       "name": "Disable Dependency Submission",
@@ -119,9 +120,9 @@
       ],
       "name": "Deploy Site (The Gallery)",
       "registry_source": "registry/1148736516/deploy-f130ad0d.source.yml",
-      "source_sha256": "ef19a9986257d41e26391776ddccca0f08cb1cfa653485bf26a9c7044a1f8b8b",
+      "source_sha256": "a0bc703a6f9f7ec36aaa2ede4d07c918d81b5fa8da073a1624ed40960bd4b267",
       "status": "local",
-      "updated_at": "2026-11-23T04:39:31+00:00"
+      "updated_at": "2026-11-24T00:56:41+00:00"
     },
     ".github/workflows/jekyll-gh-pages.yml": {
       "name": "Deploy Jekyll with GitHub Pages dependencies preinstalled",
@@ -166,7 +167,7 @@
       "registry_source": "registry/1148736516/jules-review-9f7b6ce5.source.yml",
       "source_sha256": "81b84547b66b20a65476491f777100d5a5ef3f42bce877b8f29c075b00daefa7",
       "status": "library",
-      "updated_at": "2026-11-23T04:39:32+00:00"
+      "updated_at": "2026-11-24T00:56:42+00:00"
     },
     ".github/workflows/jules-scheduled-triage.yml": {
       "binding": "curated",
@@ -183,7 +184,7 @@
       "registry_source": "registry/1148736516/jules-triage-5c552504.source.yml",
       "source_sha256": "cca9b9da8ad154264cc09d087f72db2b7b8301d4f1d8070128282c905def6aa7",
       "status": "library",
-      "updated_at": "2026-11-23T04:39:32+00:00"
+      "updated_at": "2026-11-24T00:56:43+00:00"
     },
     ".github/workflows/label.yml": {
       "blockers": [
@@ -193,7 +194,7 @@
       "registry_source": "registry/1148736516/label-04cea97c.source.yml",
       "source_sha256": "a079d204796f50dcbc9c706cc58ebea551f8b642b3eda8d06d2b7250095f2ed1",
       "status": "local",
-      "updated_at": "2026-11-23T04:39:32+00:00"
+      "updated_at": "2026-11-24T00:56:43+00:00"
     },
     ".github/workflows/process_art.yml": {
       "binding": "repository",
@@ -207,26 +208,28 @@
       "updated_at": "2026-09-23T15:09:50+00:00"
     },
     ".github/workflows/publish_admin_staging.yml": {
-      "binding": "repository",
+      "binding": "shared-variant",
       "central_workflow": ".github/workflows/hereliesaz-github-io-publish-admin-staging.yml",
       "centralized": true,
       "implementation_sha256": "bc970e5d56ef787efb665cf9a1095a014bb950939e5f524e629412e8cf96b0d8",
       "name": "Publish Admin Staging",
       "registry_source": "registry/1148736516/publish_admin_staging-b67d7468.source.yml",
+      "shared_variant": "bc970e5d56ef787e",
       "source_sha256": "77f050ecc9e683b29e8da6841df77b82899dbd52debcdd1053cd1dd4ad486b58",
       "status": "active",
-      "updated_at": "2026-11-23T04:39:33+00:00"
+      "updated_at": "2026-11-24T00:56:44+00:00"
     },
     ".github/workflows/remove_painting.yml": {
-      "binding": "repository",
+      "binding": "shared-variant",
       "central_workflow": ".github/workflows/hereliesaz-github-io-remove-painting.yml",
       "centralized": true,
       "implementation_sha256": "ad845586ff327e183ae8d36e195eee8647bfe81e60bc49ec79a08df55223bb55",
       "name": "Remove Painting",
       "registry_source": "registry/1148736516/remove_painting-14ebc6c0.source.yml",
+      "shared_variant": "ad845586ff327e18",
       "source_sha256": "7a7b1b4c069c90d543d5c264ede087427fec305f152c02207c4dc7fc7bbaf0e0",
       "status": "active",
-      "updated_at": "2026-11-23T04:39:34+00:00"
+      "updated_at": "2026-11-24T00:56:45+00:00"
     },
     ".github/workflows/static.yml": {
       "name": "Deploy static content to Pages",
@@ -247,15 +250,16 @@
       "updated_at": "2026-09-22T21:15:14+00:00"
     },
     ".github/workflows/theater_bake.yml": {
-      "binding": "repository",
+      "binding": "shared-variant",
       "central_workflow": ".github/workflows/hereliesaz-github-io-theater-bake.yml",
       "centralized": true,
       "implementation_sha256": "003247fa953c0e04c8c1182a2270e025ff8236b73b91cb048f3c42a688d0bcde",
       "name": "Theater Bake",
       "registry_source": "registry/1148736516/theater_bake-b037f320.source.yml",
+      "shared_variant": "003247fa953c0e04",
       "source_sha256": "e45843dd83ceec9c81cdeb67f774f9c0f4dc45b56fd366fcfbae6fcef6ab8b73",
       "status": "active",
-      "updated_at": "2026-11-23T04:39:35+00:00"
+      "updated_at": "2026-11-24T00:56:46+00:00"
     }
   }
 }

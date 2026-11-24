@@ -4,11 +4,32 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T13:10:53.969Z",
+  "updated_at": "2026-11-24T13:11:06.624Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 45400804156,
+          "jobs": {
+            "Android build and lint": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45400804156/job/138468563130",
+              "started_at": "2026-11-24T13:11:05Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-11-24T13:11:06.624Z",
+          "sha": "718c800f087f0e06643e18076d9a2da93a38fcde",
+          "branch": "fix/browser-dialog-semantics-race",
+          "status": "queued",
+          "updated_at": "2026-11-24T13:11:06.624Z"
+        },
         {
           "run_id": 45400729063,
           "jobs": {
@@ -810,43 +831,6 @@
           "conclusion": "cancelled",
           "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45395687886",
           "started_at": "2026-11-24T12:39:51Z"
-        },
-        {
-          "run_id": 45395662440,
-          "jobs": {
-            "Android build and lint": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45395662440/job/138450637162",
-              "started_at": "2026-11-24T12:39:45Z",
-              "completed_at": "2026-11-24T12:39:59Z",
-              "steps_completed": 4,
-              "steps_total": 9,
-              "current_step": "Build and lint"
-            },
-            "Core tests (JVM and Wasm), web build": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45395662440/job/138450636566",
-              "started_at": "2026-11-24T12:39:44Z",
-              "completed_at": "2026-11-24T12:39:59Z",
-              "steps_completed": 5,
-              "steps_total": 13,
-              "current_step": "Core tests"
-            }
-          },
-          "reports": {},
-          "created_at": "2026-11-24T12:39:43.742Z",
-          "sha": "7b44000e5caf79cd35cd89fe6843d2d6d4663cf4",
-          "branch": "fix/receiver-plane-shadow-quality",
-          "status": "completed",
-          "updated_at": "2026-11-24T12:40:10.485Z",
-          "run_number": 227,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "conclusion": "cancelled",
-          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45395662440",
-          "started_at": "2026-11-24T12:39:42Z"
         }
       ]
     },

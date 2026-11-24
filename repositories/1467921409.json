@@ -4,11 +4,32 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T12:55:18.465Z",
+  "updated_at": "2026-11-24T12:55:32.425Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 45398223425,
+          "jobs": {
+            "Android build and lint": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45398223425/job/138459598435",
+              "started_at": "2026-11-24T12:55:30Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-11-24T12:55:32.425Z",
+          "sha": "1d34a8c44ad4d50581d765c2352e7ff64631ee96",
+          "branch": "test/physical-stencil-validation",
+          "status": "queued",
+          "updated_at": "2026-11-24T12:55:32.425Z"
+        },
         {
           "run_id": 45397398958,
           "jobs": {
@@ -847,22 +868,6 @@
           "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45390993087",
           "started_at": "2026-11-24T12:10:38Z",
           "updated_at": "2026-11-24T12:12:48Z"
-        },
-        {
-          "run_id": 45390990312,
-          "jobs": {},
-          "reports": {},
-          "created_at": "2026-11-24T12:10:39.111Z",
-          "run_number": 217,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "feature/subject-mask-deferred-paints",
-          "sha": "82d401339fd22a8375db34895c6a3e9415a29cea",
-          "status": "completed",
-          "conclusion": "cancelled",
-          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45390990312",
-          "started_at": "2026-11-24T12:10:37Z",
-          "updated_at": "2026-11-24T12:10:39Z"
         }
       ]
     },

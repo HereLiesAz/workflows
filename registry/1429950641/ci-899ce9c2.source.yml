@@ -9,7 +9,7 @@ on:
   pull_request:
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 permissions:
   contents: read
   id-token: write # the run's OIDC token authenticates ci-report; nothing else is needed

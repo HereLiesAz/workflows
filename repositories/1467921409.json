@@ -4,7 +4,7 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T01:20:31.319Z",
+  "updated_at": "2026-11-24T01:20:37.147Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
@@ -13,14 +13,14 @@
           "run_id": 45304174011,
           "jobs": {
             "Android build and lint": {
-              "status": "in_progress",
-              "conclusion": null,
+              "status": "completed",
+              "conclusion": "failure",
               "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45304174011/job/138143804687",
               "started_at": "2026-11-24T01:19:25Z",
-              "completed_at": null,
-              "steps_completed": 3,
-              "steps_total": 9,
-              "current_step": "Run gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6"
+              "completed_at": "2026-11-24T01:20:35Z",
+              "steps_completed": 10,
+              "steps_total": 10,
+              "current_step": null
             },
             "Core tests (JVM and Wasm), web build": {
               "status": "in_progress",
@@ -46,7 +46,7 @@
           "sha": "9209ef72af69201d7b2c952d342f0e3ed1b393f8",
           "branch": "feature/adjustable-brush-mark-width",
           "status": "in_progress",
-          "updated_at": "2026-11-24T01:20:31.319Z",
+          "updated_at": "2026-11-24T01:20:37.147Z",
           "run_number": 156,
           "run_attempt": 1,
           "event": "pull_request",

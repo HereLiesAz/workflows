@@ -4,11 +4,32 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-24T10:03:27.849Z",
+  "updated_at": "2026-11-24T10:04:48.603Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 45371275437,
+          "jobs": {
+            "Core tests (JVM and Wasm), web build": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45371275437/job/138365876638",
+              "started_at": "2026-11-24T10:04:47Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-11-24T10:04:48.603Z",
+          "sha": "768a307bfc3dcd1981d1426d9b8720b4424af7a2",
+          "branch": "feature/scene-light-placement",
+          "status": "queued",
+          "updated_at": "2026-11-24T10:04:48.603Z"
+        },
         {
           "run_id": 45370417195,
           "jobs": {
@@ -892,22 +913,6 @@
           "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45316943200",
           "started_at": "2026-11-24T03:05:58Z",
           "updated_at": "2026-11-24T03:06:30Z"
-        },
-        {
-          "run_id": 45316935818,
-          "jobs": {},
-          "reports": {},
-          "created_at": "2026-11-24T03:04:51.171Z",
-          "run_number": 181,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "fix/pdf-cutting-tip-placement-instructions",
-          "sha": "e053633dd56e0b163d7198f5ae022b8887cf082d",
-          "status": "completed",
-          "conclusion": "cancelled",
-          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45316935818",
-          "started_at": "2026-11-24T03:04:43Z",
-          "updated_at": "2026-11-24T03:04:48Z"
         }
       ]
     },

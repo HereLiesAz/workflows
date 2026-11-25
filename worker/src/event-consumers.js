@@ -1734,7 +1734,9 @@ export const EVENT_CONSUMERS = {
   "1471718709": {
     "repository": "HereLiesAz/ExtrusionExtraction",
     "events": [
-      "push"
+      "pull_request",
+      "push",
+      "workflow_dispatch"
     ]
   }
 };

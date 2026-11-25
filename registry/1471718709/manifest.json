@@ -9,5 +9,24 @@
   },
   "schema": 2,
   "worker_url_configured": true,
-  "workflows": {}
+  "workflows": {
+    ".github/workflows/desktop-package.yml": {
+      "binding": "curated",
+      "central_workflow": ".github/workflows/desktop-package.yml",
+      "centralized": true,
+      "name": "Native Package Validation",
+      "registry_source": "registry/1471718709/desktop-package-9eb1d66a.source.yml",
+      "source_sha256": "15b3989d7767c0ada488f03be48277293081de805c15290490d0795e1244d9ed",
+      "status": "active"
+    },
+    ".github/workflows/jules-glee.yml": {
+      "binding": "curated",
+      "central_workflow": ".github/workflows/jules-glee.yml",
+      "centralized": true,
+      "name": "Glee Audit",
+      "registry_source": "registry/1471718709/jules-glee-0de23ac9.source.yml",
+      "source_sha256": "fc0f966c271d0e7ea6aa8d4b02279b34cfae6ac4e16b0477e8401e22e6e3662f",
+      "status": "active"
+    }
+  }
 }

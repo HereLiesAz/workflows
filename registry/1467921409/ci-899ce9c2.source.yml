@@ -1,26 +1,110 @@
-# Diagnostic branch only: exercise the already deployed application in a real browser.
+# This repository's own CI. Per HereLiesAz/workflows policy, CI runs here (never centrally) and is
+# declared by the ci-report action, which records each job's result on the central ci-status ledger.
+# Releases and deploys are NOT built here: they run from HereLiesAz/workflows
+# (see .github/workflow-request.yml).
 name: CI
 on:
+  push:
+    branches: [main]
   pull_request:
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
 permissions:
   contents: read
-  id-token: write
+  id-token: write # the run's OIDC identity authenticates ci-report; nothing else is needed
 jobs:
+  test:
+    name: Core tests (JVM and Wasm)
+    # Playwright 1.57 does not provide Chromium for Ubuntu 26.04.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      # The whole stencil pipeline and every exporter is common code: the same tests run on the JVM
+      # (what Android uses) and on Wasm (what the web uses).
+      - name: Core tests
+        env:
+          STENCIL_PHYSICAL_OUTPUT: ${{ github.workspace }}/build/physical-validation
+          STENCIL_MATERIAL_OUTPUT: ${{ github.workspace }}/build/material-evaluation
+        run: ./gradlew :core:jvmTest :core:wasmJsNodeTest --no-daemon --stacktrace
+      - name: Physical validation kit (digital files only)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: physical-validation-kit
+          path: build/physical-validation
+          if-no-files-found: ignore
+      - name: Controlled material evaluation
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: material-evaluation
+          path: build/material-evaluation
+          if-no-files-found: ignore
+      - name: Service worker cache regression tests
+        run: node tools/tests/service-worker-cache.mjs
+      - name: Original MTN 94 packshot verification
+        run: node tools/tests/mtn94-original-packshot.mjs
+      - if: always()
+        uses: HereLiesAz/workflows/.github/actions/ci-report@main
+        with:
+          summary: Core tests on JVM and Wasm; service worker and resource checks
+
+  android:
+    name: Android build and lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      # Unsigned: this proves the app builds and passes lint. Signed releases come only from the
+      # central Android release workflow, once one is bound.
+      - name: Build and lint
+        run: ./gradlew :androidApp:assembleDebug :androidApp:lintDebug --no-daemon --stacktrace
+      - name: Play bundle and real R8 mapping (unsigned)
+        run: |
+          ./gradlew :androidApp:bundleRelease -PstencilPlayRelease=true --no-daemon --stacktrace
+          test -s androidApp/build/outputs/bundle/release/androidApp-release.aab
+          test -s androidApp/build/outputs/mapping/release/mapping.txt
+      - if: always()
+        uses: HereLiesAz/workflows/.github/actions/ci-report@main
+        with:
+          summary: Debug APK builds; lint; Play bundle and R8 mapping
+
   artist-workflow:
     runs-on: ubuntu-24.04
-    timeout-minutes: 18
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6
+      - name: Build local Compose Wasm application
+        run: ./gradlew :composeApp:wasmJsBrowserDistribution --no-daemon --stacktrace
       - name: Install browser and photo fixture
         run: |
           python3 -m venv "$RUNNER_TEMP/stencil-e2e"
           "$RUNNER_TEMP/stencil-e2e/bin/pip" install playwright==1.57.0 Pillow==12.0.0 scikit-image==0.25.2 pypdf==6.4.0
           "$RUNNER_TEMP/stencil-e2e/bin/python" -m playwright install --with-deps chromium
       - name: Transparent-image baseline
-        run: '"$RUNNER_TEMP/stencil-e2e/bin/python" tools/tests/browser-smoke.py --url https://hereliesaz.com/stencil-artist/ --artifacts build/browser-smoke'
-        continue-on-error: true
+        run: '"$RUNNER_TEMP/stencil-e2e/bin/python" tools/tests/browser-smoke.py --distribution composeApp/build/dist --artifacts build/browser-smoke'
       - name: Photograph to stencil and physical exports
-        run: '"$RUNNER_TEMP/stencil-e2e/bin/python" tools/tests/artist-workflow-diagnostic.py --url https://hereliesaz.com/stencil-artist/ --artifacts build/artist-workflow'
+        if: success() || failure()
+        run: '"$RUNNER_TEMP/stencil-e2e/bin/python" tools/tests/artist-workflow-diagnostic.py --distribution composeApp/build/dist --artifacts build/artist-workflow'
       - name: Capture browser screenshots and downloaded stencil files
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -32,4 +116,4 @@ jobs:
       - if: always()
         uses: HereLiesAz/workflows/.github/actions/ci-report@main
         with:
-          summary: Diagnostic live artist workflow; no release
+          summary: Local Compose Wasm artist workflow and export verification

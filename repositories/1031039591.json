@@ -4,7 +4,7 @@
     "id": 1031039591,
     "full_name": "HereLiesAz/aive"
   },
-  "updated_at": "2026-11-25T13:12:32.811Z",
+  "updated_at": "2026-11-25T13:13:52.466Z",
   "workflows": {
     ".github/workflows/bitcos-engine.yml": {
       "name": "BITCOS Engine",
@@ -698,6 +698,22 @@
     ".github/workflows/multiplatform.yml": {
       "name": "Build and Deploy",
       "runs": [
+        {
+          "run_id": 45621442632,
+          "jobs": {},
+          "reports": {},
+          "created_at": "2026-11-25T13:13:52.466Z",
+          "run_number": 3295,
+          "run_attempt": 1,
+          "event": "push",
+          "branch": "main",
+          "sha": "9b443b03f7d355de228819253094c490774dfeb5",
+          "status": "queued",
+          "conclusion": null,
+          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45621442632",
+          "started_at": "2026-11-25T13:13:49Z",
+          "updated_at": "2026-11-25T13:13:49Z"
+        },
         {
           "run_id": 45620624650,
           "jobs": {
@@ -2194,83 +2210,6 @@
           "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45451621430",
           "started_at": "2026-11-24T17:43:03Z",
           "updated_at": "2026-11-24T17:46:20Z"
-        },
-        {
-          "run_id": 45451202932,
-          "jobs": {
-            "Claude connector tests (Node)": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45451202932/job/138648543454",
-              "started_at": "2026-11-24T17:40:54Z",
-              "completed_at": "2026-11-24T17:41:11Z",
-              "steps_completed": 7,
-              "steps_total": 7,
-              "current_step": null
-            },
-            "build": {
-              "status": "in_progress",
-              "conclusion": null,
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45451202932/job/138648544084",
-              "started_at": "2026-11-24T17:40:55Z",
-              "completed_at": null,
-              "steps_completed": 0,
-              "steps_total": 1,
-              "current_step": "Set up job"
-            },
-            "Resolve four-part version": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45451202932/job/138648544981",
-              "started_at": "2026-11-24T17:40:55Z",
-              "completed_at": "2026-11-24T17:41:05Z",
-              "steps_completed": 5,
-              "steps_total": 5,
-              "current_step": null
-            },
-            "Desktop installer (linux)": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45451202932/job/138648765100",
-              "started_at": "2026-11-24T17:41:17Z",
-              "completed_at": "2026-11-24T17:43:12Z",
-              "steps_completed": 12,
-              "steps_total": 21,
-              "current_step": "Package native installer"
-            },
-            "Desktop installer (macos)": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45451202932/job/138648764175",
-              "started_at": "2026-11-24T17:41:19Z",
-              "completed_at": "2026-11-24T17:43:12Z",
-              "steps_completed": 12,
-              "steps_total": 21,
-              "current_step": "Package native installer"
-            },
-            "Desktop installer (windows)": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45451202932/job/138648764452",
-              "started_at": "2026-11-24T17:41:17Z",
-              "completed_at": "2026-11-24T17:43:12Z",
-              "steps_completed": 9,
-              "steps_total": 21,
-              "current_step": "Generate and verify desktop icons"
-            }
-          },
-          "reports": {},
-          "created_at": "2026-11-24T17:40:47.151Z",
-          "run_number": 3275,
-          "run_attempt": 1,
-          "event": "push",
-          "branch": "main",
-          "sha": "279c950200f67256670de4ccb57a578fd3a48321",
-          "status": "completed",
-          "conclusion": "cancelled",
-          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45451202932",
-          "started_at": "2026-11-24T17:40:43Z",
-          "updated_at": "2026-11-24T17:43:12Z"
         }
       ]
     },

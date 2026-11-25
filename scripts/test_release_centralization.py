@@ -516,7 +516,7 @@ print('bake publish contract ok')
 # to AGP 9.5.1, matching aive/gradle/libs.versions.toml. The old H2G2 and
 # nested Conveyance checkouts both used 9.5.0 and broke Play bundling even
 # though the source repository's CI checked out newer revisions.
-_aive_h2g2_pin = "8591c986100922d52cea0b5a2eb5b4288fe18846"
+_aive_h2g2_pin = "b85c269ff0ef0e1512b415ec114ef13747021c9b"
 _aive_play_profile = _PURPOSE_PROFILES["241b4583d7885007973042f4012d5599162d3846fda0fe5daf018446ab496e76"]
 _aive_h2g2_checkout = next(
     checkout for checkout in _aive_play_profile["extra_checkouts"]

@@ -4,11 +4,32 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-25T13:12:56.640Z",
+  "updated_at": "2026-11-25T13:13:57.426Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
       "runs": [
+        {
+          "run_id": 45621459935,
+          "jobs": {
+            "artist-workflow": {
+              "status": "queued",
+              "conclusion": null,
+              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45621459935/job/139230431059",
+              "started_at": "2026-11-25T13:13:56Z",
+              "completed_at": null,
+              "steps_completed": 0,
+              "steps_total": 0,
+              "current_step": null
+            }
+          },
+          "reports": {},
+          "created_at": "2026-11-25T13:13:57.426Z",
+          "sha": "28b8687d1aeb21a542416f7cf4b414faf1e34746",
+          "branch": "fix/restore-verified-print-tests",
+          "status": "queued",
+          "updated_at": "2026-11-25T13:13:57.426Z"
+        },
         {
           "run_id": 45620909272,
           "jobs": {
@@ -1205,41 +1226,6 @@
           "conclusion": "failure",
           "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45558862658",
           "started_at": "2026-11-25T06:12:13Z"
-        },
-        {
-          "run_id": 45551041776,
-          "jobs": {
-            "artist-workflow": {
-              "status": "completed",
-              "conclusion": "failure",
-              "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45551041776/job/138992016414",
-              "started_at": "2026-11-25T05:04:33Z",
-              "completed_at": "2026-11-25T05:05:11Z",
-              "steps_completed": 9,
-              "steps_total": 9,
-              "current_step": null
-            }
-          },
-          "reports": {
-            "artist-workflow": {
-              "status": "failure",
-              "summary": "Diagnostic live artist workflow; no release",
-              "data": null,
-              "run_attempt": "1",
-              "reported_at": "2026-11-25T05:05:08.386Z"
-            }
-          },
-          "created_at": "2026-11-25T05:04:32.038Z",
-          "run_number": 272,
-          "run_attempt": 1,
-          "event": "pull_request",
-          "branch": "diagnostic/artist-workflow-live",
-          "sha": "710f7cd01fe1a138fb3ca18caa3036d4e76a3cb6",
-          "status": "completed",
-          "conclusion": "failure",
-          "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45551041776",
-          "started_at": "2026-11-25T05:04:30Z",
-          "updated_at": "2026-11-25T05:05:11Z"
         }
       ]
     },

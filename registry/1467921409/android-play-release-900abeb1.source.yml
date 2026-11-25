@@ -1,0 +1,22 @@
+# Stencil Artist: trigger contract for the central Android Play Release.
+# The controller builds, signs and publishes the app bundle; this file only hands off.
+name: Android Play Release
+on:
+  push:
+    branches: [main]
+    paths:
+      - "androidApp/**"
+      - "composeApp/**"
+      - "core/**"
+      - "models/**"
+      - "gradle/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
+      - "version.properties"
+  workflow_dispatch:
+permissions: {}
+jobs:
+  hand-off:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Stencil Artist Android Play Release runs centrally in HereLiesAz/workflows."

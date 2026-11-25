@@ -749,3 +749,28 @@ assert _stencil_profile["aab_glob"] == "androidApp/build/outputs/bundle/release/
 assert _stencil_profile["mapping_file"] == "androidApp/build/outputs/mapping/release/mapping.txt"
 assert _stencil_profile["publish_on_push"] is True and _stencil_profile["publish_default"] is True
 assert _stencil_profile["tracks"] == [{"track": "alpha", "status": "completed"}]
+
+# MCPserved's 0.x public identity must never be rewritten to satisfy native packaging.
+_desktop_doc = load_yaml(Path(".github/workflows/desktop-package.yml").read_text(encoding="utf-8"))
+_desktop_steps = _desktop_doc["jobs"]["package"]["steps"]
+_desktop_resolve = next(s["run"] for s in _desktop_steps if s.get("name") == "Resolve desktop package version")
+with _tempfile.TemporaryDirectory(prefix="mcpserved-version-") as _tmp:
+    _root = Path(_tmp)
+    for _baseline, _expected in [
+        ("versionMajor=0\nversionMinor=9\nversionPatch=7\nversionMinorLast=8\nversionBuild=1\n", "0.9.0.2"),
+        ("versionMajor=0\nversionMinor=9\nversionPatch=3\nversionMinorLast=9\nversionBuild=41\n", "0.9.4.42"),
+        ("versionMajor=2\nversionMinor=1\nversionPatch=0\nversionMinorLast=1\nversionBuild=8\n", "2.1.1.9"),
+    ]:
+        (_root / "version.properties").write_text(_baseline, encoding="utf-8")
+        _env_file = _root / "env"
+        _env_file.write_text("", encoding="utf-8")
+        _env = {**_os.environ, "PROFILE_JSON": '{"version_mode":"mcpserved"}', "TARGET_INPUTS_JSON": "{}", "TARGET_REF_TYPE": "branch", "TARGET_REF_NAME": "main", "GITHUB_ENV": str(_env_file)}
+        _subprocess.run(["bash", "-c", _desktop_resolve], cwd=_root, env=_env, check=True)
+        assert _env_file.read_text(encoding="utf-8") == f"DESKTOP_VERSION={_expected}\n"
+    _rename = next(s["run"] for s in _desktop_steps if s.get("name") == "Name MCPserved installers by public product version")
+    (_root / "dist").mkdir()
+    for _name in ("mcpserved_0.9.0.2_amd64.deb", "mcpserved-0.9.0.2-1.x86_64.rpm"):
+        (_root / "dist" / _name).write_bytes(b"installer")
+    _subprocess.run(["bash", "-c", _rename], cwd=_root, env={**_env, "RUNNER_OS": "Linux", "DESKTOP_VERSION": "0.9.0.2"}, check=True)
+    assert sorted(p.name for p in (_root / "dist").iterdir()) == ["MCPserved-0.9.0.2-linux.deb", "MCPserved-0.9.0.2-linux.rpm"]
+print("MCPserved desktop public version regression ok")

@@ -1,0 +1,13 @@
+# Registry source: triggers only; execution is the central desktop-package profile.
+name: Native Package Validation
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'Central package executor owns the build.'

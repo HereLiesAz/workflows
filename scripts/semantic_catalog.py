@@ -342,6 +342,7 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
         "canonical_hash": "ecaa174d3910d20491133343eb12f16cb2979108025efeced85d28a9b6e7c9b1",
         "generalized": True,
         "source_hashes": {
+            "15b3989d7767c0ada488f03be48277293081de805c15290490d0795e1244d9ed",
             "ecaa174d3910d20491133343eb12f16cb2979108025efeced85d28a9b6e7c9b1",
             "acc1dc959c04a0f3c4c42f8768b3aa469dfd5a449d0a02584cb2a98641f8d14b",
             "c6251f2b6b5fe71bea894085048df9338151bc914505f23dbd5f8f37c4721190",
@@ -447,6 +448,8 @@ PLAY_TRACKS: Final[list[dict[str, object]]] = [
 ]
 
 PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
+    # Native package validation uses the existing generalized matrix executor (no publication).
+    "15b3989d7767c0ada488f03be48277293081de805c15290490d0795e1244d9ed": {"java_version":"17","use_gradle_setup":True,"version_mode":"none","cancel_in_progress":False,"release_mode":"none","matrix":{"include":[{"os":"ubuntu-latest","artifact":"native-linux-deb","path":"desktopApp/build/compose/binaries/main/deb/*.deb","prepare":"sudo apt-get update && sudo apt-get install -y fakeroot","build":"python3 -m unittest discover -s scripts -p test_build_skintokens.py && python3 scripts/build_skintokens.py && ./gradlew :shared:desktopTest :desktopApp:packageDeb -PskinTokensNativeDir=../build/skintokens/host-install --stacktrace"},{"os":"macos-latest","artifact":"native-macos-arm64-dmg","path":"desktopApp/build/compose/binaries/main/dmg/*.dmg","prepare":"","build":"test \"$(uname -m)\" = arm64 && python3 scripts/build_skintokens.py && ./gradlew :desktopApp:packageDmg -PskinTokensNativeDir=../build/skintokens/host-install --stacktrace"},{"os":"macos-15-intel","artifact":"native-macos-x86_64-dmg","path":"desktopApp/build/compose/binaries/main/dmg/*.dmg","prepare":"","build":"test \"$(uname -m)\" = x86_64 && python3 scripts/build_skintokens.py && ./gradlew :desktopApp:packageDmg -PskinTokensNativeDir=../build/skintokens/host-install --stacktrace"},{"os":"windows-latest","artifact":"native-windows-msi","path":"desktopApp/build/compose/binaries/main/msi/*.msi","prepare":"","build":"python scripts/build_skintokens.py && ./gradlew.bat :desktopApp:packageMsi -PskinTokensNativeDir=../build/skintokens/host-install --stacktrace"},{"os":"ubuntu-latest","artifact":"native-android-debug-apk","path":"androidApp/build/outputs/apk/debug/*.apk","prepare":"\"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager\" --install 'platforms;android-35' 'ndk;28.2.13676358' 'cmake;3.31.6'","build":"python3 scripts/build_skintokens.py --prepare-only && config=$(find \"$PWD/build/skintokens/json-install\" -name nlohmann_jsonConfig.cmake -print -quit) && test -n \"$config\" && ./gradlew :androidApp:assembleDebug \"-PskinTokensSource=$PWD/build/skintokens/runtime\" \"-PskinTokensJsonDir=$(dirname \"$config\")\" --stacktrace && python3 -c 'import glob,zipfile; p=glob.glob(\"androidApp/build/outputs/apk/debug/*.apk\"); assert len(p)==1; z=zipfile.ZipFile(p[0]); assert all(\"lib/\"+a+\"/lib\"+n+\".so\" in z.namelist() for a in (\"arm64-v8a\",\"x86_64\") for n in (\"ee_skintokens\",\"skintokens\"))'"}]}},
 
     # Stencil Artist: keep the GitHub APK build unchanged; enable R8 only for the Play bundle.
     # Publish to the closed alpha track only; do not update other tracks.

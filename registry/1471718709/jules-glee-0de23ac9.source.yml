@@ -1,0 +1,12 @@
+# Registry source: triggers only; execution is the canonical central Glee audit.
+name: Glee Audit
+on:
+  pull_request_target:
+    types: [opened]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'Central Glee executor owns the audit.'

@@ -450,7 +450,7 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
 
     # Stencil Artist: keep the GitHub APK build unchanged; enable R8 only for the Play bundle.
     # Publish to the closed alpha track only; do not update other tracks.
-    "d290efe171c9d2fe5a8ed1fe2ee00c4a1447fad0f60cfe7ff26f6a9788a989c5": {"signing": "raw-jks", "java_version": "17", "google_services": "none", "inject_signing_args": True, "version_arg": "versionCode", "package_name": "com.hereliesaz.stencilartist", "build_command": "./gradlew :androidApp:bundleRelease -PstencilPlayRelease=true --no-daemon --stacktrace", "aab_glob": "androidApp/build/outputs/bundle/release/*.aab", "mapping_file": "androidApp/build/outputs/mapping/release/mapping.txt", "publish_on_push": True, "publish_default": True, "tracks": [{"track": "alpha", "status": "completed"}], "release_app_name": "Stencil Artist"},
+    "d290efe171c9d2fe5a8ed1fe2ee00c4a1447fad0f60cfe7ff26f6a9788a989c5": {"signing": "raw-jks", "java_version": "17", "google_services": "none", "inject_signing_args": True, "version_arg": "versionCode", "package_name": "com.hereliesaz.stencil_artist", "build_command": "./gradlew :androidApp:bundleRelease -PstencilPlayRelease=true --no-daemon --stacktrace", "aab_glob": "androidApp/build/outputs/bundle/release/*.aab", "mapping_file": "androidApp/build/outputs/mapping/release/mapping.txt", "publish_on_push": True, "publish_default": True, "tracks": [{"track": "alpha", "status": "completed"}], "release_app_name": "Stencil Artist"},
 
     # QuicLoc keeps app/version.properties as the only Android version authority:
     # its Gradle task increments VERSION_C and VERSION_D on each bundle build.

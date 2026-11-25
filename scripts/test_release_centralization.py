@@ -741,7 +741,7 @@ assert _hashlib.sha256(_stencil_source.encode("utf-8")).hexdigest() == "d290efe1
 assert load_yaml(_stencil_source)["on"]["push"]["branches"] == ["main"]
 assert "workflow_dispatch" in load_yaml(_stencil_source)["on"]
 _stencil_profile = _RELEASE_PROFILES[_stencil_entry["source_sha256"]]
-assert _stencil_profile["package_name"] == "com.hereliesaz.stencilartist"
+assert _stencil_profile["package_name"] == "com.hereliesaz.stencil_artist"
 assert _stencil_profile["version_arg"] == "versionCode"
 assert _stencil_profile["signing"] == "raw-jks" and _stencil_profile["inject_signing_args"] is True
 assert _stencil_profile["build_command"] == "./gradlew :androidApp:bundleRelease -PstencilPlayRelease=true --no-daemon --stacktrace"

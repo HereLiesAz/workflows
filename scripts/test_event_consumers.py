@@ -11,6 +11,7 @@ from generate_event_consumers import (
     MODULE_PATH,
     NON_WEBHOOK_TRIGGERS,
     ROOT,
+    TRIGGER_TO_WEBHOOK,
     build_consumer_map,
     parse_module,
     render_module,
@@ -32,7 +33,7 @@ assert "1452456930" not in consumers, "SearchA2A must not be centrally routed"
 #    branch/path/action filters (the most permissive form of its trigger) and ask
 #    dispatch_request._event_trigger which webhook events it accepts. Each must be forwarded.
 universe = {
-    "push", "pull_request", "pull_request_target", "pull_request_review",
+    "push", "pull_request", "pull_request_review",
     "pull_request_review_comment", "issues", "issue_comment", "label", "create", "delete",
     "release", "workflow_run", "repository_dispatch", "discussion", "discussion_comment",
     "merge_group", "milestone", "page_build", "public", "registry_package", "status",
@@ -45,7 +46,11 @@ for source in (ROOT / "registry").glob("*/*.source.yml"):
     except Exception:
         pass
 
-universe -= NON_WEBHOOK_TRIGGERS  # never delivered as webhooks, so never reach the Worker
+# The registry also contributes workflow trigger aliases that are not webhook
+# event names. In particular GitHub delivers pull_request, not pull_request_target.
+universe -= NON_WEBHOOK_TRIGGERS | TRIGGER_TO_WEBHOOK.keys()
+assert "pull_request" in universe
+assert "pull_request_target" not in universe
 checked = 0
 for manifest_file in sorted((ROOT / "registry").glob("*/manifest.json")):
     manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
@@ -87,6 +92,12 @@ manifest = {"workflows": {
 events = repository_events(manifest, sources.__getitem__)
 assert events == ["create", "delete", "issue_comment", "issues", "label", "pull_request", "push"], events
 assert repository_events({"workflows": {}}, sources.__getitem__) == ["push"]
+
+# The actual incoming webhook is still routed to the privileged trigger name;
+# dropping its nonexistent alias from the universe must not hide lost PR audits.
+audit = YAML(typ="safe").load(sources["a.yml"])
+assert _event_trigger(audit, "pull_request", {"action": "opened"}, None) == "pull_request_target"
+assert _event_trigger(audit, "pull_request", {"action": "synchronize"}, None) is None
 
 # 4. A repository sync replaces only its own row, and retries on a concurrent-write conflict.
 import sync_repository

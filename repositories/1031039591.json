@@ -4,7 +4,7 @@
     "id": 1031039591,
     "full_name": "HereLiesAz/aive"
   },
-  "updated_at": "2026-11-25T12:57:14.706Z",
+  "updated_at": "2026-11-25T12:57:17.035Z",
   "workflows": {
     ".github/workflows/bitcos-engine.yml": {
       "name": "BITCOS Engine",
@@ -690,6 +690,22 @@
     ".github/workflows/multiplatform.yml": {
       "name": "Build and Deploy",
       "runs": [
+        {
+          "run_id": 45618686512,
+          "jobs": {},
+          "reports": {},
+          "created_at": "2026-11-25T12:57:17.035Z",
+          "run_number": 3290,
+          "run_attempt": 1,
+          "event": "push",
+          "branch": "main",
+          "sha": "4f70645fa36b9e67610376fbe7016b105a84ed32",
+          "status": "queued",
+          "conclusion": null,
+          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45618686512",
+          "started_at": "2026-11-25T12:57:06Z",
+          "updated_at": "2026-11-25T12:57:06Z"
+        },
         {
           "run_id": 45617553227,
           "jobs": {
@@ -2229,73 +2245,6 @@
           "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45418297806",
           "started_at": "2026-11-24T14:48:56Z",
           "updated_at": "2026-11-24T14:58:55Z"
-        },
-        {
-          "run_id": 45418153567,
-          "jobs": {
-            "build": {
-              "status": "in_progress",
-              "conclusion": null,
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45418153567/job/138529963557",
-              "started_at": "2026-11-24T14:48:13Z",
-              "completed_at": null,
-              "steps_completed": 0,
-              "steps_total": 1,
-              "current_step": "Set up job"
-            },
-            "Desktop installer (macos)": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45418153567/job/138530069802",
-              "started_at": "2026-11-24T14:48:22Z",
-              "completed_at": "2026-11-24T14:49:06Z",
-              "steps_completed": 8,
-              "steps_total": 21,
-              "current_step": "Set up Gradle"
-            },
-            "Desktop installer (windows)": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45418153567/job/138530069625",
-              "started_at": "2026-11-24T14:48:22Z",
-              "completed_at": "2026-11-24T14:49:06Z",
-              "steps_completed": 8,
-              "steps_total": 21,
-              "current_step": "Set up Gradle"
-            },
-            "Desktop installer (linux)": {
-              "status": "in_progress",
-              "conclusion": null,
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45418153567/job/138530069712",
-              "started_at": "2026-11-24T14:48:22Z",
-              "completed_at": null,
-              "steps_completed": 1,
-              "steps_total": 17,
-              "current_step": "Check out repository"
-            },
-            "Claude connector tests (Node)": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45418153567/job/138529963725",
-              "started_at": "2026-11-24T14:48:12Z",
-              "completed_at": "2026-11-24T14:48:28Z",
-              "steps_completed": 7,
-              "steps_total": 7,
-              "current_step": null
-            }
-          },
-          "reports": {},
-          "created_at": "2026-11-24T14:48:11.869Z",
-          "sha": "f2fc9829a5bb9e1fbeaf36d271941870de4c64dd",
-          "branch": "main",
-          "status": "in_progress",
-          "updated_at": "2026-11-24T14:49:15.978Z",
-          "run_number": 3270,
-          "run_attempt": 1,
-          "event": "push",
-          "conclusion": null,
-          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45418153567",
-          "started_at": "2026-11-24T14:48:10Z"
         }
       ]
     },

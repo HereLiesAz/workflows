@@ -731,3 +731,21 @@ assert {item["repository"]: item["ref"] for item in aive_profile["extra_checkout
     "HereLiesAz/conveyance-h2g2": "b85c269ff0ef0e1512b415ec114ef13747021c9b",
     "HereLiesAz/Conveyance": "9d9a694c64d0bdfd1d6e9f38a1ad972bb5618ac4",
 }
+
+# Stencil Artist uses the same central publisher as other Android apps, never a second executor.
+_stencil_entry = _json.loads(Path("registry/1467921409/manifest.json").read_text(encoding="utf-8"))["workflows"][".github/workflows/android-play-release.yml"]
+assert _stencil_entry["status"] == "active" and _stencil_entry["binding"] == "curated"
+assert _stencil_entry["central_workflow"] == ".github/workflows/android-play-release.yml"
+_stencil_source = Path(_stencil_entry["registry_source"]).read_text(encoding="utf-8")
+assert _hashlib.sha256(_stencil_source.encode("utf-8")).hexdigest() == "d290efe171c9d2fe5a8ed1fe2ee00c4a1447fad0f60cfe7ff26f6a9788a989c5" == _stencil_entry["source_sha256"]
+assert load_yaml(_stencil_source)["on"]["push"]["branches"] == ["main"]
+assert "workflow_dispatch" in load_yaml(_stencil_source)["on"]
+_stencil_profile = _RELEASE_PROFILES[_stencil_entry["source_sha256"]]
+assert _stencil_profile["package_name"] == "com.hereliesaz.stencilartist"
+assert _stencil_profile["version_arg"] == "versionCode"
+assert _stencil_profile["signing"] == "raw-jks" and _stencil_profile["inject_signing_args"] is True
+assert _stencil_profile["build_command"] == "./gradlew :androidApp:bundleRelease -PstencilPlayRelease=true --no-daemon --stacktrace"
+assert _stencil_profile["aab_glob"] == "androidApp/build/outputs/bundle/release/*.aab"
+assert _stencil_profile["mapping_file"] == "androidApp/build/outputs/mapping/release/mapping.txt"
+assert _stencil_profile["publish_on_push"] is True and _stencil_profile["publish_default"] is True
+assert _stencil_profile["tracks"] == [{"track": "internal", "status": "completed"}]

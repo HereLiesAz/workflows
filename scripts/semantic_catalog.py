@@ -53,7 +53,7 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
         "canonical_hash": "c7e435bc33db1508560b4f5e700570d3f9544ce3d2efa16b4b7df2a60ee3c1f4",
         "generalized": True,
         "source_hashes": {
-            # HereLiesAz/stencil-artist: private Play testing, pending catalogue redistribution clearance.
+            # HereLiesAz/stencil-artist: closed alpha testing.
             "d290efe171c9d2fe5a8ed1fe2ee00c4a1447fad0f60cfe7ff26f6a9788a989c5",
             "ac44188d4c7565cc56dbd79c4923ba865a3fbe72084b9c6f661beb3a008e5325",  # QuicLoc Play Release trigger contract
             # HereLiesAz/MeatPiety:.github/workflows/android-play-release.yml
@@ -449,8 +449,8 @@ PLAY_TRACKS: Final[list[dict[str, object]]] = [
 PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
 
     # Stencil Artist: keep the GitHub APK build unchanged; enable R8 only for the Play bundle.
-    # The paint catalogue is not cleared for public redistribution, so no public track is enabled.
-    "d290efe171c9d2fe5a8ed1fe2ee00c4a1447fad0f60cfe7ff26f6a9788a989c5": {"signing": "raw-jks", "java_version": "17", "google_services": "none", "inject_signing_args": True, "version_arg": "versionCode", "package_name": "com.hereliesaz.stencilartist", "build_command": "./gradlew :androidApp:bundleRelease -PstencilPlayRelease=true --no-daemon --stacktrace", "aab_glob": "androidApp/build/outputs/bundle/release/*.aab", "mapping_file": "androidApp/build/outputs/mapping/release/mapping.txt", "publish_on_push": True, "publish_default": True, "tracks": [{"track": "internal", "status": "completed"}], "release_app_name": "Stencil Artist"},
+    # Publish to the closed alpha track only; do not update other tracks.
+    "d290efe171c9d2fe5a8ed1fe2ee00c4a1447fad0f60cfe7ff26f6a9788a989c5": {"signing": "raw-jks", "java_version": "17", "google_services": "none", "inject_signing_args": True, "version_arg": "versionCode", "package_name": "com.hereliesaz.stencilartist", "build_command": "./gradlew :androidApp:bundleRelease -PstencilPlayRelease=true --no-daemon --stacktrace", "aab_glob": "androidApp/build/outputs/bundle/release/*.aab", "mapping_file": "androidApp/build/outputs/mapping/release/mapping.txt", "publish_on_push": True, "publish_default": True, "tracks": [{"track": "alpha", "status": "completed"}], "release_app_name": "Stencil Artist"},
 
     # QuicLoc keeps app/version.properties as the only Android version authority:
     # its Gradle task increments VERSION_C and VERSION_D on each bundle build.

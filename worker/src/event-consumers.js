@@ -1730,5 +1730,11 @@ export const EVENT_CONSUMERS = {
         "name": "Depth model comparison"
       }
     ]
+  },
+  "1471718709": {
+    "repository": "HereLiesAz/ExtrusionExtraction",
+    "events": [
+      "push"
+    ]
   }
 };

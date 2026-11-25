@@ -1339,7 +1339,9 @@ export const EVENT_CONSUMERS = {
   "1305527054": {
     "repository": "HereLiesAz/MCPserved",
     "events": [
-      "push"
+      "pull_request",
+      "push",
+      "workflow_dispatch"
     ]
   },
   "1308046744": {

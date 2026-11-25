@@ -4,7 +4,7 @@
     "id": 1467921409,
     "full_name": "HereLiesAz/stencil-artist"
   },
-  "updated_at": "2026-11-25T11:47:52.630Z",
+  "updated_at": "2026-11-25T11:47:54.709Z",
   "workflows": {
     ".github/workflows/ci.yml": {
       "name": "CI",
@@ -70,14 +70,14 @@
               "current_step": "Build and lint"
             },
             "Core tests (JVM and Wasm)": {
-              "status": "in_progress",
-              "conclusion": null,
+              "status": "completed",
+              "conclusion": "cancelled",
               "html_url": "https://github.com/HereLiesAz/stencil-artist/actions/runs/45607675914/job/139182679204",
               "started_at": "2026-11-25T11:47:26Z",
-              "completed_at": null,
-              "steps_completed": 0,
-              "steps_total": 1,
-              "current_step": "Set up job"
+              "completed_at": "2026-11-25T11:47:46Z",
+              "steps_completed": 4,
+              "steps_total": 14,
+              "current_step": "Run gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6"
             },
             "artist-workflow": {
               "status": "completed",
@@ -95,7 +95,7 @@
           "sha": "aee747c0141675f1c14562862272041b1a84ad53",
           "branch": "fix/local-stencil-artist-acceptance",
           "status": "completed",
-          "updated_at": "2026-11-25T11:47:47Z",
+          "updated_at": "2026-11-25T11:47:54.709Z",
           "run_number": 274,
           "run_attempt": 1,
           "event": "pull_request",

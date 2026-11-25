@@ -89,7 +89,12 @@ jobs:
       # central Android release workflow, once one is bound.
       - name: Build and lint
         run: ./gradlew :androidApp:assembleDebug :androidApp:lintDebug --no-daemon --stacktrace
+      - name: Play bundle and real R8 mapping (unsigned)
+        run: |
+          ./gradlew :androidApp:bundleRelease -PstencilPlayRelease=true --no-daemon --stacktrace
+          test -s androidApp/build/outputs/bundle/release/androidApp-release.aab
+          test -s androidApp/build/outputs/mapping/release/mapping.txt
       - if: always()
         uses: HereLiesAz/workflows/.github/actions/ci-report@main
         with:
-          summary: Debug APK builds; lint
+          summary: Debug APK builds; lint; Play bundle and R8 mapping

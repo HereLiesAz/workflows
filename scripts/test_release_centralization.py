@@ -748,4 +748,4 @@ assert _stencil_profile["build_command"] == "./gradlew :androidApp:bundleRelease
 assert _stencil_profile["aab_glob"] == "androidApp/build/outputs/bundle/release/*.aab"
 assert _stencil_profile["mapping_file"] == "androidApp/build/outputs/mapping/release/mapping.txt"
 assert _stencil_profile["publish_on_push"] is True and _stencil_profile["publish_default"] is True
-assert _stencil_profile["tracks"] == [{"track": "internal", "status": "completed"}]
+assert _stencil_profile["tracks"] == [{"track": "alpha", "status": "completed"}]

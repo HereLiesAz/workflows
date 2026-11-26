@@ -774,3 +774,38 @@ with _tempfile.TemporaryDirectory(prefix="mcpserved-version-") as _tmp:
     _subprocess.run(["bash", "-c", _rename], cwd=_root, env={**_env, "RUNNER_OS": "Linux", "DESKTOP_VERSION": "0.9.0.2"}, check=True)
     assert sorted(p.name for p in (_root / "dist").iterdir()) == ["MCPserved-0.9.0.2-linux.deb", "MCPserved-0.9.0.2-linux.rpm"]
 print("MCPserved desktop public version regression ok")
+
+
+# ExtrusionExtraction prereleases are one complete, immutable native matrix.
+# Verify actual profile, release-job isolation, and publishing gates.
+_ee_profile = _PURPOSE_PROFILES["15b3989d7767c0ada488f03be48277293081de805c15290490d0795e1244d9ed"]
+assert _ee_profile["release_mode"] == "extrusion-preview"
+_ee_matrix = _ee_profile["matrix"]["include"]
+assert {lane["artifact"] for lane in _ee_matrix} == {
+    "native-linux-deb", "native-windows-msi", "native-macos-arm64-dmg",
+    "native-macos-x86_64-dmg", "native-android-release-unsigned-apk",
+}
+_ee_android = next(lane for lane in _ee_matrix if lane["artifact"].endswith("-apk"))
+assert ":androidApp:assembleRelease" in _ee_android["build"]
+assert "eeReleaseVersionCode" in _ee_android["build"]
+assert "assembleDebug" not in _ee_android["build"]
+assert _ee_android["path"].endswith("*-unsigned.apk")
+_ee_jobs = load_yaml(Path(".github/workflows/desktop-package.yml").read_text(encoding="utf-8"))["jobs"]
+_ee_release = _ee_jobs["release"]
+assert set(_ee_release["needs"]) == {"central_check_start", "package"}
+assert "needs.package.result == 'success'" in _ee_release["if"]
+_ee_steps = {step.get("name"): step for step in _ee_release["steps"]}
+_ee_sign = _ee_steps["Stage and sign ExtrusionExtraction prerelease"]
+_ee_publish = _ee_steps["Publish immutable ExtrusionExtraction prerelease"]
+assert _ee_release["environment"] == expression("inputs.target_repository_name")
+assert list(_ee_steps).index(_ee_sign["name"]) < list(_ee_steps).index(_ee_publish["name"])
+assert "extrusion-preview" in _ee_sign["if"] and "extrusion-preview" in _ee_publish["if"]
+assert "release_mode != 'extrusion-preview'" in _ee_steps["Publish desktop installers"]["if"]
+assert "zipalign" in _ee_sign["run"] and "apksigner" in _ee_sign["run"]
+assert "SHA256SUMS.txt" in _ee_sign["run"]
+assert "Missing required Android signing secret" in _ee_sign["run"]
+assert "--draft --prerelease" in _ee_publish["run"]
+assert '.digest==$digest' in _ee_publish["run"]
+assert _ee_publish["run"].index(".digest==$digest") < _ee_publish["run"].index("--draft=false")
+assert "Immutable prerelease already published." in _ee_publish["run"]
+assert "Superseded while staging" in _ee_publish["run"]

@@ -313,6 +313,27 @@ jobs:
           standalone=false
           prerelease=false
           case "$mode" in
+            extrusion-preview)
+              # Only this registered app may use the dedicated release contract.
+              [[ "$TARGET_REPOSITORY" == "HereLiesAz/ExtrusionExtraction" && "$TARGET_REPOSITORY_ID" == "1471718709" ]] || {
+                echo "::error::Extrusion preview profile used for wrong repository"; exit 1;
+              }
+              if [[ "$TARGET_REF_TYPE" != branch || "$TARGET_REF_NAME" != main || ( "$TARGET_EVENT_NAME" != push && "$TARGET_EVENT_NAME" != workflow_dispatch ) ]]; then
+                should=false
+                tag=""
+              else
+                [[ "$TARGET_SHA" =~ ^[a-f0-9]{40}$ && "$(git rev-parse HEAD)" == "$TARGET_SHA" ]] || exit 1
+                major="$(grep '^versionMajor=' version.properties | cut -d= -f2 | tr -d '\r ')"
+                minor="$(grep '^versionMinor=' version.properties | cut -d= -f2 | tr -d '\r ')"
+                patch="$(grep '^versionPatch=' version.properties | cut -d= -f2 | tr -d '\r ')"
+                for part in "$major" "$minor" "$patch"; do
+                  [[ "$part" =~ ^(0|[1-9][0-9]*)$ ]] || { echo "::error::Invalid version.properties"; exit 1; }
+                done
+                tag="v${major}.${minor}.${patch}-preview.${TARGET_SHA:0:12}"
+                prerelease=true
+                standalone=true
+              fi
+              ;;
             guillotine)
               input_tag="$(jq -r '.tag // empty' <<<"$TARGET_INPUTS_JSON")"
               if [ -n "$input_tag" ]; then
@@ -358,8 +379,138 @@ jobs:
         with:
           path: artifacts
 
+      # Sign only after every build and the real-model Linux tests have passed.
+      # The build matrix never receives the signing key in its command environment.
+      - name: Stage and sign ExtrusionExtraction prerelease
+        if: ${{ steps.target.outputs.should == 'true' && fromJSON(inputs.purpose_profile_json).release_mode == 'extrusion-preview' }}
+        shell: bash
+        env:
+          TAG: ${{ steps.target.outputs.tag }}
+          KEYSTORE_RAW: ${{ secrets.KEYSTORE_RAW }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-preview\.[a-f0-9]{12}$ ]] || exit 1
+          mkdir -p release-files
+          stage_one() {
+            local artifact="$1" ext="$2" suffix="$3"
+            local files=(artifacts/"$artifact"/*."$ext")
+            [[ "${#files[@]}" -eq 1 && -s "${files[0]}" ]] || {
+              echo "::error::Expected exactly one nonempty $artifact package"; exit 1;
+            }
+            cp -- "${files[0]}" "release-files/ExtrusionExtraction-$TAG-$suffix.$ext"
+          }
+          stage_one native-linux-deb deb linux-x86_64
+          stage_one native-windows-msi msi windows-x86_64
+          stage_one native-macos-arm64-dmg dmg macos-arm64
+          stage_one native-macos-x86_64-dmg dmg macos-x86_64
+          apk=(artifacts/native-android-release-unsigned-apk/*-unsigned.apk)
+          [[ "${#apk[@]}" -eq 1 && -s "${apk[0]}" ]] || { echo "::error::Missing unsigned Android release APK"; exit 1; }
+          for name in KEYSTORE_RAW KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            [[ -n "${!name}" ]] || { echo "::error::Missing required Android signing secret $name in the target environment"; exit 1; }
+          done
+          # Keep private key material outside the checked-out repository and artifact paths.
+          umask 077
+          tmp="$(mktemp -d)"
+          trap 'rm -rf -- "$tmp"' EXIT
+          printf '%s' "$KEYSTORE_RAW" | base64 --decode > "$tmp/release.keystore"
+          test -s "$tmp/release.keystore"
+          unset KEYSTORE_RAW
+          keytool -exportcert -keystore "$tmp/release.keystore" -alias "$KEY_ALIAS" \
+            -storepass:env KEYSTORE_PASSWORD -file "$tmp/cert.der" >/dev/null
+          expected="$(sha256sum "$tmp/cert.der" | cut -d' ' -f1)"
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          if [[ ! -x "$tools/apksigner" || ! -x "$tools/zipalign" || ! -x "$tools/aapt" ]]; then
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install 'build-tools;35.0.0'
+          fi
+          # No pre-signed or debug APKs can enter this release lane.
+          if "$tools/apksigner" verify "${apk[0]}" >/dev/null 2>&1; then
+            echo "::error::Expected unsigned Android release input"; exit 1
+          fi
+          "$tools/zipalign" -P 16 -f 4 "${apk[0]}" "$tmp/aligned.apk"
+          signed="release-files/ExtrusionExtraction-$TAG-android-arm64-x86_64.apk"
+          "$tools/apksigner" sign --ks "$tmp/release.keystore" --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEY_PASSWORD --out "$signed" "$tmp/aligned.apk"
+          "$tools/zipalign" -c -P 16 4 "$signed"
+          verify="$("$tools/apksigner" verify --verbose --print-certs "$signed")"
+          actual="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' <<<"$verify")"
+          [[ "$actual" == "$expected" ]] || { echo "::error::Unexpected APK signing certificate"; exit 1; }
+          [[ "$(grep -c '^Signer #[0-9][0-9]* certificate SHA-256 digest:' <<<"$verify")" -eq 1 ]] || exit 1
+          badging="$("$tools/aapt" dump badging "$signed")"
+          grep -F "package: name='com.hereliesaz.extrusionextraction' versionCode='$GITHUB_RUN_NUMBER'" <<<"$badging" >/dev/null
+          python3 - "$signed" <<'PY'
+          import sys, zipfile
+          with zipfile.ZipFile(sys.argv[1]) as apk:
+              names = set(apk.namelist())
+              for abi in ("arm64-v8a", "x86_64"):
+                  for lib in ("ee_skintokens", "skintokens"):
+                      assert f"lib/{abi}/lib{lib}.so" in names, (abi, lib)
+          PY
+          # The v4 signing sidecar is not needed for sideloading.
+          rm -f "$signed.idsig"
+          (cd release-files && sha256sum *.deb *.msi *.dmg *.apk > SHA256SUMS.txt)
+          [[ "$(find release-files -maxdepth 1 -type f | wc -l)" -eq 6 ]] || exit 1
+
+      - name: Publish immutable ExtrusionExtraction prerelease
+        if: ${{ steps.target.outputs.should == 'true' && fromJSON(inputs.purpose_profile_json).release_mode == 'extrusion-preview' }}
+        shell: bash
+        env:
+          TAG: ${{ steps.target.outputs.tag }}
+        run: |
+          set -euo pipefail
+          current="$(gh api "repos/$TARGET_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          if [[ "$current" != "$TARGET_SHA" ]]; then
+            echo "Superseded main build; not publishing stale prerelease."
+            exit 0
+          fi
+          assets=(release-files/*)
+          [[ "${#assets[@]}" -eq 6 ]] || exit 1
+          # No clobber of published assets or moving of tags. Interrupted uploads
+          # can resume in a draft; only the complete verified set becomes public.
+          if existing="$(gh release view "$TAG" --repo "$TARGET_REPOSITORY" --json isDraft,isPrerelease,targetCommitish,assets 2>/dev/null)"; then
+            [[ "$(jq -r '.isPrerelease' <<<"$existing")" == true ]] || exit 1
+            if [[ "$(jq -r '.isDraft' <<<"$existing")" == false ]]; then
+              target="$(gh api "repos/$TARGET_REPOSITORY/git/ref/tags/$TAG" --jq 'select(.object.type=="commit") | .object.sha')"
+              [[ "$target" == "$TARGET_SHA" ]] || exit 1
+              expected_names="$(printf '%s\n' "${assets[@]##*/}" | sort)"
+              actual_names="$(jq -r '.assets[].name' <<<"$existing" | sort)"
+              [[ "$actual_names" == "$expected_names" ]] || { echo "::error::Published release asset set differs"; exit 1; }
+              echo "Immutable prerelease already published."
+              exit 0
+            fi
+            [[ "$(jq -r '.targetCommitish' <<<"$existing")" == "$TARGET_SHA" ]] || {
+              echo "::error::Existing draft targets another commit"; exit 1;
+            }
+          else
+            body="Experimental local-generation build from $TARGET_SHA. Android APK is release-signed; Windows and macOS installers are unsigned/unnotarized. Native packaging and Linux model-backed smoke tests passed. Physical-device compatibility, performance and deformation quality are not production-validated. Verify SHA256SUMS.txt before installation."
+            gh release create "$TAG" --repo "$TARGET_REPOSITORY" --target "$TARGET_SHA" \
+              --title "ExtrusionExtraction $TAG" --notes "$body" --draft --prerelease --latest=false
+          fi
+          gh release upload "$TAG" "${assets[@]}" --repo "$TARGET_REPOSITORY" --clobber
+          # The REST release response supplies per-asset SHA256 digests. Reject
+          # a partial, corrupt or unexpected set before changing draft visibility.
+          release="$(gh api "repos/$TARGET_REPOSITORY/releases" --paginate --jq '.[] | select(.tag_name=="'"$TAG"'")' | jq -s 'if length==1 then .[0] else error("expected one release") end')"
+          [[ "$(jq '.assets | length' <<<"$release")" -eq 6 && "$(jq -r '.draft' <<<"$release")" == true ]] || exit 1
+          for file in "${assets[@]}"; do
+            name="${file##*/}"
+            digest="sha256:$(sha256sum "$file" | cut -d' ' -f1)"
+            jq -e --arg name "$name" --arg digest "$digest" \
+              '[.assets[] | select(.name==$name and .state=="uploaded" and .digest==$digest)] | length==1' <<<"$release" >/dev/null
+          done
+          # Check again immediately before publishing to avoid stale queued builds.
+          [[ "$(gh api "repos/$TARGET_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" == "$TARGET_SHA" ]] || {
+            echo "Superseded while staging; leaving verified draft unpublished."
+            exit 0
+          }
+          gh release edit "$TAG" --repo "$TARGET_REPOSITORY" --draft=false --prerelease --latest=false
+          [[ "$(gh release view "$TAG" --repo "$TARGET_REPOSITORY" --json isDraft,isPrerelease --jq '.isDraft == false and .isPrerelease == true')" == true ]]
+          [[ "$(gh api "repos/$TARGET_REPOSITORY/git/ref/tags/$TAG" --jq 'select(.object.type=="commit") | .object.sha')" == "$TARGET_SHA" ]]
+
       - name: Publish desktop installers
-        if: ${{ steps.target.outputs.should == 'true' }}
+        if: ${{ steps.target.outputs.should == 'true' && fromJSON(inputs.purpose_profile_json).release_mode != 'extrusion-preview' }}
         shell: bash
         env:
           TARGET_REPOSITORY_NAME: ${{ inputs.target_repository_name }}

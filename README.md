@@ -6,10 +6,10 @@ full history of the last 20 runs is in `repositories/<repository_id>.json`.
 
 | Repository | Workflow | State | Run | Branch | Commit | Updated | Report |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Android CI | ✅ success | [#3956](https://github.com/HereLiesAz/aive/actions/runs/45665768584) | main | `375f912` | 2026-11-25T17:46:40Z |  |
+| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Android CI | ✅ success | [#3958](https://github.com/HereLiesAz/aive/actions/runs/45738340192) | main | `3cc739b` | 2026-11-26T01:52:48Z |  |
 | [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | BITCOS Engine | ✅ success | [#94](https://github.com/HereLiesAz/aive/actions/runs/45618686630) | main | `4f70645` | 2026-11-25T13:00:30Z |  |
 | [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Dependency Submission | ✅ success | [#165](https://github.com/HereLiesAz/aive/actions/runs/45626736372) | main | `c1435ab` | 2026-11-25T13:47:21Z |  |
-| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Build and Deploy | ❌ failure | [#3303](https://github.com/HereLiesAz/aive/actions/runs/45665768403) | main | `375f912` | 2026-11-25T17:57:11Z |  |
+| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Build and Deploy | ❌ failure | [#3305](https://github.com/HereLiesAz/aive/actions/runs/45738340141) | main | `3cc739b` | 2026-11-26T02:03:17Z |  |
 | [HereLiesAz/camera-unroll](https://github.com/HereLiesAz/camera-unroll) | CI | ✅ success | [#19](https://github.com/HereLiesAz/camera-unroll/actions/runs/45329034882) | main | `9e72f1d` | 2026-11-24T04:52:56Z | android: Debug and release (R8) APKs build; unit tests; lint; test: Common unit tests; web and desktop compile |
 | [HereLiesAz/CaptureTheFlag](https://github.com/HereLiesAz/CaptureTheFlag) | CI | ✅ success | [#56](https://github.com/HereLiesAz/CaptureTheFlag/actions/runs/45328734153) | main | `147fa5d` | 2026-11-24T04:49:44Z | test: Node and shared tests |
 | [HereLiesAz/clappiest](https://github.com/HereLiesAz/clappiest) | CI | ✅ success | [#5](https://github.com/HereLiesAz/clappiest/actions/runs/42129876208) | main | `b43173e` | 2026-11-05T23:37:53Z | unit-tests: JVM unit tests (:app:testDebugUnitTest) |

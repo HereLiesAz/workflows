@@ -797,23 +797,23 @@ _ee_sign = _ee_steps["Stage and sign ExtrusionExtraction prerelease"]
 _ee_publish = _ee_steps["Publish immutable ExtrusionExtraction prerelease"]
 assert _ee_release["environment"] == expression("inputs.target_repository_name")
 assert list(_ee_steps).index(_ee_sign["name"]) < list(_ee_steps).index(_ee_publish["name"])
-assert "extrusion-preview" in _ee_sign["if"] and "extrusion-preview" in _ee_publish["if"]
+assert "extrusion-preview" in _ee_sign["if"]
+assert _ee_publish["if"] == expression("steps.extrusion-current.outputs.publish == 'true'")
 assert "release_mode != 'extrusion-preview'" in _ee_steps["Publish desktop installers"]["if"]
 assert "zipalign" in _ee_sign["run"] and "apksigner" in _ee_sign["run"]
-assert "SHA256SUMS.txt" in _ee_sign["run"]
+assert "SHA256SUMS-${TAG#v}.txt" in _ee_sign["run"]
 assert "Missing required Android signing secret" in _ee_sign["run"]
-assert "--draft --prerelease" in _ee_publish["run"]
-assert '.digest==$digest' in _ee_publish["run"]
-assert _ee_publish["run"].index(".digest==$digest") < _ee_publish["run"].index("--draft=false")
-assert "Immutable prerelease already published." in _ee_publish["run"]
-assert "Superseded while staging" in _ee_publish["run"]
-
-assert 'Conflicting immutable release tag' in _ee_publish["run"]
-assert '--verify-tag --target "$TARGET_SHA"' in _ee_publish["run"]
-assert _ee_publish["run"].index("Release tag changed during staging") < _ee_publish["run"].index("--draft=false")
+assert _ee_publish["uses"] == "./central-publisher/.github/actions/minor-grouped-release"
+assert _ee_publish["with"]["migrate-legacy-build-releases"] == "false"
+assert _ee_publish["with"]["asset-name-mode"] == "require-version"
+assert _ee_publish["with"]["tag-prefix"] == "v"
+assert _ee_publish["with"]["prerelease"] == "true"
+assert _ee_publish["with"]["make-latest"] == "false"
+assert _ee_publish["with"]["build-version"] == expression("steps.target.outputs.build_version")
+assert "git/ref/heads/main" in _ee_steps["Check current ExtrusionExtraction source"]["run"]
 # Parse the exact shell scripts and exercise the release selector with independent
 # version and immutable Git fixtures. No GitHub writes or real credentials.
-for _step in (_ee_steps["Resolve release target"], _ee_sign, _ee_publish):
+for _step in (_ee_steps["Resolve release target"], _ee_sign, _ee_steps["Check current ExtrusionExtraction source"]):
     _subprocess.run(["bash", "-n"], input=_step["run"], text=True, check=True)
 with _tempfile.TemporaryDirectory() as _dir:
     _root = Path(_dir)
@@ -826,11 +826,11 @@ with _tempfile.TemporaryDirectory() as _dir:
     _env = {**_os.environ, "PROFILE_JSON": '{"release_mode":"extrusion-preview"}',
             "TARGET_REPOSITORY":"HereLiesAz/ExtrusionExtraction", "TARGET_REPOSITORY_ID":"1471718709",
             "TARGET_REF_TYPE":"branch", "TARGET_REF_NAME":"main", "TARGET_EVENT_NAME":"push",
-            "TARGET_SHA":_sha, "GITHUB_OUTPUT":str(_out)}
+            "TARGET_SHA":_sha, "GITHUB_RUN_NUMBER":"42", "GITHUB_OUTPUT":str(_out)}
     _resolve = _ee_steps["Resolve release target"]["run"]
     _subprocess.run(["bash","-c",_resolve], cwd=_root, env=_env, check=True)
     assert _out.read_text().splitlines() == [
-        "should=true", f"tag=v0.7.3-preview.{_sha[:12]}", "standalone=true", "prerelease=true"]
+        "should=true", "tag=v0.7.3.42", "build_version=0.7.3.42", "standalone=true", "prerelease=true"]
     _out.write_text("")
     _subprocess.run(["bash","-c",_resolve], cwd=_root, env={**_env,"TARGET_REF_NAME":"other"}, check=True)
     assert "should=false\n" in _out.read_text()

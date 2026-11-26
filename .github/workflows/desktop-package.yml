@@ -224,6 +224,14 @@ jobs:
           esac
           echo "DESKTOP_VERSION=$version" >> "$GITHUB_ENV"
 
+      - name: Set exact ExtrusionExtraction build version
+        if: ${{ fromJSON(inputs.purpose_profile_json).release_mode == 'extrusion-preview' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_RUN_NUMBER" =~ ^[1-9][0-9]*$ ]] || exit 1
+          python -c 'import os, pathlib, re; p=pathlib.Path("version.properties"); s=p.read_text(); s,n=re.subn(r"(?m)^versionBuild=\d+$", "versionBuild="+os.environ["GITHUB_RUN_NUMBER"], s); assert n==1; p.write_text(s)'
+
       - name: Prepare packaging environment
         if: ${{ matrix.prepare != '' }}
         shell: bash
@@ -329,7 +337,8 @@ jobs:
                 for part in "$major" "$minor" "$patch"; do
                   [[ "$part" =~ ^(0|[1-9][0-9]*)$ ]] || { echo "::error::Invalid version.properties"; exit 1; }
                 done
-                tag="v${major}.${minor}.${patch}-preview.${TARGET_SHA:0:12}"
+                [[ "$GITHUB_RUN_NUMBER" =~ ^[1-9][0-9]*$ ]] || exit 1
+                tag="v${major}.${minor}.${patch}.${GITHUB_RUN_NUMBER}"
                 prerelease=true
                 standalone=true
               fi
@@ -370,6 +379,9 @@ jobs:
           esac
           echo "should=$should" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if [[ "$mode" == extrusion-preview && "$should" == true ]]; then
+            echo "build_version=${tag#v}" >> "$GITHUB_OUTPUT"
+          fi
           echo "standalone=$standalone" >> "$GITHUB_OUTPUT"
           echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
 
@@ -393,7 +405,7 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob
-          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-preview\.[a-f0-9]{12}$ ]] || exit 1
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
           mkdir -p release-files
           stage_one() {
             local artifact="$1" ext="$2" suffix="$3"
@@ -451,75 +463,44 @@ jobs:
           PY
           # The v4 signing sidecar is not needed for sideloading.
           rm -f "$signed.idsig"
-          (cd release-files && sha256sum *.deb *.msi *.dmg *.apk > SHA256SUMS.txt)
+          (cd release-files && sha256sum *.deb *.msi *.dmg *.apk > "SHA256SUMS-${TAG#v}.txt")
           [[ "$(find release-files -maxdepth 1 -type f | wc -l)" -eq 6 ]] || exit 1
 
-      - name: Publish immutable ExtrusionExtraction prerelease
+      - name: Check current ExtrusionExtraction source
+        id: extrusion-current
         if: ${{ steps.target.outputs.should == 'true' && fromJSON(inputs.purpose_profile_json).release_mode == 'extrusion-preview' }}
         shell: bash
-        env:
-          TAG: ${{ steps.target.outputs.tag }}
         run: |
           set -euo pipefail
           current="$(gh api "repos/$TARGET_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
-          if [[ "$current" != "$TARGET_SHA" ]]; then
-            echo "Superseded main build; not publishing stale prerelease."
-            exit 0
+          if [[ "$current" == "$TARGET_SHA" ]]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
           fi
-          assets=(release-files/*)
-          [[ "${#assets[@]}" -eq 6 ]] || exit 1
-          # Reserve the exact lightweight tag without force. A pre-existing tag
-          # is accepted only if it already points at this immutable source SHA.
-          # Even if another actor creates the tag between calls, verify the result.
-          tag_target() {
-            gh api "repos/$TARGET_REPOSITORY/git/ref/tags/$TAG" --jq 'select(.object.type=="commit") | .object.sha'
-          }
-          if ! target="$(tag_target 2>/dev/null)"; then
-            gh api --method POST "repos/$TARGET_REPOSITORY/git/refs" \
-              -f ref="refs/tags/$TAG" -f sha="$TARGET_SHA" >/dev/null || true
-            target="$(tag_target)"
-          fi
-          [[ "$target" == "$TARGET_SHA" ]] || { echo "::error::Conflicting immutable release tag"; exit 1; }
-          # No clobber of published assets or moving of tags. Interrupted uploads
-          # can resume in a draft; only the complete verified set becomes public.
-          if existing="$(gh release view "$TAG" --repo "$TARGET_REPOSITORY" --json isDraft,isPrerelease,targetCommitish,assets 2>/dev/null)"; then
-            [[ "$(jq -r '.isPrerelease' <<<"$existing")" == true ]] || exit 1
-            if [[ "$(jq -r '.isDraft' <<<"$existing")" == false ]]; then
-              target="$(gh api "repos/$TARGET_REPOSITORY/git/ref/tags/$TAG" --jq 'select(.object.type=="commit") | .object.sha')"
-              [[ "$target" == "$TARGET_SHA" ]] || exit 1
-              expected_names="$(printf '%s\n' "${assets[@]##*/}" | sort)"
-              actual_names="$(jq -r '.assets[].name' <<<"$existing" | sort)"
-              [[ "$actual_names" == "$expected_names" ]] || { echo "::error::Published release asset set differs"; exit 1; }
-              echo "Immutable prerelease already published."
-              exit 0
-            fi
-            # The existing verified tag is authoritative; GitHub ignores targetCommitish
-            # when that tag already exists. Never move the tag for a draft.
-          else
-            body="Experimental local-generation build from $TARGET_SHA. Android APK is release-signed; Windows and macOS installers are unsigned/unnotarized. Native packaging and Linux model-backed smoke tests passed. Physical-device compatibility, performance and deformation quality are not production-validated. Verify SHA256SUMS.txt before installation."
-            gh release create "$TAG" --repo "$TARGET_REPOSITORY" --verify-tag --target "$TARGET_SHA" \
-              --title "ExtrusionExtraction $TAG" --notes "$body" --draft --prerelease --latest=false
-          fi
-          gh release upload "$TAG" "${assets[@]}" --repo "$TARGET_REPOSITORY" --clobber
-          # The REST release response supplies per-asset SHA256 digests. Reject
-          # a partial, corrupt or unexpected set before changing draft visibility.
-          release="$(gh api "repos/$TARGET_REPOSITORY/releases" --paginate --jq '.[] | select(.tag_name=="'"$TAG"'")' | jq -s 'if length==1 then .[0] else error("expected one release") end')"
-          [[ "$(jq '.assets | length' <<<"$release")" -eq 6 && "$(jq -r '.draft' <<<"$release")" == true ]] || exit 1
-          for file in "${assets[@]}"; do
-            name="${file##*/}"
-            digest="sha256:$(sha256sum "$file" | cut -d' ' -f1)"
-            jq -e --arg name "$name" --arg digest "$digest" \
-              '[.assets[] | select(.name==$name and .state=="uploaded" and .digest==$digest)] | length==1' <<<"$release" >/dev/null
-          done
-          # Check again immediately before publishing to avoid stale queued builds.
-          [[ "$(gh api "repos/$TARGET_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" == "$TARGET_SHA" ]] || {
-            echo "Superseded while staging; leaving verified draft unpublished."
-            exit 0
-          }
-          [[ "$(tag_target)" == "$TARGET_SHA" ]] || { echo "::error::Release tag changed during staging"; exit 1; }
-          gh release edit "$TAG" --repo "$TARGET_REPOSITORY" --draft=false --prerelease --latest=false
-          [[ "$(gh release view "$TAG" --repo "$TARGET_REPOSITORY" --json isDraft,isPrerelease --jq '.isDraft == false and .isPrerelease == true')" == true ]]
-          [[ "$(gh api "repos/$TARGET_REPOSITORY/git/ref/tags/$TAG" --jq 'select(.object.type=="commit") | .object.sha')" == "$TARGET_SHA" ]]
+
+      - name: Checkout central grouped publisher
+        if: ${{ steps.extrusion-current.outputs.publish == 'true' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.sha }}
+          path: central-publisher
+          persist-credentials: false
+
+      - name: Publish immutable ExtrusionExtraction prerelease
+        if: ${{ steps.extrusion-current.outputs.publish == 'true' }}
+        uses: ./central-publisher/.github/actions/minor-grouped-release
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          target-repository: ${{ inputs.target_repository }}
+          target-sha: ${{ inputs.target_sha }}
+          build-version: ${{ steps.target.outputs.build_version }}
+          assets: release-files/*
+          title-prefix: ${{ inputs.target_repository_name }}
+          asset-name-mode: require-version
+          tag-prefix: v
+          prerelease: "true"
+          make-latest: "false"
+          migrate-legacy-build-releases: "false"
 
       - name: Publish desktop installers
         if: ${{ steps.target.outputs.should == 'true' && fromJSON(inputs.purpose_profile_json).release_mode != 'extrusion-preview' }}

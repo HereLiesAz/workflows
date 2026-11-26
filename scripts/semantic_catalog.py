@@ -226,6 +226,7 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
         "source_hashes": {
             # HereLiesAz/photo-unroll:.github/workflows/github-pages-deploy.yml (wasm PWA)
             "9bd5fb364cd651740b033f1ecb695a2d30320c49855e4d4adb8a0db0304c964a",
+            "d1844a01e1857f3511fc8aa6bf0f90a668d82829dbe34e58111beabfaa0bb106",
         },
     },
     ".github/workflows/jules-scheduled-triage.yml": {
@@ -496,6 +497,8 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
         "persist_version": False, "asset_name_mode": "app-v-version",
         "app_name": "QuicLoc",
     },
+    # ExtrusionExtraction: independently built Kotlin/JS static workspace.
+    "d1844a01e1857f3511fc8aa6bf0f90a668d82829dbe34e58111beabfaa0bb106": {"java_version": "17", "build_command": "./gradlew -p webApp jsBrowserDistribution jsBrowserTest --no-daemon --stacktrace", "site_dir": "webApp/build/dist/js/productionExecutable"},
     # HereLiesAz/photo-unroll: Compose Multiplatform wasm build published as a PWA.
     "9bd5fb364cd651740b033f1ecb695a2d30320c49855e4d4adb8a0db0304c964a": {"java_version": "17", "build_command": "./gradlew :composeApp:wasmJsBrowserDistribution --no-daemon", "site_dir": "composeApp/build/dist/wasmJs/productionExecutable"},
     # MeatPiety (Compose Multiplatform; app module reads -PversionCode / -PversionName).

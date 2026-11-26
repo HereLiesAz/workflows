@@ -65,6 +65,7 @@ test("early routing preserves explicit PR actions, default branches, tags and wo
   const push = (ref, path) => ({ref, repository: {default_branch: "main"}, size: 1, commits: [commit(path)], head_commit: commit(path)});
   assert.ok(routingDropReason(1, "push", push("refs/heads/feature", "src/a"), map));
   assert.equal(routingDropReason(1, "push", push("refs/heads/main", "src/a"), map), null);
+  assert.equal(routingDropReason(1, "push", push("refs/heads/refs/tags/main", "src/a"), map), null);
   assert.ok(routingDropReason(1, "push", push("refs/heads/main", "README.md"), map));
   assert.equal(routingDropReason(1, "push", push("refs/heads/main", ".github/workflows/new.yml"), map), null);
   assert.equal(routingDropReason(1, "push", push("refs/tags/v1", "README.md"), map), null);

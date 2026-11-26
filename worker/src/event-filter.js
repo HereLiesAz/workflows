@@ -99,7 +99,8 @@ function ruleMayMatch(rule, eventName, event, files) {
     if (typeof event.ref !== "string") return true;
     const tag = event.ref.startsWith("refs/tags/");
     if (!tag && !event.ref.startsWith("refs/heads/")) return true;
-    const ref = event.ref.slice(tag ? 10 : 11);
+    // Match the dispatcher’s one replacement of each prefix, even for unusual nested ref names.
+    const ref = event.ref.replace("refs/heads/", "").replace("refs/tags/", "");
     const include = rule[tag ? "tags" : "branches"] || [];
     const other = rule[tag ? "branches" : "tags"] || [];
     if (other.length && !include.length) return false;

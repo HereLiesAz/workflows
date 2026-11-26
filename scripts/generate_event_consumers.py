@@ -22,8 +22,8 @@ and mirrors how scripts/dispatch_request.py routes an event:
   branch that changes its workflow setup requests a re-sync
   (``_request_sync_if_setup_changed``), even when no active workflow uses push.
 
-Branch, path and action filters are deliberately NOT applied here: the gateway still
-makes the exact routing decision. The map only drops events no workflow could match.
+The checked-in map remains the incremental sync index. --routing enriches the deployment copy
+from the exact registry checkout; the gateway remains authoritative for uncertain matches.
 
 Usage:
   python scripts/generate_event_consumers.py          # rewrite worker/src/event-consumers.js
@@ -114,7 +114,46 @@ def repository_entry(manifest: dict, read_source: Callable[[str], str]) -> tuple
     return repository_id, entry
 
 
-def build_consumer_map(root: Path = ROOT) -> dict[str, dict]:
+def repository_routing_rules(manifest: dict, read_source: Callable[[str], str]) -> dict[str, list]:
+    """Conservative prefilter rules; preserve the dispatcher's scalar/list and alias semantics."""
+    rules: dict[str, list] = {}
+    for entry in (manifest.get("workflows") or {}).values():
+        if not isinstance(entry, dict) or entry.get("status") != "active":
+            continue
+        doc = YAML(typ="safe").load(read_source(entry["registry_source"])) or {}
+        on = doc.get("on")
+        if isinstance(on, str):
+            triggers = {on: False}
+        elif isinstance(on, list):
+            triggers = {str(name): False for name in on}
+        elif isinstance(on, dict):
+            triggers = on
+        else:
+            continue
+        for name, spec in triggers.items():
+            if name in NON_WEBHOOK_TRIGGERS:
+                continue
+            if name == "pull_request_target" and "pull_request" in triggers:
+                continue
+            event = TRIGGER_TO_WEBHOOK.get(name, name)
+            # Non-mapping specs bypass filters in dispatch_request._event_trigger.
+            if spec is None:
+                spec = {}
+            rule = {}
+            if isinstance(spec, dict):
+                for key in ("types", "branches", "branches-ignore", "tags", "tags-ignore", "paths", "paths-ignore"):
+                    value = spec.get(key)
+                    if isinstance(value, str):
+                        rule[key] = [value]
+                    elif isinstance(value, list):
+                        rule[key] = [str(item) for item in value]
+                if name in ("pull_request", "pull_request_target") and not rule.get("types"):
+                    rule["types"] = ["opened", "synchronize", "reopened"]
+            rules.setdefault(event, []).append(rule)
+    return rules
+
+
+def build_consumer_map(root: Path = ROOT, *, routing: bool = False) -> dict[str, dict]:
     def read_local(registry_source: str) -> str:
         path = (root / registry_source).resolve()
         if root.resolve() not in path.parents or not path.is_file():
@@ -129,6 +168,9 @@ def build_consumer_map(root: Path = ROOT) -> dict[str, dict]:
         repository_id, entry = repository_entry(manifest, read_local)
         if repository_id == "1452456930":
             continue  # SearchA2A intentionally has no central webhook consumers.
+        if routing:
+            entry["routing"] = repository_routing_rules(manifest, read_local)
+            entry["default_branch"] = (manifest.get("repository") or {}).get("default_branch") or "main"
         consumers[repository_id] = entry
     return consumers
 
@@ -155,9 +197,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--check", action="store_true", help="fail when the committed module is stale")
     parser.add_argument("--list", action="store_true", help="print every forwarded (repository, event) pair")
+    parser.add_argument("--routing", action="store_true", help="enrich the deployment copy with trigger filters")
     args = parser.parse_args()
 
-    consumers = build_consumer_map()
+    consumers = build_consumer_map(routing=args.routing)
     rendered = render_module(consumers)
     module = ROOT / MODULE_PATH
 

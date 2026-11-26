@@ -4,7 +4,7 @@ import { receiveCrashReport } from "./crash-report.js";
 import { claimOnce } from "./once.js";
 import { receiveTestReport } from "./test-report.js";
 import { EVENT_CONSUMERS } from "./event-consumers.js";
-import { pushDropReason, webhookDropReason } from "./event-filter.js";
+import { pushDropReason, routingDropReason, webhookDropReason } from "./event-filter.js";
 import { createRemoteRunToken, markRemoteRunJtiUsed, remoteRunJtiIsFresh, newRemoteRunJti, normalizeRemoteRunState, sanitizeStatusDescription, verifyRemoteRunToken } from "./remote-run.js";
 import { receiveWebDeploy } from "./web-deploy.js";
 import { cancelOlderDuplicates } from "./smart-cancel.js";
@@ -421,7 +421,8 @@ async function receiveRepositoryWebhook(request, env) {
   // (plus push, which can request a re-sync). Everything else, e.g. workflow_run, would start a
   // gateway run that can never dispatch anything. See scripts/generate_event_consumers.py.
   const dropReason = webhookDropReason(repository.id, eventName) ||
-    (eventName === "push" ? pushDropReason(event) : null);
+    (eventName === "push" ? pushDropReason(event) : null) ||
+    routingDropReason(repository.id, eventName, event);
   if (dropReason) {
     return json({
       ok: true,
@@ -797,6 +798,7 @@ async function dispatchGateway(env, body) {
         repository: body.repository,
         repository_id: String(body.repository_id),
         request_b64: requestB64,
+        event_label: [body.event_name, body.event?.action].filter(Boolean).join("/").slice(0, 100),
       },
     },
     true,

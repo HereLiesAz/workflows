@@ -325,5 +325,26 @@ def main() -> int:
     return 0
 
 
+def validate_glee_contract() -> None:
+    """Glee must remain keyless, repoless and fail closed after reporting."""
+    source = (WORKFLOW_DIR / "jules-glee.yml").read_text(encoding="utf-8")
+    doc = YAML(typ="safe").load(source)
+    steps = doc["jobs"]["glee"]["steps"]
+    audit = next(step for step in steps if step.get("id") == "audit")
+    assert "openai/codex-action" not in source
+    assert "OPENAI_TOKEN" not in source
+    assert not any(str(step.get("uses", "")).startswith("actions/checkout@") for step in steps)
+    assert "env -i" in audit["run"]
+    assert '"permission":{"*":"deny"}' in audit["run"]
+    assert "opencode/big-pickle" in audit["run"]
+    assert not audit.get("env")
+    names = [step.get("name") for step in steps]
+    assert names.index("Post one Glee audit comment") < names.index("Fail unavailable audit after reporting")
+    failure = next(step for step in steps if step.get("name") == "Fail unavailable audit after reporting")
+    assert failure["run"] == "exit 1"
+    assert "steps.audit.outcome != 'success'" in failure["if"]
+
+
 if __name__ == "__main__":
+    validate_glee_contract()
     raise SystemExit(main())

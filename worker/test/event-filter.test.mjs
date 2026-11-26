@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { EVENT_CONSUMERS } from "../src/event-consumers.js";
-import { webhookDropReason } from "../src/event-filter.js";
+import { routingDropReason, webhookDropReason } from "../src/event-filter.js";
 
 const consumers = {
   "1": { repository: "HereLiesAz/one", events: ["create", "issue_comment", "pull_request", "push"] },
@@ -52,4 +52,22 @@ test("push: deletions and CI-skip pushes are dropped, real pushes forwarded", as
   assert.match(pushDropReason({ ...main, head_commit: null, commits: [{ message: "a [CI SKIP]" }, { message: "b [no ci]" }] }), /CI-skip/);
   // one skip-tagged commit among real ones must still build
   assert.equal(pushDropReason({ ...main, commits: [{ message: "a [skip ci]" }, { message: "b" }] }), null);
+});
+
+test("early routing preserves explicit PR actions, default branches, tags and workflow setup changes", () => {
+  const map = {"1": {routing: {pull_request: [{types: ["opened", "synchronize"]}, {types: ["closed"], branches: ["release/*"]}], push: [{branches: ["main"], paths: ["src/*"]}, {tags: ["v*"]}]}}};
+  const pr = (action, ref = "main") => ({action, pull_request: {base: {ref}}});
+  assert.equal(routingDropReason(1, "pull_request", pr("opened"), map), null);
+  assert.ok(routingDropReason(1, "pull_request", pr("closed"), map));
+  assert.equal(routingDropReason(1, "pull_request", pr("closed", "release/1"), map), null);
+  assert.ok(routingDropReason(1, "pull_request", pr("labeled"), map));
+  const commit = path => ({added: [], modified: [path], removed: []});
+  const push = (ref, path) => ({ref, repository: {default_branch: "main"}, size: 1, commits: [commit(path)], head_commit: commit(path)});
+  assert.ok(routingDropReason(1, "push", push("refs/heads/feature", "src/a"), map));
+  assert.equal(routingDropReason(1, "push", push("refs/heads/main", "src/a"), map), null);
+  assert.ok(routingDropReason(1, "push", push("refs/heads/main", "README.md"), map));
+  assert.equal(routingDropReason(1, "push", push("refs/heads/main", ".github/workflows/new.yml"), map), null);
+  assert.equal(routingDropReason(1, "push", push("refs/tags/v1", "README.md"), map), null);
+  assert.equal(routingDropReason(1, "push", {...push("refs/heads/main", "README.md"), size: 2}, map), null);
+  assert.equal(routingDropReason(2, "push", push("refs/heads/feature", "src/a"), map), null);
 });

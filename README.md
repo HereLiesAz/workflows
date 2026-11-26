@@ -25,7 +25,7 @@ shared/catalog workflow
 target operation + commit status
 ```
 
-The central sync registers one repository webhook through the Worker. The Worker verifies GitHub's webhook signature and immutable repository ownership before dispatching the central gateway. It then forwards an event only when some **active** registered workflow of that repository is triggered by that event name (`push` is always forwarded for a registered repository, because a push can request a re-sync); every other event, e.g. `workflow_run`, `release`, `check_*`, or anything from an unregistered repository, is dropped with `202 {ok: true, ignored: true, reason}` and never costs a gateway run. That decision uses `worker/src/event-consumers.js`, generated from `registry/` by `scripts/generate_event_consumers.py` (see [Repository onboarding](docs/REPOSITORY_ONBOARDING.md#worker-event-filter)). The gateway validates registry bindings and routes only workflows whose original trigger, branch/action filters, and path filters match the delivered event. Shared workflows re-validate the target repository before privileged execution.
+The central sync registers one repository webhook through the Worker. The Worker verifies GitHub's webhook signature and immutable repository ownership before dispatching the central gateway. It then forwards an event only when some **active** registered workflow of that repository is triggered by that event name and its deployed routing filters cannot rule out a match (default-branch pushes that may change workflow setup are retained for re-sync); every other event, e.g. `workflow_run`, `release`, `check_*`, or anything from an unregistered repository, is dropped with `202 {ok: true, ignored: true, reason}` and never costs a gateway run. That decision uses `worker/src/event-consumers.js`, generated from `registry/` by `scripts/generate_event_consumers.py` (see [Repository onboarding](docs/REPOSITORY_ONBOARDING.md#worker-event-filter)). The gateway validates registry bindings and routes only workflows whose original trigger, branch/action filters, and path filters match the delivered event. Shared workflows re-validate the target repository before privileged execution.
 
 The legacy OIDC `/dispatch` endpoint is retained only while old proxies are being removed; it is not the steady-state trigger transport.
 
@@ -218,7 +218,7 @@ shell logic into target repositories.
 - `sync-repository.yml` — manually scans and binds one target repository to the shared catalog.
 - `gateway.yml` — receives verified dispatches from the Worker and routes them to the registered shared workflow.
 - `web-deploy.yml` — dispatched by the Worker's `/web-deploy` route; builds one commit and publishes its output to Cloudflare Pages.
-- `validate-controller.yml` also redeploys the Worker (`wrangler deploy --config wrangler.jsonc`) on a push to `main` that changes `worker/` or `wrangler.jsonc`, including a regenerated event-consumer map.
+- `validate-controller.yml` also redeploys the Worker (`wrangler deploy --config wrangler.jsonc`) on a push to `main` that changes Worker code, registry triggers or the routing generator. The deployment regenerates the detailed filters from that exact checkout.
 - `validate-controller.yml` — validates controller code and generated workflow behavior.
 - `ci-status-dashboard.yml` — renders the `ci-status` branch dashboard from what target CI reported.
 

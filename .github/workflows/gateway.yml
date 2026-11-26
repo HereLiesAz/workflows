@@ -42,7 +42,12 @@ on:
         required: false
         type: string
 
-run-name: gateway · ${{ inputs.repository || github.event.schedule || 'manual' }}
+      event_label:
+        description: (internal, verified webhook event/action; leave blank)
+        required: false
+        type: string
+
+run-name: gateway · ${{ inputs.repository || github.event.schedule || 'manual' }}${{ inputs.event_label != '' && format(' · {0}', inputs.event_label) || '' }}
 
 permissions:
   contents: read
@@ -109,7 +114,7 @@ jobs:
               sleep 10
               continue
             fi
-            blockers="$(jq --argjson current "$CURRENT_RUN" --arg title "$QUEUE_TITLE" '[.workflow_runs[] | select((.status != "completed") and .id < $current and .display_title == $title)] | length' "$RUNNER_TEMP/gateway-runs.json")"
+            blockers="$(jq --argjson current "$CURRENT_RUN" --arg title "$QUEUE_TITLE" '[.workflow_runs[] | select((.status != "completed") and .id < $current and (.display_title == $title or (.display_title | startswith($title + " · ")))] | length' "$RUNNER_TEMP/gateway-runs.json")"
             if [ "$blockers" -eq 0 ]; then exit 0; fi
             echo "Waiting behind $blockers earlier gateway run(s) for this repository..."
             sleep 10

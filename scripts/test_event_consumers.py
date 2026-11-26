@@ -16,6 +16,7 @@ from generate_event_consumers import (
     parse_module,
     render_module,
     repository_events,
+    repository_routing_rules,
     trigger_names,
 )
 from ruamel.yaml import YAML
@@ -92,6 +93,13 @@ manifest = {"workflows": {
 events = repository_events(manifest, sources.__getitem__)
 assert events == ["create", "delete", "issue_comment", "issues", "label", "pull_request", "push"], events
 assert repository_events({"workflows": {}}, sources.__getitem__) == ["push"]
+rules = repository_routing_rules(manifest, sources.__getitem__)
+assert rules["pull_request"] == [{"types": ["opened"]}]
+assert rules["push"] == [{"branches": ["release/*"]}]
+assert rules["issues"] == [{}]
+assert "workflow_run" not in rules
+assert "schedule" not in rules
+assert "pull_request_target" not in rules
 
 # The actual incoming webhook is still routed to the privileged trigger name;
 # dropping its nonexistent alias from the universe must not hide lost PR audits.

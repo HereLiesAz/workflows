@@ -802,6 +802,11 @@ assert _ee_publish["if"] == expression("steps.extrusion-current.outputs.publish 
 assert "release_mode != 'extrusion-preview'" in _ee_steps["Publish desktop installers"]["if"]
 assert "zipalign" in _ee_sign["run"] and "apksigner" in _ee_sign["run"]
 assert "SHA256SUMS-${TAG#v}.txt" in _ee_sign["run"]
+assert "stage_one native-linux-deb tar.gz colab-linux-x86_64" in _ee_sign["run"]
+assert "expected_files=7" in _ee_sign["run"]
+_ee_linux = next(lane for lane in _ee_profile["matrix"]["include"] if lane["artifact"] == "native-linux-deb")
+assert "colab-worker-linux-x86_64.tar.gz" in _ee_linux["path"]
+assert "bash scripts/package_colab_worker.sh" in _ee_linux["build"]
 assert "Missing required Android signing secret" in _ee_sign["run"]
 assert _ee_publish["uses"] == "./central-publisher/.github/actions/minor-grouped-release"
 assert _ee_publish["with"]["migrate-legacy-build-releases"] == "false"

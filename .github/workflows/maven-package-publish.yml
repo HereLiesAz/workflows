@@ -158,9 +158,21 @@ jobs:
           set -euo pipefail
           bash -eo pipefail -c "$(jq -r '.build_command' <<<"$PROFILE_JSON")"
 
+      - name: Validate requested Maven release version
+        if: ${{ fromJSON(inputs.purpose_profile_json).publication_version_input == true }}
+        env:
+          RELEASE_VERSION: ${{ fromJSON(inputs.target_inputs_json).version }}
+          EVENT_NAME: ${{ inputs.target_event_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EVENT_NAME" == workflow_dispatch && "$TARGET_REF_NAME" == main ]] || { echo "::error::Publication requires manual dispatch on main"; exit 1; }
+          [[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::Expected major.minor.patch release version"; exit 1; }
+
       - name: Publish package
         env:
           JITPACK: ${{ fromJSON(inputs.purpose_profile_json).jitpack && 'true' || '' }}
+          RELEASE_VERSION: ${{ fromJSON(inputs.target_inputs_json).version }}
           USERNAME: ${{ inputs.target_actor }}
           TOKEN: ${{ secrets.GH_TOKEN }}
           MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}

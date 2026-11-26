@@ -1,5 +1,5 @@
 {
-  "last_sync_at": "2026-11-26T05:14:25+00:00",
+  "last_sync_at": "2026-11-26T05:52:49+00:00",
   "repository": {
     "default_branch": "main",
     "full_name": "HereLiesAz/aive",
@@ -19,17 +19,19 @@
       "registry_source": "registry/1031039591/aive-opencode-agent-e9106c40.source.yml",
       "source_sha256": "871f19f7c12f1921b1e068e54a375ce1ff116196e7dba4df2974397b1a6e2757",
       "status": "active",
-      "updated_at": "2026-11-26T05:14:14+00:00"
+      "updated_at": "2026-11-26T05:52:39+00:00"
     },
     ".github/workflows/android-ci.yml": {
       "ci": true,
       "name": "Android CI",
       "reason": "declares CI with the ci-report action; CI runs in the target repository",
       "registry_source": "registry/1031039591/android-ci-3798bddf.source.yml",
-      "required_secrets": [],
-      "source_sha256": "ad1087ba6e77d13327a21ffe77b11c791d0b8fa1f75cad00ba8233e5b57eb0b2",
+      "required_secrets": [
+        "GH_TOKEN"
+      ],
+      "source_sha256": "7edb2bfc1bea846f39a2a66f24c1c4a04f225974a98ec109ce9e6558cd31c8a5",
       "status": "local",
-      "updated_at": "2026-11-26T05:14:14+00:00"
+      "updated_at": "2026-11-26T05:52:39+00:00"
     },
     ".github/workflows/android-play-release.yml": {
       "binding": "curated",
@@ -39,7 +41,7 @@
       "registry_source": "registry/1031039591/android-play-release-900abeb1.source.yml",
       "source_sha256": "241b4583d7885007973042f4012d5599162d3846fda0fe5daf018446ab496e76",
       "status": "active",
-      "updated_at": "2026-11-26T05:14:16+00:00"
+      "updated_at": "2026-11-26T05:52:41+00:00"
     },
     ".github/workflows/azp-package-release.yml": {
       "binding": "curated",
@@ -66,10 +68,12 @@
       "name": "BITCOS Engine",
       "reason": "declares CI with the ci-report action; CI runs in the target repository",
       "registry_source": "registry/1031039591/bitcos-engine-2de7dc9e.source.yml",
-      "required_secrets": [],
-      "source_sha256": "9dd07796422c71f2e16cf1fd736ae2da30ff4fca3301f7d9ad15061c0271577b",
+      "required_secrets": [
+        "GH_TOKEN"
+      ],
+      "source_sha256": "202ce87ae40ac5ff716bafd812021ff47507ec1f56c1c8f641336b85f9db2967",
       "status": "local",
-      "updated_at": "2026-11-26T05:14:17+00:00"
+      "updated_at": "2026-11-26T05:52:41+00:00"
     },
     ".github/workflows/bitnet-benchmark.yml": {
       "binding": "repository",
@@ -100,17 +104,19 @@
       "registry_source": "registry/1031039591/connector-deploy-753f2607.source.yml",
       "source_sha256": "461ba61a5837a98e8984f1c7850afb54c2fb7a9293956e982646ed815401a9ee",
       "status": "active",
-      "updated_at": "2026-11-26T05:14:18+00:00"
+      "updated_at": "2026-11-26T05:52:43+00:00"
     },
     ".github/workflows/dependency-submission.yml": {
       "ci": true,
       "name": "Dependency Submission",
       "reason": "declares CI with the ci-report action; CI runs in the target repository",
       "registry_source": "registry/1031039591/dependency-submission-a80520d4.source.yml",
-      "required_secrets": [],
-      "source_sha256": "2b37c8fb58a2d906b1d7c8d6f5932c32662ea3932a7f268cb55a4f03b3ee24d1",
+      "required_secrets": [
+        "GH_TOKEN"
+      ],
+      "source_sha256": "ea263d2099cb924088690de24cca293c630d943cfac189603a6bc9d3e3e17926",
       "status": "local",
-      "updated_at": "2026-11-26T05:14:19+00:00"
+      "updated_at": "2026-11-26T05:52:43+00:00"
     },
     ".github/workflows/distributed-compute.yml": {
       "binding": "repository",
@@ -192,12 +198,12 @@
       "binding": "repository",
       "central_workflow": ".github/workflows/aive-live-runtime-verification.yml",
       "centralized": true,
-      "implementation_sha256": "75b6520593276e4190081004832bc2b56e55f6b2b8761dd217a5aaae99fd69ad",
+      "implementation_sha256": "cf66cf4193764787e934f2bd512e13a27ca1ebe1ff00c305f50df610e9e700d2",
       "name": "Live Runtime Verification",
       "registry_source": "registry/1031039591/live-runtime-verification-914e86e3.source.yml",
-      "source_sha256": "097b96c0f23901980c3f2d07295a7d07edf39313c7554dc342a448d9532b1f18",
+      "source_sha256": "649c0f05fe40216deba34e6885b4fc4571e4793aa3f0822cbfba65f18842a821",
       "status": "active",
-      "updated_at": "2026-11-26T05:14:21+00:00"
+      "updated_at": "2026-11-26T05:52:45+00:00"
     },
     ".github/workflows/multiplatform.yml": {
       "ci": true,
@@ -205,6 +211,7 @@
       "reason": "declares CI with the ci-report action; CI runs in the target repository",
       "registry_source": "registry/1031039591/multiplatform-ef9dd5d6.source.yml",
       "required_secrets": [
+        "GH_TOKEN",
         "KEYSTORE_CHAIN",
         "KEYSTORE_OWNER",
         "KEYSTORE_PASSWORD",
@@ -216,9 +223,9 @@
         "KEY_ALIAS",
         "KEY_PASSWORD"
       ],
-      "source_sha256": "a70b9531ecd7cb1558e024ef13175b7bc8acb69a5281662e5c7622a2e632e922",
+      "source_sha256": "18296d69e93ef0217ab73d1d7f5081cf44717cc810a8073d0d68644f1f2eb412",
       "status": "local",
-      "updated_at": "2026-11-26T05:14:21+00:00"
+      "updated_at": "2026-11-26T05:52:46+00:00"
     },
     ".github/workflows/node-creature-engine.yml": {
       "binding": "repository",
@@ -239,7 +246,7 @@
       "registry_source": "registry/1031039591/orchestration-specialist-training-4ea3762d.source.yml",
       "source_sha256": "8d6665414985e370ab0f1227d15102696a92757585ddbb4266b5a4fe1f5c105b",
       "status": "active",
-      "updated_at": "2026-11-26T05:14:23+00:00"
+      "updated_at": "2026-11-26T05:52:48+00:00"
     },
     ".github/workflows/play-store-assets.yml": {
       "binding": "repository",
@@ -260,7 +267,7 @@
       "registry_source": "registry/1031039591/relay-deploy-880d418a.source.yml",
       "source_sha256": "ee3f8edad7ea0ac0b65b3c568c130a957692c7bbf94feb09c2439c50e99e67c8",
       "status": "active",
-      "updated_at": "2026-11-26T05:14:24+00:00"
+      "updated_at": "2026-11-26T05:52:48+00:00"
     },
     ".github/workflows/security-review.yml": {
       "binding": "curated",
@@ -270,7 +277,7 @@
       "registry_source": "registry/1031039591/security-review-b21b9f89.source.yml",
       "source_sha256": "55f030125ce375812f93a4a36b512a7be7d7ddab055ee120c7f1148f9ad8273d",
       "status": "active",
-      "updated_at": "2026-11-26T05:14:25+00:00"
+      "updated_at": "2026-11-26T05:52:49+00:00"
     },
     ".github/workflows/sign-azp.yml": {
       "binding": "curated",

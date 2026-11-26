@@ -326,6 +326,9 @@ SEMANTIC_WORKFLOWS: Final[dict[str, dict[str, object]]] = {
             # HereLiesAz/convey:.github/workflows/publish-packages.yml (push to main + dispatch) —
             # Compose Multiplatform library to its own GitHub Packages under the commit's short SHA.
             "215e8d0a4edb6b84b3bb8540240e82560de074b24b06b424da07771c49b06bc7",
+            # Reviewed multiplatform library publication sources; shared Maven executor.
+            "7cb4966f3c65cc1ad094c9d7357912b4a804331f538fd349abc13d7017b4093b",
+            "998889580873f8e8b9c8a87a9af03e19bcbbed0660d90ec3205e1b2830e3ba5c",
         },
     },
     ".github/workflows/node-package-publish.yml": {
@@ -556,6 +559,8 @@ PURPOSE_PROFILES: Final[dict[str, dict[str, object]]] = {
     # Linux runner: the iosArm64/iosSimulatorArm64 targets are disabled off macOS, so their
     # publications are not created and not published. convey/build.gradle.kts reads the
     # GitHubPackages credentials from GITHUB_ACTOR/GITHUB_TOKEN; TOKEN is the environment's GH_TOKEN.
+    "7cb4966f3c65cc1ad094c9d7357912b4a804331f538fd349abc13d7017b4093b": {"tool":"gradle","java_version":"21","publication_version_input":True,"publish_command":"chmod +x gradlew\nexport GITHUB_ACTOR=\"$USERNAME\" GITHUB_TOKEN=\"$TOKEN\" GH_TOKEN=\"$TOKEN\"\n./gradlew :conveyance-core:desktopTest :conveyance-compose:desktopTest -PpublicationVersion=\"$RELEASE_VERSION\"\n./gradlew :conveyance-core:publishAllPublicationsToGitHubPackagesRepository :conveyance-compose:publishAllPublicationsToGitHubPackagesRepository -PpublicationVersion=\"$RELEASE_VERSION\""},
+    "998889580873f8e8b9c8a87a9af03e19bcbbed0660d90ec3205e1b2830e3ba5c": {"tool":"gradle","java_version":"21","publication_version_input":True,"publish_command":"chmod +x gradlew\nexport GITHUB_ACTOR=\"$USERNAME\" GITHUB_TOKEN=\"$TOKEN\" GH_TOKEN=\"$TOKEN\"\n./gradlew desktopTest -PpublicationVersion=\"$RELEASE_VERSION\"\n./gradlew publishAllPublicationsToGitHubPackagesRepository -PpublicationVersion=\"$RELEASE_VERSION\""},
     "215e8d0a4edb6b84b3bb8540240e82560de074b24b06b424da07771c49b06bc7": {"tool": "gradle", "java_version": "21", "publish_command": "chmod +x gradlew\nGITHUB_ACTOR=\"$USERNAME\" GITHUB_TOKEN=\"$TOKEN\" ./gradlew :convey:publishAllPublicationsToGitHubPackagesRepository -PconveyVersion=\"$(git rev-parse --short HEAD)\" --no-daemon --stacktrace"},
     # azphalt's PR/push CI: builds and tests the pnpm workspace (Node 24, pnpm via corepack), fails on
     # drifted conformance fixtures, then builds the Compose storefront (Wasm, Android) and runs the

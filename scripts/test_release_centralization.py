@@ -839,3 +839,16 @@ with _tempfile.TemporaryDirectory() as _dir:
         assert _subprocess.run(["bash","-c",_resolve], cwd=_root, env={**_env,**_bad}).returncode != 0
         assert _out.read_text() == ""
 print("ExtrusionExtraction prerelease selection and shell contracts ok")
+
+# Both multiplatform library submissions use the existing central Maven executor.
+from semantic_catalog import reviewed_override_for_source as _reviewed_maven_override
+for _source_hash in ("7cb4966f3c65cc1ad094c9d7357912b4a804331f538fd349abc13d7017b4093b", "998889580873f8e8b9c8a87a9af03e19bcbbed0660d90ec3205e1b2830e3ba5c"):
+    assert _reviewed_maven_override(_source_hash) == ".github/workflows/maven-package-publish.yml"
+    _profile = _PURPOSE_PROFILES[_source_hash]
+    assert _profile["publication_version_input"] is True
+    assert "desktopTest" in _profile["publish_command"]
+    assert "publishAllPublicationsToGitHubPackagesRepository" in _profile["publish_command"]
+_maven_jobs = load_yaml(Path(".github/workflows/maven-package-publish.yml").read_text(encoding="utf-8"))["jobs"]
+_maven_steps = _maven_jobs["publish"]["steps"]
+assert [s.get("name") for s in _maven_steps].index("Validate requested Maven release version") < [s.get("name") for s in _maven_steps].index("Publish package")
+print("multiplatform Maven central admission contract ok")

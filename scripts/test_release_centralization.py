@@ -512,27 +512,25 @@ for _step in _bake_steps:
         assert '@' in _uses and len(_uses.split('@')[1].split()[0]) == 40, f'unpinned action: {_uses}'
 print('bake publish contract ok')
 
-# Aive's Play profile and runtime verification must pin both included builds
-# to AGP 9.5.1, matching aive/gradle/libs.versions.toml. The old H2G2 and
-# nested Conveyance checkouts both used 9.5.0 and broke Play bundling even
-# though the source repository's CI checked out newer revisions.
-_aive_h2g2_pin = "b85c269ff0ef0e1512b415ec114ef13747021c9b"
+# The target version catalog, not the central repository, owns dependency versions.
 _aive_play_profile = _PURPOSE_PROFILES["241b4583d7885007973042f4012d5599162d3846fda0fe5daf018446ab496e76"]
-_aive_h2g2_checkout = next(
-    checkout for checkout in _aive_play_profile["extra_checkouts"]
-    if checkout["repository"] == "HereLiesAz/conveyance-h2g2"
-)
-assert _aive_h2g2_checkout["ref"] == _aive_h2g2_pin
-_aive_live_workflow = Path(".github/workflows/aive-live-runtime-verification.yml").read_text(encoding="utf-8")
-assert f"ref: {_aive_h2g2_pin}" in _aive_live_workflow
-_aive_conveyance_pin = "9d9a694c64d0bdfd1d6e9f38a1ad972bb5618ac4"
-_aive_conveyance_checkout = next(
-    checkout for checkout in _aive_play_profile["extra_checkouts"]
-    if checkout["repository"] == "HereLiesAz/Conveyance"
-)
-assert _aive_conveyance_checkout["ref"] == _aive_conveyance_pin
-assert f"ref: {_aive_conveyance_pin}" in _aive_live_workflow
-print("aive nested AGP pin contract ok")
+assert {item["repository"]: item["catalog_version"] for item in _aive_play_profile["extra_checkouts"]} == {
+    "HereLiesAz/conveyance-h2g2": "conveyance-h2g2",
+    "HereLiesAz/Conveyance": "conveyance",
+}
+assert all("ref" not in item for item in _aive_play_profile["extra_checkouts"])
+_aive_live = load_yaml(Path(".github/workflows/aive-live-runtime-verification.yml").read_text(encoding="utf-8"))
+_aive_live_steps = _aive_live["jobs"]["verify-live-runtime"]["steps"]
+_aive_resolver = next(s for s in _aive_live_steps if s.get("id") == "vendor-versions")
+for _repo, _key in (("HereLiesAz/conveyance-h2g2", "conveyance-h2g2"), ("HereLiesAz/Conveyance", "conveyance")):
+    _checkout = next(s for s in _aive_live_steps if s.get("with", {}).get("repository") == _repo)
+    assert _checkout["with"]["ref"] == expression("steps.vendor-versions.outputs." + _key)
+    assert _aive_live_steps.index(_aive_resolver) < _aive_live_steps.index(_checkout)
+assert "gradle/libs.versions.toml" in _aive_resolver["run"]
+_play_resolver = next(s for s in publish_job["steps"] if s.get("name") == "Check out additional build dependencies")
+assert "gradle/libs.versions.toml" in _play_resolver["run"]
+assert "git ls-remote" in _play_resolver["run"]
+print("aive catalog dependency contract ok")
 
 # The Aive Play run consumes two immutable composite-build pins. Verify that only
 # its checked-out copies change and that the patch preserves unrelated repositories.
@@ -727,9 +725,9 @@ print("Changesets no-pending-changes regression ok")
 from semantic_catalog import purpose_profile_for_source
 
 aive_profile = purpose_profile_for_source("241b4583d7885007973042f4012d5599162d3846fda0fe5daf018446ab496e76")
-assert {item["repository"]: item["ref"] for item in aive_profile["extra_checkouts"]} == {
-    "HereLiesAz/conveyance-h2g2": "b85c269ff0ef0e1512b415ec114ef13747021c9b",
-    "HereLiesAz/Conveyance": "9d9a694c64d0bdfd1d6e9f38a1ad972bb5618ac4",
+assert {item["repository"]: item["catalog_version"] for item in aive_profile["extra_checkouts"]} == {
+    "HereLiesAz/conveyance-h2g2": "conveyance-h2g2",
+    "HereLiesAz/Conveyance": "conveyance",
 }
 
 # Stencil Artist uses the same central publisher as other Android apps, never a second executor.

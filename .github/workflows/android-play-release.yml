@@ -327,6 +327,12 @@ jobs:
             ref="$(jq -r '.ref' <<<"$spec")"
             path="$(jq -r '.path' <<<"$spec")"
             [[ "$repository" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "::error::Invalid extra_checkouts repository: $repository" >&2; exit 1; }
+            catalog_key="$(jq -r '.catalog_version // empty' <<<"$spec")"
+            if [[ -n "$catalog_key" ]]; then
+              version="$(python3 -c 'import sys,tomllib; print(tomllib.load(open("gradle/libs.versions.toml","rb"))["versions"][sys.argv[1]])' "$catalog_key")"
+              [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+              ref="$(git ls-remote "https://github.com/$repository.git" "refs/tags/$version" "refs/tags/$version^{}" | tail -n 1 | cut -f1)"
+            fi
             [[ "$ref" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::extra_checkouts ref must be a pinned commit SHA: $ref" >&2; exit 1; }
             case "$path" in ''|/*|*..*) echo "::error::Invalid extra_checkouts path: $path" >&2; exit 1 ;; esac
             echo "Checking out $repository@$ref into $path"

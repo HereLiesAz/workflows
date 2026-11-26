@@ -170,6 +170,7 @@ def build_consumer_map(root: Path = ROOT, *, routing: bool = False) -> dict[str,
             continue  # SearchA2A intentionally has no central webhook consumers.
         if routing:
             entry["routing"] = repository_routing_rules(manifest, read_local)
+            entry["default_branch"] = (manifest.get("repository") or {}).get("default_branch") or "main"
         consumers[repository_id] = entry
     return consumers
 

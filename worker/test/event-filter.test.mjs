@@ -55,7 +55,7 @@ test("push: deletions and CI-skip pushes are dropped, real pushes forwarded", as
 });
 
 test("early routing preserves explicit PR actions, default branches, tags and workflow setup changes", () => {
-  const map = {"1": {routing: {pull_request: [{types: ["opened", "synchronize"]}, {types: ["closed"], branches: ["release/*"]}], push: [{branches: ["main"], paths: ["src/*"]}, {tags: ["v*"]}]}}};
+  const map = {"1": {default_branch: "main", routing: {pull_request: [{types: ["opened", "synchronize"]}, {types: ["closed"], branches: ["release/*"]}], push: [{branches: ["main"], paths: ["src/*"]}, {tags: ["v*"]}]}}};
   const pr = (action, ref = "main") => ({action, pull_request: {base: {ref}}});
   assert.equal(routingDropReason(1, "pull_request", pr("opened"), map), null);
   assert.ok(routingDropReason(1, "pull_request", pr("closed"), map));
@@ -69,5 +69,6 @@ test("early routing preserves explicit PR actions, default branches, tags and wo
   assert.equal(routingDropReason(1, "push", push("refs/heads/main", ".github/workflows/new.yml"), map), null);
   assert.equal(routingDropReason(1, "push", push("refs/tags/v1", "README.md"), map), null);
   assert.equal(routingDropReason(1, "push", {...push("refs/heads/main", "README.md"), size: 2}, map), null);
+  assert.equal(routingDropReason(1, "push", {...push("refs/heads/feature", "src/a"), repository: {default_branch: "feature"}}, map), null);
   assert.equal(routingDropReason(2, "push", push("refs/heads/feature", "src/a"), map), null);
 });

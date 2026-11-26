@@ -128,7 +128,8 @@ export function routingDropReason(repositoryId, eventName, event, consumers = EV
   const files = eventName === "push" ? completePushFiles(event) : null;
   if (eventName === "push") {
     const defaultBranch = event.repository?.default_branch;
-    if (!defaultBranch || typeof event.ref !== "string") return null;
+    if (!defaultBranch || typeof event.ref !== "string" ||
+        (entry.default_branch && entry.default_branch !== defaultBranch)) return null;
     if (event.ref === `refs/heads/${defaultBranch}` &&
         (files === null || files.some(path => path.startsWith(".github/workflows/") || path === ".github/workflow-request.yml"))) return null;
   }

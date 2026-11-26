@@ -1,7 +1,7 @@
 # Generated for HereLiesAz/aive:.github/workflows/live-runtime-verification.yml.
 # Edit the registered source or synchronizer, not this compiled workflow.
 # Generated shared catalog workflow. Do not edit by hand.
-# catalog-source: shared/75b6520593276e4190081004832bc2b56e55f6b2b8761dd217a5aaae99fd69ad
+# catalog-source: shared/cf66cf4193764787e934f2bd512e13a27ca1ebe1ff00c305f50df610e9e700d2
 name: aive · Live Runtime Verification
 on:
   workflow_dispatch:
@@ -160,19 +160,7 @@ jobs:
       - name: Resolve vendor versions from Aive catalog
         id: vendor-versions
         shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import os, re, tomllib
-          with open("gradle/libs.versions.toml", "rb") as source:
-              versions = tomllib.load(source)["versions"]
-          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-              for key in ("conveyance-h2g2", "conveyance"):
-                  version = versions[key]
-                  if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
-                      raise SystemExit("Invalid catalog release version: " + key)
-                  print(f"{key}=refs/tags/{version}", file=output)
-          PY
+        run: "set -euo pipefail\npython3 - <<'PY'\nimport os, re, tomllib\nwith open(\"gradle/libs.versions.toml\", \"rb\") as source:\n    versions = tomllib.load(source)[\"versions\"]\nwith open(os.environ[\"GITHUB_OUTPUT\"], \"a\") as output:\n    for key in (\"conveyance-h2g2\", \"conveyance\"):\n        version = versions[key]\n        if not re.fullmatch(r\"[0-9]+\\.[0-9]+\\.[0-9]+\", version):\n            raise SystemExit(\"Invalid catalog release version: \" + key)\n        print(f\"{key}=refs/tags/{version}\", file=output)\nPY\n"
       - name: Check out pinned h2g2
         uses: actions/checkout@v7
         with:

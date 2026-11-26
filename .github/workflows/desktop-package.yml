@@ -416,6 +416,10 @@ jobs:
             cp -- "${files[0]}" "release-files/ExtrusionExtraction-$TAG-$suffix.$ext"
           }
           stage_one native-linux-deb deb linux-x86_64
+          # Older source revisions predate the optional headless worker contract.
+          if [[ -f scripts/package_colab_worker.sh ]]; then
+            stage_one native-linux-deb tar.gz colab-linux-x86_64
+          fi
           stage_one native-windows-msi msi windows-x86_64
           stage_one native-macos-arm64-dmg dmg macos-arm64
           stage_one native-macos-x86_64-dmg dmg macos-x86_64
@@ -463,8 +467,10 @@ jobs:
           PY
           # The v4 signing sidecar is not needed for sideloading.
           rm -f "$signed.idsig"
-          (cd release-files && sha256sum *.deb *.msi *.dmg *.apk > "SHA256SUMS-${TAG#v}.txt")
-          [[ "$(find release-files -maxdepth 1 -type f | wc -l)" -eq 6 ]] || exit 1
+          expected_files=6
+          if [[ -f scripts/package_colab_worker.sh ]]; then expected_files=7; fi
+          (cd release-files && sha256sum *.deb *.msi *.dmg *.apk *.tar.gz > "SHA256SUMS-${TAG#v}.txt")
+          [[ "$(find release-files -maxdepth 1 -type f | wc -l)" -eq "$expected_files" ]] || exit 1
 
       - name: Check current ExtrusionExtraction source
         id: extrusion-current

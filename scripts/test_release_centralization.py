@@ -809,3 +809,35 @@ assert '.digest==$digest' in _ee_publish["run"]
 assert _ee_publish["run"].index(".digest==$digest") < _ee_publish["run"].index("--draft=false")
 assert "Immutable prerelease already published." in _ee_publish["run"]
 assert "Superseded while staging" in _ee_publish["run"]
+
+assert 'Conflicting immutable release tag' in _ee_publish["run"]
+assert '--verify-tag --target "$TARGET_SHA"' in _ee_publish["run"]
+assert _ee_publish["run"].index("Release tag changed during staging") < _ee_publish["run"].index("--draft=false")
+# Parse the exact shell scripts and exercise the release selector with independent
+# version and immutable Git fixtures. No GitHub writes or real credentials.
+for _step in (_ee_steps["Resolve release target"], _ee_sign, _ee_publish):
+    _subprocess.run(["bash", "-n"], input=_step["run"], text=True, check=True)
+with _tempfile.TemporaryDirectory() as _dir:
+    _root = Path(_dir)
+    _subprocess.run(["git", "init", "-q", str(_root)], check=True)
+    (_root / "version.properties").write_text("versionMajor=0\nversionMinor=7\nversionPatch=3\n", encoding="utf-8")
+    _subprocess.run(["git", "-C", str(_root), "add", "version.properties"], check=True)
+    _subprocess.run(["git", "-C", str(_root), "-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid", "commit", "-qm", "fixture"], check=True)
+    _sha = _subprocess.check_output(["git", "-C", str(_root), "rev-parse", "HEAD"], text=True).strip()
+    _out = _root / "output"
+    _env = {**_os.environ, "PROFILE_JSON": '{"release_mode":"extrusion-preview"}',
+            "TARGET_REPOSITORY":"HereLiesAz/ExtrusionExtraction", "TARGET_REPOSITORY_ID":"1471718709",
+            "TARGET_REF_TYPE":"branch", "TARGET_REF_NAME":"main", "TARGET_EVENT_NAME":"push",
+            "TARGET_SHA":_sha, "GITHUB_OUTPUT":str(_out)}
+    _resolve = _ee_steps["Resolve release target"]["run"]
+    _subprocess.run(["bash","-c",_resolve], cwd=_root, env=_env, check=True)
+    assert _out.read_text().splitlines() == [
+        "should=true", f"tag=v0.7.3-preview.{_sha[:12]}", "standalone=true", "prerelease=true"]
+    _out.write_text("")
+    _subprocess.run(["bash","-c",_resolve], cwd=_root, env={**_env,"TARGET_REF_NAME":"other"}, check=True)
+    assert "should=false\n" in _out.read_text()
+    for _bad in ({"TARGET_REPOSITORY_ID":"1"}, {"TARGET_SHA":"0"*40}):
+        _out.write_text("")
+        assert _subprocess.run(["bash","-c",_resolve], cwd=_root, env={**_env,**_bad}).returncode != 0
+        assert _out.read_text() == ""
+print("ExtrusionExtraction prerelease selection and shell contracts ok")

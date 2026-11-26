@@ -468,6 +468,18 @@ jobs:
           fi
           assets=(release-files/*)
           [[ "${#assets[@]}" -eq 6 ]] || exit 1
+          # Reserve the exact lightweight tag without force. A pre-existing tag
+          # is accepted only if it already points at this immutable source SHA.
+          # Even if another actor creates the tag between calls, verify the result.
+          tag_target() {
+            gh api "repos/$TARGET_REPOSITORY/git/ref/tags/$TAG" --jq 'select(.object.type=="commit") | .object.sha'
+          }
+          if ! target="$(tag_target 2>/dev/null)"; then
+            gh api --method POST "repos/$TARGET_REPOSITORY/git/refs" \
+              -f ref="refs/tags/$TAG" -f sha="$TARGET_SHA" >/dev/null || true
+            target="$(tag_target)"
+          fi
+          [[ "$target" == "$TARGET_SHA" ]] || { echo "::error::Conflicting immutable release tag"; exit 1; }
           # No clobber of published assets or moving of tags. Interrupted uploads
           # can resume in a draft; only the complete verified set becomes public.
           if existing="$(gh release view "$TAG" --repo "$TARGET_REPOSITORY" --json isDraft,isPrerelease,targetCommitish,assets 2>/dev/null)"; then
@@ -481,12 +493,11 @@ jobs:
               echo "Immutable prerelease already published."
               exit 0
             fi
-            [[ "$(jq -r '.targetCommitish' <<<"$existing")" == "$TARGET_SHA" ]] || {
-              echo "::error::Existing draft targets another commit"; exit 1;
-            }
+            # The existing verified tag is authoritative; GitHub ignores targetCommitish
+            # when that tag already exists. Never move the tag for a draft.
           else
             body="Experimental local-generation build from $TARGET_SHA. Android APK is release-signed; Windows and macOS installers are unsigned/unnotarized. Native packaging and Linux model-backed smoke tests passed. Physical-device compatibility, performance and deformation quality are not production-validated. Verify SHA256SUMS.txt before installation."
-            gh release create "$TAG" --repo "$TARGET_REPOSITORY" --target "$TARGET_SHA" \
+            gh release create "$TAG" --repo "$TARGET_REPOSITORY" --verify-tag --target "$TARGET_SHA" \
               --title "ExtrusionExtraction $TAG" --notes "$body" --draft --prerelease --latest=false
           fi
           gh release upload "$TAG" "${assets[@]}" --repo "$TARGET_REPOSITORY" --clobber
@@ -505,6 +516,7 @@ jobs:
             echo "Superseded while staging; leaving verified draft unpublished."
             exit 0
           }
+          [[ "$(tag_target)" == "$TARGET_SHA" ]] || { echo "::error::Release tag changed during staging"; exit 1; }
           gh release edit "$TAG" --repo "$TARGET_REPOSITORY" --draft=false --prerelease --latest=false
           [[ "$(gh release view "$TAG" --repo "$TARGET_REPOSITORY" --json isDraft,isPrerelease --jq '.isDraft == false and .isPrerelease == true')" == true ]]
           [[ "$(gh api "repos/$TARGET_REPOSITORY/git/ref/tags/$TAG" --jq 'select(.object.type=="commit") | .object.sha')" == "$TARGET_SHA" ]]

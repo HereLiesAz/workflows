@@ -338,6 +338,17 @@ def validate_glee_contract() -> None:
     assert '"permission":{"*":"deny"}' in audit["run"]
     assert "opencode/big-pickle" in audit["run"]
     assert not audit.get("env")
+    assert "for provider in zen kilo ovhcloud llm7" in audit["run"]
+    for endpoint in (
+        "https://api.kilo.ai/api/gateway/chat/completions",
+        "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions",
+        "https://api.llm7.io/v1/chat/completions",
+    ):
+        assert endpoint in audit["run"]
+    assert '.choices[0].finish_reason == "stop"' in audit["run"]
+    assert "All keyless Glee providers unavailable" in audit["run"]
+    assert "Authorization:" not in audit["run"]
+    assert "--location" not in audit["run"]
     names = [step.get("name") for step in steps]
     assert names.index("Post one Glee audit comment") < names.index("Fail unavailable audit after reporting")
     failure = next(step for step in steps if step.get("name") == "Fail unavailable audit after reporting")

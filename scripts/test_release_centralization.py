@@ -810,6 +810,9 @@ assert "expected_files=7" in _ee_sign["run"]
 _ee_linux = next(lane for lane in _ee_profile["matrix"]["include"] if lane["artifact"] == "native-linux-deb")
 assert "colab-worker-linux-x86_64.tar.gz" in _ee_linux["path"]
 assert "bash scripts/package_colab_worker.sh" in _ee_linux["build"]
+assert "if [ -f scripts/package_colab_worker.sh ]" in _ee_linux["build"]
+assert "./gradlew -p webApp jsBrowserDistribution jsBrowserTest" in _ee_linux["build"]
+assert "if [ -f webApp/build.gradle.kts ]" in _ee_linux["build"]
 assert "Missing required Android signing secret" in _ee_sign["run"]
 assert _ee_publish["uses"] == "./central-publisher/.github/actions/minor-grouped-release"
 assert _ee_publish["with"]["migrate-legacy-build-releases"] == "false"

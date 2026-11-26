@@ -783,6 +783,9 @@ assert {lane["artifact"] for lane in _ee_matrix} == {
     "native-linux-deb", "native-windows-msi", "native-macos-arm64-dmg",
     "native-macos-x86_64-dmg", "native-android-release-unsigned-apk",
 }
+_ee_linux = next(lane for lane in _ee_matrix if lane["artifact"] == "native-linux-deb")
+assert _ee_linux["os"] == "ubuntu-24.04"
+assert "ldd -v build/skintokens/host-install/common/libskintokens.so" in _ee_linux["build"]
 _ee_android = next(lane for lane in _ee_matrix if lane["artifact"].endswith("-apk"))
 assert ":androidApp:assembleRelease" in _ee_android["build"]
 assert "eeReleaseVersionCode" in _ee_android["build"]

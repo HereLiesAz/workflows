@@ -6,10 +6,10 @@ full history of the last 20 runs is in `repositories/<repository_id>.json`.
 
 | Repository | Workflow | State | Run | Branch | Commit | Updated | Report |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Android CI | ✅ success | [#3967](https://github.com/HereLiesAz/aive/actions/runs/45783135729) | main | `fdb8b14` | 2026-11-26T08:36:30Z |  |
+| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Android CI | ⏳ in_progress (1/2 jobs) | [#3992](https://github.com/HereLiesAz/aive/actions/runs/45941627338) | main | `fdeafa4` | 2026-11-27T04:50:04Z |  |
 | [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | BITCOS Engine | ❌ failure | [#101](https://github.com/HereLiesAz/aive/actions/runs/45764326532) | main | `dd2fc98` | 2026-11-26T05:53:53.769Z |  |
-| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Dependency Submission | ✅ success | [#171](https://github.com/HereLiesAz/aive/actions/runs/45768376825) | main | `35e2ab1` | 2026-11-26T06:30:02Z |  |
-| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Build and Deploy | ❌ failure | [#3314](https://github.com/HereLiesAz/aive/actions/runs/45783135725) | main | `fdb8b14` | 2026-11-26T08:47:47Z |  |
+| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Dependency Submission | ✅ success | [#172](https://github.com/HereLiesAz/aive/actions/runs/45929435741) | main | `051da6a` | 2026-11-27T02:39:52Z |  |
+| [HereLiesAz/aive](https://github.com/HereLiesAz/aive) | Build and Deploy | ⏳ in_progress (4/6 jobs) | [#3339](https://github.com/HereLiesAz/aive/actions/runs/45941627376) | main | `fdeafa4` | 2026-11-27T04:52:36.049Z |  |
 | [HereLiesAz/camera-unroll](https://github.com/HereLiesAz/camera-unroll) | CI | ✅ success | [#19](https://github.com/HereLiesAz/camera-unroll/actions/runs/45329034882) | main | `9e72f1d` | 2026-11-24T04:52:56Z | android: Debug and release (R8) APKs build; unit tests; lint; test: Common unit tests; web and desktop compile |
 | [HereLiesAz/CaptureTheFlag](https://github.com/HereLiesAz/CaptureTheFlag) | CI | ✅ success | [#56](https://github.com/HereLiesAz/CaptureTheFlag/actions/runs/45328734153) | main | `147fa5d` | 2026-11-24T04:49:44Z | test: Node and shared tests |
 | [HereLiesAz/clappiest](https://github.com/HereLiesAz/clappiest) | CI | ✅ success | [#5](https://github.com/HereLiesAz/clappiest/actions/runs/42129876208) | main | `b43173e` | 2026-11-05T23:37:53Z | unit-tests: JVM unit tests (:app:testDebugUnitTest) |

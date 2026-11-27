@@ -4,7 +4,7 @@
     "id": 1031039591,
     "full_name": "HereLiesAz/aive"
   },
-  "updated_at": "2026-11-27T04:25:25.267Z",
+  "updated_at": "2026-11-27T04:27:47.200Z",
   "workflows": {
     ".github/workflows/bitcos-engine.yml": {
       "name": "BITCOS Engine",
@@ -674,6 +674,22 @@
     ".github/workflows/multiplatform.yml": {
       "name": "Build and Deploy",
       "runs": [
+        {
+          "run_id": 45940072959,
+          "jobs": {},
+          "reports": {},
+          "created_at": "2026-11-27T04:27:47.200Z",
+          "run_number": 3336,
+          "run_attempt": 1,
+          "event": "push",
+          "branch": "main",
+          "sha": "5e76fbbf96484126708ce9984ea66279546a18e6",
+          "status": "queued",
+          "conclusion": null,
+          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45940072959",
+          "started_at": "2026-11-27T04:27:45Z",
+          "updated_at": "2026-11-27T04:27:45Z"
+        },
         {
           "run_id": 45939796205,
           "jobs": {
@@ -2294,73 +2310,6 @@
           "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45923819650",
           "started_at": "2026-11-27T01:39:38Z",
           "updated_at": "2026-11-27T01:53:34Z"
-        },
-        {
-          "run_id": 45923633044,
-          "jobs": {
-            "build": {
-              "status": "in_progress",
-              "conclusion": null,
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45923633044/job/140259858768",
-              "started_at": "2026-11-27T01:37:41Z",
-              "completed_at": null,
-              "steps_completed": 1,
-              "steps_total": 39,
-              "current_step": "Check out repository"
-            },
-            "Resolve four-part version": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45923633044/job/140259859014",
-              "started_at": "2026-11-27T01:37:41Z",
-              "completed_at": "2026-11-27T01:37:50Z",
-              "steps_completed": 5,
-              "steps_total": 5,
-              "current_step": null
-            },
-            "Claude connector tests (Node)": {
-              "status": "completed",
-              "conclusion": "success",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45923633044/job/140259859061",
-              "started_at": "2026-11-27T01:37:41Z",
-              "completed_at": "2026-11-27T01:37:56Z",
-              "steps_completed": 7,
-              "steps_total": 7,
-              "current_step": null
-            },
-            "Desktop installer (linux)": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45923633044/job/140259912831",
-              "started_at": "2026-11-27T01:37:51Z",
-              "completed_at": "2026-11-27T01:39:43Z",
-              "steps_completed": 8,
-              "steps_total": 15,
-              "current_step": "Package native installer"
-            },
-            "Desktop installer (windows)": {
-              "status": "completed",
-              "conclusion": "cancelled",
-              "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45923633044/job/140259912873",
-              "started_at": "2026-11-27T01:37:52Z",
-              "completed_at": "2026-11-27T01:39:43Z",
-              "steps_completed": 8,
-              "steps_total": 15,
-              "current_step": "Package native installer"
-            }
-          },
-          "reports": {},
-          "created_at": "2026-11-27T01:37:40.332Z",
-          "sha": "277468fde63dadd1b3d01e8a8e83ff3f8bde4b91",
-          "branch": "main",
-          "status": "completed",
-          "updated_at": "2026-11-27T01:39:43Z",
-          "run_number": 3316,
-          "run_attempt": 1,
-          "event": "push",
-          "conclusion": "cancelled",
-          "html_url": "https://github.com/HereLiesAz/aive/actions/runs/45923633044",
-          "started_at": "2026-11-27T01:37:39Z"
         }
       ]
     },

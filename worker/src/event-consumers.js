@@ -1738,5 +1738,11 @@ export const EVENT_CONSUMERS = {
       "push",
       "workflow_dispatch"
     ]
+  },
+  "1474985229": {
+    "repository": "HereLiesAz/motog-kansas-nethunter",
+    "events": [
+      "push"
+    ]
   }
 };
